@@ -8,12 +8,6 @@
 
 import Foundation
 
-public class Tables {
-    public enum Cookie : UInt32 {
-        case intStringTable = 0x54426973 // 'TBis'
-    }
-}
-
 /**
  
  Table header:
@@ -26,69 +20,6 @@ public class Tables {
  
  **/
 
-
-//private extension UnsafeMutablePointer {
-//    func serialize<C : IteratorProtocol, T : BufferSerializable, U : BufferSerializable where C.Element == (T,U)>(mediator : RWMediator, type : DatabaseInfo.Cookie, pageSize : Int, version : UInt64, previous : PageId, pairs: inout PeekableIterator<C>) throws {
-//        let rawMemory = self
-//        var ptr = UnsafeMutablePointer<Void>(rawMemory)
-//        try type.rawValue.serialize(to: &ptr)
-//        try version.serialize(to: &ptr)
-//        try UInt32(previous).serialize(to: &ptr)
-//        try UInt32(0).serialize(to: &ptr)
-//        let countPtr = UnsafeMutablePointer<Void>(ptr)
-//        try UInt32(0).serialize(to: &ptr)
-//        let size = ptr - UnsafeMutablePointer<Void>(rawMemory)
-//        guard size == 24 else { fatalError() }
-//        
-//        var bytesRemaining = pageSize - 24
-//        var payloadPtr = UnsafeMutablePointer<Void>(rawMemory+24)
-//        
-//        // fill payload
-//        var successful = 0
-//        while let (key, value) = pairs.peek() {
-//            do {
-//                try key.serialize(to: &payloadPtr, mediator: mediator, maximumSize: bytesRemaining)
-//                bytesRemaining -= key.serializedSize
-//                try value.serialize(to: &payloadPtr, mediator: mediator, maximumSize: bytesRemaining)
-//                bytesRemaining -= value.serializedSize
-//                successful += 1
-//                _ = pairs.next()
-//                var cptr = countPtr
-//                try UInt32(successful).serialize(to: &cptr)
-//            } catch DatabaseError.OverflowError(_) {
-//                throw DatabaseError.PageOverflow(successfulItems: successful)
-//            }
-//        }
-//    }
-//}
-//
-//private extension UnsafePointer {
-//    func deserialize<T : BufferSerializable, U : BufferSerializable>(mediator : RMediator, type : DatabaseInfo.Cookie, pageSize : Int, keyType : T.Type, valueType : U.Type) throws -> (UInt32, UInt64, PageId, UInt32, AnyIterator<(T,U)>) {
-//        let rawMemory   = UnsafePointer<Void>(self)
-//        var ptr         = rawMemory
-//        let cookie      = try UInt32.deserialize(from: &ptr)
-//        let version     = try UInt64.deserialize(from: &ptr)
-//        let previous    = try UInt32.deserialize(from: &ptr)
-//        let config      = try UInt32.deserialize(from: &ptr)
-//        let count       = try UInt32.deserialize(from: &ptr)
-//        var payloadPtr      = ptr
-//        assert(ptr == rawMemory.advanced(by: 24))
-//        
-//        var i : UInt32 = 0
-//        let gen = AnyIterator { () -> (T,U)? in
-//            i += 1
-//            if i > count {
-//                return nil
-//            }
-//            
-//            guard let id        = try? keyType.deserialize(from: &payloadPtr, mediator: mediator) else { return nil }
-//            guard let string    = try? valueType.deserialize(from: &payloadPtr, mediator: mediator) else { return nil }
-//            return (id, string)
-//        }
-//        let previousPage = PageId(previous)
-//        return (cookie, version, previousPage, config, gen)
-//    }
-//}
 
 public struct TablePage<T : protocol<BufferSerializable,Comparable>, U : BufferSerializable> : PageMarshalled {
     var pairs : [(T,U)]

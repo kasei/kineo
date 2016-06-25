@@ -184,9 +184,16 @@ public class FilePageRMediator : RMediator {
     public var pageSize : Int { return database.pageSize }
     public var pageCount : Int { return database.pageCount }
     private var pageObjects : [PageId:PageMarshalled]
+    private var readBuffer : UnsafeMutablePointer<Void>
     init(database d : FilePageDatabase) {
         database = d
         pageObjects = [:]
+        readBuffer = UnsafeMutablePointer<Void>(allocatingCapacity: d.pageSize)
+    }
+    
+    deinit {
+        readBuffer.deinitialize(count: pageSize)
+        readBuffer.deallocateCapacity(pageSize)
     }
 
     public var rootNames : [String] {
@@ -217,13 +224,11 @@ public class FilePageRMediator : RMediator {
             return (o, .clean(page))
         } else {
             //        print("readPage(\(page))")
-            let b = UnsafeMutablePointer<Void>(allocatingCapacity: pageSize)
-            defer { b.deinitialize(count: pageSize); b.deallocateCapacity(pageSize) }
             let offset = off_t(pageSize * page)
-            let sr = pread(database.fd, b, pageSize, offset)
+            let sr = pread(database.fd, readBuffer, pageSize, offset)
             if sr == pageSize {
                 //            print("Read \(sr) bytes for page \(page)")
-                if let o = try? M.deserialize(from: b, status: .clean(page), mediator: self) {
+                if let o = try? M.deserialize(from: readBuffer, status: .clean(page), mediator: self) {
                     //                print("Setting cached page object for pid \(page)")
                     pageObjects[page] = o
                     return (o, .clean(page))
@@ -254,10 +259,10 @@ public class FilePageRWMediator : FilePageRMediator, RWMediator {
     
     private func commit() throws {
         var maxPage = database.pageCount-1
-        let b = UnsafeMutablePointer<Void>(allocatingCapacity: pageSize)
+        let writeBuffer = UnsafeMutablePointer<Void>(allocatingCapacity: pageSize)
         defer {
-            b.deinitialize(count: pageSize)
-            b.deallocateCapacity(pageSize)
+            writeBuffer.deinitialize(count: pageSize)
+            writeBuffer.deallocateCapacity(pageSize)
         }
         for (page, object) in dirty {
             pageObjects.removeValue(forKey: page)
@@ -265,8 +270,8 @@ public class FilePageRWMediator : FilePageRMediator, RWMediator {
                 maxPage = page
             }
             let offset = off_t(pageSize * page)
-            try object.serialize(to: b, status: .dirty(page), mediator: self)
-            let bw = pwrite(database.fd, b, pageSize, offset)
+            try object.serialize(to: writeBuffer, status: .dirty(page), mediator: self)
+            let bw = pwrite(database.fd, writeBuffer, pageSize, offset)
             guard bw == pageSize else { throw DatabaseUpdateError.Rollback }
         }
         let pageCount = maxPage + 1
@@ -280,8 +285,8 @@ public class FilePageRWMediator : FilePageRMediator, RWMediator {
         }
         
         let header = DatabaseHeaderPage(version: version, roots: pairs)
-        try header.serialize(to: b, status: .dirty(0), pageSize: pageSize)
-        let bw = pwrite(database.fd, b, pageSize, 0)
+        try header.serialize(to: writeBuffer, status: .dirty(0), pageSize: pageSize)
+        let bw = pwrite(database.fd, writeBuffer, pageSize, 0)
         guard bw == pageSize else { throw DatabaseUpdateError.Rollback }
         
         newPages = Set()
