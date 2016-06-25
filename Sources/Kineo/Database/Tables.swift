@@ -54,9 +54,9 @@ public struct TablePage<T : protocol<BufferSerializable,Comparable>, U : BufferS
         let rawMemory   = UnsafePointer<Void>(buffer)
         var ptr         = rawMemory
         let cookie      = try UInt32.deserialize(from: &ptr)
-        let version     = try UInt64.deserialize(from: &ptr)
+        let _           = try UInt64.deserialize(from: &ptr)
         let previous    = try UInt32.deserialize(from: &ptr)
-        let config      = try UInt32.deserialize(from: &ptr)
+        let _           = try UInt32.deserialize(from: &ptr)
         let count       = try UInt32.deserialize(from: &ptr)
         var payloadPtr      = ptr
         assert(ptr == rawMemory.advanced(by: 24))
