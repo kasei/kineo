@@ -214,7 +214,7 @@ public struct Table<T : protocol<BufferSerializable,Comparable>, U : BufferSeria
 }
 
 extension RMediator {
-    public func table<T : BufferSerializable, U: BufferSerializable>(name : String) -> Table<T, U>? {
+    public func table<T : protocol<BufferSerializable,Comparable>, U: BufferSerializable>(name : String) -> Table<T, U>? {
         do {
             _ = try getRoot(named: name)
             return Table(mediator: self, name: name, type: DatabaseInfo.Cookie.intStringTable, keyType: T.self, valueType: U.self)
@@ -226,7 +226,7 @@ extension RMediator {
 }
 
 extension RWMediator {
-    private func createTablePages<C : Sequence, T : protocol<BufferSerializable,Comparable>, U : BufferSerializable where C.Iterator.Element == (T, U)>(type : DatabaseInfo.Cookie, previous: PageId?, pairs: C) throws -> PageId? {
+    private func createTablePages<C : Sequence, T : protocol<BufferSerializable,Comparable>, U : BufferSerializable where C.Iterator.Element == (T, U)>(type : DatabaseInfo.Cookie, previous: PageId?, forceCreation: Bool, pairs: C) throws -> PageId? {
         var previousPage : PageId? = previous
         var tablepage = TablePage<T,U>(pairs: [], type: type, previousPage: previousPage)
         for pair in pairs {
@@ -237,7 +237,7 @@ extension RWMediator {
                 tablepage = TablePage(pairs: [pair], type: type, previousPage: previousPage)
             }
         }
-        if tablepage.pairs.count > 0 {
+        if forceCreation || tablepage.pairs.count > 0 {
             return try self.createPage(for: tablepage)
         } else {
             return previousPage
@@ -247,20 +247,23 @@ extension RWMediator {
     public func createTable<C : Sequence, T : protocol<BufferSerializable,Comparable>, U : BufferSerializable where C.Iterator.Element == (T,U)>(name : String, pairs : C) throws -> PageId? {
         guard pageSize > 20 else { throw DatabaseError.DataError("Cannot create table with small page size") }
         let previous : PageId? = nil
-        if let pid = try createTablePages(type: DatabaseInfo.Cookie.intStringTable, previous: previous, pairs: pairs) {
+        if let pid = try createTablePages(type: DatabaseInfo.Cookie.intStringTable, previous: previous, forceCreation: true, pairs: pairs) {
+            self.addRoot(name: name, page: pid)
+            return pid
+        } else {
+            print("*** failed to create table '\(name)'")
+            return nil
+        }
+    }
+    
+    public func appendTable<C : Sequence, T : protocol<BufferSerializable,Comparable>, U : BufferSerializable where C.Iterator.Element == (T,U)>(name : String, pairs : C) throws -> PageId? {
+        let previous = try getRoot(named: name)
+        if let pid = try createTablePages(type: DatabaseInfo.Cookie.intStringTable, previous: previous, forceCreation: false, pairs: pairs) {
             self.addRoot(name: name, page: pid)
             return pid
         } else {
             return nil
         }
     }
-    
-//    public func appendTable<C : Sequence, T : BufferSerializable, U : BufferSerializable where C.Iterator.Element == (T,U)>(name : String, pairs : C) throws -> PageId {
-//        guard pageSize > 20 else { throw DatabaseError.DataError("Cannot create table with small page size") }
-//        let previous = try getRoot(named: name)
-//        let pid = try createTablePages(type: DatabaseInfo.Cookie.intStringTable, previous: previous, pairs: pairs)
-//        self.updateRoot(name: name, page: pid)
-//        return pid
-//    }
 }
 

@@ -21,16 +21,29 @@ private func generateIDQuadsAddingTerms<I : IdentityMap, R : protocol<Comparable
     return AnyIterator(idquads.makeIterator())
 }
 
-func setup(database : FilePageDatabase, filename : String, startTime : UInt64) throws {
+func setup(database : FilePageDatabase, startTime : UInt64) throws {
     try database.update(version: startTime) { (m) in
         do {
-            let i = try PersistentTermIdentityMap(mediator: m)
-            _ = try generateIDQuadsAddingTerms(mediator: m, idGenerator: i, quads: [])
-        } catch let e{
-            print("*** \(e)")
+            _ = try PersistentTermIdentityMap(mediator: m)
+            _ = try m.getRoot(named: "quads")
+            _ = try m.getRoot(named: "spog")
+            // all the tables and tables seem to be set up
+        } catch {
+            // empty database; set up the trees and tables
+            do {
+                let i = try PersistentTermIdentityMap(mediator: m)
+                _ = try generateIDQuadsAddingTerms(mediator: m, idGenerator: i, quads: [])
+
+                let spog = [(IDQuad<UInt64>, Empty)]()
+                _ = try m.createTable(name: "quads", pairs: spog)
+            } catch let e {
+                print("*** \(e)")
+                throw DatabaseUpdateError.Rollback
+            }
         }
     }
 }
+
 func parse(database : FilePageDatabase, filename : String, startTime : UInt64) throws -> Int {
     let graph = Term(value: filename, type: .iri)
     let reader = FileReader(filename: filename)
@@ -39,9 +52,6 @@ func parse(database : FilePageDatabase, filename : String, startTime : UInt64) t
     var count = 0
     let quads = parser.makeIterator().map { (triple) -> Quad in
         count += 1
-//        if count % 256 == 0 {
-//            print("\r\(count)", terminator: "")
-//        }
         return Quad(subject: triple.subject, predicate: triple.predicate, object: triple.object, graph: graph)
     }
     print("\r\(quads.count) triples parsed")
@@ -59,11 +69,12 @@ func parse(database : FilePageDatabase, filename : String, startTime : UInt64) t
             let spog = idquads.sorted().map { ($0, empty) }
             let tripleCount = spog.count
             print("creating table with \(tripleCount) quads")
-            _ = try m.createTable(name: "quads", pairs: spog)
+            _ = try m.appendTable(name: "quads", pairs: spog)
             
             try m.addQuadIndex("spog")
         } catch let e {
             print("*** \(e)")
+            throw DatabaseUpdateError.Rollback
         }
     }
     return count
@@ -112,10 +123,11 @@ let startTime = getCurrentDateSeconds()
 var count = 0
 
 if args.count > 2 {
-    let rdf = args[2]
-    try setup(database: database, filename: rdf, startTime: startTime)
-    print("parsing \(rdf)")
-    count = try parse(database: database, filename: rdf, startTime: startTime)
+    try setup(database: database, startTime: startTime)
+    for rdf in args.suffix(from: 2) {
+        print("parsing \(rdf)")
+        count = try parse(database: database, filename: rdf, startTime: startTime)
+    }
 } else {
     print("dumping RDF")
     count = try serialize(database: database)
