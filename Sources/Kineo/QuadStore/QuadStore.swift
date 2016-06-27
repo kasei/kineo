@@ -24,6 +24,94 @@ public struct QuadPattern : CustomStringConvertible {
     }
 }
 
+public class QuadStore : Sequence {
+    typealias IDType = UInt64
+    private var mediator : RMediator
+    private var id : PersistentTermIdentityMap
+    public init(mediator : RMediator) throws {
+        self.mediator = mediator
+        self.id = try PersistentTermIdentityMap(mediator: mediator)
+    }
+    
+    public static func create(mediator : RWMediator) throws -> QuadStore {
+        do {
+            _ = try PersistentTermIdentityMap(mediator: mediator)
+            _ = try mediator.getRoot(named: "quads")
+            _ = try mediator.getRoot(named: "gspo")
+            // all the tables and tables seem to be set up
+        } catch {
+            // empty database; set up the trees and tables
+            do {
+                _ = try PersistentTermIdentityMap(mediator: mediator)
+                let gspo = [(IDQuad<UInt64>, Empty)]()
+                _ = try mediator.create(table: "quads", pairs: gspo)
+                try mediator.addQuadIndex("gspo")
+            } catch let e {
+                print("*** \(e)")
+                throw DatabaseUpdateError.Rollback
+            }
+        }
+        return try QuadStore(mediator: mediator)
+    }
+    
+    private func generateIDQuadsAddingTerms<S : Sequence where S.Iterator.Element == Quad>(quads : S) throws -> AnyIterator<IDQuad<IDType>> {
+        var idquads = [IDQuad<IDType>]()
+        for quad in quads {
+            var ids = [IDType]()
+            for term in quad {
+                let id = try self.id.getOrSetID(for: term)
+                ids.append(id)
+            }
+            idquads.append(IDQuad(ids[0], ids[1], ids[2], ids[3]))
+        }
+        return AnyIterator(idquads.makeIterator())
+    }
+
+    public func load<S : Sequence where S.Iterator.Element == Quad>(quads : S) throws {
+        guard let m = self.mediator as? RWMediator else { throw DatabaseError.PermissionError("Cannot load quads into a read-only quadstore") }
+        do {
+            print("Adding RDF terms to database...")
+            let idquads = try generateIDQuadsAddingTerms(quads: quads)
+            
+            print("Adding RDF triples to database...")
+            let empty = Empty()
+            let spog = idquads.sorted().map { ($0, empty) }
+            let tripleCount = spog.count
+            print("creating table with \(tripleCount) quads")
+            _ = try m.append(pairs: spog, toTable: "quads")
+            
+            try m.addQuadIndex("gspo")
+        } catch let e {
+            print("*** \(e)")
+            throw DatabaseUpdateError.Rollback
+        }
+    }
+
+    public func makeIterator() -> AnyIterator<Quad> {
+        do {
+            let idmap = try PersistentTermIdentityMap(mediator: mediator)
+            if let quadsTable : Table<IDQuad<UInt64>,Empty> = mediator.table(name: "quads") {
+                var idquads = quadsTable.makeIterator()
+                return AnyIterator {
+                    repeat {
+                        if let pair = idquads.next() {
+                            let idquad = pair.0
+                            if let s = idmap.term(for: idquad[0]), p = idmap.term(for: idquad[1]), o = idmap.term(for: idquad[2]), g = idmap.term(for: idquad[3]) {
+                                return Quad(subject: s, predicate: p, object: o, graph: g)
+                            }
+                        } else {
+                            return nil
+                        }
+                    } while true
+                }
+            }
+        } catch let e {
+            print("*** \(e)")
+        }
+        return AnyIterator { return nil }
+    }
+}
+
 public protocol IdentityMap {
     associatedtype Element : Hashable
     associatedtype Result : Comparable, DefinedTestable
@@ -124,7 +212,7 @@ public class PersistentTermIdentityMap : IdentityMap {
         return nil
     }
 
-    // TODO: change this to make the identitymap a sequence type?
+    // TODO: change this to make the identitymap a sequence type
     public func walk(forEach cb: (Element, Result) -> ()) {
         if let node : Tree<Result, Element> = mediator.tree(name: i2tMapTreeName) {
             print("node: \(node)")

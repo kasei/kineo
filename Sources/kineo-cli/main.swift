@@ -9,39 +9,13 @@
 import Foundation
 import Kineo
 
-private func generateIDQuadsAddingTerms<I : IdentityMap, R : protocol<Comparable, DefinedTestable, BufferSerializable>, S : Sequence where I.Result == R, I.Element == Term, S.Iterator.Element == Quad>(mediator : RWMediator, idGenerator: I, quads : S) throws -> AnyIterator<IDQuad<R>> {
-    var idquads = [IDQuad<R>]()
-    for quad in quads {
-        var ids = [R]()
-        for term in quad {
-            let id = try idGenerator.getOrSetID(for: term)
-            ids.append(id)
-        }
-        idquads.append(IDQuad(ids[0], ids[1], ids[2], ids[3]))
-    }
-    return AnyIterator(idquads.makeIterator())
-}
-
 func setup(database : FilePageDatabase, startTime : UInt64) throws {
     try database.update(version: startTime) { (m) in
         do {
-            _ = try PersistentTermIdentityMap(mediator: m)
-            _ = try m.getRoot(named: "quads")
-            _ = try m.getRoot(named: "gspo")
-            // all the tables and tables seem to be set up
-        } catch {
-            // empty database; set up the trees and tables
-            do {
-                let i = try PersistentTermIdentityMap(mediator: m)
-                _ = try generateIDQuadsAddingTerms(mediator: m, idGenerator: i, quads: [])
-
-                let gspo = [(IDQuad<UInt64>, Empty)]()
-                _ = try m.create(table: "quads", pairs: gspo)
-                try m.addQuadIndex("gspo")
-            } catch let e {
-                print("*** \(e)")
-                throw DatabaseUpdateError.Rollback
-            }
+            _ = try QuadStore.create(mediator: m)
+        } catch let e {
+            print("*** \(e)")
+            throw DatabaseUpdateError.Rollback
         }
     }
 }
@@ -58,22 +32,11 @@ func parse(database : FilePageDatabase, filename : String, startTime : UInt64) t
     }
     print("\r\(quads.count) triples parsed")
     
-    
     let version = startTime
     try database.update(version: version) { (m) in
         do {
-            let i = try PersistentTermIdentityMap(mediator: m)
-            print("Adding RDF terms to database...")
-            let idquads = try generateIDQuadsAddingTerms(mediator: m, idGenerator: i, quads: quads)
-            
-            print("Adding RDF triples to database...")
-            let empty = Empty()
-            let spog = idquads.sorted().map { ($0, empty) }
-            let tripleCount = spog.count
-            print("creating table with \(tripleCount) quads")
-            _ = try m.append(pairs: spog, toTable: "quads")
-            
-            try m.addQuadIndex("gspo")
+            let store = try QuadStore.create(mediator: m)
+            try store.load(quads: quads)
         } catch let e {
             print("*** \(e)")
             throw DatabaseUpdateError.Rollback
@@ -83,31 +46,21 @@ func parse(database : FilePageDatabase, filename : String, startTime : UInt64) t
 }
 
 func serialize(database : FilePageDatabase) throws -> Int {
-    let rootname = "gspo"
     var count = 0
     try database.read { (m) in
         do {
-            let idmap = try PersistentTermIdentityMap(mediator: m)
-            let mapping = try m.quadMapping(fromOrder: rootname)
-            if let node : Tree<IDQuad<UInt64>,Empty> = m.tree(name: rootname) {
-                var lastGraph : Term? = nil
-                _ = try? node.walk { (pairs) in
-                    for (indexOrder, _) in pairs {
-                        let quad = mapping(quad: indexOrder)
-                        if let s = idmap.term(for: quad[0]), p = idmap.term(for: quad[1]), o = idmap.term(for: quad[2]), g = idmap.term(for: quad[3]) {
-                            count += 1
-                            if g != lastGraph {
-                                print("# GRAPH: \(g)")
-                                lastGraph = g
-                            }
-                            print("\(s) \(p) \(o) .")
-                        } else {
-                            print("*** Failed to get terms for ids: \(quad)")
-                        }
-                    }
+            let store = try QuadStore(mediator: m)
+            var lastGraph : Term? = nil
+            for quad in store {
+                let s = quad.subject
+                let p = quad.predicate
+                let o = quad.object
+                count += 1
+                if quad.graph != lastGraph {
+                    print("# GRAPH: \(quad.graph)")
+                    lastGraph = quad.graph
                 }
-            } else {
-                print("No index named '\(rootname)' found")
+                print("\(s) \(p) \(o) .")
             }
         } catch let e {
             print("*** \(e)")
