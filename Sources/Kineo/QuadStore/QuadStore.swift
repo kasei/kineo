@@ -55,7 +55,7 @@ public class PersistentTermIdentityMap : IdentityMap {
                 throw DatabaseError.PermissionError("Cannot create new PersistentTermIdentityMap in a read-only transaction")
             }
             let t2ipairs = [(Element, Result)]()
-            _ = try m.createTree(name: t2iMapTreeName, pairs: t2ipairs)
+            _ = try m.create(tree: t2iMapTreeName, pairs: t2ipairs)
             t2i = mediator.tree(name: t2iMapTreeName)
         }
 
@@ -65,7 +65,7 @@ public class PersistentTermIdentityMap : IdentityMap {
                 throw DatabaseError.PermissionError("Cannot create new PersistentTermIdentityMap in a read-only transaction")
             }
             let i2tpairs = [(Result, Element)]()
-            _ = try m.createTree(name: i2tMapTreeName, pairs: i2tpairs)
+            _ = try m.create(tree: i2tMapTreeName, pairs: i2tpairs)
             i2t = mediator.tree(name: i2tMapTreeName)
         }
         
@@ -260,8 +260,8 @@ extension RWMediator {
         let mapping = quadMapping(toOrder: index)
         let empty = Empty()
         let pairs = table.map { mapping(quad: $0.0) }.sorted().map { ($0, empty) }
-        let pid = try createTree(pairs: pairs)
-        updateRoot(name : index, page : pid)
+        let pid = try create(tree: index, pairs: pairs)
+//        updateRoot(name : index, page : pid)
     }
 }
 

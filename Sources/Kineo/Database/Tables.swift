@@ -207,10 +207,10 @@ public struct Table<T : protocol<BufferSerializable,Comparable>, U : BufferSeria
         return elements
     }
     
-//    public mutating func addPairs<C : Sequence where C.Iterator.Element == (UInt64,String)>(pairs : C) throws {
-//        guard let m = mediator as? RWMediator else { throw DatabaseError.PermissionError("Cannot mutate table while in a read-only transaction") }
-//        let _ = try m.appendTable(name: name, pairs: pairs)
-//    }
+    public mutating func addPairs<C : Sequence where C.Iterator.Element == (UInt64,String)>(pairs : C) throws {
+        guard let m = mediator as? RWMediator else { throw DatabaseError.PermissionError("Cannot mutate table while in a read-only transaction") }
+        let _ = try m.append(pairs: pairs, toTable: name)
+    }
 }
 
 extension RMediator {
@@ -244,7 +244,7 @@ extension RWMediator {
         }
     }
     
-    public func createTable<C : Sequence, T : protocol<BufferSerializable,Comparable>, U : BufferSerializable where C.Iterator.Element == (T,U)>(name : String, pairs : C) throws -> PageId? {
+    public func create<C : Sequence, T : protocol<BufferSerializable,Comparable>, U : BufferSerializable where C.Iterator.Element == (T,U)>(table name : String, pairs : C) throws -> PageId? {
         guard pageSize > 20 else { throw DatabaseError.DataError("Cannot create table with small page size") }
         let previous : PageId? = nil
         if let pid = try createTablePages(type: DatabaseInfo.Cookie.intStringTable, previous: previous, forceCreation: true, pairs: pairs) {
@@ -256,7 +256,7 @@ extension RWMediator {
         }
     }
     
-    public func appendTable<C : Sequence, T : protocol<BufferSerializable,Comparable>, U : BufferSerializable where C.Iterator.Element == (T,U)>(name : String, pairs : C) throws -> PageId? {
+    public func append<C : Sequence, T : protocol<BufferSerializable,Comparable>, U : BufferSerializable where C.Iterator.Element == (T,U)>(pairs : C, toTable name : String) throws -> PageId? {
         let previous = try getRoot(named: name)
         if let pid = try createTablePages(type: DatabaseInfo.Cookie.intStringTable, previous: previous, forceCreation: false, pairs: pairs) {
             self.addRoot(name: name, page: pid)

@@ -26,7 +26,7 @@ func setup(database : FilePageDatabase, startTime : UInt64) throws {
         do {
             _ = try PersistentTermIdentityMap(mediator: m)
             _ = try m.getRoot(named: "quads")
-            _ = try m.getRoot(named: "spog")
+            _ = try m.getRoot(named: "gspo")
             // all the tables and tables seem to be set up
         } catch {
             // empty database; set up the trees and tables
@@ -34,8 +34,9 @@ func setup(database : FilePageDatabase, startTime : UInt64) throws {
                 let i = try PersistentTermIdentityMap(mediator: m)
                 _ = try generateIDQuadsAddingTerms(mediator: m, idGenerator: i, quads: [])
 
-                let spog = [(IDQuad<UInt64>, Empty)]()
-                _ = try m.createTable(name: "quads", pairs: spog)
+                let gspo = [(IDQuad<UInt64>, Empty)]()
+                _ = try m.create(table: "quads", pairs: gspo)
+                try m.addQuadIndex("gspo")
             } catch let e {
                 print("*** \(e)")
                 throw DatabaseUpdateError.Rollback
@@ -69,9 +70,9 @@ func parse(database : FilePageDatabase, filename : String, startTime : UInt64) t
             let spog = idquads.sorted().map { ($0, empty) }
             let tripleCount = spog.count
             print("creating table with \(tripleCount) quads")
-            _ = try m.appendTable(name: "quads", pairs: spog)
+            _ = try m.append(pairs: spog, toTable: "quads")
             
-            try m.addQuadIndex("spog")
+            try m.addQuadIndex("gspo")
         } catch let e {
             print("*** \(e)")
             throw DatabaseUpdateError.Rollback
@@ -81,7 +82,7 @@ func parse(database : FilePageDatabase, filename : String, startTime : UInt64) t
 }
 
 func serialize(database : FilePageDatabase) throws -> Int {
-    let rootname = "spog"
+    let rootname = "gspo"
     var count = 0
     try database.read { (m) in
         do {
@@ -129,7 +130,6 @@ if args.count > 2 {
         count = try parse(database: database, filename: rdf, startTime: startTime)
     }
 } else {
-    print("dumping RDF")
     count = try serialize(database: database)
 }
 

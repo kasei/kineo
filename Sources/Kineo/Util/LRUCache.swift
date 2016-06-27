@@ -142,15 +142,15 @@ public class LRUCache<K : protocol<Equatable, Hashable>, V> : Sequence {
         self.miss = 0
     }
     
-    deinit {
-        let total = Double(hit + miss)
-        if total > 0 {
-            let hr = 100.0 * Double(self.hit) / total
-            let mr = 100.0 * Double(self.miss) / total
-            print(String(format: "LRUCache hit: %d (%.1f%%)", hit, hr))
-            print(String(format: "LRUCache miss: %d (%.1f%%)", miss, mr))
-        }
-    }
+//    deinit {
+//        let total = Double(hit + miss)
+//        if total > 0 {
+//            let hr = 100.0 * Double(self.hit) / total
+//            let mr = 100.0 * Double(self.miss) / total
+//            print(String(format: "LRUCache hit: %d (%.1f%%)", hit, hr))
+//            print(String(format: "LRUCache miss: %d (%.1f%%)", miss, mr))
+//        }
+//    }
     
     public func removeValue(forKey key: K) -> V? {
         if let node = dict[key] {

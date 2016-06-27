@@ -966,9 +966,9 @@ extension RWMediator {
         return leaves
     }
     
-    public func createTree<C : Sequence, T : protocol<BufferSerializable, Comparable>, U : BufferSerializable where C.Iterator.Element == (T,U)>(name : String, pairs: C) throws -> PageId {
+    public func create<C : Sequence, T : protocol<BufferSerializable, Comparable>, U : BufferSerializable where C.Iterator.Element == (T,U)>(tree name: String, pairs: C) throws -> PageId {
         let pid = try self.createTree(pairs: pairs)
-        self.addRoot(name: name, page: pid)
+        self.updateRoot(name: name, page: pid)
         return pid
     }
     
