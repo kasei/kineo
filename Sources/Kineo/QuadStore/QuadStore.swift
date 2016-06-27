@@ -260,8 +260,7 @@ extension RWMediator {
         let mapping = quadMapping(toOrder: index)
         let empty = Empty()
         let pairs = table.map { mapping(quad: $0.0) }.sorted().map { ($0, empty) }
-        let pid = try create(tree: index, pairs: pairs)
-//        updateRoot(name : index, page : pid)
+        _ = try create(tree: index, pairs: pairs)
     }
 }
 

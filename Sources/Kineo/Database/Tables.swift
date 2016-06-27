@@ -248,7 +248,7 @@ extension RWMediator {
         guard pageSize > 20 else { throw DatabaseError.DataError("Cannot create table with small page size") }
         let previous : PageId? = nil
         if let pid = try createTablePages(type: DatabaseInfo.Cookie.intStringTable, previous: previous, forceCreation: true, pairs: pairs) {
-            self.addRoot(name: name, page: pid)
+            self.updateRoot(name: name, page: pid)
             return pid
         } else {
             print("*** failed to create table '\(name)'")
@@ -259,7 +259,7 @@ extension RWMediator {
     public func append<C : Sequence, T : protocol<BufferSerializable,Comparable>, U : BufferSerializable where C.Iterator.Element == (T,U)>(pairs : C, toTable name : String) throws -> PageId? {
         let previous = try getRoot(named: name)
         if let pid = try createTablePages(type: DatabaseInfo.Cookie.intStringTable, previous: previous, forceCreation: false, pairs: pairs) {
-            self.addRoot(name: name, page: pid)
+            self.updateRoot(name: name, page: pid)
             return pid
         } else {
             return nil

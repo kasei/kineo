@@ -95,7 +95,7 @@ public class FilePageDatabase : Database {
     private let fd : CInt
     var nextPageId : Int
 
-    init?(_ filename : String, size _pageSize : Int = 4096) {
+    public init?(_ filename : String, size _pageSize : Int = 4096) {
         var st : stat = stat()
         fd = open(filename, O_RDWR|O_CREAT, 0o666)
         nextPageId = -1

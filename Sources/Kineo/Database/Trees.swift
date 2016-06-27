@@ -35,11 +35,11 @@ public class Tree<T : protocol<BufferSerializable,Comparable>, U : BufferSeriali
         }
     }
     
-    public static func createTree<C : Sequence where C.Iterator.Element == (T,U)>(mediator : RWMediator, name : String, pairs: C) throws -> Tree {
-        let pid = try mediator.createTree(pairs: pairs)
-        mediator.addRoot(name: name, page: pid)
-        return Tree(name: name, root : pid, mediator: mediator)
-    }
+//    public static func createTree<C : Sequence where C.Iterator.Element == (T,U)>(mediator : RWMediator, name : String, pairs: C) throws -> Tree {
+//        let pid = try mediator.createTree(pairs: pairs)
+//        mediator.updateRoot(name: name, page: pid)
+//        return Tree(name: name, root : pid, mediator: mediator)
+//    }
     
     // TODO: move the implementations of these methods from TreeNode to inline code here in Tree
     public func walk(between: (T,T), onPairs: @noescape ([(T,U)]) throws -> ()) throws {

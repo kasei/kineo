@@ -7,37 +7,11 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		37B839A41D1E06B500BE718B /* Database.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37B839961D1E06B500BE718B /* Database.swift */; };
-		37B839A51D1E06B500BE718B /* Database.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37B839961D1E06B500BE718B /* Database.swift */; };
-		37B839A61D1E06B500BE718B /* FilePageDatabase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37B839971D1E06B500BE718B /* FilePageDatabase.swift */; };
-		37B839A71D1E06B500BE718B /* FilePageDatabase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37B839971D1E06B500BE718B /* FilePageDatabase.swift */; };
-		37B839A81D1E06B500BE718B /* Tables.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37B839981D1E06B500BE718B /* Tables.swift */; };
-		37B839A91D1E06B500BE718B /* Tables.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37B839981D1E06B500BE718B /* Tables.swift */; };
-		37B839AA1D1E06B500BE718B /* Trees.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37B839991D1E06B500BE718B /* Trees.swift */; };
-		37B839AB1D1E06B500BE718B /* Trees.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37B839991D1E06B500BE718B /* Trees.swift */; };
-		37B839AC1D1E06B500BE718B /* QuadStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37B8399B1D1E06B500BE718B /* QuadStore.swift */; };
-		37B839AD1D1E06B500BE718B /* QuadStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37B8399B1D1E06B500BE718B /* QuadStore.swift */; };
-		37B839AE1D1E06B500BE718B /* NTriples.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37B8399D1D1E06B500BE718B /* NTriples.swift */; };
-		37B839AF1D1E06B500BE718B /* NTriples.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37B8399D1D1E06B500BE718B /* NTriples.swift */; };
-		37B839B01D1E06B500BE718B /* RDF.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37B8399E1D1E06B500BE718B /* RDF.swift */; };
-		37B839B11D1E06B500BE718B /* RDF.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37B8399E1D1E06B500BE718B /* RDF.swift */; };
-		37B839B21D1E06B500BE718B /* LRUCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37B839A01D1E06B500BE718B /* LRUCache.swift */; };
-		37B839B31D1E06B500BE718B /* LRUCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37B839A01D1E06B500BE718B /* LRUCache.swift */; };
-		37B839B41D1E06B500BE718B /* Util.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37B839A11D1E06B500BE718B /* Util.swift */; };
-		37B839B51D1E06B500BE718B /* Util.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37B839A11D1E06B500BE718B /* Util.swift */; };
+		379C05651D219C8B00ACE54D /* libKineo.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 379C05631D219B9A00ACE54D /* libKineo.dylib */; };
 		37B839B71D1E06B500BE718B /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37B839A31D1E06B500BE718B /* main.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		37B839491D1DA34100BE718B /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = /usr/share/man/man1/;
-			dstSubfolderSpec = 0;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-		};
 		37B839801D1DECF700BE718B /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -50,7 +24,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		37B8394B1D1DA34200BE718B /* Kineo */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = Kineo; sourceTree = BUILT_PRODUCTS_DIR; };
+		379C05631D219B9A00ACE54D /* libKineo.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libKineo.dylib; path = .build/debug/libKineo.dylib; sourceTree = "<group>"; };
 		37B839821D1DECF700BE718B /* kineo-cli */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "kineo-cli"; sourceTree = BUILT_PRODUCTS_DIR; };
 		37B839961D1E06B500BE718B /* Database.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Database.swift; sourceTree = "<group>"; };
 		37B839971D1E06B500BE718B /* FilePageDatabase.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FilePageDatabase.swift; sourceTree = "<group>"; };
@@ -65,35 +39,37 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		37B839481D1DA34100BE718B /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		37B8397F1D1DECF700BE718B /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				379C05651D219C8B00ACE54D /* libKineo.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		379C05621D219B9A00ACE54D /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				379C05631D219B9A00ACE54D /* libKineo.dylib */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		37B839421D1DA34100BE718B = {
 			isa = PBXGroup;
 			children = (
 				37B839931D1E06B500BE718B /* Sources */,
 				37B8394C1D1DA34200BE718B /* Products */,
+				379C05621D219B9A00ACE54D /* Frameworks */,
 			);
 			sourceTree = "<group>";
 		};
 		37B8394C1D1DA34200BE718B /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				37B8394B1D1DA34200BE718B /* Kineo */,
 				37B839821D1DECF700BE718B /* kineo-cli */,
 			);
 			name = Products;
@@ -167,27 +143,11 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		37B8394A1D1DA34100BE718B /* Kineo */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 37B839521D1DA34200BE718B /* Build configuration list for PBXNativeTarget "Kineo" */;
-			buildPhases = (
-				37B839471D1DA34100BE718B /* Sources */,
-				37B839481D1DA34100BE718B /* Frameworks */,
-				37B839491D1DA34100BE718B /* CopyFiles */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = Kineo;
-			productName = Kineo;
-			productReference = 37B8394B1D1DA34200BE718B /* Kineo */;
-			productType = "com.apple.product-type.tool";
-		};
 		37B839811D1DECF700BE718B /* kineo-cli */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 37B839861D1DECF700BE718B /* Build configuration list for PBXNativeTarget "kineo-cli" */;
 			buildPhases = (
+				379C05611D219A7700ACE54D /* ShellScript */,
 				37B8397E1D1DECF700BE718B /* Sources */,
 				37B8397F1D1DECF700BE718B /* Frameworks */,
 				37B839801D1DECF700BE718B /* CopyFiles */,
@@ -211,12 +171,6 @@
 				LastUpgradeCheck = 0800;
 				ORGANIZATIONNAME = "Gregory Todd Williams";
 				TargetAttributes = {
-					37B8394A1D1DA34100BE718B = {
-						CreatedOnToolsVersion = 8.0;
-						DevelopmentTeam = G54M5PALR9;
-						DevelopmentTeamName = "Gregory Williams";
-						ProvisioningStyle = Automatic;
-					};
 					37B839811D1DECF700BE718B = {
 						CreatedOnToolsVersion = 8.0;
 						DevelopmentTeam = G54M5PALR9;
@@ -237,43 +191,33 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				37B8394A1D1DA34100BE718B /* Kineo */,
 				37B839811D1DECF700BE718B /* kineo-cli */,
 			);
 		};
 /* End PBXProject section */
 
-/* Begin PBXSourcesBuildPhase section */
-		37B839471D1DA34100BE718B /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
+/* Begin PBXShellScriptBuildPhase section */
+		379C05611D219A7700ACE54D /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				37B839B21D1E06B500BE718B /* LRUCache.swift in Sources */,
-				37B839B41D1E06B500BE718B /* Util.swift in Sources */,
-				37B839A41D1E06B500BE718B /* Database.swift in Sources */,
-				37B839AA1D1E06B500BE718B /* Trees.swift in Sources */,
-				37B839AE1D1E06B500BE718B /* NTriples.swift in Sources */,
-				37B839A81D1E06B500BE718B /* Tables.swift in Sources */,
-				37B839AC1D1E06B500BE718B /* QuadStore.swift in Sources */,
-				37B839B01D1E06B500BE718B /* RDF.swift in Sources */,
-				37B839A61D1E06B500BE718B /* FilePageDatabase.swift in Sources */,
+			);
+			inputPaths = (
+			);
+			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "swift build --chdir \"$SRCROOT\"\n";
 		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
 		37B8397E1D1DECF700BE718B /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				37B839B31D1E06B500BE718B /* LRUCache.swift in Sources */,
-				37B839B51D1E06B500BE718B /* Util.swift in Sources */,
-				37B839A51D1E06B500BE718B /* Database.swift in Sources */,
-				37B839AB1D1E06B500BE718B /* Trees.swift in Sources */,
-				37B839AF1D1E06B500BE718B /* NTriples.swift in Sources */,
-				37B839A91D1E06B500BE718B /* Tables.swift in Sources */,
 				37B839B71D1E06B500BE718B /* main.swift in Sources */,
-				37B839AD1D1E06B500BE718B /* QuadStore.swift in Sources */,
-				37B839B11D1E06B500BE718B /* RDF.swift in Sources */,
-				37B839A71D1E06B500BE718B /* FilePageDatabase.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -364,32 +308,28 @@
 			};
 			name = Release;
 		};
-		37B839531D1DA34200BE718B /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				PRODUCT_NAME = "$(TARGET_NAME)";
-			};
-			name = Debug;
-		};
-		37B839541D1DA34200BE718B /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SWIFT_OPTIMIZATION_LEVEL = "-Owholemodule";
-			};
-			name = Release;
-		};
 		37B839871D1DECF700BE718B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/.build/debug",
+				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/.build/debug/";
 			};
 			name = Debug;
 		};
 		37B839881D1DECF700BE718B /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/.build/debug",
+				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/.build/release/";
+				SWIFT_OPTIMIZATION_LEVEL = "-Owholemodule";
 			};
 			name = Release;
 		};
@@ -405,14 +345,6 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		37B839521D1DA34200BE718B /* Build configuration list for PBXNativeTarget "Kineo" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				37B839531D1DA34200BE718B /* Debug */,
-				37B839541D1DA34200BE718B /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-		};
 		37B839861D1DECF700BE718B /* Build configuration list for PBXNativeTarget "kineo-cli" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -420,6 +352,7 @@
 				37B839881D1DECF700BE718B /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};

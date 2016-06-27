@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import Kineo
 
 private func generateIDQuadsAddingTerms<I : IdentityMap, R : protocol<Comparable, DefinedTestable, BufferSerializable>, S : Sequence where I.Result == R, I.Element == Term, S.Iterator.Element == Quad>(mediator : RWMediator, idGenerator: I, quads : S) throws -> AnyIterator<IDQuad<R>> {
     var idquads = [IDQuad<R>]()
