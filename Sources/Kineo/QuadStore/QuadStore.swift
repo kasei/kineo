@@ -119,7 +119,7 @@ public protocol IdentityMap {
     func getOrSetID(for value: Element) throws -> Result
 }
 
-public class PersistentTermIdentityMap : IdentityMap {
+public class PersistentTermIdentityMap : IdentityMap, Sequence {
     static let blankTypeByte : UInt8       = 0x01
     static let iriTypeByte : UInt8         = 0x02
     static let languageTypeByte : UInt8    = 0x03
@@ -212,20 +212,14 @@ public class PersistentTermIdentityMap : IdentityMap {
         return nil
     }
 
-    // TODO: change this to make the identitymap a sequence type
-    public func walk(forEach cb: (Element, Result) -> ()) {
+    public func makeIterator() -> AnyIterator<(Result, Element)> {
         if let node : Tree<Result, Element> = mediator.tree(name: i2tMapTreeName) {
-            print("node: \(node)")
-            _ = try? node.walk {(pairs) in
-                for (v, k) in pairs {
-                    cb(k,v)
-                }
-            }
+            return node.makeIterator()
         } else {
-            print("No id to term map found in database")
+            return AnyIterator { return nil }
         }
     }
-
+    
     public func getOrSetID(for term: Element) throws -> UInt64 {
         if let id = id(for: term) {
             return id

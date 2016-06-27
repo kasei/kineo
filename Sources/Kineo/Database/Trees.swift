@@ -35,13 +35,32 @@ public class Tree<T : protocol<BufferSerializable,Comparable>, U : BufferSeriali
         }
     }
     
-//    public static func createTree<C : Sequence where C.Iterator.Element == (T,U)>(mediator : RWMediator, name : String, pairs: C) throws -> Tree {
-//        let pid = try mediator.createTree(pairs: pairs)
-//        mediator.updateRoot(name: name, page: pid)
-//        return Tree(name: name, root : pid, mediator: mediator)
-//    }
+    public func elements(between: (T,T)) throws -> AnyIterator<(T,U)> {
+        // TODO: convert this to pipeline the iterator results
+        var pairs = [(T,U)]()
+        let (node, _) : (TreeNode<T,U>, PageStatus) = try mediator.readPage(root)
+        _ = try? node.walk(mediator: mediator, between: between) { (leaf) in
+            for (k,v) in leaf.pairs where k >= between.0 && k <= between.1 {
+                pairs.append((k,v))
+            }
+        }
+        let i = pairs.makeIterator()
+        return AnyIterator(i)
+    }
     
-    // TODO: move the implementations of these methods from TreeNode to inline code here in Tree
+    public func makeIterator() -> AnyIterator<(T,U)> {
+        // TODO: convert this to pipeline the iterator results
+        var pairs = [(T,U)]()
+        do {
+            let (node, _) : (TreeNode<T,U>, PageStatus) = try mediator.readPage(root)
+            try node.walk(mediator: mediator) { (leaf) in
+                pairs.append(contentsOf: leaf.pairs)
+            }
+        } catch {}
+        let i = pairs.makeIterator()
+        return AnyIterator(i)
+    }
+    
     public func walk(between: (T,T), onPairs: @noescape ([(T,U)]) throws -> ()) throws {
         let (node, _) : (TreeNode<T,U>, PageStatus) = try mediator.readPage(root)
         var elements = [(T,U)]()
@@ -51,13 +70,6 @@ public class Tree<T : protocol<BufferSerializable,Comparable>, U : BufferSeriali
             }
         }
         try onPairs(elements)
-    }
-    
-    public func walk(onPairs: @noescape ([(T,U)]) throws -> ()) throws {
-        let (node, _) : (TreeNode<T,U>, PageStatus) = try mediator.readPage(root)
-        try node.walk(mediator: mediator) { (leaf) in
-            try onPairs(leaf.pairs)
-        }
     }
     
     public func contains(key : T) -> Bool {
@@ -192,7 +204,7 @@ public class Tree<T : protocol<BufferSerializable,Comparable>, U : BufferSeriali
             }
         }
         
-        guard path.count == 0 else { fatalError("update of ancestors not implemented yet") } //  TODO: update child pointers in ancestors
+        guard path.count == 0 else { fatalError("update of tree ancestors failed") }
         
         var rootPid : PageId
 //        print("finished walk to tree root with \(newPairs.count) pairs")
@@ -249,7 +261,6 @@ public final class TreeLeaf<T : protocol<BufferSerializable,Comparable>, U : Buf
             self.serializedSize += k.serializedSize
             self.serializedSize += v.serializedSize
         }
-        //        throw DatabaseError.OverflowError("TODO: Tree leaf node is over-full (testing)")
     }
     
     convenience init<V : IteratorProtocol where V.Element == (T,U)>(version : UInt64, pageSize: Int, pairs iter: inout PeekableIterator<V>) {
@@ -352,7 +363,6 @@ public final class TreeInternal<T : protocol<BufferSerializable,Comparable>> {
             self.serializedSize += k.serializedSize
             self.serializedSize += v.serializedSize
         }
-        //        throw DatabaseError.OverflowError("TODO: Tree internal node is over-full (testing)")
     }
     
     convenience init(version : UInt64, pageSize: Int, totalCount : UInt64, pairs: [(T,PageId)]) throws {
@@ -466,6 +476,7 @@ private enum TreeNode<T : protocol<BufferSerializable,Comparable>, U : BufferSer
         }
     }
     
+    // TODO: make an Iterator version of this method
     func walk(mediator : RMediator, between: (T,T), onEachLeaf cb: @noescape (TreeLeaf<T,U>) throws -> ()) throws {
         switch self {
         case .leafNode(let l):
@@ -488,6 +499,8 @@ private enum TreeNode<T : protocol<BufferSerializable,Comparable>, U : BufferSer
             }
         }
     }
+    
+    // TODO: make an Iterator version of this method
     func walk(mediator : RMediator, in range: Range<T>, onEachLeaf cb: @noescape (TreeLeaf<T,U>) throws -> ()) throws {
         switch self {
         case .leafNode(let l):
@@ -510,6 +523,8 @@ private enum TreeNode<T : protocol<BufferSerializable,Comparable>, U : BufferSer
             }
         }
     }
+    
+    // TODO: make an Iterator version of this method
     func walk(mediator : RMediator, onEachLeaf cb: @noescape (TreeLeaf<T,U>) throws -> ()) throws {
         switch self {
         case .leafNode(let l):

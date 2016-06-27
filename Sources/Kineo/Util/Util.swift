@@ -117,12 +117,6 @@ public protocol BufferSerializable {
 }
 
 extension BufferSerializable {
-    // TODO: Remove this at some point so that all code uses the base version: serialize(to buffer : inout UnsafeMutablePointer<Void>) throws
-//    func serialize(to buffer : UnsafeMutablePointer<Void>) throws {
-//        var ptr = buffer
-//        try serialize(to: &ptr, mediator: nil, maximumSize: Int.max)
-//    }
-
     func serialize(to buffer: inout UnsafeMutablePointer<Void>) throws {
         try serialize(to: &buffer, mediator: nil, maximumSize: Int.max)
     }
