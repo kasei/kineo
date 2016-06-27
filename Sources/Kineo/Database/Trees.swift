@@ -98,7 +98,7 @@ public class Tree<T : protocol<BufferSerializable,Comparable>, U : BufferSeriali
         if leaf.spaceForPair(pair, pageSize: m.pageSize) {
 //            print("- there is space in the \(leafStatus) leaf for the add")
             try leaf.addPair(pair)
-            let max = leaf.interval!.max
+            let max = leaf.max!
             
             let leafNode : TreeNode<T,U> = .leafNode(leaf)
             if case .dirty(let pid) = leafStatus {
@@ -121,7 +121,7 @@ public class Tree<T : protocol<BufferSerializable,Comparable>, U : BufferSeriali
             for pairs in [lpairs, rpairs] {
                 let leaf        = try TreeLeaf(version: m.version, pageSize: m.pageSize, pairs: pairs)
                 let leafNode : TreeNode<T,U> = .leafNode(leaf)
-                let max         = leaf.interval!.max
+                let max         = leaf.max!
                 if case .dirty(let pid) = leafStatus {
                     try m.update(page: pid, with: leafNode)
                     newPairs.append((max, pid))
@@ -144,7 +144,7 @@ public class Tree<T : protocol<BufferSerializable,Comparable>, U : BufferSeriali
 //                print("- there is space in the \(status) internal for the add")
                 
                 try node.addPairs(newPairs, replacingIndex: index, totalCount: totalCount)
-                let max         = node.interval!.max
+                let max         = node.max!
                 
                 let internalNode : TreeNode<T,U> = .internalNode(node)
                 if case .dirty(let pid) = status {
@@ -179,7 +179,7 @@ public class Tree<T : protocol<BufferSerializable,Comparable>, U : BufferSeriali
                     
                     let node    = try TreeInternal(version: m.version, pageSize: m.pageSize, totalCount: total, pairs: pairs)
                     let internalNode : TreeNode<T,U> = .internalNode(node)
-                    let max     = node.interval!.max
+                    let max     = node.max!
                     
                     if let pid = availablePageForReuse.popLast() {
                         try m.update(page: pid, with: internalNode)
@@ -232,15 +232,23 @@ public class Tree<T : protocol<BufferSerializable,Comparable>, U : BufferSeriali
  
  **/
 
-public class TreeLeaf<T : protocol<BufferSerializable,Comparable>, U : BufferSerializable> {
+public final class TreeLeaf<T : protocol<BufferSerializable,Comparable>, U : BufferSerializable> {
     internal var typeCode : UInt32
     public var version : UInt64
     public var pairs : [(T,U)]
-
+    public var serializedSize : Int
+    public var max : T?
+    
     init(version : UInt64, pageSize: Int, typeCode : UInt32, pairs : [(T,U)]) throws {
         self.version = version
         self.pairs = pairs
         self.typeCode = typeCode
+        self.max = pairs.count == 0 ? nil : pairs.last!.0
+        self.serializedSize = cookieHeaderSize
+        for (k,v) in pairs {
+            self.serializedSize += k.serializedSize
+            self.serializedSize += v.serializedSize
+        }
         //        throw DatabaseError.OverflowError("TODO: Tree leaf node is over-full (testing)")
     }
     
@@ -250,7 +258,7 @@ public class TreeLeaf<T : protocol<BufferSerializable,Comparable>, U : BufferSer
         
         var next = iter.peek()
         while next != nil {
-            let serializedSize  = next!.0.serializedSize + next!.1.serializedSize
+            let serializedSize = next!.0.serializedSize + next!.1.serializedSize
             if remainingBytes < serializedSize {
                 break
             }
@@ -265,7 +273,7 @@ public class TreeLeaf<T : protocol<BufferSerializable,Comparable>, U : BufferSer
     convenience init(version : UInt64, pageSize: Int, pairs: [(T,U)]) throws {
         var remainingBytes = pageSize - cookieHeaderSize
         for (key, value) in pairs {
-            let serializedSize  = key.serializedSize + value.serializedSize
+            let serializedSize = key.serializedSize + value.serializedSize
             if remainingBytes < serializedSize {
                 throw DatabaseError.SerializationError("Tree leaf node overflow")
             }
@@ -285,29 +293,16 @@ public class TreeLeaf<T : protocol<BufferSerializable,Comparable>, U : BufferSer
     }
     
     public var totalCount : UInt64 { return UInt64(pairs.count) }
-    var interval : (min: T, max: T)? {
-        if pairs.count == 0 {
-            return nil
-        } else {
-            return (pairs.first!.0, pairs.last!.0)
-        }
-    }
     
-    var serializedSize : Int {
-        var size = cookieHeaderSize
-        for (k,v) in self.pairs {
-            size += k.serializedSize
-            size += v.serializedSize
-        }
-        return size
-    }
-    
-    func spaceForPair(_ pair : (T,U), pageSize : Int) -> Bool {
+    @inline(__always) func spaceForPair(_ pair : (T,U), pageSize : Int) -> Bool {
         return self.serializedSize + pair.0.serializedSize + pair.1.serializedSize <= pageSize
     }
     
     func addPair(_ pair : (T,U)) throws {
         pairs.insertSorted(pair) { (l,r) in return l.0 < r.0 }
+        self.serializedSize += pair.0.serializedSize
+        self.serializedSize += pair.1.serializedSize
+        self.max = self.pairs.last!.0
     }
     
     func serialize(to buffer: UnsafeMutablePointer<Void>, pageSize : Int) throws {
@@ -338,17 +333,25 @@ public class TreeLeaf<T : protocol<BufferSerializable,Comparable>, U : BufferSer
     }
 }
 
-public class TreeInternal<T : protocol<BufferSerializable,Comparable>> {
+public final class TreeInternal<T : protocol<BufferSerializable,Comparable>> {
     internal var typeCode : UInt32
     public var version : UInt64
     public var pairs : [(T,PageId)]
     public var totalCount : UInt64
-
+    public var serializedSize : Int
+    public var max : T?
+    
     init(version : UInt64, pageSize : Int, totalCount : UInt64, typeCode : UInt32, pairs : [(T,PageId)]) throws {
         self.version = version
         self.pairs = pairs
         self.totalCount = totalCount
         self.typeCode = typeCode
+        self.max = pairs.count == 0 ? nil : pairs.last!.0
+        self.serializedSize = cookieHeaderSize
+        for (k,v) in pairs {
+            self.serializedSize += k.serializedSize
+            self.serializedSize += v.serializedSize
+        }
         //        throw DatabaseError.OverflowError("TODO: Tree internal node is over-full (testing)")
     }
     
@@ -393,27 +396,7 @@ public class TreeInternal<T : protocol<BufferSerializable,Comparable>> {
         }
     }
     
-    var interval : (min: T, max: T)? {
-        if pairs.count == 0 {
-            return nil
-        } else {
-            let first = pairs[0].0
-            let mn = pairs.map { $0.0 }.reduce(first, combine: min)
-            let mx = pairs.map { $0.0 }.reduce(first, combine: max)
-            return (mn, mx)
-        }
-    }
-    
-    var serializedSize : Int {
-        var size = cookieHeaderSize
-        for (k,v) in self.pairs {
-            size += k.serializedSize
-            size += v.serializedSize
-        }
-        return size
-    }
-    
-    func spaceForPairs(_ pairs : [(T,PageId)], replacingIndex index : Int, pageSize : Int) -> Bool {
+    @inline(__always) func spaceForPairs(_ pairs : [(T,PageId)], replacingIndex index : Int, pageSize : Int) -> Bool {
         let remove = self.pairs[index]
         let removeSize = remove.0.serializedSize + remove.1.serializedSize
         let addSize = pairs.map { $0.0.serializedSize + $0.1.serializedSize }.reduce(0, combine: +)
@@ -422,7 +405,16 @@ public class TreeInternal<T : protocol<BufferSerializable,Comparable>> {
     
     func addPairs(_ newPairs : [(T,PageId)], replacingIndex index : Int, totalCount newTotal: UInt64) throws {
         self.totalCount = newTotal
+        
+        let replacing = self.pairs[index]
+        self.serializedSize -= replacing.0.serializedSize + replacing.1.serializedSize
+        for (k,v) in newPairs {
+            self.serializedSize += k.serializedSize
+            self.serializedSize += v.serializedSize
+        }
+        
         self.pairs.replaceSubrange(index...index, with: newPairs)
+        self.max = self.pairs.last!.0
     }
     
     func serialize(to buffer : UnsafeMutablePointer<Void>, pageSize : Int) throws {
@@ -459,11 +451,9 @@ private enum TreeNode<T : protocol<BufferSerializable,Comparable>, U : BufferSer
     var maxKey : T? {
         switch self {
         case .leafNode(let l):
-            guard let interval = l.interval else { return nil }
-            return interval.max
+            return l.max
         case .internalNode(let i):
-            guard let interval = i.interval else { return nil }
-            return interval.max
+            return i.max
         }
     }
     
