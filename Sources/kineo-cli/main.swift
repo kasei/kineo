@@ -9,22 +9,12 @@
 import Foundation
 
 private func generateIDQuadsAddingTerms<I : IdentityMap, R : protocol<Comparable, DefinedTestable, BufferSerializable>, S : Sequence where I.Result == R, I.Element == Term, S.Iterator.Element == Quad>(mediator : RWMediator, idGenerator: I, quads : S) throws -> AnyIterator<IDQuad<R>> {
-    var termCount = 0
     var idquads = [IDQuad<R>]()
-    var i2tpairs = [(R, Term)]()
     for quad in quads {
         var ids = [R]()
         for term in quad {
-            if let id = idGenerator.id(for: term) {
-                ids.append(id)
-            } else {
-                termCount += 1
-                let id = try idGenerator.getOrSetID(for: term)
-                ids.append(id)
-                i2tpairs.append((id, term))
-                termCount += 1
-            }
-            
+            let id = try idGenerator.getOrSetID(for: term)
+            ids.append(id)
         }
         idquads.append(IDQuad(ids[0], ids[1], ids[2], ids[3]))
     }
