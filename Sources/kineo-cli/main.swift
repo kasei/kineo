@@ -69,6 +69,31 @@ func serialize(database : FilePageDatabase) throws -> Int {
     return count
 }
 
+func output(database : FilePageDatabase) throws -> Int {
+    try database.read { (m) in
+        guard let store = try? QuadStore(mediator: m) else { return }
+        for (k,v) in store.id {
+            print("\(k) -> \(v)")
+        }
+    }
+    return try serialize(database: database)
+}
+
+func match(database : FilePageDatabase) throws -> Int {
+    var count = 0
+    let parser = NTriplesPatternParser(reader: "")
+    try database.read { (m) in
+        guard let store = try? QuadStore(mediator: m) else { return }
+        guard let pattern = parser.parsePattern(line: "?s <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> ?name ?graph") else { return }
+        guard let quads = try? store.quads(matching: pattern) else { return }
+        for quad in quads {
+            count += 1
+            print("- \(quad)")
+        }
+    }
+    return count
+}
+
 let args = Process.arguments
 var pageSize = 4096
 guard args.count >= 2 else { print("Usage: kineo database.db rdf.nt"); exit(1) }
@@ -84,7 +109,9 @@ if args.count > 2 {
         count = try parse(database: database, filename: rdf, startTime: startTime)
     }
 } else {
-    count = try serialize(database: database)
+    count = try output(database: database)
+//    count = try serialize(database: database)
+//    count = try match(database: database)
 }
 
 let endTime = getCurrentDateSeconds()
