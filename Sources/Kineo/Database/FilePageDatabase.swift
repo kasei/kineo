@@ -110,7 +110,7 @@ public class FilePageDatabase : Database {
                 let header = DatabaseHeaderPage(version: version, roots: [("sys",0)])
                 try header.serialize(to: b, status: .unassigned, pageSize: pageSize)
             } catch { return nil }
-            pwrite(fd, b, pageSize, 0)
+            guard pwrite(fd, b, pageSize, 0) != -1 else { return nil }
             size = pageSize
             pageCount = 1
             b.deinitialize(count: pageSize)
