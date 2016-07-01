@@ -469,11 +469,28 @@ extension PersistentTermIdentityMap {
     }
 
     private func pack(string: String) -> Result? {
-        print("TODO: pack inlined xsd:string values")
-        return nil
+        guard string.utf8.count <= 7 else { return nil }
+        print("packing inlined xsd:string value: '\(string)'")
+        var id : UInt64 = UInt64(0x15) << 56
+        for (i, u) in string.utf8.enumerated() {
+            let shift = UInt64(8 * (6 - i))
+            let b : UInt64 = UInt64(u) << shift
+            id += b
+        }
+        return id
     }
     
-    private func unpack(string: UInt64) -> Element? {
+    private func unpack(string value: UInt64) -> Element? {
+        var buffer = value.bigEndian
+        var string : String? = nil
+        withUnsafePointer(&buffer) { (p) in
+            let bytes = UnsafePointer<UInt8>(p)
+            string = String(validatingUTF8: UnsafePointer<CChar>(bytes.advanced(by: 1)))
+        }
+        
+        if let string = string {
+            return Term(value: string, type: .datatype("http://www.w3.org/2001/XMLSchema#string"))
+        }
         print("TODO: unpack inlined xsd:string values")
         return nil
     }
@@ -577,7 +594,7 @@ extension PersistentTermIdentityMap {
         case 9:
             return Term(value: "http://www.w3.org/2000/01/rdf-schema#isDefinedBy", type: .iri)
         case 256..<512:
-            return Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#\(value)", type: .iri)
+            return Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#_\(value-256)", type: .iri)
         default:
             return nil
         }
