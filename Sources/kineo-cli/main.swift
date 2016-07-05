@@ -21,11 +21,12 @@ func setup(database : FilePageDatabase, startTime : UInt64) throws {
 }
 
 func parse(database : FilePageDatabase, filename : String, startTime : UInt64) throws -> Int {
-    let graph = Term(value: filename, type: .iri)
-    let reader = FileReader(filename: filename)
-    let parser = NTriplesParser(reader: reader)
+    let reader  = FileReader(filename: filename)
+    let parser  = NTriplesParser(reader: reader)
+    guard let path = NSURL(fileURLWithPath: filename).absoluteString else { throw DatabaseError.DataError("Not a valid graph path: \(filename)") }
+    let graph   = Term(value: path, type: .iri)
     
-    var count = 0
+    var count   = 0
     let quads = parser.makeIterator().map { (triple) -> Quad in
         count += 1
         return Quad(subject: triple.subject, predicate: triple.predicate, object: triple.object, graph: graph)
