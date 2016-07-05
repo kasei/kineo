@@ -484,14 +484,22 @@ extension PersistentTermIdentityMap {
         var buffer = value.bigEndian
         var string : String? = nil
         withUnsafePointer(&buffer) { (p) in
-            let bytes = UnsafePointer<UInt8>(p)
-            string = String(validatingUTF8: UnsafePointer<CChar>(bytes.advanced(by: 1)))
+            let bytes = UnsafePointer<CChar>(p)
+            var chars = [CChar]()
+            for i in 1...7 {
+                chars.append(CChar(bytes[i]))
+            }
+            chars.append(0)
+            chars.withUnsafeBufferPointer { (q) in
+                if let p = q.baseAddress {
+                    string = String(utf8String: p)
+                }
+            }
         }
         
         if let string = string {
             return Term(value: string, type: .datatype("http://www.w3.org/2001/XMLSchema#string"))
         }
-        print("TODO: unpack inlined xsd:string values")
         return nil
     }
     
