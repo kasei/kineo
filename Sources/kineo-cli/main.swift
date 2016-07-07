@@ -23,7 +23,11 @@ func setup(database : FilePageDatabase, startTime : UInt64) throws {
 func parse(database : FilePageDatabase, filename : String, startTime : UInt64) throws -> Int {
     let reader  = FileReader(filename: filename)
     let parser  = NTriplesParser(reader: reader)
+#if os (OSX)
     guard let path = NSURL(fileURLWithPath: filename).absoluteString else { throw DatabaseError.DataError("Not a valid graph path: \(filename)") }
+#else
+    let path = NSURL(fileURLWithPath: filename).absoluteString
+#endif
     let graph   = Term(value: path, type: .iri)
     
     var count   = 0
