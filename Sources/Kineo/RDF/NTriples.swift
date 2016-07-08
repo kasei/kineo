@@ -225,6 +225,31 @@ public class NTriplesPatternParser<T : LineReadable> : NTriplesParser<T> {
             }
         } while true
     }
+    
+    public func patternIterator() -> AnyIterator<QuadPattern> {
+        let fr = self.reader
+        let lines = fr.lines()
+        return AnyIterator { () -> QuadPattern? in
+            LINE: repeat {
+                guard let line = lines.next() else { return nil }
+                var chars = PeekableIterator(generator: line.unicodeScalars.makeIterator())
+                chars.dropWhile { $0 == " " || $0 == "\t" }
+                if chars.peek() == "#" { continue LINE }
+                var nodes : [Node] = []
+                repeat {
+                    if let t = self.parseTerm(&chars) {
+                        nodes.append(.bound(t))
+                    } else if let s = self.parseVariable(&chars) {
+                        nodes.append(.variable(s))
+                    } else {
+                        continue LINE
+                    }
+                } while nodes.count != 4
+                return QuadPattern(subject: nodes[0], predicate: nodes[1], object: nodes[2], graph: nodes[3])
+            } while true
+        }
+    }
+    
     public func parsePattern(line : String) -> QuadPattern? {
         var chars = PeekableIterator(generator: line.unicodeScalars.makeIterator())
         chars.dropWhile { $0 == " " || $0 == "\t" }

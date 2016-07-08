@@ -8,6 +8,27 @@
 
 import Foundation
 
+public struct Result {
+    var bindings : [String:Term]
+    public func join(_ rhs : Result) -> Result? {
+        let lvars = Set(bindings.keys)
+        let rvars = Set(rhs.bindings.keys)
+        let shared = lvars.intersection(rvars)
+        for key in shared {
+            guard bindings[key] == rhs.bindings[key] else { return nil }
+        }
+        var b = bindings
+        for (k,v) in rhs.bindings {
+            b[k] = v
+        }
+        return Result(bindings: b)
+    }
+    
+    public subscript(key : String) -> Term? {
+        return bindings[key]
+    }
+}
+
 public class QuadStore : Sequence {
     typealias IDType = UInt64
     private var mediator : RMediator
@@ -179,6 +200,41 @@ public class QuadStore : Sequence {
         }
     }
  
+    public func results(matching pattern: QuadPattern) throws -> AnyIterator<Result> {
+        var variables   = [Int:String]()
+        var verify      = [Int:Term]()
+        for (i, node) in [pattern.subject, pattern.predicate, pattern.object, pattern.graph].enumerated() {
+            switch node {
+            case .variable(let name):
+                variables[i] = name
+            case .bound(let term):
+                verify[i] = term
+            }
+        }
+        let quads = try self.quads(matching: pattern).makeIterator()
+        return AnyIterator {
+            OUTER: repeat {
+                guard let quad = quads.next() else { return nil }
+                let quadTerms = [quad.subject, quad.predicate, quad.object, quad.graph]
+                for (i, term) in verify {
+                    guard term == quadTerms[i] else { continue OUTER }
+                }
+                
+                var bindings = [String:Term]()
+                for (i, term) in [quad.subject, quad.predicate, quad.object, quad.graph].enumerated() {
+                    if let name = variables[i] {
+                        if let existing = bindings[name] {
+                            guard existing == term else { continue OUTER }
+                        } else {
+                            bindings[name] = term
+                        }
+                    }
+                }
+                return Result(bindings: bindings)
+            } while true
+        }
+    }
+    
     public func quads(matching pattern: QuadPattern) throws -> AnyIterator<Quad> {
         let umin = UInt64.min
         let umax = UInt64.max
