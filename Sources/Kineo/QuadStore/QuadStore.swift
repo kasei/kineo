@@ -8,7 +8,7 @@
 
 import Foundation
 
-public struct Result {
+public struct Result : CustomStringConvertible {
     var bindings : [String:Term]
     public func join(_ rhs : Result) -> Result? {
         let lvars = Set(bindings.keys)
@@ -26,6 +26,10 @@ public struct Result {
     
     public subscript(key : String) -> Term? {
         return bindings[key]
+    }
+    
+    public var description : String {
+        return "Result\(bindings.description)"
     }
 }
 
@@ -286,6 +290,20 @@ public class QuadStore : Sequence {
         } else {
             throw DatabaseError.DataError("No index named '\(index_name) found")
         }
+    }
+}
+
+public struct TriplePattern : CustomStringConvertible {
+    public var subject : Node
+    public var predicate : Node
+    public var object : Node
+    public init(subject: Node, predicate: Node, object: Node) {
+        self.subject = subject
+        self.predicate = predicate
+        self.object = object
+    }
+    public var description : String {
+        return "\(subject) \(predicate) \(object) ."
     }
 }
 

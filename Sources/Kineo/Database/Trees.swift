@@ -523,7 +523,6 @@ public final class TreeInternal<T : protocol<BufferSerializable,Comparable>> {
     
     convenience init?(mediator : RMediator, buffer : UnsafePointer<Void>, status: PageStatus) {
         guard let (_, version, typeCode, _, totalCount, gen) = try? buffer.deserializeTree(mediator: mediator, type: .internalTreeNode, pageSize: mediator.pageSize, keyType: T.self, valueType: PageId.self) else { return nil }
-        //        myprintf("# deserializing internal type %x \(pairName(typeCode))\n", typeCode)
         let pairs = Array(gen)
         do {
             try self.init(version: version, pageSize: mediator.pageSize, totalCount: totalCount, typeCode: typeCode, pairs: pairs)

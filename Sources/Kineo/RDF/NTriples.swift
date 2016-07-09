@@ -8,10 +8,6 @@
 
 import Foundation
 
-public protocol LineReadable {
-    func lines() -> AnyIterator<String>
-}
-
 public class NTriplesParser<T : LineReadable> : Sequence {
     var blanks : [String:Term]
     let reader : T
@@ -267,69 +263,3 @@ public class NTriplesPatternParser<T : LineReadable> : NTriplesParser<T> {
         return QuadPattern(subject: nodes[0], predicate: nodes[1], object: nodes[2], graph: nodes[3])
     }
 }
-
-extension String : LineReadable {
-    public func lines() -> AnyIterator<String> {
-        let lines = self.components(separatedBy: "\n")
-        return AnyIterator(lines.makeIterator())
-    }
-}
-
-public struct FileReader : LineReadable {
-    let filename : String
-    public init(filename: String) {
-        self.filename = filename
-    }
-    
-    public func makeIterator() -> AnyIterator<CChar> {
-        let fd = open(filename, O_RDONLY)
-        let blockSize = 256
-        var buffer : [CChar] = [CChar](repeating: 0, count: 1+blockSize)
-        var bufferBytes = 0
-        var currentIndex = 0
-        return AnyIterator { () -> CChar? in
-            if currentIndex >= bufferBytes {
-                bufferBytes = 0
-                buffer.withUnsafeMutableBufferPointer { (b) -> () in
-                    if let base = b.baseAddress {
-                        memset(base, 0, blockSize+1)
-                        bufferBytes = read(fd, base, blockSize)
-                    }
-                }
-                //                print("read \(bufferBytes) bytes")
-                if bufferBytes <= 0 {
-                    return nil
-                }
-                currentIndex = 0
-            }
-            let i = currentIndex
-            currentIndex += 1
-            return buffer[i]
-        }
-    }
-
-    public func lines() -> AnyIterator<String> {
-        let chargen = makeIterator()
-        var chars = [CChar]()
-        return AnyIterator { () -> String? in
-            repeat {
-                if let char = chargen.next() {
-                    if char == 10 {
-                        chars.append(0)
-                        if let line = chars.withUnsafeMutableBufferPointer({ (b) -> String? in if case .some(let ptr) = b.baseAddress { return String(validatingUTF8: ptr) } else { return nil } }) {
-                            chars = []
-                            return line
-                        } else {
-                            chars = []
-                        }
-                    } else {
-                        chars.append(char)
-                    }
-                } else {
-                    return nil
-                }
-            } while true
-        }
-    }
-}
-

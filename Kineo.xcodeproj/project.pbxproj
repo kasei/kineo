@@ -24,6 +24,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		377C49F41D3061EF006222B6 /* Query.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Query.swift; sourceTree = "<group>"; };
 		379C05631D219B9A00ACE54D /* libKineo.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libKineo.dylib; path = .build/debug/libKineo.dylib; sourceTree = "<group>"; };
 		37B839821D1DECF700BE718B /* kineo-cli */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "kineo-cli"; sourceTree = BUILT_PRODUCTS_DIR; };
 		37B839961D1E06B500BE718B /* Database.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Database.swift; sourceTree = "<group>"; };
@@ -110,6 +111,7 @@
 			isa = PBXGroup;
 			children = (
 				37B8399B1D1E06B500BE718B /* QuadStore.swift */,
+				377C49F41D3061EF006222B6 /* Query.swift */,
 			);
 			path = QuadStore;
 			sourceTree = "<group>";
