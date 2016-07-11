@@ -92,7 +92,27 @@ public class QuadStore : Sequence {
         let pairs = table.map { mapping(quad: $0.0) }.sorted().map { ($0, empty) }
         _ = try m.create(tree: index, pairs: pairs)
     }
-
+    
+    public func graphs() -> AnyIterator<Term> {
+        do {
+        guard let table : Table<IDQuad<UInt64>,Empty> = mediator.table(name: "quads") else { throw DatabaseError.DataError("Failed to load quads table") }
+            var graphids = Set<UInt64>()
+            for (k, _) in table {
+                graphids.insert(k[3])
+            }
+            
+            let idmap = try PersistentTermIdentityMap(mediator: mediator)
+            let graphs = Array(graphids).map { (gid) -> Term in
+                guard let g = idmap.term(for: gid) else { fatalError() }
+                return g
+            }
+            return AnyIterator(graphs.makeIterator())
+        } catch let e {
+            warn("*** \(e)")
+        }
+        return AnyIterator { return nil }
+    }
+    
     public func makeIterator() -> AnyIterator<Quad> {
         let treeName = QuadStore.defaultIndex
         do {
@@ -813,5 +833,9 @@ public struct Result : CustomStringConvertible {
     
     public var description : String {
         return "Result\(bindings.description)"
+    }
+    
+    public mutating func extend(variable : String, value : Term) {
+        self.bindings[variable] = value
     }
 }

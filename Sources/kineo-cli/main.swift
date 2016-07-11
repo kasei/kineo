@@ -59,8 +59,10 @@ func query(database : FilePageDatabase, filename : String) throws -> Int {
     try database.read { (m) in
         do {
             let store       = try QuadStore(mediator: m)
-            let e           = SimpleQueryEvaluator(store: store, activeGraph: Term(value: "http://base/", type: .iri))
-            for result in try e.evaluate(algebra: query) {
+            guard let defaultGraph = store.graphs().next() else { return }
+            warn("Using default graph \(defaultGraph)")
+            let e           = SimpleQueryEvaluator(store: store, defaultGraph: defaultGraph)
+            for result in try e.evaluate(algebra: query, activeGraph: defaultGraph) {
                 count += 1
                 print("\(count)\t\(result)")
             }
@@ -110,7 +112,7 @@ func match(database : FilePageDatabase) throws -> Int {
     let parser = NTriplesPatternParser(reader: "")
     try database.read { (m) in
         guard let store = try? QuadStore(mediator: m) else { return }
-        guard let pattern = parser.parsePattern(line: "?s <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> ?name ?graph") else { return }
+        guard let pattern = parser.parseQuadPattern(line: "?s <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> ?name ?graph") else { return }
         guard let quads = try? store.quads(matching: pattern) else { return }
         for quad in quads {
             count += 1

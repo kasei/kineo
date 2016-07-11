@@ -35,7 +35,6 @@ public indirect enum Expression {
 }
 
 public indirect enum Algebra {
-    case identity
     case quad(QuadPattern)
     case triple(TriplePattern)
     case bgp([TriplePattern])
@@ -52,23 +51,26 @@ public indirect enum Algebra {
     // TODO: add property paths
     // TODO: add aggregation
     
+    private func inscopeUnion(children : [Algebra]) -> Set<String> {
+        if children.count == 0 {
+            return Set()
+        }
+        var vars = children.map { $0.inscope }
+        while vars.count > 1 {
+            let l = vars.popLast()!
+            let r = vars.popLast()!
+            vars.append(l.union(r))
+        }
+        return vars.popLast()!
+    }
+    
     public var inscope : Set<String> {
         var variables = Set<String>()
         switch self {
-        case .identity: return Set()
         case .project(_, let vars):
             return Set(vars)
         case .innerJoin(let children), .union(let children):
-            if children.count == 0 {
-                return Set()
-            }
-            var vars = children.map { $0.inscope }
-            while vars.count > 1 {
-                let l = vars.popLast()!
-                let r = vars.popLast()!
-                vars.append(l.union(r))
-            }
-            return vars.popLast()!
+            return inscopeUnion(children: children)
         case .triple(let t):
             for node in [t.subject, t.predicate, t.object] {
                 if case .variable(let name) = node {
@@ -83,7 +85,31 @@ public indirect enum Algebra {
                 }
             }
             return variables
-        default: fatalError()
+        case .bgp(let triples):
+            if triples.count == 0 {
+                return Set()
+            }
+            var variables = Set<String>()
+            for t in triples {
+                for node in [t.subject, t.predicate, t.object] {
+                    if case .variable(let name) = node {
+                        variables.insert(name)
+                    }
+                }
+            }
+            return variables
+        case .leftOuterJoin(let lhs, let rhs, _):
+            return inscopeUnion(children: [lhs, rhs])
+        case .extend(let child, _, let v):
+            var variables = child.inscope
+            variables.insert(v)
+            return variables
+        case .filter(let child, _), .minus(let child, _), .distinct(let child), .slice(let child, _, _), .namedGraph(let child, .bound(_)):
+            return child.inscope
+        case .namedGraph(let child, .variable(let v)):
+            var variables = child.inscope
+            variables.insert(v)
+            return variables
         }
     }
 }
@@ -97,9 +123,10 @@ public class QueryParser<T : LineReadable> {
     }
     
     func parse(line : String) -> Algebra? {
-        var parts = line.components(separatedBy: " ")
-        let rest = parts.suffix(from: 1).joined(separator: " ")
+        var parts = line.components(separatedBy: " ").filter { $0 != "" && !$0.hasPrefix("\t") }
         guard parts.count > 0 else { return nil }
+        if parts[0].hasPrefix("#") { return nil }
+        let rest = parts.suffix(from: 1).joined(separator: " ")
         let op = parts[0]
         if op == "project" {
             guard let child = stack.popLast() else { return nil }
@@ -119,8 +146,21 @@ public class QueryParser<T : LineReadable> {
             }
         } else if op == "quad" {
             let parser = NTriplesPatternParser(reader: "")
-            guard let pattern = parser.parsePattern(line: rest) else { return nil }
+            guard let pattern = parser.parseQuadPattern(line: rest) else { return nil }
             return .quad(pattern)
+        } else if op == "triple" {
+            let parser = NTriplesPatternParser(reader: "")
+            guard let pattern = parser.parseTriplePattern(line: rest) else { return nil }
+            return .triple(pattern)
+        } else if op == "limit" {
+            guard let count = Int(rest) else { return nil }
+            guard let child = stack.popLast() else { return nil }
+            return .slice(child, offset: 0, limit: count)
+        } else if op == "graph" {
+            let parser = NTriplesPatternParser(reader: "")
+            guard let child = stack.popLast() else { return nil }
+            guard let graph = parser.parseNode(line: rest) else { return nil }
+            return .namedGraph(child, graph)
         }
         warn("Cannot parse query line: \(line)")
         return nil
@@ -129,7 +169,7 @@ public class QueryParser<T : LineReadable> {
     public func parse() -> Algebra? {
         let lines = self.reader.lines()
         for line in lines {
-            guard let algebra = self.parse(line: line) else { return nil }
+            guard let algebra = self.parse(line: line) else { continue }
             stack.append(algebra)
         }
         return stack.popLast()
@@ -138,14 +178,14 @@ public class QueryParser<T : LineReadable> {
 
 public class SimpleQueryEvaluator {
     var store : QuadStore
-    var activeGraph : Term
-    public init(store : QuadStore, activeGraph : Term) {
+    var defaultGraph : Term
+    public init(store : QuadStore, defaultGraph : Term) {
         self.store = store
-        self.activeGraph = activeGraph
+        self.defaultGraph = defaultGraph
     }
     
-    func evaluateUnion(_ patterns : [Algebra]) throws -> AnyIterator<Result> {
-        var iters = try patterns.map { try self.evaluate(algebra: $0) }
+    func evaluateUnion(_ patterns : [Algebra], activeGraph : Term) throws -> AnyIterator<Result> {
+        var iters = try patterns.map { try self.evaluate(algebra: $0, activeGraph: activeGraph) }
         return AnyIterator {
             repeat {
                 if iters.count == 0 {
@@ -158,7 +198,7 @@ public class SimpleQueryEvaluator {
         }
     }
     
-    func evaluateJoin(_ patterns : [Algebra]) throws -> AnyIterator<Result> {
+    func evaluateJoin(_ patterns : [Algebra], activeGraph : Term) throws -> AnyIterator<Result> {
         if patterns.count == 2 {
             var seen = [Set<String>]()
             for pattern in patterns {
@@ -176,8 +216,8 @@ public class SimpleQueryEvaluator {
             if intersection.count > 0 {
                 //                    warn("# using hash join on: \(intersection)")
                 let joinVariables = Array(intersection)
-                let lhs = Array(try self.evaluate(algebra: patterns[0]))
-                let rhs = Array(try self.evaluate(algebra: patterns[1]))
+                let lhs = Array(try self.evaluate(algebra: patterns[0], activeGraph: activeGraph))
+                let rhs = Array(try self.evaluate(algebra: patterns[1], activeGraph: activeGraph))
                 var results = [Result]()
                 hashJoin(joinVariables: joinVariables, lhs: lhs, rhs: rhs) { (result) in
                     results.append(result)
@@ -190,7 +230,7 @@ public class SimpleQueryEvaluator {
         if patterns.count > 0 {
             var patternResults = [[Result]]()
             for pattern in patterns {
-                let results     = try self.evaluate(algebra: pattern)
+                let results     = try self.evaluate(algebra: pattern, activeGraph: activeGraph)
                 patternResults.append(Array(results))
             }
             
@@ -204,7 +244,7 @@ public class SimpleQueryEvaluator {
         return AnyIterator { return nil }
     }
     
-    public func evaluate(algebra : Algebra) throws -> AnyIterator<Result> {
+    public func evaluate(algebra : Algebra, activeGraph : Term) throws -> AnyIterator<Result> {
         switch algebra {
         case .triple(let t):
             let quad = QuadPattern(subject: t.subject, predicate: t.predicate, object: t.object, graph: .bound(activeGraph))
@@ -212,17 +252,64 @@ public class SimpleQueryEvaluator {
         case .quad(let quad):
             return try store.results(matching: quad)
         case .innerJoin(let patterns):
-            return try self.evaluateJoin(patterns)
+            return try self.evaluateJoin(patterns, activeGraph: activeGraph)
         case .union(let patterns):
-            return try self.evaluateUnion(patterns)
+            return try self.evaluateUnion(patterns, activeGraph: activeGraph)
         case .project(let child, let vars):
-            let i = try self.evaluate(algebra: child)
+            let i = try self.evaluate(algebra: child, activeGraph: activeGraph)
             return AnyIterator {
                 guard let result = i.next() else { return nil }
                 return result.project(variables: vars)
             }
-        default:
+        case .namedGraph(let child, let graph):
+            if case .bound(let g) = graph {
+                return try evaluate(algebra: child, activeGraph: g)
+            } else {
+                guard case .variable(let gv) = graph else { fatalError() }
+                var iters = try store.graphs().filter { $0 != defaultGraph }.map { ($0, try evaluate(algebra: child, activeGraph: $0)) }
+                return AnyIterator {
+                    repeat {
+                        if iters.count == 0 {
+                            return nil
+                        }
+                        let (graph, i) = iters[0]
+                        guard var result = i.next() else { iters.remove(at: 0); continue }
+                        result.extend(variable: gv, value: graph)
+                        return result
+                    } while true
+                }
+            }
+        case .bgp(_):
             fatalError("Unimplemented: \(algebra)")
+        case .leftOuterJoin(_, _, _):
+            fatalError("Unimplemented: \(algebra)")
+        case .filter(_, _):
+            fatalError("Unimplemented: \(algebra)")
+        case .extend(_, _, _):
+            fatalError("Unimplemented: \(algebra)")
+        case .minus(_, _):
+            fatalError("Unimplemented: \(algebra)")
+        case .distinct(_):
+            fatalError("Unimplemented: \(algebra)")
+        case .slice(let child, let offset, let limit):
+            let i = try self.evaluate(algebra: child, activeGraph: activeGraph)
+            if let offset = offset {
+                for _ in 0..<offset {
+                    _ = i.next()
+                }
+            }
+            
+            if let limit = limit {
+                var seen = 0
+                return AnyIterator {
+                    guard seen < limit else { return nil }
+                    guard let item = i.next() else { return nil }
+                    seen += 1
+                    return item
+                }
+            } else {
+                return i
+            }
         }
     }
 }

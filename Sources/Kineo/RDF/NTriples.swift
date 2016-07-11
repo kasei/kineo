@@ -246,7 +246,20 @@ public class NTriplesPatternParser<T : LineReadable> : NTriplesParser<T> {
         }
     }
     
-    public func parsePattern(line : String) -> QuadPattern? {
+    public func parseNode(line : String) -> Node? {
+        var chars = PeekableIterator(generator: line.unicodeScalars.makeIterator())
+        chars.dropWhile { $0 == " " || $0 == "\t" }
+        if chars.peek() == "#" { return nil }
+        if let t = parseTerm(&chars) {
+            return .bound(t)
+        } else if let s = parseVariable(&chars) {
+            return .variable(s)
+        } else {
+            return nil
+        }
+    }
+    
+    public func parseQuadPattern(line : String) -> QuadPattern? {
         var chars = PeekableIterator(generator: line.unicodeScalars.makeIterator())
         chars.dropWhile { $0 == " " || $0 == "\t" }
         if chars.peek() == "#" { return nil }
@@ -261,5 +274,22 @@ public class NTriplesPatternParser<T : LineReadable> : NTriplesParser<T> {
             }
         } while nodes.count != 4
         return QuadPattern(subject: nodes[0], predicate: nodes[1], object: nodes[2], graph: nodes[3])
+    }
+    
+    public func parseTriplePattern(line : String) -> TriplePattern? {
+        var chars = PeekableIterator(generator: line.unicodeScalars.makeIterator())
+        chars.dropWhile { $0 == " " || $0 == "\t" }
+        if chars.peek() == "#" { return nil }
+        var nodes : [Node] = []
+        repeat {
+            if let t = parseTerm(&chars) {
+                nodes.append(.bound(t))
+            } else if let s = parseVariable(&chars) {
+                nodes.append(.variable(s))
+            } else {
+                return nil
+            }
+        } while nodes.count != 3
+        return TriplePattern(subject: nodes[0], predicate: nodes[1], object: nodes[2])
     }
 }
