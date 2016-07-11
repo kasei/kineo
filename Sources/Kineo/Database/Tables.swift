@@ -251,7 +251,7 @@ extension RWMediator {
             self.updateRoot(name: name, page: pid)
             return pid
         } else {
-            print("*** failed to create table '\(name)'")
+            warn("*** failed to create table '\(name)'")
             return nil
         }
     }

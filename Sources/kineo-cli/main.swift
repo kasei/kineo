@@ -14,7 +14,7 @@ func setup(database : FilePageDatabase, startTime : UInt64) throws {
         do {
             _ = try QuadStore.create(mediator: m)
         } catch let e {
-            print("*** \(e)")
+            warn("*** \(e)")
             throw DatabaseUpdateError.Rollback
         }
     }
@@ -35,7 +35,7 @@ func parse(database : FilePageDatabase, filename : String, startTime : UInt64) t
         count += 1
         return Quad(subject: triple.subject, predicate: triple.predicate, object: triple.object, graph: graph)
     }
-    print("\r\(quads.count) triples parsed")
+//    warn("\r\(quads.count) triples parsed")
     
     let version = startTime
     try database.update(version: version) { (m) in
@@ -43,7 +43,7 @@ func parse(database : FilePageDatabase, filename : String, startTime : UInt64) t
             let store = try QuadStore.create(mediator: m)
             try store.load(quads: quads)
         } catch let e {
-            print("*** \(e)")
+            warn("*** \(e)")
             throw DatabaseUpdateError.Rollback
         }
     }
@@ -54,7 +54,6 @@ func query(database : FilePageDatabase, filename : String) throws -> Int {
     let reader      = FileReader(filename: filename)
     let qp          = QueryParser(reader: reader)
     guard let query = qp.parse() else { fatalError() }
-    print("Query algebra: \(query)")
     
     var count       = 0
     try database.read { (m) in
@@ -63,10 +62,10 @@ func query(database : FilePageDatabase, filename : String) throws -> Int {
             let e           = SimpleQueryEvaluator(store: store, activeGraph: Term(value: "http://base/", type: .iri))
             for result in try e.evaluate(algebra: query) {
                 count += 1
-                print("- \(result)")
+                print("\(count)\t\(result)")
             }
         } catch let e {
-            print("*** \(e)")
+            warn("*** \(e)")
         }
     }
     return count
@@ -90,7 +89,7 @@ func serialize(database : FilePageDatabase) throws -> Int {
                 print("\(s) \(p) \(o) .")
             }
         } catch let e {
-            print("*** \(e)")
+            warn("*** \(e)")
         }
     }
     return count
@@ -121,6 +120,7 @@ func match(database : FilePageDatabase) throws -> Int {
     return count
 }
 
+let verbose = false
 let args = Process.arguments
 let pname = args[0]
 var pageSize = 4096
@@ -132,7 +132,7 @@ guard args.count >= 2 else {
     exit(1)
 }
 let filename = args[1]
-guard let database = FilePageDatabase(filename, size: pageSize) else { print("Failed to open \(filename)"); exit(1) }
+guard let database = FilePageDatabase(filename, size: pageSize) else { warn("Failed to open \(filename)"); exit(1) }
 let startTime = getCurrentDateSeconds()
 var count = 0
 
@@ -141,7 +141,7 @@ if args.count > 2 {
     let op = args[2]
     if op == "load" {
         for rdf in args.suffix(from: 3) {
-            warn("parsing \(rdf)")
+//            warn("parsing \(rdf)")
             count = try parse(database: database, filename: rdf, startTime: startTime)
         }
     } else if op == "query" {
@@ -154,10 +154,9 @@ if args.count > 2 {
                 let store = try QuadStore.create(mediator: m)
                 try store.addQuadIndex(index)
             } catch let e {
-                print("*** \(e)")
+                warn("*** \(e)")
                 throw DatabaseUpdateError.Rollback
             }
-            print("Added index: \(index)")
         }
     } else {
         warn("Unrecognized operation: '\(op)'")
@@ -171,6 +170,8 @@ if args.count > 2 {
 let endTime = getCurrentDateSeconds()
 let elapsed = endTime - startTime
 let tps = Double(count) / Double(elapsed)
-warn("elapsed time: \(elapsed)s (\(tps)/s)")
+if verbose {
+    warn("elapsed time: \(elapsed)s (\(tps)/s)")
+}
 
 

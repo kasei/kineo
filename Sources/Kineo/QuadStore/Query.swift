@@ -144,6 +144,20 @@ public class SimpleQueryEvaluator {
         self.activeGraph = activeGraph
     }
     
+    func evaluateUnion(_ patterns : [Algebra]) throws -> AnyIterator<Result> {
+        var iters = try patterns.map { try self.evaluate(algebra: $0) }
+        return AnyIterator {
+            repeat {
+                if iters.count == 0 {
+                    return nil
+                }
+                let i = iters[0]
+                guard let item = i.next() else { iters.remove(at: 0); continue }
+                return item
+            } while true
+        }
+    }
+    
     func evaluateJoin(_ patterns : [Algebra]) throws -> AnyIterator<Result> {
         if patterns.count == 2 {
             var seen = [Set<String>]()
@@ -199,6 +213,8 @@ public class SimpleQueryEvaluator {
             return try store.results(matching: quad)
         case .innerJoin(let patterns):
             return try self.evaluateJoin(patterns)
+        case .union(let patterns):
+            return try self.evaluateUnion(patterns)
         case .project(let child, let vars):
             let i = try self.evaluate(algebra: child)
             return AnyIterator {

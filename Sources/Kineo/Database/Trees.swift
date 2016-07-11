@@ -182,7 +182,7 @@ public class Tree<T : protocol<BufferSerializable,Comparable>, U : BufferSeriali
                 } while true
             }
         } catch let e {
-            print("*** \(e)")
+            warn("*** \(e)")
             return AnyIterator(pairs.makeIterator())
         }
     }
@@ -211,7 +211,7 @@ public class Tree<T : protocol<BufferSerializable,Comparable>, U : BufferSeriali
             let (node, _) : (TreeNode<T,U>, PageStatus) = try mediator.readPage(root)
             return node.get(key: key, mediator: mediator)
         } catch {}
-        print("*** No tree node found for root '\(root)'")
+        warn("*** No tree node found for root '\(root)'")
         return []
     }
     

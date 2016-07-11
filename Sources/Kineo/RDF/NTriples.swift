@@ -84,7 +84,7 @@ public class NTriplesParser<T : LineReadable> : Sequence {
     }
     
     func parseIRI<T : IteratorProtocol where T.Element == UnicodeScalar>(_ generator: inout PeekableIterator<T>) -> Term? {
-        guard generator.next() == .some("<") else { print("***"); return nil }
+        guard generator.next() == .some("<") else { warn("***"); return nil }
         var label = ""
         repeat {
             switch generator.peek() {
@@ -121,7 +121,7 @@ public class NTriplesParser<T : LineReadable> : Sequence {
     }
     
     func parseLiteral<T : IteratorProtocol where T.Element == UnicodeScalar>(_ generator: inout PeekableIterator<T>) -> Term? {
-        guard generator.next() == .some("\"") else { print("***"); return nil }
+        guard generator.next() == .some("\"") else { warn("***"); return nil }
         var label = ""
         repeat {
             switch generator.peek() {

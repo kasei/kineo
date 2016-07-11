@@ -353,7 +353,7 @@ public enum StringBuffer : BufferSerializable {
                 buffer += Int(length)
                 return .inline(string)
             } else {
-                print("*** Failed to deserialize UTF8 string")
+                warn("*** Failed to deserialize UTF8 string")
                 throw DatabaseError.SerializationError("Failed to deserialize UTF8 string")
             }
         case 2:
@@ -364,7 +364,7 @@ public enum StringBuffer : BufferSerializable {
                 buffer += Int(length)
                 return .large(string, pid)
             } else {
-                print("*** Failed to deserialize UTF8 string")
+                warn("*** Failed to deserialize UTF8 string")
                 throw DatabaseError.SerializationError("Failed to deserialize UTF8 string")
             }
         default:
@@ -440,7 +440,7 @@ internal func serializationCode<T : BufferSerializable>(from type: T.Type) -> UI
     } else if type == IDQuad<UInt64>.self {
         return 0x0100 + serializationCode(from: UInt64.self)
     } else {
-        print("*** unrecognized type for serialization: \(type)")
+        warn("*** unrecognized type for serialization: \(type)")
         return 0xffff
     }
 }
