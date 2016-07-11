@@ -226,6 +226,9 @@ public struct Term : CustomStringConvertible {
             return "\"\(value)\"^^<\(dt)>"
         }
     }
+    
+    static let trueValue = Term(value: "true", type: .datatype("http://www.w3.org/2001/XMLSchema#boolean"))
+    static let falseValue = Term(value: "true", type: .datatype("http://www.w3.org/2001/XMLSchema#boolean"))
 }
 
 extension Term : BufferSerializable {
@@ -256,10 +259,34 @@ extension Term : Hashable {
     }
 }
 
-extension Term : Comparable {}
+extension Term : Comparable {
+    var isNumeric : Bool {
+        switch type {
+        case .datatype("http://www.w3.org/2001/XMLSchema#integer"), .datatype("http://www.w3.org/2001/XMLSchema#float"):
+            return true
+        default:
+            return false
+        }
+    }
+    
+    var numericValue : Double {
+        switch type {
+        case .datatype("http://www.w3.org/2001/XMLSchema#integer"):
+            return Double(value) ?? 0.0
+        case .datatype("http://www.w3.org/2001/XMLSchema#float"):
+            return Double(value) ?? 0.0
+        default:
+            fatalError()
+        }
+    }
+}
+
 public func <(lhs: Term, rhs: Term) -> Bool {
     switch (lhs.type, rhs.type) {
     case (let a, let b) where a == b:
+        if lhs.isNumeric {
+            return lhs.numericValue < rhs.numericValue
+        }
         return lhs.value < rhs.value
     case (.blank, _):
         return true

@@ -50,11 +50,13 @@ func parse(database : FilePageDatabase, filename : String, startTime : UInt64) t
     return count
 }
 
-func query(database : FilePageDatabase, filename : String) throws -> Int {
+func parseQuery(database : FilePageDatabase, filename : String) throws -> Algebra? {
     let reader      = FileReader(filename: filename)
     let qp          = QueryParser(reader: reader)
-    guard let query = qp.parse() else { fatalError() }
-    
+    return qp.parse()
+}
+
+func query(database : FilePageDatabase, algebra query: Algebra) throws -> Int {
     var count       = 0
     try database.read { (m) in
         do {
@@ -122,7 +124,7 @@ func match(database : FilePageDatabase) throws -> Int {
     return count
 }
 
-let verbose = false
+let verbose = true
 let args = Process.arguments
 let pname = args[0]
 var pageSize = 4096
@@ -148,7 +150,12 @@ if args.count > 2 {
         }
     } else if op == "query" {
         let qfile = args[3]
-        count = try query(database: database, filename: qfile)
+        guard let algebra = try parseQuery(database: database, filename: qfile) else { fatalError() }
+        count = try query(database: database, algebra: algebra)
+    } else if op == "qparse" {
+        let qfile = args[3]
+        guard let algebra = try parseQuery(database: database, filename: qfile) else { fatalError() }
+        print(algebra.serialize())
     } else if op == "index" {
         let index = args[3]
         try database.update(version: startTime) { (m) in

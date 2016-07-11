@@ -8,9 +8,13 @@
 
 import Foundation
 
+enum QueryError : ErrorProtocol {
+    case evaluationError(String)
+    case typeError(String)
+}
+
 public indirect enum Expression {
-    case term(Term)
-    case variable(String)
+    case node(Node)
     case add(Expression, Expression)
     case sub(Expression, Expression)
     case div(Expression, Expression)
@@ -32,6 +36,25 @@ public indirect enum Expression {
     case langmatches(Expression, String)
     case bound(Expression)
     // TODO: add other expression functions
+    
+    public func evaluate(result : Result) throws -> Term {
+        switch self {
+        case .node(.bound(let term)):
+            return term
+        case .node(.variable(let name)):
+            if let term = result[name] {
+                return term
+            } else {
+                throw QueryError.typeError("Variable ?\(name) is unbound in result \(result)")
+            }
+        default:
+            throw QueryError.evaluationError("Cannot evaluate \(self) with result \(result)")
+        }
+    }
+    
+//    public func ebv(result : Result) -> Bool {
+//        
+//    }
 }
 
 public indirect enum Algebra {
@@ -47,7 +70,8 @@ public indirect enum Algebra {
     case minus(Algebra, Algebra)
     case project(Algebra, [String])
     case distinct(Algebra)
-    case slice(Algebra, offset: Int?, limit: Int?)
+    case slice(Algebra, Int?, Int?)
+    case order(Algebra, [Expression])
     // TODO: add property paths
     // TODO: add aggregation
     
@@ -104,12 +128,87 @@ public indirect enum Algebra {
             var variables = child.inscope
             variables.insert(v)
             return variables
-        case .filter(let child, _), .minus(let child, _), .distinct(let child), .slice(let child, _, _), .namedGraph(let child, .bound(_)):
+        case .filter(let child, _), .minus(let child, _), .distinct(let child), .slice(let child, _, _), .namedGraph(let child, .bound(_)), .order(let child, _):
             return child.inscope
         case .namedGraph(let child, .variable(let v)):
             var variables = child.inscope
             variables.insert(v)
             return variables
+        }
+    }
+    
+    public func serialize(depth : Int=0) -> String {
+        let indent = String(repeating: Character(" "), count: (depth*2))
+        switch self {
+        case .quad(let q):
+            return "\(indent)Quad(\(q))\n"
+        case .triple(let t):
+            return "\(indent)Triple(\(t))\n"
+        case .bgp(let triples):
+            var d = "\(indent)BGP\n"
+            for t in triples {
+                d += "  \(t)\n"
+            }
+            return d
+        case .innerJoin(let children):
+            var d = "\(indent)Join\n"
+            for c in children {
+                d += c.serialize(depth: depth+1)
+            }
+            return d
+        case .leftOuterJoin(let l, let r, _):
+            var d = "\(indent)LeftJoin\n"
+            for c in [l, r] {
+                d += c.serialize(depth: depth+1)
+            }
+            return d
+        case .union(let children):
+            var d = "\(indent)Union\n"
+            for c in children {
+                d += c.serialize(depth: depth+1)
+            }
+            return d
+        case .namedGraph(let child, let graph):
+            var d = "\(indent)NamedGraph \(graph)\n"
+            d += child.serialize(depth: depth+1)
+            return d
+        case .extend(let child, let expr, let name):
+            var d = "\(indent)Extend \(expr) -> \(name)\n"
+            d += child.serialize(depth: depth+1)
+            return d
+        case .project(let child, let variables):
+            var d = "\(indent)Project \(variables)\n"
+            d += child.serialize(depth: depth+1)
+            return d
+        case .distinct(let child):
+            var d = "\(indent)Distinct\n"
+            d += child.serialize(depth: depth+1)
+            return d
+        case .slice(let child, nil, .some(let limit)), .slice(let child, .some(0), .some(let limit)):
+            var d = "\(indent)Limit \(limit)\n"
+            d += child.serialize(depth: depth+1)
+            return d
+        case .slice(let child, .some(let offset), nil):
+            var d = "\(indent)Offset \(offset)\n"
+            d += child.serialize(depth: depth+1)
+            return d
+        case .slice(let child, let offset, let limit):
+            var d = "\(indent)Slice offset=\(offset) limit=\(limit)\n"
+            d += child.serialize(depth: depth+1)
+            return d
+        case .order(let child, let expressions):
+            var d = "\(indent)OrderBy \(expressions)\n"
+            d += child.serialize(depth: depth+1)
+            return d
+        case .filter(let child, let expr):
+            var d = "\(indent)Filter \(expr)\n"
+            d += child.serialize(depth: depth+1)
+            return d
+        case .minus(let lhs, let rhs):
+            var d = "\(indent)Minus\n"
+            d += lhs.serialize(depth: depth+1)
+            d += rhs.serialize(depth: depth+1)
+            return d
         }
     }
 }
@@ -155,12 +254,17 @@ public class QueryParser<T : LineReadable> {
         } else if op == "limit" {
             guard let count = Int(rest) else { return nil }
             guard let child = stack.popLast() else { return nil }
-            return .slice(child, offset: 0, limit: count)
+            return .slice(child, 0, count)
         } else if op == "graph" {
             let parser = NTriplesPatternParser(reader: "")
             guard let child = stack.popLast() else { return nil }
             guard let graph = parser.parseNode(line: rest) else { return nil }
             return .namedGraph(child, graph)
+        } else if op == "sort" {
+            // TODO: this is only parsing variable names right now
+            let names = parts.suffix(from: 1).map { (name) -> Expression in .node(.variable(name)) }
+            guard let child = stack.popLast() else { return nil }
+            return .order(child, names)
         }
         warn("Cannot parse query line: \(line)")
         return nil
@@ -214,10 +318,12 @@ public class SimpleQueryEvaluator {
             
             let intersection = seen.popLast()!
             if intersection.count > 0 {
-                //                    warn("# using hash join on: \(intersection)")
+//                warn("# using hash join on: \(intersection)")
                 let joinVariables = Array(intersection)
-                let lhs = Array(try self.evaluate(algebra: patterns[0], activeGraph: activeGraph))
-                let rhs = Array(try self.evaluate(algebra: patterns[1], activeGraph: activeGraph))
+                let lhsAlgebra = patterns[0]
+                let rhsAlgebra = patterns[1]
+                let lhs = Array(try self.evaluate(algebra: lhsAlgebra, activeGraph: activeGraph))
+                let rhs = Array(try self.evaluate(algebra: rhsAlgebra, activeGraph: activeGraph))
                 var results = [Result]()
                 hashJoin(joinVariables: joinVariables, lhs: lhs, rhs: rhs) { (result) in
                     results.append(result)
@@ -226,7 +332,7 @@ public class SimpleQueryEvaluator {
             }
         }
         
-        //            warn("# resorting to nested loop join")
+//        warn("# resorting to nested loop join")
         if patterns.count > 0 {
             var patternResults = [[Result]]()
             for pattern in patterns {
@@ -279,18 +385,6 @@ public class SimpleQueryEvaluator {
                     } while true
                 }
             }
-        case .bgp(_):
-            fatalError("Unimplemented: \(algebra)")
-        case .leftOuterJoin(_, _, _):
-            fatalError("Unimplemented: \(algebra)")
-        case .filter(_, _):
-            fatalError("Unimplemented: \(algebra)")
-        case .extend(_, _, _):
-            fatalError("Unimplemented: \(algebra)")
-        case .minus(_, _):
-            fatalError("Unimplemented: \(algebra)")
-        case .distinct(_):
-            fatalError("Unimplemented: \(algebra)")
         case .slice(let child, let offset, let limit):
             let i = try self.evaluate(algebra: child, activeGraph: activeGraph)
             if let offset = offset {
@@ -310,6 +404,40 @@ public class SimpleQueryEvaluator {
             } else {
                 return i
             }
+        case .extend(let child, let expr, let name):
+            let i = try self.evaluate(algebra: child, activeGraph: activeGraph)
+            return AnyIterator {
+                guard var result = i.next() else { return nil }
+                if let term = try? expr.evaluate(result: result) {
+                    result.extend(variable: name, value: term)
+                }
+                return result
+            }
+        case .order(let child, let expressions):
+            let results = try Array(self.evaluate(algebra: child, activeGraph: activeGraph))
+            let s = results.sorted { (a,b) -> Bool in
+                for expr in expressions {
+                    guard let lhs = try? expr.evaluate(result: a) else { return true }
+                    guard let rhs = try? expr.evaluate(result: b) else { return false }
+                    if lhs < rhs {
+                        return true
+                    } else if lhs > rhs {
+                        return false
+                    }
+                }
+                return false
+            }
+            return AnyIterator(s.makeIterator())
+        case .bgp(_):
+            fatalError("Unimplemented: \(algebra)")
+        case .leftOuterJoin(_, _, _):
+            fatalError("Unimplemented: \(algebra)")
+        case .filter(_, _):
+            fatalError("Unimplemented: \(algebra)")
+        case .minus(_, _):
+            fatalError("Unimplemented: \(algebra)")
+        case .distinct(_):
+            fatalError("Unimplemented: \(algebra)")
         }
     }
 }
