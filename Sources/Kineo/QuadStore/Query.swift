@@ -42,11 +42,11 @@ public indirect enum Algebra {
     case innerJoin([Algebra])
     case leftOuterJoin(Algebra, Algebra, Expression)
     case filter(Algebra, Expression)
-    case union(Algebra, Algebra)
+    case union([Algebra])
     case namedGraph(Algebra, Node)
     case extend(Algebra, Expression, String)
     case minus(Algebra, Algebra)
-    case project([String])
+    case project(Algebra, [String])
     case distinct(Algebra)
     case slice(Algebra, offset: Int?, limit: Int?)
     // TODO: add property paths
@@ -56,7 +56,9 @@ public indirect enum Algebra {
         var variables = Set<String>()
         switch self {
         case .identity: return Set()
-        case .innerJoin(let children):
+        case .project(_, let vars):
+            return Set(vars)
+        case .innerJoin(let children), .union(let children):
             if children.count == 0 {
                 return Set()
             }
@@ -99,14 +101,22 @@ public class QueryParser<T : LineReadable> {
         let rest = parts.suffix(from: 1).joined(separator: " ")
         guard parts.count > 0 else { return nil }
         let op = parts[0]
-        if op == "join" {
+        if op == "project" {
+            guard let child = stack.popLast() else { return nil }
+            let vars = Array(parts.suffix(from: 1))
+            return .project(child, vars)
+        } else if op == "join" || op == "union" {
             guard let count = Int(rest) else { return nil }
             var children = [Algebra]()
             for _ in 0..<count {
                 guard let child = stack.popLast() else { return nil }
                 children.insert(child, at: 0)
             }
-            return .innerJoin(children)
+            if op == "join" {
+                return .innerJoin(children)
+            } else if op == "union" {
+                return .union(children)
+            }
         } else if op == "quad" {
             let parser = NTriplesPatternParser(reader: "")
             guard let pattern = parser.parsePattern(line: rest) else { return nil }
@@ -189,6 +199,12 @@ public class SimpleQueryEvaluator {
             return try store.results(matching: quad)
         case .innerJoin(let patterns):
             return try self.evaluateJoin(patterns)
+        case .project(let child, let vars):
+            let i = try self.evaluate(algebra: child)
+            return AnyIterator {
+                guard let result = i.next() else { return nil }
+                return result.project(variables: vars)
+            }
         default:
             fatalError("Unimplemented: \(algebra)")
         }

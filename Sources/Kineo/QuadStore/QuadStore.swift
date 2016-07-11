@@ -24,6 +24,16 @@ public struct Result : CustomStringConvertible {
         return Result(bindings: b)
     }
     
+    public func project(variables : [String]) -> Result {
+        var bindings = [String:Term]()
+        for name in variables {
+            if let term = self[name] {
+                bindings[name] = term
+            }
+        }
+        return Result(bindings: bindings)
+    }
+    
     public subscript(key : String) -> Term? {
         return bindings[key]
     }

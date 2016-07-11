@@ -52,9 +52,6 @@ func parse(database : FilePageDatabase, filename : String, startTime : UInt64) t
 
 func query(database : FilePageDatabase, filename : String) throws -> Int {
     let reader      = FileReader(filename: filename)
-    let parser      = NTriplesPatternParser(reader: reader)
-//    let patterns    = Array(parser.patternIterator())
-    
     let qp          = QueryParser(reader: reader)
     guard let query = qp.parse() else { fatalError() }
     print("Query algebra: \(query)")
