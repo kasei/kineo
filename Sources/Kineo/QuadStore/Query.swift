@@ -57,6 +57,12 @@ public indirect enum Expression {
 //    }
 }
 
+public enum Aggregation {
+    case countAll
+    case count(Expression)
+    case sum(Expression)
+}
+
 public indirect enum Algebra {
     case quad(QuadPattern)
     case triple(TriplePattern)
@@ -72,8 +78,8 @@ public indirect enum Algebra {
     case distinct(Algebra)
     case slice(Algebra, Int?, Int?)
     case order(Algebra, [Expression])
+    case aggregate(Algebra, [Expression], [(Aggregation, String)])
     // TODO: add property paths
-    // TODO: add aggregation
     
     private func inscopeUnion(children : [Algebra]) -> Set<String> {
         if children.count == 0 {
@@ -133,6 +139,16 @@ public indirect enum Algebra {
         case .namedGraph(let child, .variable(let v)):
             var variables = child.inscope
             variables.insert(v)
+            return variables
+        case .aggregate(_, let groups, let aggs):
+            for g in groups {
+                if case .node(.variable(let name)) = g {
+                    variables.insert(name)
+                }
+            }
+            for (_, name) in aggs {
+                variables.insert(name)
+            }
             return variables
         }
     }
@@ -209,6 +225,10 @@ public indirect enum Algebra {
             d += lhs.serialize(depth: depth+1)
             d += rhs.serialize(depth: depth+1)
             return d
+        case .aggregate(let child, let groups, let aggs):
+            var d = "\(indent)Aggregate \(aggs) over groups \(groups)\n"
+            d += child.serialize(depth: depth+1)
+            return d
         }
     }
 }
@@ -251,6 +271,11 @@ public class QueryParser<T : LineReadable> {
             let parser = NTriplesPatternParser(reader: "")
             guard let pattern = parser.parseTriplePattern(line: rest) else { return nil }
             return .triple(pattern)
+        } else if op == "countall" {
+            let name = parts[1]
+            let groups = parts.suffix(from: 2).map { (name) -> Expression in .node(.variable(name)) }
+            guard let child = stack.popLast() else { return nil }
+            return .aggregate(child, groups, [(.countAll, name)])
         } else if op == "limit" {
             guard let count = Int(rest) else { return nil }
             guard let child = stack.popLast() else { return nil }
@@ -428,6 +453,44 @@ public class SimpleQueryEvaluator {
                 return false
             }
             return AnyIterator(s.makeIterator())
+        case .aggregate(let child, let groups, let aggs):
+            let i = try self.evaluate(algebra: child, activeGraph: activeGraph)
+            var groupBuckets = [String:[Result]]()
+            var groupBindings = [String:[String:Term]]()
+            for result in i {
+                let group = groups.map { (expr) -> Term? in return try? expr.evaluate(result: result) }
+                let groupKey = "\(group)"
+                if groupBuckets[groupKey] == nil {
+                    groupBuckets[groupKey] = [result]
+                    var bindings = [String:Term]()
+                    for (g, term) in zip(groups, group) {
+                        if case .node(.variable(let name)) = g {
+                            if let term = term {
+                                bindings[name] = term
+                            }
+                        }
+                    }
+                    groupBindings[groupKey] = bindings
+                } else {
+                    groupBuckets[groupKey]?.append(result)
+                }
+            }
+            var a = groupBuckets.makeIterator()
+            return AnyIterator {
+                guard let pair = a.next() else { return nil }
+                let (groupKey, results) = pair
+                guard var bindings = groupBindings[groupKey] else { fatalError("Unexpected missing aggregation group template") }
+                for (agg, name) in aggs {
+                    switch agg {
+                    case .countAll:
+                        let count = results.count
+                        bindings[name] = Term(value: "\(count)", type: .datatype("http://www.w3.org/2001/XMLSchema#integer"))
+                    default:
+                        fatalError("Unimplemented aggregate: \(agg)")
+                    }
+                }
+                return Result(bindings: bindings)
+            }
         case .bgp(_):
             fatalError("Unimplemented: \(algebra)")
         case .leftOuterJoin(_, _, _):
