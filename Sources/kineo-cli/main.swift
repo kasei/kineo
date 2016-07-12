@@ -150,11 +150,11 @@ if args.count > 2 {
         }
     } else if op == "query" {
         let qfile = args[3]
-        guard let algebra = try parseQuery(database: database, filename: qfile) else { fatalError() }
+        guard let algebra = try parseQuery(database: database, filename: qfile) else { fatalError("Failed to parse query") }
         count = try query(database: database, algebra: algebra)
     } else if op == "qparse" {
         let qfile = args[3]
-        guard let algebra = try parseQuery(database: database, filename: qfile) else { fatalError() }
+        guard let algebra = try parseQuery(database: database, filename: qfile) else { fatalError("Failed to parse query") }
         print(algebra.serialize())
     } else if op == "index" {
         let index = args[3]
