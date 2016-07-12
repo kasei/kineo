@@ -206,6 +206,11 @@ public struct Term : CustomStringConvertible {
         self.type   = type
     }
     
+    public init(integer : Int) {
+        self.value = "\(integer)"
+        self.type = .datatype("http://www.w3.org/2001/XMLSchema#integer")
+    }
+
     var value : String
     var type : TermType
     public var description : String {

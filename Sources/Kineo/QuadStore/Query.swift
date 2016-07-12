@@ -271,7 +271,13 @@ public class QueryParser<T : LineReadable> {
             let parser = NTriplesPatternParser(reader: "")
             guard let pattern = parser.parseTriplePattern(line: rest) else { return nil }
             return .triple(pattern)
-        } else if op == "countall" {
+        } else if op == "count" { // (COUNT(?key) AS ?name) ... GROUP BY ?x ?y ?z --> "count key name x y z"
+            let key = parts[1]
+            let name = parts[2]
+            let groups = parts.suffix(from: 3).map { (name) -> Expression in .node(.variable(name)) }
+            guard let child = stack.popLast() else { return nil }
+            return .aggregate(child, groups, [(.count(.node(.variable(key))), name)])
+        } else if op == "countall" { // (COUNT(*) AS ?name) ... GROUP BY ?x ?y ?z --> "count name x y z"
             let name = parts[1]
             let groups = parts.suffix(from: 2).map { (name) -> Expression in .node(.variable(name)) }
             guard let child = stack.popLast() else { return nil }
@@ -482,9 +488,17 @@ public class SimpleQueryEvaluator {
                 guard var bindings = groupBindings[groupKey] else { fatalError("Unexpected missing aggregation group template") }
                 for (agg, name) in aggs {
                     switch agg {
+                    case .count(let keyExpr):
+                        var count = 0
+                        for result in results {
+                            if let _ = try? keyExpr.evaluate(result: result) {
+                                count += 1
+                            }
+                        }
+                        bindings[name] = Term(integer: count)
                     case .countAll:
                         let count = results.count
-                        bindings[name] = Term(value: "\(count)", type: .datatype("http://www.w3.org/2001/XMLSchema#integer"))
+                        bindings[name] = Term(integer: count)
                     default:
                         fatalError("Unimplemented aggregate: \(agg)")
                     }
