@@ -64,9 +64,35 @@ public indirect enum Expression {
             } else {
                 throw QueryError.typeError("Variable ?\(name) is unbound in result \(result)")
             }
+        case .eq(let lhs, let rhs):
+            if let lval = try? lhs.evaluate(result: result), rval = try? rhs.evaluate(result: result) {
+                return (lval == rval) ? Term.trueValue : Term.falseValue
+            }
+        case .ne(let lhs, let rhs):
+            if let lval = try? lhs.evaluate(result: result), rval = try? rhs.evaluate(result: result) {
+                return (lval != rval) ? Term.trueValue : Term.falseValue
+            }
+        case .gt(let lhs, let rhs):
+            if let lval = try? lhs.evaluate(result: result), rval = try? rhs.evaluate(result: result) {
+                return (lval > rval) ? Term.trueValue : Term.falseValue
+            }
+        case .lt(let lhs, let rhs):
+            if let lval = try? lhs.evaluate(result: result), rval = try? rhs.evaluate(result: result) {
+                return (lval < rval) ? Term.trueValue : Term.falseValue
+            }
+        case .ge(let lhs, let rhs):
+            if let lval = try? lhs.evaluate(result: result), rval = try? rhs.evaluate(result: result) {
+                return (lval >= rval) ? Term.trueValue : Term.falseValue
+            }
+        case .le(let lhs, let rhs):
+            if let lval = try? lhs.evaluate(result: result), rval = try? rhs.evaluate(result: result) {
+                return (lval <= rval) ? Term.trueValue : Term.falseValue
+            }
         default:
+            print("*** Cannot evaluate expression \(self)")
             throw QueryError.evaluationError("Cannot evaluate \(self) with result \(result)")
         }
+        throw QueryError.evaluationError("Failed to evaluate \(self) with result \(result)")
     }
 }
 
@@ -80,7 +106,7 @@ public indirect enum Algebra {
     case quad(QuadPattern)
     case triple(TriplePattern)
     case bgp([TriplePattern])
-    case innerJoin([Algebra])
+    case innerJoin(Algebra, Algebra)
     case leftOuterJoin(Algebra, Algebra, Expression)
     case filter(Algebra, Expression)
     case union([Algebra])
@@ -112,7 +138,9 @@ public indirect enum Algebra {
         switch self {
         case .project(_, let vars):
             return Set(vars)
-        case .innerJoin(let children), .union(let children):
+        case .innerJoin(let lhs, let rhs):
+            return inscopeUnion(children: [lhs, rhs])
+        case .union(let children):
             return inscopeUnion(children: children)
         case .triple(let t):
             for node in [t.subject, t.predicate, t.object] {
@@ -179,15 +207,14 @@ public indirect enum Algebra {
                 d += "  \(t)\n"
             }
             return d
-        case .innerJoin(let children):
+        case .innerJoin(let lhs, let rhs):
             var d = "\(indent)Join\n"
-            for c in children {
-                d += c.serialize(depth: depth+1)
-            }
+            d += lhs.serialize(depth: depth+1)
+            d += rhs.serialize(depth: depth+1)
             return d
-        case .leftOuterJoin(let l, let r, _):
-            var d = "\(indent)LeftJoin\n"
-            for c in [l, r] {
+        case .leftOuterJoin(let lhs, let rhs, let expr):
+            var d = "\(indent)LeftJoin (\(expr))\n"
+            for c in [lhs, rhs] {
                 d += c.serialize(depth: depth+1)
             }
             return d
@@ -264,19 +291,21 @@ public class QueryParser<T : LineReadable> {
             guard let child = stack.popLast() else { return nil }
             let vars = Array(parts.suffix(from: 1))
             return .project(child, vars)
-        } else if op == "join" || op == "union" {
+        } else if op == "join" {
+            guard stack.count >= 2 else { return nil }
+            guard let rhs = stack.popLast() else { return nil }
+            guard let lhs = stack.popLast() else { return nil }
+            return .innerJoin(lhs, rhs)
+        } else if op == "union" {
             guard let count = Int(rest) else { return nil }
             var children = [Algebra]()
             for _ in 0..<count {
                 guard let child = stack.popLast() else { return nil }
                 children.insert(child, at: 0)
             }
-            if op == "join" {
-                return .innerJoin(children)
-            } else if op == "union" {
-                return .union(children)
-            }
+            return .union(children)
         } else if op == "leftjoin" {
+            guard stack.count >= 2 else { return nil }
             guard let rhs = stack.popLast() else { return nil }
             guard let lhs = stack.popLast() else { return nil }
             return .leftOuterJoin(lhs, rhs, .node(.bound(Term.trueValue)))
@@ -308,6 +337,34 @@ public class QueryParser<T : LineReadable> {
             guard let child = stack.popLast() else { return nil }
             guard let graph = parser.parseNode(line: rest) else { return nil }
             return .namedGraph(child, graph)
+        } else if op == "filter" {
+            let parser = NTriplesPatternParser(reader: "")
+            guard let child = stack.popLast() else { return nil }
+            let op = parts[1]
+            guard let node = parser.parseNode(line: parts[2]) else { return nil }
+            var vexpr : Expression
+            if let value = Double(parts[3]) {
+                vexpr = .node(.bound(Term(float: value)))
+            } else {
+                guard let node = parser.parseNode(line: parts[3]) else { return nil }
+                vexpr = .node(node)
+            }
+            switch op {
+            case "=":
+                return .filter(child, .eq(.node(node), vexpr))
+            case "!=":
+                return .filter(child, .ne(.node(node), vexpr))
+            case "<":
+                return .filter(child, .lt(.node(node), vexpr))
+            case ">":
+                return .filter(child, .gt(.node(node), vexpr))
+            case "<=":
+                return .filter(child, .le(.node(node), vexpr))
+            case ">=":
+                return .filter(child, .ge(.node(node), vexpr))
+            default:
+                fatalError("Failed to parse filter expression: \(rest)")
+            }
         } else if op == "sort" {
             // TODO: this is only parsing variable names right now
             let names = parts.suffix(from: 1).map { (name) -> Expression in .node(.variable(name)) }
@@ -350,60 +407,47 @@ public class SimpleQueryEvaluator {
         }
     }
     
-    func evaluateJoin(_ patterns : [Algebra], left : Bool, activeGraph : Term) throws -> AnyIterator<Result> {
-        if patterns.count == 2 {
-            var seen = [Set<String>]()
-            for pattern in patterns {
-                seen.append(pattern.inscope)
-            }
-            
-            while seen.count > 1 {
-                let first   = seen.popLast()!
-                let next    = seen.popLast()!
-                let inter   = first.intersection(next)
-                seen.append(inter)
-            }
-            
-            let intersection = seen.popLast()!
-            if intersection.count > 0 {
+    func evaluateJoin(lhs lhsAlgebra: Algebra, rhs rhsAlgebra: Algebra, left : Bool, activeGraph : Term) throws -> AnyIterator<Result> {
+        var seen = [Set<String>]()
+        for pattern in [lhsAlgebra, rhsAlgebra] {
+            seen.append(pattern.inscope)
+        }
+        
+        while seen.count > 1 {
+            let first   = seen.popLast()!
+            let next    = seen.popLast()!
+            let inter   = first.intersection(next)
+            seen.append(inter)
+        }
+        
+        let intersection = seen.popLast()!
+        if intersection.count > 0 {
 //                warn("# using hash join on: \(intersection)")
-                let joinVariables = Array(intersection)
-                let lhsAlgebra = patterns[0]
-                let rhsAlgebra = patterns[1]
-                let lhs = Array(try self.evaluate(algebra: lhsAlgebra, activeGraph: activeGraph))
-                let rhs = Array(try self.evaluate(algebra: rhsAlgebra, activeGraph: activeGraph))
-                var results = [Result]()
-                hashJoin(joinVariables: joinVariables, lhs: lhs, rhs: rhs, left: left) { (result) in
-                    results.append(result)
-                }
-                return AnyIterator(results.makeIterator())
-            }
+            let joinVariables = Array(intersection)
+            let lhs = Array(try self.evaluate(algebra: lhsAlgebra, activeGraph: activeGraph))
+            let rhs = Array(try self.evaluate(algebra: rhsAlgebra, activeGraph: activeGraph))
+            return pipelinedHashJoin(joinVariables: joinVariables, lhs: lhs, rhs: rhs, left: left)
         }
         
-//        warn("# resorting to nested loop join")
-        if patterns.count > 0 {
-            var patternResults = [[Result]]()
-            for pattern in patterns {
-                let results     = try self.evaluate(algebra: pattern, activeGraph: activeGraph)
-                patternResults.append(Array(results))
-            }
-            
-            var results = [Result]()
-            nestedLoopJoin(patternResults, left: left) { (result) in
-                results.append(result)
-            }
-            return AnyIterator(results.makeIterator())
+        var patternResults = [[Result]]()
+        for pattern in [lhsAlgebra, rhsAlgebra] {
+            let results     = try self.evaluate(algebra: pattern, activeGraph: activeGraph)
+            patternResults.append(Array(results))
         }
         
-        return AnyIterator { return nil }
+        var results = [Result]()
+        nestedLoopJoin(patternResults, left: left) { (result) in
+            results.append(result)
+        }
+        return AnyIterator(results.makeIterator())
     }
     
-    func evaluateLeftJoin(lhs : Algebra, rhs : Algebra, expression : Expression, activeGraph : Term) throws -> AnyIterator<Result> {
-        let i = try evaluateJoin([lhs, rhs], left: true, activeGraph: activeGraph)
+    func evaluateLeftJoin(lhs : Algebra, rhs : Algebra, expression expr: Expression, activeGraph : Term) throws -> AnyIterator<Result> {
+        let i = try evaluateJoin(lhs: lhs, rhs: rhs, left: true, activeGraph: activeGraph)
         return AnyIterator {
             repeat {
                 guard let result = i.next() else { return nil }
-                if let term = try? expression.evaluate(result: result) {
+                if let term = try? expr.evaluate(result: result) {
                     if case .some(true) = try? term.ebv() {
                         return result
                     }
@@ -419,8 +463,8 @@ public class SimpleQueryEvaluator {
             return try store.results(matching: quad)
         case .quad(let quad):
             return try store.results(matching: quad)
-        case .innerJoin(let patterns):
-            return try self.evaluateJoin(patterns, left: false, activeGraph: activeGraph)
+        case .innerJoin(let lhs, let rhs):
+            return try self.evaluateJoin(lhs: lhs, rhs: rhs, left: false, activeGraph: activeGraph)
         case .leftOuterJoin(let lhs, let rhs, let expr):
             return try self.evaluateLeftJoin(lhs: lhs, rhs: rhs, expression: expr, activeGraph: activeGraph)
         case .union(let patterns):
@@ -538,9 +582,19 @@ public class SimpleQueryEvaluator {
                 }
                 return Result(bindings: bindings)
             }
+        case .filter(let child, let expr):
+            let i = try self.evaluate(algebra: child, activeGraph: activeGraph)
+            return AnyIterator {
+                repeat {
+                    guard let result = i.next() else { return nil }
+                    if let term = try? expr.evaluate(result: result) {
+                        if case .some(true) = try? term.ebv() {
+                            return result
+                        }
+                    }
+                } while true
+            }
         case .bgp(_):
-            fatalError("Unimplemented: \(algebra)")
-        case .filter(_, _):
             fatalError("Unimplemented: \(algebra)")
         case .minus(_, _):
             fatalError("Unimplemented: \(algebra)")
@@ -550,7 +604,7 @@ public class SimpleQueryEvaluator {
     }
 }
 
-public func hashJoin(joinVariables : [String], lhs : [Result], rhs : [Result], left : Bool = false, cb : @noescape (Result) -> ()) {
+public func pipelinedHashJoin(joinVariables : [String], lhs : [Result], rhs : [Result], left : Bool = false) -> AnyIterator<Result> {
     var table = [Int:[Result]]()
     for result in rhs {
         let hashes = joinVariables.map { result[$0]?.hashValue ?? 0 }
@@ -562,24 +616,31 @@ public func hashJoin(joinVariables : [String], lhs : [Result], rhs : [Result], l
         }
     }
     
-    for result in lhs {
-        var joined = false
-        let hashes = joinVariables.map { result[$0]?.hashValue ?? 0 }
-        let hash = hashes.reduce(0, combine: { $0 ^ $1 })
-        if let results = table[hash] {
-            for rhs in results {
-                if let j = rhs.join(result) {
-                    joined = true
-                    cb(j)
+    var i = lhs.makeIterator()
+    var buffer = [Result]()
+    return AnyIterator {
+        repeat {
+            if buffer.count > 0 {
+                return buffer.remove(at: 0)
+            }
+            guard let result = i.next() else { return nil }
+            var joined = false
+            let hashes = joinVariables.map { result[$0]?.hashValue ?? 0 }
+            let hash = hashes.reduce(0, combine: { $0 ^ $1 })
+            if let results = table[hash] {
+                for rhs in results {
+                    if let j = rhs.join(result) {
+                        joined = true
+                        buffer.append(j)
+                    }
                 }
             }
-        }
-        if left && !joined {
-            cb(result)
-        }
+            if left && !joined {
+                buffer.append(result)
+            }
+        } while true
     }
 }
-
 
 public func nestedLoopJoin(_ results : [[Result]], left : Bool = false, cb : @noescape (Result) -> ()) {
     var patternResults = results

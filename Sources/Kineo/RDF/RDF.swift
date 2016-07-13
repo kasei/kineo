@@ -206,11 +206,16 @@ public struct Term : CustomStringConvertible {
         self.type   = type
     }
     
-    public init(integer : Int) {
-        self.value = "\(integer)"
+    public init(integer value: Int) {
+        self.value = "\(value)"
         self.type = .datatype("http://www.w3.org/2001/XMLSchema#integer")
     }
-
+    
+    public init(float value: Double) {
+        self.value = "\(value)"
+        self.type = .datatype("http://www.w3.org/2001/XMLSchema#float")
+    }
+    
     var value : String
     var type : TermType
     public var description : String {
@@ -222,18 +227,21 @@ public struct Term : CustomStringConvertible {
         case .blank:
             return "_:\(value)"
         case .language(let lang):
-            return "\"\(value)\"@\(lang)"
+            let escaped = value.replacingOccurrences(of:"\"", with: "\\\"")
+            return "\"\(escaped)\"@\(lang)"
         case .datatype("http://www.w3.org/2001/XMLSchema#string"):
-            return "\"\(value)\""
-        case .datatype("http://www.w3.org/2001/XMLSchema#integer"), .datatype("http://www.w3.org/2001/XMLSchema#boolean"):
+            let escaped = value.replacingOccurrences(of:"\"", with: "\\\"")
+            return "\"\(escaped)\""
+        case .datatype("http://www.w3.org/2001/XMLSchema#integer"), .datatype("http://www.w3.org/2001/XMLSchema#float"), .datatype("http://www.w3.org/2001/XMLSchema#decimal"), .datatype("http://www.w3.org/2001/XMLSchema#boolean"):
             return "\(value)"
         case .datatype(let dt):
-            return "\"\(value)\"^^<\(dt)>"
+            let escaped = value.replacingOccurrences(of:"\"", with: "\\\"")
+            return "\"\(escaped)\"^^<\(dt)>"
         }
     }
     
     static let trueValue = Term(value: "true", type: .datatype("http://www.w3.org/2001/XMLSchema#boolean"))
-    static let falseValue = Term(value: "true", type: .datatype("http://www.w3.org/2001/XMLSchema#boolean"))
+    static let falseValue = Term(value: "false", type: .datatype("http://www.w3.org/2001/XMLSchema#boolean"))
 }
 
 extension Term : BufferSerializable {
@@ -278,7 +286,7 @@ extension Term : Comparable {
         switch type {
         case .datatype("http://www.w3.org/2001/XMLSchema#integer"):
             return Double(value) ?? 0.0
-        case .datatype("http://www.w3.org/2001/XMLSchema#float"):
+        case .datatype("http://www.w3.org/2001/XMLSchema#float"), .datatype("http://www.w3.org/2001/XMLSchema#decimal"):
             return Double(value) ?? 0.0
         default:
             fatalError()
