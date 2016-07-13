@@ -534,7 +534,6 @@ extension PersistentTermIdentityMap {
         case (.iri, let v):
             return pack(iri: v)
         case (.datatype("http://www.w3.org/2001/XMLSchema#date"), let v):
-            print("packing xsd:date")
             return pack(date: v)
         case (.datatype("http://www.w3.org/2001/XMLSchema#string"), let v):
             return pack(string: v)
@@ -549,7 +548,6 @@ extension PersistentTermIdentityMap {
 
     private func pack(string: String) -> Result? {
         guard string.utf8.count <= 7 else { return nil }
-        print("packing inlined xsd:string value: '\(string)'")
         var id : UInt64 = UInt64(0x15) << 56
         for (i, u) in string.utf8.enumerated() {
             let shift = UInt64(8 * (6 - i))

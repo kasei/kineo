@@ -13,6 +13,23 @@ enum QueryError : ErrorProtocol {
     case typeError(String)
 }
 
+extension Term {
+    func ebv() throws -> Bool {
+        switch type {
+        case .datatype("http://www.w3.org/2001/XMLSchema#boolean"):
+            return value == "true" || value == "1"
+        case .datatype(_), .language(_):
+            if self.isNumeric {
+                return self.numericValue != 0.0
+            } else {
+                return value.characters.count > 0
+            }
+        default:
+            throw QueryError.typeError("EBV cannot be computed for \(self)")
+        }
+    }
+}
+
 public indirect enum Expression {
     case node(Node)
     case add(Expression, Expression)
@@ -51,10 +68,6 @@ public indirect enum Expression {
             throw QueryError.evaluationError("Cannot evaluate \(self) with result \(result)")
         }
     }
-    
-//    public func ebv(result : Result) -> Bool {
-//        
-//    }
 }
 
 public enum Aggregation {
@@ -263,6 +276,10 @@ public class QueryParser<T : LineReadable> {
             } else if op == "union" {
                 return .union(children)
             }
+        } else if op == "leftjoin" {
+            guard let rhs = stack.popLast() else { return nil }
+            guard let lhs = stack.popLast() else { return nil }
+            return .leftOuterJoin(lhs, rhs, .node(.bound(Term.trueValue)))
         } else if op == "quad" {
             let parser = NTriplesPatternParser(reader: "")
             guard let pattern = parser.parseQuadPattern(line: rest) else { return nil }
@@ -333,7 +350,7 @@ public class SimpleQueryEvaluator {
         }
     }
     
-    func evaluateJoin(_ patterns : [Algebra], activeGraph : Term) throws -> AnyIterator<Result> {
+    func evaluateJoin(_ patterns : [Algebra], left : Bool, activeGraph : Term) throws -> AnyIterator<Result> {
         if patterns.count == 2 {
             var seen = [Set<String>]()
             for pattern in patterns {
@@ -356,7 +373,7 @@ public class SimpleQueryEvaluator {
                 let lhs = Array(try self.evaluate(algebra: lhsAlgebra, activeGraph: activeGraph))
                 let rhs = Array(try self.evaluate(algebra: rhsAlgebra, activeGraph: activeGraph))
                 var results = [Result]()
-                hashJoin(joinVariables: joinVariables, lhs: lhs, rhs: rhs) { (result) in
+                hashJoin(joinVariables: joinVariables, lhs: lhs, rhs: rhs, left: left) { (result) in
                     results.append(result)
                 }
                 return AnyIterator(results.makeIterator())
@@ -372,13 +389,27 @@ public class SimpleQueryEvaluator {
             }
             
             var results = [Result]()
-            nestedLoopJoin(patternResults) { (result) in
+            nestedLoopJoin(patternResults, left: left) { (result) in
                 results.append(result)
             }
             return AnyIterator(results.makeIterator())
         }
         
         return AnyIterator { return nil }
+    }
+    
+    func evaluateLeftJoin(lhs : Algebra, rhs : Algebra, expression : Expression, activeGraph : Term) throws -> AnyIterator<Result> {
+        let i = try evaluateJoin([lhs, rhs], left: true, activeGraph: activeGraph)
+        return AnyIterator {
+            repeat {
+                guard let result = i.next() else { return nil }
+                if let term = try? expression.evaluate(result: result) {
+                    if case .some(true) = try? term.ebv() {
+                        return result
+                    }
+                }
+            } while true
+        }
     }
     
     public func evaluate(algebra : Algebra, activeGraph : Term) throws -> AnyIterator<Result> {
@@ -389,7 +420,9 @@ public class SimpleQueryEvaluator {
         case .quad(let quad):
             return try store.results(matching: quad)
         case .innerJoin(let patterns):
-            return try self.evaluateJoin(patterns, activeGraph: activeGraph)
+            return try self.evaluateJoin(patterns, left: false, activeGraph: activeGraph)
+        case .leftOuterJoin(let lhs, let rhs, let expr):
+            return try self.evaluateLeftJoin(lhs: lhs, rhs: rhs, expression: expr, activeGraph: activeGraph)
         case .union(let patterns):
             return try self.evaluateUnion(patterns, activeGraph: activeGraph)
         case .project(let child, let vars):
@@ -507,8 +540,6 @@ public class SimpleQueryEvaluator {
             }
         case .bgp(_):
             fatalError("Unimplemented: \(algebra)")
-        case .leftOuterJoin(_, _, _):
-            fatalError("Unimplemented: \(algebra)")
         case .filter(_, _):
             fatalError("Unimplemented: \(algebra)")
         case .minus(_, _):
@@ -519,9 +550,9 @@ public class SimpleQueryEvaluator {
     }
 }
 
-public func hashJoin(joinVariables : [String], lhs : [Result], rhs : [Result], cb : @noescape (Result) -> ()) {
+public func hashJoin(joinVariables : [String], lhs : [Result], rhs : [Result], left : Bool = false, cb : @noescape (Result) -> ()) {
     var table = [Int:[Result]]()
-    for result in lhs {
+    for result in rhs {
         let hashes = joinVariables.map { result[$0]?.hashValue ?? 0 }
         let hash = hashes.reduce(0, combine: { $0 ^ $1 })
         if let results = table[hash] {
@@ -531,39 +562,53 @@ public func hashJoin(joinVariables : [String], lhs : [Result], rhs : [Result], c
         }
     }
     
-    for result in rhs {
+    for result in lhs {
+        var joined = false
         let hashes = joinVariables.map { result[$0]?.hashValue ?? 0 }
         let hash = hashes.reduce(0, combine: { $0 ^ $1 })
         if let results = table[hash] {
-            for lhs in results {
-                if let j = lhs.join(result) {
+            for rhs in results {
+                if let j = rhs.join(result) {
+                    joined = true
                     cb(j)
                 }
             }
+        }
+        if left && !joined {
+            cb(result)
         }
     }
 }
 
 
-public func nestedLoopJoin(_ results : [[Result]], cb : @noescape (Result) -> ()) {
+public func nestedLoopJoin(_ results : [[Result]], left : Bool = false, cb : @noescape (Result) -> ()) {
     var patternResults = results
     while patternResults.count > 1 {
         let rhs = patternResults.popLast()!
         let lhs = patternResults.popLast()!
         let finalPass = patternResults.count == 0
-        var joined = [Result]()
+        var joinedResults = [Result]()
         for lresult in lhs {
+            var joined = false
             for rresult in rhs {
                 if let j = lresult.join(rresult) {
+                    joined = true
                     if finalPass {
                         cb(j)
                     } else {
-                        joined.append(j)
+                        joinedResults.append(j)
                     }
                 }
             }
+            if left && !joined {
+                if finalPass {
+                    cb(lresult)
+                } else {
+                    joinedResults.append(lresult)
+                }
+            }
         }
-        patternResults.append(joined)
+        patternResults.append(joinedResults)
     }
 }
 
