@@ -187,6 +187,47 @@ public enum TermType : BufferSerializable {
     }
 }
 
+extension TermType {
+    func resultType(op: String, operandType rhs: TermType) -> TermType? {
+        let integer = TermType.datatype("http://www.w3.org/2001/XMLSchema#integer")
+        let decimal = TermType.datatype("http://www.w3.org/2001/XMLSchema#decimal")
+        let float   = TermType.datatype("http://www.w3.org/2001/XMLSchema#float")
+        let double  = TermType.datatype("http://www.w3.org/2001/XMLSchema#double")
+        if op == "/" {
+            if self == rhs && self == integer {
+                return decimal
+            }
+        }
+        switch (self, rhs) {
+        case (let a, let b) where a == b:
+            return a
+        case (integer, decimal), (decimal, integer):
+            return decimal
+        case (integer, float), (float, integer), (decimal, float), (float, decimal):
+            return float
+        case (integer, double), (double, integer), (decimal, double), (double, decimal):
+            return double
+        default:
+            return nil
+        }
+    }
+}
+
+extension TermType : Hashable {
+    public var hashValue: Int {
+        switch (self) {
+        case .blank:
+            return 0
+        case .iri:
+            return 1
+        case .datatype(let d):
+            return 2 ^ d.hashValue
+        case .language(let l):
+            return 3 ^ l.hashValue
+        }
+    }
+}
+
 public func ==(lhs: TermType, rhs: TermType) -> Bool {
     switch (lhs, rhs) {
     case (.iri, .iri), (.blank, .blank):
@@ -216,6 +257,22 @@ public struct Term : CustomStringConvertible {
         self.type = .datatype("http://www.w3.org/2001/XMLSchema#float")
     }
     
+    public init?(numeric value : Double, type : TermType) {
+        self.type = type
+        switch type {
+        case .datatype("http://www.w3.org/2001/XMLSchema#float"),
+             .datatype("http://www.w3.org/2001/XMLSchema#double"):
+            self.value = "\(value)"
+        case .datatype("http://www.w3.org/2001/XMLSchema#decimal"):
+            self.value = String(format: "%f", value)
+        case .datatype("http://www.w3.org/2001/XMLSchema#integer"):
+            let i = Int(value)
+            self.value = "\(i)"
+        default:
+            return nil
+        }
+    }
+    
     var value : String
     var type : TermType
     public var description : String {
@@ -232,7 +289,14 @@ public struct Term : CustomStringConvertible {
         case .datatype("http://www.w3.org/2001/XMLSchema#string"):
             let escaped = value.replacingOccurrences(of:"\"", with: "\\\"")
             return "\"\(escaped)\""
-        case .datatype("http://www.w3.org/2001/XMLSchema#integer"), .datatype("http://www.w3.org/2001/XMLSchema#float"), .datatype("http://www.w3.org/2001/XMLSchema#decimal"), .datatype("http://www.w3.org/2001/XMLSchema#boolean"):
+        case .datatype("http://www.w3.org/2001/XMLSchema#float"):
+            let s = "\(value)"
+            if s.contains("e") {
+                return s
+            } else {
+                return "\(s)e0"
+            }
+        case .datatype("http://www.w3.org/2001/XMLSchema#integer"), .datatype("http://www.w3.org/2001/XMLSchema#decimal"), .datatype("http://www.w3.org/2001/XMLSchema#boolean"):
             return "\(value)"
         case .datatype(let dt):
             let escaped = value.replacingOccurrences(of:"\"", with: "\\\"")
@@ -275,7 +339,10 @@ extension Term : Hashable {
 extension Term : Comparable {
     var isNumeric : Bool {
         switch type {
-        case .datatype("http://www.w3.org/2001/XMLSchema#integer"), .datatype("http://www.w3.org/2001/XMLSchema#float"):
+        case .datatype("http://www.w3.org/2001/XMLSchema#integer"),
+             .datatype("http://www.w3.org/2001/XMLSchema#decimal"),
+             .datatype("http://www.w3.org/2001/XMLSchema#float"),
+             .datatype("http://www.w3.org/2001/XMLSchema#double"):
             return true
         default:
             return false
@@ -286,7 +353,9 @@ extension Term : Comparable {
         switch type {
         case .datatype("http://www.w3.org/2001/XMLSchema#integer"):
             return Double(value) ?? 0.0
-        case .datatype("http://www.w3.org/2001/XMLSchema#float"), .datatype("http://www.w3.org/2001/XMLSchema#decimal"):
+        case .datatype("http://www.w3.org/2001/XMLSchema#decimal"),
+             .datatype("http://www.w3.org/2001/XMLSchema#float"),
+             .datatype("http://www.w3.org/2001/XMLSchema#double"):
             return Double(value) ?? 0.0
         default:
             fatalError()
