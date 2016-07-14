@@ -100,6 +100,7 @@ public enum Aggregation {
     case countAll
     case count(Expression)
     case sum(Expression)
+    case avg(Expression)
 }
 
 public indirect enum Algebra {
@@ -317,6 +318,18 @@ public class QueryParser<T : LineReadable> {
             let parser = NTriplesPatternParser(reader: "")
             guard let pattern = parser.parseTriplePattern(line: rest) else { return nil }
             return .triple(pattern)
+        } else if op == "avg" { // (AVG(?key) AS ?name) ... GROUP BY ?x ?y ?z --> "sum key name x y z"
+            let key = parts[1]
+            let name = parts[2]
+            let groups = parts.suffix(from: 3).map { (name) -> Expression in .node(.variable(name)) }
+            guard let child = stack.popLast() else { return nil }
+            return .aggregate(child, groups, [(.avg(.node(.variable(key))), name)])
+        } else if op == "sum" { // (SUM(?key) AS ?name) ... GROUP BY ?x ?y ?z --> "sum key name x y z"
+            let key = parts[1]
+            let name = parts[2]
+            let groups = parts.suffix(from: 3).map { (name) -> Expression in .node(.variable(name)) }
+            guard let child = stack.popLast() else { return nil }
+            return .aggregate(child, groups, [(.sum(.node(.variable(key))), name)])
         } else if op == "count" { // (COUNT(?key) AS ?name) ... GROUP BY ?x ?y ?z --> "count key name x y z"
             let key = parts[1]
             let name = parts[2]
@@ -565,6 +578,41 @@ public class SimpleQueryEvaluator {
                 guard var bindings = groupBindings[groupKey] else { fatalError("Unexpected missing aggregation group template") }
                 for (agg, name) in aggs {
                     switch agg {
+                    case .sum(let keyExpr), .avg(let keyExpr):
+                        var doubleSum : Double = 0.0
+                        let integer = TermType.datatype("http://www.w3.org/2001/XMLSchema#integer")
+                        var resultingType : TermType? = integer
+                        var count = 0
+                        for result in results {
+                            if let term = try? keyExpr.evaluate(result: result) {
+                                count += 1
+                                if term.isNumeric {
+                                    resultingType = resultingType?.resultType(op: "+", operandType: term.type)
+                                    doubleSum += term.numericValue
+                                }
+                            }
+                        }
+                        
+                        if case .avg(_) = agg {
+                            doubleSum /= Double(count)
+                            resultingType = resultingType?.resultType(op: "/", operandType: integer)
+                        }
+                        
+                        if let type = resultingType {
+                            if let n = Term(numeric: doubleSum, type: type) {
+                                bindings[name] = n
+                            } else {
+                                // cannot create a numeric term with this combination of value and type
+                            }
+                        } else {
+                            let name : String
+                            if case .sum(_) = agg {
+                                name = "SUM"
+                            } else {
+                                name = "AVG"
+                            }
+                            warn("*** Cannot determine resulting numeric datatype for \(name) operation")
+                        }
                     case .count(let keyExpr):
                         var count = 0
                         for result in results {
@@ -576,8 +624,8 @@ public class SimpleQueryEvaluator {
                     case .countAll:
                         let count = results.count
                         bindings[name] = Term(integer: count)
-                    default:
-                        fatalError("Unimplemented aggregate: \(agg)")
+//                    default:
+//                        fatalError("Unimplemented aggregate: \(agg)")
                     }
                 }
                 return Result(bindings: bindings)
