@@ -31,11 +31,15 @@ func parse(database : FilePageDatabase, filename : String, startTime : UInt64) t
     let graph   = Term(value: path, type: .iri)
     
     var count   = 0
-    let quads = parser.makeIterator().map { (triple) -> Quad in
-        count += 1
-        return Quad(subject: triple.subject, predicate: triple.predicate, object: triple.object, graph: graph)
+    let quads = AnySequence { () -> AnyIterator<Quad> in
+        let i = parser.makeIterator()
+        return AnyIterator {
+            guard let triple = i.next() else { return nil }
+            count += 1
+            return Quad(subject: triple.subject, predicate: triple.predicate, object: triple.object, graph: graph)
+        }
+        //    warn("\r\(quads.count) triples parsed")
     }
-//    warn("\r\(quads.count) triples parsed")
     
     let version = startTime
     try database.update(version: version) { (m) in
@@ -43,7 +47,7 @@ func parse(database : FilePageDatabase, filename : String, startTime : UInt64) t
             let store = try QuadStore.create(mediator: m)
             try store.load(quads: quads)
         } catch let e {
-            warn("*** \(e)")
+            warn("*** Failed during load of RDF (\(count) triples handled); \(e)")
             throw DatabaseUpdateError.Rollback
         }
     }
@@ -127,7 +131,7 @@ func match(database : FilePageDatabase) throws -> Int {
 let verbose = true
 let args = Process.arguments
 let pname = args[0]
-var pageSize = 4096
+var pageSize = 16384
 guard args.count >= 2 else {
     print("Usage: \(pname) database.db load rdf.nt")
     print("       \(pname) database.db query query.q")

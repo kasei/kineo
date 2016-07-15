@@ -209,17 +209,21 @@ public class QuadStore : Sequence {
         }
     }
  
-    public func results(matching pattern: QuadPattern) throws -> AnyIterator<Result> {
+    public func results(matching pattern: QuadPattern) throws -> AnyIterator<TermResult> {
         var variables   = [Int:String]()
         var verify      = [Int:Term]()
         for (i, node) in [pattern.subject, pattern.predicate, pattern.object, pattern.graph].enumerated() {
             switch node {
-            case .variable(let name):
-                variables[i] = name
+            case .variable(let name, let bind):
+                if bind {
+                    variables[i] = name
+                }
             case .bound(let term):
                 verify[i] = term
             }
         }
+        
+        // TODO: don't materialize the terms here; if we don't end up binding them in the result, we shouldn't pay the penalty of looking them up in the nodemap
         let quads = try self.quads(matching: pattern).makeIterator()
         return AnyIterator {
             OUTER: repeat {
@@ -239,7 +243,7 @@ public class QuadStore : Sequence {
                         }
                     }
                 }
-                return Result(bindings: bindings)
+                return TermResult(bindings: bindings)
             } while true
         }
     }
@@ -799,9 +803,20 @@ public func < <T>(lhs: IDQuad<T>, rhs: IDQuad<T>) -> Bool {
     return false
 }
 
-public struct Result : CustomStringConvertible {
+public protocol ResultProtocol {
+    associatedtype Element : Hashable
+    var keys : [String] { get }
+    func join(_ rhs : Self) -> Self?
+    subscript(key : String) -> Element? { get }
+    mutating func extend(variable : String, value : Element)
+    func extended(variable : String, value : Element) -> Self
+}
+
+public struct TermResult : CustomStringConvertible, ResultProtocol {
+    public typealias Element = Term
     var bindings : [String:Term]
-    public func join(_ rhs : Result) -> Result? {
+    public var keys : [String] { return Array(bindings.keys) }
+    public func join(_ rhs : TermResult) -> TermResult? {
         let lvars = Set(bindings.keys)
         let rvars = Set(rhs.bindings.keys)
         let shared = lvars.intersection(rvars)
@@ -812,17 +827,17 @@ public struct Result : CustomStringConvertible {
         for (k,v) in rhs.bindings {
             b[k] = v
         }
-        return Result(bindings: b)
+        return TermResult(bindings: b)
     }
     
-    public func project(variables : [String]) -> Result {
+    public func project(variables : [String]) -> TermResult {
         var bindings = [String:Term]()
         for name in variables {
             if let term = self[name] {
                 bindings[name] = term
             }
         }
-        return Result(bindings: bindings)
+        return TermResult(bindings: bindings)
     }
     
     public subscript(key : String) -> Term? {
@@ -835,5 +850,11 @@ public struct Result : CustomStringConvertible {
     
     public mutating func extend(variable : String, value : Term) {
         self.bindings[variable] = value
+    }
+    
+    public func extended(variable : String, value : Term) -> TermResult {
+        var b = bindings
+        b[variable] = value
+        return TermResult(bindings: b)
     }
 }

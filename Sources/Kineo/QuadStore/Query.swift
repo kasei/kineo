@@ -32,33 +32,33 @@ extension Term {
 
 public indirect enum Expression {
     case node(Node)
-    case add(Expression, Expression)
-    case sub(Expression, Expression)
-    case div(Expression, Expression)
-    case mul(Expression, Expression)
-    case not(Expression)
     case eq(Expression, Expression)
     case ne(Expression, Expression)
     case lt(Expression, Expression)
     case le(Expression, Expression)
     case gt(Expression, Expression)
     case ge(Expression, Expression)
-    case call(String, [Expression])
-    case isiri(Expression)
-    case isblank(Expression)
-    case isliteral(Expression)
-    case isnumeric(Expression)
-    case lang(Expression)
-    case datatype(Expression)
-    case langmatches(Expression, String)
-    case bound(Expression)
+    case add(Expression, Expression)
+    case sub(Expression, Expression)
+    case div(Expression, Expression)
+    case mul(Expression, Expression)
+//    case not(Expression)
+//    case call(String, [Expression])
+//    case isiri(Expression)
+//    case isblank(Expression)
+//    case isliteral(Expression)
+//    case isnumeric(Expression)
+//    case lang(Expression)
+//    case datatype(Expression)
+//    case langmatches(Expression, String)
+//    case bound(Expression)
     // TODO: add other expression functions
     
-    public func evaluate(result : Result) throws -> Term {
+    public func evaluate(result : TermResult) throws -> Term {
         switch self {
         case .node(.bound(let term)):
             return term
-        case .node(.variable(let name)):
+        case .node(.variable(let name, _)):
             if let term = result[name] {
                 return term
             } else {
@@ -88,9 +88,45 @@ public indirect enum Expression {
             if let lval = try? lhs.evaluate(result: result), rval = try? rhs.evaluate(result: result) {
                 return (lval <= rval) ? Term.trueValue : Term.falseValue
             }
-        default:
-            print("*** Cannot evaluate expression \(self)")
-            throw QueryError.evaluationError("Cannot evaluate \(self) with result \(result)")
+        case .add(let lhs, let rhs):
+            if let lval = try? lhs.evaluate(result: result), rval = try? rhs.evaluate(result: result) {
+                guard lval.isNumeric else { throw QueryError.typeError("Value \(lval) is not numeric") }
+                guard rval.isNumeric else { throw QueryError.typeError("Value \(lval) is not numeric") }
+                let value = lval.numericValue + rval.numericValue
+                guard let type = lval.type.resultType(op: "+", operandType: rval.type) else { throw QueryError.typeError("Cannot determine resulting type for adding \(lval) and \(rval)") }
+                guard let term = Term(numeric: value, type: type) else { throw QueryError.typeError("Cannot add \(lval) and \(rval) and produce a valid numeric term") }
+                return term
+            }
+        case .sub(let lhs, let rhs):
+            if let lval = try? lhs.evaluate(result: result), rval = try? rhs.evaluate(result: result) {
+                guard lval.isNumeric else { throw QueryError.typeError("Value \(lval) is not numeric") }
+                guard rval.isNumeric else { throw QueryError.typeError("Value \(lval) is not numeric") }
+                let value = lval.numericValue - rval.numericValue
+                guard let type = lval.type.resultType(op: "-", operandType: rval.type) else { throw QueryError.typeError("Cannot determine resulting type for subtracting \(lval) and \(rval)") }
+                guard let term = Term(numeric: value, type: type) else { throw QueryError.typeError("Cannot subtract \(lval) and \(rval) and produce a valid numeric term") }
+                return term
+            }
+        case .mul(let lhs, let rhs):
+            if let lval = try? lhs.evaluate(result: result), rval = try? rhs.evaluate(result: result) {
+                guard lval.isNumeric else { throw QueryError.typeError("Value \(lval) is not numeric") }
+                guard rval.isNumeric else { throw QueryError.typeError("Value \(lval) is not numeric") }
+                let value = lval.numericValue * rval.numericValue
+                guard let type = lval.type.resultType(op: "*", operandType: rval.type) else { throw QueryError.typeError("Cannot determine resulting type for multiplying \(lval) and \(rval)") }
+                guard let term = Term(numeric: value, type: type) else { throw QueryError.typeError("Cannot multiply \(lval) and \(rval) and produce a valid numeric term") }
+                return term
+            }
+        case .div(let lhs, let rhs):
+            if let lval = try? lhs.evaluate(result: result), rval = try? rhs.evaluate(result: result) {
+                guard lval.isNumeric else { throw QueryError.typeError("Value \(lval) is not numeric") }
+                guard rval.isNumeric else { throw QueryError.typeError("Value \(lval) is not numeric") }
+                let value = lval.numericValue / rval.numericValue
+                guard let type = lval.type.resultType(op: "/", operandType: rval.type) else { throw QueryError.typeError("Cannot determine resulting type for dividing \(lval) and \(rval)") }
+                guard let term = Term(numeric: value, type: type) else { throw QueryError.typeError("Cannot divide \(lval) and \(rval) and produce a valid numeric term") }
+                return term
+            }
+//        default:
+//            print("*** Cannot evaluate expression \(self)")
+//            throw QueryError.evaluationError("Cannot evaluate \(self) with result \(result)")
         }
         throw QueryError.evaluationError("Failed to evaluate \(self) with result \(result)")
     }
@@ -145,14 +181,14 @@ public indirect enum Algebra {
             return inscopeUnion(children: children)
         case .triple(let t):
             for node in [t.subject, t.predicate, t.object] {
-                if case .variable(let name) = node {
+                if case .variable(let name, _) = node {
                     variables.insert(name)
                 }
             }
             return variables
         case .quad(let q):
             for node in [q.subject, q.predicate, q.object, q.graph] {
-                if case .variable(let name) = node {
+                if case .variable(let name, _) = node {
                     variables.insert(name)
                 }
             }
@@ -164,7 +200,7 @@ public indirect enum Algebra {
             var variables = Set<String>()
             for t in triples {
                 for node in [t.subject, t.predicate, t.object] {
-                    if case .variable(let name) = node {
+                    if case .variable(let name, _) = node {
                         variables.insert(name)
                     }
                 }
@@ -178,13 +214,15 @@ public indirect enum Algebra {
             return variables
         case .filter(let child, _), .minus(let child, _), .distinct(let child), .slice(let child, _, _), .namedGraph(let child, .bound(_)), .order(let child, _):
             return child.inscope
-        case .namedGraph(let child, .variable(let v)):
+        case .namedGraph(let child, .variable(let v, let bind)):
             var variables = child.inscope
-            variables.insert(v)
+            if bind {
+                variables.insert(v)
+            }
             return variables
         case .aggregate(_, let groups, let aggs):
             for g in groups {
-                if case .node(.variable(let name)) = g {
+                if case .node(.variable(let name, true)) = g {
                     variables.insert(name)
                 }
             }
@@ -321,66 +359,55 @@ public class QueryParser<T : LineReadable> {
         } else if op == "avg" { // (AVG(?key) AS ?name) ... GROUP BY ?x ?y ?z --> "sum key name x y z"
             let key = parts[1]
             let name = parts[2]
-            let groups = parts.suffix(from: 3).map { (name) -> Expression in .node(.variable(name)) }
+            let groups = parts.suffix(from: 3).map { (name) -> Expression in .node(.variable(name, binding: true)) }
             guard let child = stack.popLast() else { return nil }
-            return .aggregate(child, groups, [(.avg(.node(.variable(key))), name)])
+            return .aggregate(child, groups, [(.avg(.node(.variable(key, binding: true))), name)])
         } else if op == "sum" { // (SUM(?key) AS ?name) ... GROUP BY ?x ?y ?z --> "sum key name x y z"
             let key = parts[1]
             let name = parts[2]
-            let groups = parts.suffix(from: 3).map { (name) -> Expression in .node(.variable(name)) }
+            let groups = parts.suffix(from: 3).map { (name) -> Expression in .node(.variable(name, binding: true)) }
             guard let child = stack.popLast() else { return nil }
-            return .aggregate(child, groups, [(.sum(.node(.variable(key))), name)])
+            return .aggregate(child, groups, [(.sum(.node(.variable(key, binding: true))), name)])
         } else if op == "count" { // (COUNT(?key) AS ?name) ... GROUP BY ?x ?y ?z --> "count key name x y z"
             let key = parts[1]
             let name = parts[2]
-            let groups = parts.suffix(from: 3).map { (name) -> Expression in .node(.variable(name)) }
+            let groups = parts.suffix(from: 3).map { (name) -> Expression in .node(.variable(name, binding: true)) }
             guard let child = stack.popLast() else { return nil }
-            return .aggregate(child, groups, [(.count(.node(.variable(key))), name)])
+            return .aggregate(child, groups, [(.count(.node(.variable(key, binding: true))), name)])
         } else if op == "countall" { // (COUNT(*) AS ?name) ... GROUP BY ?x ?y ?z --> "count name x y z"
             let name = parts[1]
-            let groups = parts.suffix(from: 2).map { (name) -> Expression in .node(.variable(name)) }
+            let groups = parts.suffix(from: 2).map { (name) -> Expression in .node(.variable(name, binding: true)) }
             guard let child = stack.popLast() else { return nil }
             return .aggregate(child, groups, [(.countAll, name)])
         } else if op == "limit" {
             guard let count = Int(rest) else { return nil }
             guard let child = stack.popLast() else { return nil }
             return .slice(child, 0, count)
-        } else if op == "graph" {
+        } else if op == "graph" { 
             let parser = NTriplesPatternParser(reader: "")
             guard let child = stack.popLast() else { return nil }
             guard let graph = parser.parseNode(line: rest) else { return nil }
             return .namedGraph(child, graph)
-        } else if op == "filter" {
-            let parser = NTriplesPatternParser(reader: "")
+        } else if op == "extend" {
+            let name = parts[1]
             guard let child = stack.popLast() else { return nil }
-            let op = parts[1]
-            guard let node = parser.parseNode(line: parts[2]) else { return nil }
-            var vexpr : Expression
-            if let value = Double(parts[3]) {
-                vexpr = .node(.bound(Term(float: value)))
-            } else {
-                guard let node = parser.parseNode(line: parts[3]) else { return nil }
-                vexpr = .node(node)
-            }
-            switch op {
-            case "=":
-                return .filter(child, .eq(.node(node), vexpr))
-            case "!=":
-                return .filter(child, .ne(.node(node), vexpr))
-            case "<":
-                return .filter(child, .lt(.node(node), vexpr))
-            case ">":
-                return .filter(child, .gt(.node(node), vexpr))
-            case "<=":
-                return .filter(child, .le(.node(node), vexpr))
-            case ">=":
-                return .filter(child, .ge(.node(node), vexpr))
-            default:
-                fatalError("Failed to parse filter expression: \(rest)")
-            }
+            do {
+                if let expr = try parseBinaryExpression(Array(parts.suffix(from: 2))) {
+                    return .extend(child, expr, name)
+                }
+            } catch {}
+            fatalError("Failed to parse filter expression: \(parts)")
+        } else if op == "filter" {
+            guard let child = stack.popLast() else { return nil }
+            do {
+                if let expr = try parseBinaryExpression(Array(parts.suffix(from: 1))) {
+                    return .filter(child, expr)
+                }
+            } catch {}
+            fatalError("Failed to parse filter expression: \(parts)")
         } else if op == "sort" {
             // TODO: this is only parsing variable names right now
-            let names = parts.suffix(from: 1).map { (name) -> Expression in .node(.variable(name)) }
+            let names = parts.suffix(from: 1).map { (name) -> Expression in .node(.variable(name, binding: true)) }
             guard let child = stack.popLast() else { return nil }
             return .order(child, names)
         }
@@ -388,6 +415,42 @@ public class QueryParser<T : LineReadable> {
         return nil
     }
     
+    func parseBinaryExpression(_ parts : [String]) throws -> Expression? {
+        let parser = NTriplesPatternParser(reader: "")
+        let op = parts[0]
+        guard let node = parser.parseNode(line: parts[1]) else { return nil }
+        var vexpr : Expression
+        if let value = Double(parts[2]) {
+            vexpr = .node(.bound(Term(float: value)))
+        } else {
+            guard let node = parser.parseNode(line: parts[2]) else { return nil }
+            vexpr = .node(node)
+        }
+        switch op {
+        case "=":
+            return .eq(.node(node), vexpr)
+        case "!=":
+            return .ne(.node(node), vexpr)
+        case "<":
+            return .lt(.node(node), vexpr)
+        case ">":
+            return .gt(.node(node), vexpr)
+        case "<=":
+            return .le(.node(node), vexpr)
+        case ">=":
+            return .ge(.node(node), vexpr)
+        case "+":
+            return .add(.node(node), vexpr)
+        case "-":
+            return .sub(.node(node), vexpr)
+        case "*":
+            return .mul(.node(node), vexpr)
+        case "/":
+            return .div(.node(node), vexpr)
+        default:
+            fatalError("Failed to parse binary expression: \(parts)")
+        }
+    }
     public func parse() -> Algebra? {
         let lines = self.reader.lines()
         for line in lines {
@@ -406,7 +469,7 @@ public class SimpleQueryEvaluator {
         self.defaultGraph = defaultGraph
     }
     
-    func evaluateUnion(_ patterns : [Algebra], activeGraph : Term) throws -> AnyIterator<Result> {
+    func evaluateUnion(_ patterns : [Algebra], activeGraph : Term) throws -> AnyIterator<TermResult> {
         var iters = try patterns.map { try self.evaluate(algebra: $0, activeGraph: activeGraph) }
         return AnyIterator {
             repeat {
@@ -420,7 +483,7 @@ public class SimpleQueryEvaluator {
         }
     }
     
-    func evaluateJoin(lhs lhsAlgebra: Algebra, rhs rhsAlgebra: Algebra, left : Bool, activeGraph : Term) throws -> AnyIterator<Result> {
+    func evaluateJoin(lhs lhsAlgebra: Algebra, rhs rhsAlgebra: Algebra, left : Bool, activeGraph : Term) throws -> AnyIterator<TermResult> {
         var seen = [Set<String>]()
         for pattern in [lhsAlgebra, rhsAlgebra] {
             seen.append(pattern.inscope)
@@ -437,25 +500,25 @@ public class SimpleQueryEvaluator {
         if intersection.count > 0 {
 //                warn("# using hash join on: \(intersection)")
             let joinVariables = Array(intersection)
-            let lhs = Array(try self.evaluate(algebra: lhsAlgebra, activeGraph: activeGraph))
-            let rhs = Array(try self.evaluate(algebra: rhsAlgebra, activeGraph: activeGraph))
+            let lhs = try self.evaluate(algebra: lhsAlgebra, activeGraph: activeGraph)
+            let rhs = try self.evaluate(algebra: rhsAlgebra, activeGraph: activeGraph)
             return pipelinedHashJoin(joinVariables: joinVariables, lhs: lhs, rhs: rhs, left: left)
         }
         
-        var patternResults = [[Result]]()
+        var patternResults = [[TermResult]]()
         for pattern in [lhsAlgebra, rhsAlgebra] {
             let results     = try self.evaluate(algebra: pattern, activeGraph: activeGraph)
             patternResults.append(Array(results))
         }
         
-        var results = [Result]()
+        var results = [TermResult]()
         nestedLoopJoin(patternResults, left: left) { (result) in
             results.append(result)
         }
         return AnyIterator(results.makeIterator())
     }
     
-    func evaluateLeftJoin(lhs : Algebra, rhs : Algebra, expression expr: Expression, activeGraph : Term) throws -> AnyIterator<Result> {
+    func evaluateLeftJoin(lhs : Algebra, rhs : Algebra, expression expr: Expression, activeGraph : Term) throws -> AnyIterator<TermResult> {
         let i = try evaluateJoin(lhs: lhs, rhs: rhs, left: true, activeGraph: activeGraph)
         return AnyIterator {
             repeat {
@@ -469,7 +532,219 @@ public class SimpleQueryEvaluator {
         }
     }
     
-    public func evaluate(algebra : Algebra, activeGraph : Term) throws -> AnyIterator<Result> {
+    func evaluateCount<S : Sequence where S.Iterator.Element == TermResult>(results : S, expression keyExpr : Expression) -> Term? {
+        var count = 0
+        for result in results {
+            if let _ = try? keyExpr.evaluate(result: result) {
+                count += 1
+            }
+        }
+        return Term(integer: count)
+    }
+    
+    func evaluateCountAll<S : Sequence where S.Iterator.Element == TermResult>(results : S) -> Term? {
+        var count = 0
+        for _ in results {
+            count += 1
+        }
+        return Term(integer: count)
+    }
+    
+    func evaluateSum<S : Sequence where S.Iterator.Element == TermResult>(results : S, expression keyExpr : Expression) -> Term? {
+        var doubleSum : Double = 0.0
+        let integer = TermType.datatype("http://www.w3.org/2001/XMLSchema#integer")
+        var resultingType : TermType? = integer
+        var count = 0
+        for result in results {
+            if let term = try? keyExpr.evaluate(result: result) {
+                count += 1
+                if term.isNumeric {
+                    resultingType = resultingType?.resultType(op: "+", operandType: term.type)
+                    doubleSum += term.numericValue
+                }
+            }
+        }
+        
+        if let type = resultingType {
+            if let n = Term(numeric: doubleSum, type: type) {
+                return n
+            } else {
+                // cannot create a numeric term with this combination of value and type
+                return nil
+            }
+        } else {
+            warn("*** Cannot determine resulting numeric datatype for SUM operation")
+            return nil
+        }
+    }
+    
+    //
+    func evaluateSinglePipelinedAggregation(algebra child: Algebra, groups: [Expression], aggregation agg: Aggregation, variable name: String, activeGraph : Term) throws -> AnyIterator<TermResult> {
+        let i = try self.evaluate(algebra: child, activeGraph: activeGraph)
+        var groupValue = [String:Double]()
+        var groupCount = [String:Int]()
+        var groupBindings = [String:[String:Term]]()
+        let integer = TermType.datatype("http://www.w3.org/2001/XMLSchema#integer")
+        var resultingType : TermType? = integer
+        for result in i {
+            let group = groups.map { (expr) -> Term? in return try? expr.evaluate(result: result) }
+            let groupKey = "\(group)"
+            if let value = groupValue[groupKey] {
+                switch agg {
+                case .countAll:
+                    groupValue[groupKey] = value + 1.0
+                case .avg(let keyExpr):
+                    if let _ = try? keyExpr.evaluate(result: result), let c = groupCount[groupKey] {
+                        groupValue[groupKey] = value + 1.0
+                        groupCount[groupKey] = c + 1
+                    }
+                case .count(let keyExpr):
+                    if let _ = try? keyExpr.evaluate(result: result) {
+                        groupValue[groupKey] = value + 1.0
+                    }
+                case .sum(let keyExpr):
+                    if let term = try? keyExpr.evaluate(result: result) {
+                        if term.isNumeric {
+                            resultingType = resultingType?.resultType(op: "+", operandType: term.type)
+                            groupValue[groupKey] = value + term.numericValue
+                        }
+                    }
+                }
+            } else {
+                switch agg {
+                case .countAll:
+                    groupValue[groupKey] = 1.0
+                case .avg(let keyExpr):
+                    if let _ = try? keyExpr.evaluate(result: result) {
+                        groupValue[groupKey] = 1.0
+                        groupCount[groupKey] = 1
+                    }
+                case .count(let keyExpr):
+                    if let _ = try? keyExpr.evaluate(result: result) {
+                        groupValue[groupKey] = 1.0
+                    }
+                case .sum(let keyExpr):
+                    if let term = try? keyExpr.evaluate(result: result) {
+                        if term.isNumeric {
+                            groupValue[groupKey] = term.numericValue
+                            resultingType = term.type
+                        }
+                    }
+                }
+                var bindings = [String:Term]()
+                for (g, term) in zip(groups, group) {
+                    if case .node(.variable(let name, true)) = g {
+                        if let term = term {
+                            bindings[name] = term
+                        }
+                    }
+                }
+                groupBindings[groupKey] = bindings
+            }
+        }
+        // TODO: handle special case where there are no groups (no input rows led to no groups being created);
+        //       in this case, counts should return a single result with { $name=0 }
+        var a = groupValue.makeIterator()
+        return AnyIterator {
+            guard let pair = a.next() else { return nil }
+            let (groupKey, v) = pair
+            var value = v
+            if case .avg(_) = agg {
+                guard let count = groupCount[groupKey] else { fatalError() }
+                value /= Double(count)
+                resultingType = resultingType?.resultType(op: "/", operandType: integer)
+            }
+            
+            guard var bindings = groupBindings[groupKey] else { fatalError("Unexpected missing aggregation group template") }
+            if let type = resultingType {
+                if let n = Term(numeric: value, type: type) {
+                    bindings[name] = n
+                } else {
+                    // cannot create a numeric term with this combination of value and type
+                }
+            } else {
+                warn("*** Cannot determine resulting numeric datatype for \(agg) operation")
+            }
+            return TermResult(bindings: bindings)
+        }
+    }
+    
+    func evaluateAggregation(algebra child: Algebra, groups: [Expression], aggregations aggs: [(Aggregation, String)], activeGraph : Term) throws -> AnyIterator<TermResult> {
+        let i = try self.evaluate(algebra: child, activeGraph: activeGraph)
+        var groupBuckets = [String:[TermResult]]()
+        var groupBindings = [String:[String:Term]]()
+        for result in i {
+            let group = groups.map { (expr) -> Term? in return try? expr.evaluate(result: result) }
+            let groupKey = "\(group)"
+            if groupBuckets[groupKey] == nil {
+                groupBuckets[groupKey] = [result]
+                var bindings = [String:Term]()
+                for (g, term) in zip(groups, group) {
+                    if case .node(.variable(let name, true)) = g {
+                        if let term = term {
+                            bindings[name] = term
+                        }
+                    }
+                }
+                groupBindings[groupKey] = bindings
+            } else {
+                groupBuckets[groupKey]?.append(result)
+            }
+        }
+        var a = groupBuckets.makeIterator()
+        return AnyIterator {
+            guard let pair = a.next() else { return nil }
+            let (groupKey, results) = pair
+            guard var bindings = groupBindings[groupKey] else { fatalError("Unexpected missing aggregation group template") }
+            for (agg, name) in aggs {
+                switch agg {
+                case .countAll:
+                    if let n = self.evaluateCountAll(results: results) {
+                        bindings[name] = n
+                    }
+                case .count(let keyExpr):
+                    if let n = self.evaluateCount(results: results, expression: keyExpr) {
+                        bindings[name] = n
+                    }
+                case .sum(let keyExpr):
+                    if let n = self.evaluateSum(results: results, expression: keyExpr) {
+                        bindings[name] = n
+                    }
+                case .avg(let keyExpr):
+                    var doubleSum : Double = 0.0
+                    let integer = TermType.datatype("http://www.w3.org/2001/XMLSchema#integer")
+                    var resultingType : TermType? = integer
+                    var count = 0
+                    for result in results {
+                        if let term = try? keyExpr.evaluate(result: result) {
+                            count += 1
+                            if term.isNumeric {
+                                resultingType = resultingType?.resultType(op: "+", operandType: term.type)
+                                doubleSum += term.numericValue
+                            }
+                        }
+                    }
+                    
+                    doubleSum /= Double(count)
+                    resultingType = resultingType?.resultType(op: "/", operandType: integer)
+                    if let type = resultingType {
+                        if let n = Term(numeric: doubleSum, type: type) {
+                            bindings[name] = n
+                        } else {
+                            // cannot create a numeric term with this combination of value and type
+                        }
+                    } else {
+                        warn("*** Cannot determine resulting numeric datatype for AVG operation")
+                    }
+                    //                    default:
+                    //                        fatalError("Unimplemented aggregate: \(agg)")
+                }
+            }
+            return TermResult(bindings: bindings)
+        }
+    }
+    
+    public func evaluate(algebra : Algebra, activeGraph : Term) throws -> AnyIterator<TermResult> {
         switch algebra {
         case .triple(let t):
             let quad = QuadPattern(subject: t.subject, predicate: t.predicate, object: t.object, graph: .bound(activeGraph))
@@ -492,7 +767,7 @@ public class SimpleQueryEvaluator {
             if case .bound(let g) = graph {
                 return try evaluate(algebra: child, activeGraph: g)
             } else {
-                guard case .variable(let gv) = graph else { fatalError() }
+                guard case .variable(let gv, let bind) = graph else { fatalError() }
                 var iters = try store.graphs().filter { $0 != defaultGraph }.map { ($0, try evaluate(algebra: child, activeGraph: $0)) }
                 return AnyIterator {
                     repeat {
@@ -501,7 +776,9 @@ public class SimpleQueryEvaluator {
                         }
                         let (graph, i) = iters[0]
                         guard var result = i.next() else { iters.remove(at: 0); continue }
-                        result.extend(variable: gv, value: graph)
+                        if bind {
+                            result.extend(variable: gv, value: graph)
+                        }
                         return result
                     } while true
                 }
@@ -550,86 +827,14 @@ public class SimpleQueryEvaluator {
             }
             return AnyIterator(s.makeIterator())
         case .aggregate(let child, let groups, let aggs):
-            let i = try self.evaluate(algebra: child, activeGraph: activeGraph)
-            var groupBuckets = [String:[Result]]()
-            var groupBindings = [String:[String:Term]]()
-            for result in i {
-                let group = groups.map { (expr) -> Term? in return try? expr.evaluate(result: result) }
-                let groupKey = "\(group)"
-                if groupBuckets[groupKey] == nil {
-                    groupBuckets[groupKey] = [result]
-                    var bindings = [String:Term]()
-                    for (g, term) in zip(groups, group) {
-                        if case .node(.variable(let name)) = g {
-                            if let term = term {
-                                bindings[name] = term
-                            }
-                        }
-                    }
-                    groupBindings[groupKey] = bindings
-                } else {
-                    groupBuckets[groupKey]?.append(result)
+            if aggs.count == 1 {
+                let (agg, name) = aggs[0]
+                switch agg {
+                case .sum(_), .count(_), .countAll, .avg(_):
+                    return try evaluateSinglePipelinedAggregation(algebra: child, groups: groups, aggregation: agg, variable: name, activeGraph: activeGraph)
                 }
             }
-            var a = groupBuckets.makeIterator()
-            return AnyIterator {
-                guard let pair = a.next() else { return nil }
-                let (groupKey, results) = pair
-                guard var bindings = groupBindings[groupKey] else { fatalError("Unexpected missing aggregation group template") }
-                for (agg, name) in aggs {
-                    switch agg {
-                    case .sum(let keyExpr), .avg(let keyExpr):
-                        var doubleSum : Double = 0.0
-                        let integer = TermType.datatype("http://www.w3.org/2001/XMLSchema#integer")
-                        var resultingType : TermType? = integer
-                        var count = 0
-                        for result in results {
-                            if let term = try? keyExpr.evaluate(result: result) {
-                                count += 1
-                                if term.isNumeric {
-                                    resultingType = resultingType?.resultType(op: "+", operandType: term.type)
-                                    doubleSum += term.numericValue
-                                }
-                            }
-                        }
-                        
-                        if case .avg(_) = agg {
-                            doubleSum /= Double(count)
-                            resultingType = resultingType?.resultType(op: "/", operandType: integer)
-                        }
-                        
-                        if let type = resultingType {
-                            if let n = Term(numeric: doubleSum, type: type) {
-                                bindings[name] = n
-                            } else {
-                                // cannot create a numeric term with this combination of value and type
-                            }
-                        } else {
-                            let name : String
-                            if case .sum(_) = agg {
-                                name = "SUM"
-                            } else {
-                                name = "AVG"
-                            }
-                            warn("*** Cannot determine resulting numeric datatype for \(name) operation")
-                        }
-                    case .count(let keyExpr):
-                        var count = 0
-                        for result in results {
-                            if let _ = try? keyExpr.evaluate(result: result) {
-                                count += 1
-                            }
-                        }
-                        bindings[name] = Term(integer: count)
-                    case .countAll:
-                        let count = results.count
-                        bindings[name] = Term(integer: count)
-//                    default:
-//                        fatalError("Unimplemented aggregate: \(agg)")
-                    }
-                }
-                return Result(bindings: bindings)
-            }
+            return try evaluateAggregation(algebra: child, groups: groups, aggregations: aggs, activeGraph: activeGraph)
         case .filter(let child, let expr):
             let i = try self.evaluate(algebra: child, activeGraph: activeGraph)
             return AnyIterator {
@@ -652,8 +857,8 @@ public class SimpleQueryEvaluator {
     }
 }
 
-public func pipelinedHashJoin(joinVariables : [String], lhs : [Result], rhs : [Result], left : Bool = false) -> AnyIterator<Result> {
-    var table = [Int:[Result]]()
+public func pipelinedHashJoin<R : ResultProtocol>(joinVariables : [String], lhs : AnyIterator<R>, rhs : AnyIterator<R>, left : Bool = false) -> AnyIterator<R> {
+    var table = [Int:[R]]()
     for result in rhs {
         let hashes = joinVariables.map { result[$0]?.hashValue ?? 0 }
         let hash = hashes.reduce(0, combine: { $0 ^ $1 })
@@ -664,14 +869,13 @@ public func pipelinedHashJoin(joinVariables : [String], lhs : [Result], rhs : [R
         }
     }
     
-    var i = lhs.makeIterator()
-    var buffer = [Result]()
+    var buffer = [R]()
     return AnyIterator {
         repeat {
             if buffer.count > 0 {
                 return buffer.remove(at: 0)
             }
-            guard let result = i.next() else { return nil }
+            guard let result = lhs.next() else { return nil }
             var joined = false
             let hashes = joinVariables.map { result[$0]?.hashValue ?? 0 }
             let hash = hashes.reduce(0, combine: { $0 ^ $1 })
@@ -690,13 +894,13 @@ public func pipelinedHashJoin(joinVariables : [String], lhs : [Result], rhs : [R
     }
 }
 
-public func nestedLoopJoin(_ results : [[Result]], left : Bool = false, cb : @noescape (Result) -> ()) {
+public func nestedLoopJoin<R : ResultProtocol>(_ results : [[R]], left : Bool = false, cb : @noescape (R) -> ()) {
     var patternResults = results
     while patternResults.count > 1 {
         let rhs = patternResults.popLast()!
         let lhs = patternResults.popLast()!
         let finalPass = patternResults.count == 0
-        var joinedResults = [Result]()
+        var joinedResults = [R]()
         for lresult in lhs {
             var joined = false
             for rresult in rhs {

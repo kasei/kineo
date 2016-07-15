@@ -434,6 +434,6 @@ extension Quad : Sequence {
 
 public enum Node {
     case bound(Term)
-    case variable(String)
+    case variable(String, binding: Bool)
 }
 

@@ -236,7 +236,7 @@ public class NTriplesPatternParser<T : LineReadable> : NTriplesParser<T> {
                     if let t = self.parseTerm(&chars) {
                         nodes.append(.bound(t))
                     } else if let s = self.parseVariable(&chars) {
-                        nodes.append(.variable(s))
+                        nodes.append(.variable(s, binding: !s.hasPrefix(".")))
                     } else {
                         continue LINE
                     }
@@ -253,7 +253,7 @@ public class NTriplesPatternParser<T : LineReadable> : NTriplesParser<T> {
         if let t = parseTerm(&chars) {
             return .bound(t)
         } else if let s = parseVariable(&chars) {
-            return .variable(s)
+            return .variable(s, binding: !s.hasPrefix("."))
         } else {
             return nil
         }
@@ -268,7 +268,7 @@ public class NTriplesPatternParser<T : LineReadable> : NTriplesParser<T> {
             if let t = parseTerm(&chars) {
                 nodes.append(.bound(t))
             } else if let s = parseVariable(&chars) {
-                nodes.append(.variable(s))
+                nodes.append(.variable(s, binding: !s.hasPrefix(".")))
             } else {
                 return nil
             }
@@ -285,7 +285,7 @@ public class NTriplesPatternParser<T : LineReadable> : NTriplesParser<T> {
             if let t = parseTerm(&chars) {
                 nodes.append(.bound(t))
             } else if let s = parseVariable(&chars) {
-                nodes.append(.variable(s))
+                nodes.append(.variable(s, binding: !s.hasPrefix(".")))
             } else {
                 return nil
             }
