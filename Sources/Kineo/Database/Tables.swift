@@ -116,7 +116,7 @@ public struct TableIterator<T : protocol<BufferSerializable,Comparable>, U : Buf
     var buffer : [Element]
     let type : DatabaseInfo.Cookie
     private var nextPageId : PageId?
-
+    
     init (table : Table<T,U>, type : DatabaseInfo.Cookie, keyType: T.Type, valueType: U.Type) {
         self.table = table
         self.type = type

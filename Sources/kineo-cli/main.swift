@@ -20,32 +20,34 @@ func setup(database : FilePageDatabase, startTime : UInt64) throws {
     }
 }
 
-func parse(database : FilePageDatabase, filename : String, startTime : UInt64) throws -> Int {
-    let reader  = FileReader(filename: filename)
-    let parser  = NTriplesParser(reader: reader)
-#if os (OSX)
-    guard let path = NSURL(fileURLWithPath: filename).absoluteString else { throw DatabaseError.DataError("Not a valid graph path: \(filename)") }
-#else
-    let path = NSURL(fileURLWithPath: filename).absoluteString
-#endif
-    let graph   = Term(value: path, type: .iri)
-    
+func parse(database : FilePageDatabase, files : [String], startTime : UInt64, graph defaultGraphTerm: Term? = nil) throws -> Int {
     var count   = 0
-    let quads = AnySequence { () -> AnyIterator<Quad> in
-        let i = parser.makeIterator()
-        return AnyIterator {
-            guard let triple = i.next() else { return nil }
-            count += 1
-            return Quad(subject: triple.subject, predicate: triple.predicate, object: triple.object, graph: graph)
-        }
-        //    warn("\r\(quads.count) triples parsed")
-    }
-    
     let version = startTime
     try database.update(version: version) { (m) in
         do {
-            let store = try QuadStore.create(mediator: m)
-            try store.load(quads: quads)
+            for filename in files {
+                #if os (OSX)
+                    guard let path = NSURL(fileURLWithPath: filename).absoluteString else { throw DatabaseError.DataError("Not a valid graph path: \(filename)") }
+                #else
+                    let path = NSURL(fileURLWithPath: filename).absoluteString
+                #endif
+                let graph   = defaultGraphTerm ?? Term(value: path, type: .iri)
+                
+                let reader  = FileReader(filename: filename)
+                let parser  = NTriplesParser(reader: reader)
+                let quads = AnySequence { () -> AnyIterator<Quad> in
+                    let i = parser.makeIterator()
+                    return AnyIterator {
+                        guard let triple = i.next() else { return nil }
+                        count += 1
+                        return Quad(subject: triple.subject, predicate: triple.predicate, object: triple.object, graph: graph)
+                    }
+                    //    warn("\r\(quads.count) triples parsed")
+                }
+                
+                let store = try QuadStore.create(mediator: m)
+                try store.load(quads: quads)
+            }
         } catch let e {
             warn("*** Failed during load of RDF (\(count) triples handled); \(e)")
             throw DatabaseUpdateError.Rollback
@@ -103,11 +105,35 @@ func serialize(database : FilePageDatabase) throws -> Int {
     return count
 }
 
+func graphs(database : FilePageDatabase) throws -> Int {
+    var count = 0
+    try database.read { (m) in
+        guard let store = try? QuadStore(mediator: m) else { return }
+        for graph in store.graphs() {
+            count += 1
+            print("\(graph)")
+        }
+    }
+    return count
+}
+
+func indexes(database : FilePageDatabase) throws -> Int {
+    var count = 0
+    try database.read { (m) in
+        guard let store = try? QuadStore(mediator: m) else { return }
+        for idx in store.availableQuadIndexes {
+            count += 1
+            print("\(idx)")
+        }
+    }
+    return count
+}
+
 func output(database : FilePageDatabase) throws -> Int {
     try database.read { (m) in
         guard let store = try? QuadStore(mediator: m) else { return }
         for (k,v) in store.id {
-            warn("\(k) -> \(v)")
+            print("\(k) -> \(v)")
         }
     }
     return try serialize(database: database)
@@ -148,10 +174,23 @@ if args.count > 2 {
     try setup(database: database, startTime: startTime)
     let op = args[2]
     if op == "load" {
-        for rdf in args.suffix(from: 3) {
-//            warn("parsing \(rdf)")
-            count = try parse(database: database, filename: rdf, startTime: startTime)
+        var graph : Term? = nil
+        var parseArgs = Array(args.suffix(from: 3))
+        if parseArgs.count > 0 {
+            if parseArgs[0] == "-g" {
+                guard parseArgs.count >= 2 else {
+                    warn("No graph IRI present after '-g'")
+                    exit(1)
+                }
+                graph = Term(value: parseArgs[1], type: .iri)
+                parseArgs = Array(parseArgs.suffix(from: 2))
+            }
+            count = try parse(database: database, files: parseArgs, startTime: startTime, graph: graph)
         }
+    } else if op == "graphs" {
+        count = try graphs(database: database)
+    } else if op == "indexes" {
+        count = try indexes(database: database)
     } else if op == "query" {
         let qfile = args[3]
         guard let algebra = try parseQuery(database: database, filename: qfile) else { fatalError("Failed to parse query") }
@@ -159,7 +198,9 @@ if args.count > 2 {
     } else if op == "qparse" {
         let qfile = args[3]
         guard let algebra = try parseQuery(database: database, filename: qfile) else { fatalError("Failed to parse query") }
-        print(algebra.serialize())
+        let s = algebra.serialize()
+        count = 1
+        print(s)
     } else if op == "index" {
         let index = args[3]
         try database.update(version: startTime) { (m) in

@@ -10,12 +10,16 @@ import Foundation
 
 public class QuadStore : Sequence {
     typealias IDType = UInt64
-    static let defaultIndex = "gspo"
+    static let defaultIndex = "pogs"
     private var mediator : RMediator
     public var id : PersistentTermIdentityMap
     public init(mediator : RMediator) throws {
         self.mediator = mediator
-        self.id = try PersistentTermIdentityMap(mediator: mediator)
+        var readonly = true
+        if let _ = mediator as? RWMediator {
+            readonly = false
+        }
+        self.id = try PersistentTermIdentityMap(mediator: mediator, readonly: readonly)
     }
     
     public static func create(mediator : RWMediator) throws -> QuadStore {
@@ -72,10 +76,8 @@ public class QuadStore : Sequence {
                 let indexOrder = mapping(quad: quadOrder)
                 return !quadsTree.contains(key: indexOrder)
             }.map { ($0, empty) }
-//            let tripleCount = spog.count
-//            print("creating table with \(tripleCount) quads")
             _ = try m.append(pairs: spog, toTable: "quads")
-            
+            // TODO: update all indexes (self.availableQuadIndexes)
             try addQuadIndex(QuadStore.defaultIndex)
         } catch let e {
             warn("*** \(e)")
@@ -97,8 +99,13 @@ public class QuadStore : Sequence {
         do {
         guard let table : Table<IDQuad<UInt64>,Empty> = mediator.table(name: "quads") else { throw DatabaseError.DataError("Failed to load quads table") }
             var graphids = Set<UInt64>()
+            var last : UInt64 = 0
             for (k, _) in table {
-                graphids.insert(k[3])
+                let g = k[3]
+                if g != last {
+                    graphids.insert(g)
+                    last = g
+                }
             }
             
             let idmap = try PersistentTermIdentityMap(mediator: mediator)
@@ -141,7 +148,7 @@ public class QuadStore : Sequence {
         return AnyIterator { return nil }
     }
 
-    private var availableQuadIndexes : [String] {
+    public var availableQuadIndexes : [String] {
         return mediator.rootNames.filter { String($0.characters.sorted()) == "gops" }
     }
     
@@ -210,8 +217,9 @@ public class QuadStore : Sequence {
     }
  
     public func results(matching pattern: QuadPattern) throws -> AnyIterator<TermResult> {
+        let idmap = self.id
         var variables   = [Int:String]()
-        var verify      = [Int:Term]()
+        var verify      = [Int:IDType]()
         for (i, node) in [pattern.subject, pattern.predicate, pattern.object, pattern.graph].enumerated() {
             switch node {
             case .variable(let name, let bind):
@@ -219,27 +227,33 @@ public class QuadStore : Sequence {
                     variables[i] = name
                 }
             case .bound(let term):
-                verify[i] = term
+                guard let id = idmap.id(for: term) else {
+                    return AnyIterator { return nil }
+//                    throw DatabaseError.DataError("Failed to load term ID for \(term)")
+                }
+                verify[i] = id
             }
         }
         
-        // TODO: don't materialize the terms here; if we don't end up binding them in the result, we shouldn't pay the penalty of looking them up in the nodemap
-        let quads = try self.quads(matching: pattern).makeIterator()
+        let idquads = try self.idquads(matching: pattern).makeIterator()
         return AnyIterator {
             OUTER: repeat {
-                guard let quad = quads.next() else { return nil }
-                let quadTerms = [quad.subject, quad.predicate, quad.object, quad.graph]
+                guard let idquad = idquads.next() else { return nil }
+                let quadIDs = [idquad[0], idquad[1], idquad[2], idquad[3]]
                 for (i, term) in verify {
-                    guard term == quadTerms[i] else { continue OUTER }
+                    guard term == quadIDs[i] else { continue OUTER }
                 }
                 
+                var idbindings = [String:IDType]()
                 var bindings = [String:Term]()
-                for (i, term) in [quad.subject, quad.predicate, quad.object, quad.graph].enumerated() {
+                for (i, id) in [idquad[0], idquad[1], idquad[2], idquad[3]].enumerated() {
                     if let name = variables[i] {
-                        if let existing = bindings[name] {
-                            guard existing == term else { continue OUTER }
+                        if let existing = idbindings[name] {
+                            guard existing == id else { continue OUTER }
                         } else {
+                            let term = idmap.term(for: id)
                             bindings[name] = term
+                            idbindings[name] = id
                         }
                     }
                 }
@@ -248,13 +262,13 @@ public class QuadStore : Sequence {
         }
     }
     
-    public func quads(matching pattern: QuadPattern) throws -> AnyIterator<Quad> {
+    internal func idquads(matching pattern: QuadPattern) throws -> AnyIterator<IDQuad<IDType>> {
         let umin = UInt64.min
         let umax = UInt64.max
         let idmap = self.id
         
         let (index_name, count) = bestIndex(for: pattern)
-//        print("Index '\(index_name)' is best match with \(count) prefix terms")
+        //        print("Index '\(index_name)' is best match with \(count) prefix terms")
         
         let nodes = [pattern.subject, pattern.predicate, pattern.object, pattern.graph]
         var patternIds = [UInt64]()
@@ -264,7 +278,10 @@ public class QuadStore : Sequence {
             case .variable(_):
                 patternIds.append(0)
             case .bound(let term):
-                guard let id = idmap.id(for: term) else { throw DatabaseError.DataError("Failed to load term ID for \(term)") }
+                guard let id = idmap.id(for: term) else {
+                    return AnyIterator { return nil }
+//                    throw DatabaseError.DataError("Failed to load term ID for \(term)")
+                }
                 patternIds.append(id)
             }
         }
@@ -289,15 +306,25 @@ public class QuadStore : Sequence {
                     guard let pair = iter.next() else { return nil }
                     let (indexOrder, _) = pair
                     if indexOrder.matches(indexOrderedPattern) {
-                        let quad = fromIndexOrder(quad: indexOrder)
-                        if let s = idmap.term(for: quad[0]), p = idmap.term(for: quad[1]), o = idmap.term(for: quad[2]), g = idmap.term(for: quad[3]) {
-                            return Quad(subject: s, predicate: p, object: o, graph: g)
-                        }
+                        return fromIndexOrder(quad: indexOrder)
                     }
                 } while true
             }
         } else {
             throw DatabaseError.DataError("No index named '\(index_name) found")
+        }
+    }
+    
+    public func quads(matching pattern: QuadPattern) throws -> AnyIterator<Quad> {
+        let idmap = self.id
+        let idquads = try self.idquads(matching: pattern)
+        return AnyIterator {
+            repeat {
+                guard let quad = idquads.next() else { return nil }
+                if let s = idmap.term(for: quad[0]), p = idmap.term(for: quad[1]), o = idmap.term(for: quad[2]), g = idmap.term(for: quad[3]) {
+                    return Quad(subject: s, predicate: p, object: o, graph: g)
+                }
+            } while true
         }
     }
 }
@@ -354,7 +381,8 @@ public class PersistentTermIdentityMap : IdentityMap, Sequence {
      20	0001 0100       xsd:date
      21	0001 0101       xsd:dateTime
      24	0001 1000		xsd:integer
-     25	0001 1001		xsd:decimal
+     25	0001 1001		xsd:int
+     26	0001 1010		xsd:decimal
      
      Prefixes:
 
@@ -380,7 +408,7 @@ public class PersistentTermIdentityMap : IdentityMap, Sequence {
     var i2tcache : LRUCache<Result,Term>
     var t2icache : LRUCache<Term,Result>
 
-    public init (mediator : RMediator) throws {
+    public init (mediator : RMediator, readonly : Bool = false) throws {
         self.mediator = mediator
         var t2i : Tree<Element,Result>? = mediator.tree(name: t2iMapTreeName)
         if t2i == nil {
@@ -402,10 +430,17 @@ public class PersistentTermIdentityMap : IdentityMap, Sequence {
             i2t = mediator.tree(name: i2tMapTreeName)
         }
         
-        if let i2t = i2t {
-            next = PersistentTermIdentityMap.loadMaxIDs(from: i2t, mediator: mediator)
+        if readonly {
+            next.iri = 0
+            next.blank = 0
+            next.datatype = 0
+            next.language = 0
         } else {
-            throw DatabaseError.PermissionError("Failed to get PersistentTermIdentityMap trees")
+            if let i2t = i2t {
+                next = PersistentTermIdentityMap.loadMaxIDs(from: i2t, mediator: mediator)
+            } else {
+                throw DatabaseError.PermissionError("Failed to get PersistentTermIdentityMap trees")
+            }
         }
 
         self.i2tcache = LRUCache(capacity: 64)
@@ -525,6 +560,8 @@ extension PersistentTermIdentityMap {
         case 0x18:
             return unpack(integer: value)
         case 0x19:
+            return unpack(int: value)
+        case 0x1a:
             return unpack(decimal: value)
         default:
             return nil
@@ -543,6 +580,8 @@ extension PersistentTermIdentityMap {
             return pack(string: v)
         case (.datatype("http://www.w3.org/2001/XMLSchema#integer"), let v):
             return pack(integer: v)
+        case (.datatype("http://www.w3.org/2001/XMLSchema#int"), let v):
+            return pack(int: v)
         case (.datatype("http://www.w3.org/2001/XMLSchema#decimal"), let v):
             return pack(decimal: v)
         default:
@@ -588,8 +627,12 @@ extension PersistentTermIdentityMap {
         return nil
     }
     
-    private func unpack(integer: UInt64) -> Element? {
-        return Term(value: "\(integer)", type: .datatype("http://www.w3.org/2001/XMLSchema#integer"))
+    private func unpack(integer v: UInt64) -> Element? {
+        return Term(value: "\(v)", type: .datatype("http://www.w3.org/2001/XMLSchema#integer"))
+    }
+    
+    private func unpack(int v: UInt64) -> Element? {
+        return Term(value: "\(v)", type: .datatype("http://www.w3.org/2001/XMLSchema#int"))
     }
     
     private func unpack(decimal: UInt64) -> Element? {
@@ -627,8 +670,8 @@ extension PersistentTermIdentityMap {
         return Term(value: date, type: .datatype("http://www.w3.org/2001/XMLSchema#date"))
     }
     
-    private func pack(decimal: String) -> Result? {
-        let c = decimal.components(separatedBy: ".")
+    private func pack(decimal s: String) -> Result? {
+        let c = s.components(separatedBy: ".")
         guard c.count == 2 else { return nil }
         if c[0].hasPrefix("-") {
             print("TODO:")
@@ -644,15 +687,22 @@ extension PersistentTermIdentityMap {
         }
     }
     
-    private func pack(integer: String) -> Result? {
-        guard let i = UInt64(integer) else { return nil }
+    private func pack(integer s: String) -> Result? {
+        guard let i = UInt64(s) else { return nil }
         guard i < 0x00ffffffffffffff else { return nil }
         let value : UInt64 = 0x18 << 56
         return value + i
     }
     
-    private func pack(date: String) -> Result? {
-        let values = date.components(separatedBy: "-").map { Int($0) }
+    private func pack(int s: String) -> Result? {
+        guard let i = UInt64(s) else { return nil }
+        guard i <= 2147483647 else { return nil }
+        let value : UInt64 = 0x19 << 56
+        return value + i
+    }
+    
+    private func pack(date s: String) -> Result? {
+        let values = s.components(separatedBy: "-").map { Int($0) }
         guard values.count == 3 else { return nil }
         if let y = values[0], m = values[1], d = values[2] {
             guard y <= 5000 else { return nil }
@@ -803,18 +853,28 @@ public func < <T>(lhs: IDQuad<T>, rhs: IDQuad<T>) -> Bool {
     return false
 }
 
-public protocol ResultProtocol {
+public protocol ResultProtocol : Hashable {
     associatedtype Element : Hashable
     var keys : [String] { get }
     func join(_ rhs : Self) -> Self?
     subscript(key : String) -> Element? { get }
     mutating func extend(variable : String, value : Element)
     func extended(variable : String, value : Element) -> Self
+    func projected(variables : [String]) -> Self
+    var hashValue : Int { get }
+}
+
+extension ResultProtocol {
+    public var hashValue : Int {
+        let ints = keys.map { self[$0]?.hashValue ?? 0 }
+        let hash = ints.reduce(0, combine: { $0 ^ $1 })
+        return hash
+    }
 }
 
 public struct TermResult : CustomStringConvertible, ResultProtocol {
     public typealias Element = Term
-    var bindings : [String:Term]
+    var bindings : [String:Element]
     public var keys : [String] { return Array(bindings.keys) }
     public func join(_ rhs : TermResult) -> TermResult? {
         let lvars = Set(bindings.keys)
@@ -830,7 +890,7 @@ public struct TermResult : CustomStringConvertible, ResultProtocol {
         return TermResult(bindings: b)
     }
     
-    public func project(variables : [String]) -> TermResult {
+    public func projected(variables : [String]) -> TermResult {
         var bindings = [String:Term]()
         for name in variables {
             if let term = self[name] {
@@ -840,7 +900,7 @@ public struct TermResult : CustomStringConvertible, ResultProtocol {
         return TermResult(bindings: bindings)
     }
     
-    public subscript(key : String) -> Term? {
+    public subscript(key : String) -> Element? {
         return bindings[key]
     }
     
@@ -848,13 +908,84 @@ public struct TermResult : CustomStringConvertible, ResultProtocol {
         return "Result\(bindings.description)"
     }
     
-    public mutating func extend(variable : String, value : Term) {
+    public mutating func extend(variable : String, value : Element) {
         self.bindings[variable] = value
     }
     
-    public func extended(variable : String, value : Term) -> TermResult {
+    public func extended(variable : String, value : Element) -> TermResult {
         var b = bindings
         b[variable] = value
         return TermResult(bindings: b)
+    }
+}
+
+public func ==(lhs: TermResult, rhs: TermResult) -> Bool {
+    let lkeys = Array(lhs.keys).sorted()
+    let rkeys = Array(rhs.keys).sorted()
+    guard lkeys == rkeys else { return false }
+    for key in lkeys {
+        let lvalue = lhs[key]
+        let rvalue = rhs[key]
+        guard lvalue == rvalue else { return false }
+    }
+    return true
+}
+
+public func ==(lhs: IDResult, rhs: IDResult) -> Bool {
+    let lkeys = Array(lhs.keys).sorted()
+    let rkeys = Array(rhs.keys).sorted()
+    guard lkeys == rkeys else { return false }
+    for key in lkeys {
+        let lvalue = lhs[key]
+        let rvalue = rhs[key]
+        guard lvalue == rvalue else { return false }
+    }
+    return true
+}
+
+public struct IDResult : CustomStringConvertible, ResultProtocol {
+    public typealias Element = UInt64
+    var bindings : [String:Element]
+    public var keys : [String] { return Array(bindings.keys) }
+    public func join(_ rhs : IDResult) -> IDResult? {
+        let lvars = Set(bindings.keys)
+        let rvars = Set(rhs.bindings.keys)
+        let shared = lvars.intersection(rvars)
+        for key in shared {
+            guard bindings[key] == rhs.bindings[key] else { return nil }
+        }
+        var b = bindings
+        for (k,v) in rhs.bindings {
+            b[k] = v
+        }
+        return IDResult(bindings: b)
+    }
+    
+    public func projected(variables : [String]) -> IDResult {
+        var bindings = [String:Element]()
+        for name in variables {
+            if let term = self[name] {
+                bindings[name] = term
+            }
+        }
+        return IDResult(bindings: bindings)
+    }
+    
+    public subscript(key : String) -> Element? {
+        return bindings[key]
+    }
+    
+    public var description : String {
+        return "Result\(bindings.description)"
+    }
+    
+    public mutating func extend(variable : String, value : Element) {
+        self.bindings[variable] = value
+    }
+    
+    public func extended(variable : String, value : Element) -> IDResult {
+        var b = bindings
+        b[variable] = value
+        return IDResult(bindings: b)
     }
 }

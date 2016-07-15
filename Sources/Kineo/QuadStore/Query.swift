@@ -761,7 +761,7 @@ public class SimpleQueryEvaluator {
             let i = try self.evaluate(algebra: child, activeGraph: activeGraph)
             return AnyIterator {
                 guard let result = i.next() else { return nil }
-                return result.project(variables: vars)
+                return result.projected(variables: vars)
             }
         case .namedGraph(let child, let graph):
             if case .bound(let g) = graph {
@@ -858,14 +858,13 @@ public class SimpleQueryEvaluator {
 }
 
 public func pipelinedHashJoin<R : ResultProtocol>(joinVariables : [String], lhs : AnyIterator<R>, rhs : AnyIterator<R>, left : Bool = false) -> AnyIterator<R> {
-    var table = [Int:[R]]()
+    var table = [R:[R]]()
     for result in rhs {
-        let hashes = joinVariables.map { result[$0]?.hashValue ?? 0 }
-        let hash = hashes.reduce(0, combine: { $0 ^ $1 })
-        if let results = table[hash] {
-            table[hash] = results + [result]
+        let key = result.projected(variables: joinVariables)
+        if let results = table[key] {
+            table[key] = results + [result]
         } else {
-            table[hash] = [result]
+            table[key] = [result]
         }
     }
     
@@ -877,9 +876,8 @@ public func pipelinedHashJoin<R : ResultProtocol>(joinVariables : [String], lhs 
             }
             guard let result = lhs.next() else { return nil }
             var joined = false
-            let hashes = joinVariables.map { result[$0]?.hashValue ?? 0 }
-            let hash = hashes.reduce(0, combine: { $0 ^ $1 })
-            if let results = table[hash] {
+            let key = result.projected(variables: joinVariables)
+            if let results = table[key] {
                 for rhs in results {
                     if let j = rhs.join(result) {
                         joined = true
