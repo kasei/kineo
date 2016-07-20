@@ -2,7 +2,6 @@ import PackageDescription
 
 let package = Package(
     name: "Kineo",
-    dependencies: [],
     targets: [
         Target(
             name: "kineo-cli",
@@ -10,7 +9,8 @@ let package = Package(
                 .Target(name: "Kineo")
             ]
         )
-    ]
+    ],
+    dependencies: []
 )
 
 let lib = Product(name: "Kineo", type: .Library(.Dynamic), modules: "Kineo")

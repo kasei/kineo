@@ -65,31 +65,31 @@ public indirect enum Expression {
                 throw QueryError.typeError("Variable ?\(name) is unbound in result \(result)")
             }
         case .eq(let lhs, let rhs):
-            if let lval = try? lhs.evaluate(result: result), rval = try? rhs.evaluate(result: result) {
+            if let lval = try? lhs.evaluate(result: result), let rval = try? rhs.evaluate(result: result) {
                 return (lval == rval) ? Term.trueValue : Term.falseValue
             }
         case .ne(let lhs, let rhs):
-            if let lval = try? lhs.evaluate(result: result), rval = try? rhs.evaluate(result: result) {
+            if let lval = try? lhs.evaluate(result: result), let rval = try? rhs.evaluate(result: result) {
                 return (lval != rval) ? Term.trueValue : Term.falseValue
             }
         case .gt(let lhs, let rhs):
-            if let lval = try? lhs.evaluate(result: result), rval = try? rhs.evaluate(result: result) {
+            if let lval = try? lhs.evaluate(result: result), let rval = try? rhs.evaluate(result: result) {
                 return (lval > rval) ? Term.trueValue : Term.falseValue
             }
         case .lt(let lhs, let rhs):
-            if let lval = try? lhs.evaluate(result: result), rval = try? rhs.evaluate(result: result) {
+            if let lval = try? lhs.evaluate(result: result), let rval = try? rhs.evaluate(result: result) {
                 return (lval < rval) ? Term.trueValue : Term.falseValue
             }
         case .ge(let lhs, let rhs):
-            if let lval = try? lhs.evaluate(result: result), rval = try? rhs.evaluate(result: result) {
+            if let lval = try? lhs.evaluate(result: result), let rval = try? rhs.evaluate(result: result) {
                 return (lval >= rval) ? Term.trueValue : Term.falseValue
             }
         case .le(let lhs, let rhs):
-            if let lval = try? lhs.evaluate(result: result), rval = try? rhs.evaluate(result: result) {
+            if let lval = try? lhs.evaluate(result: result), let rval = try? rhs.evaluate(result: result) {
                 return (lval <= rval) ? Term.trueValue : Term.falseValue
             }
         case .add(let lhs, let rhs):
-            if let lval = try? lhs.evaluate(result: result), rval = try? rhs.evaluate(result: result) {
+            if let lval = try? lhs.evaluate(result: result), let rval = try? rhs.evaluate(result: result) {
                 guard lval.isNumeric else { throw QueryError.typeError("Value \(lval) is not numeric") }
                 guard rval.isNumeric else { throw QueryError.typeError("Value \(lval) is not numeric") }
                 let value = lval.numericValue + rval.numericValue
@@ -98,7 +98,7 @@ public indirect enum Expression {
                 return term
             }
         case .sub(let lhs, let rhs):
-            if let lval = try? lhs.evaluate(result: result), rval = try? rhs.evaluate(result: result) {
+            if let lval = try? lhs.evaluate(result: result), let rval = try? rhs.evaluate(result: result) {
                 guard lval.isNumeric else { throw QueryError.typeError("Value \(lval) is not numeric") }
                 guard rval.isNumeric else { throw QueryError.typeError("Value \(lval) is not numeric") }
                 let value = lval.numericValue - rval.numericValue
@@ -107,7 +107,7 @@ public indirect enum Expression {
                 return term
             }
         case .mul(let lhs, let rhs):
-            if let lval = try? lhs.evaluate(result: result), rval = try? rhs.evaluate(result: result) {
+            if let lval = try? lhs.evaluate(result: result), let rval = try? rhs.evaluate(result: result) {
                 guard lval.isNumeric else { throw QueryError.typeError("Value \(lval) is not numeric") }
                 guard rval.isNumeric else { throw QueryError.typeError("Value \(lval) is not numeric") }
                 let value = lval.numericValue * rval.numericValue
@@ -116,7 +116,7 @@ public indirect enum Expression {
                 return term
             }
         case .div(let lhs, let rhs):
-            if let lval = try? lhs.evaluate(result: result), rval = try? rhs.evaluate(result: result) {
+            if let lval = try? lhs.evaluate(result: result), let rval = try? rhs.evaluate(result: result) {
                 guard lval.isNumeric else { throw QueryError.typeError("Value \(lval) is not numeric") }
                 guard rval.isNumeric else { throw QueryError.typeError("Value \(lval) is not numeric") }
                 let value = lval.numericValue / rval.numericValue
@@ -188,7 +188,7 @@ public indirect enum Algebra {
             return variables
         case .quad(let q):
             for node in [q.subject, q.predicate, q.object, q.graph] {
-                if case .variable(let name, _) = node {
+                if case .variable(let name, true) = node {
                     variables.insert(name)
                 }
             }
@@ -200,7 +200,7 @@ public indirect enum Algebra {
             var variables = Set<String>()
             for t in triples {
                 for node in [t.subject, t.predicate, t.object] {
-                    if case .variable(let name, _) = node {
+                    if case .variable(let name, true) = node {
                         variables.insert(name)
                     }
                 }
@@ -498,7 +498,9 @@ public class SimpleQueryEvaluator {
         
         let intersection = seen.popLast()!
         if intersection.count > 0 {
-//                warn("# using hash join on: \(intersection)")
+            warn("# using hash join on: \(intersection)")
+            warn("### \(lhsAlgebra)")
+            warn("### \(rhsAlgebra)")
             let joinVariables = Array(intersection)
             let lhs = try self.evaluate(algebra: lhsAlgebra, activeGraph: activeGraph)
             let rhs = try self.evaluate(algebra: rhsAlgebra, activeGraph: activeGraph)
@@ -859,7 +861,10 @@ public class SimpleQueryEvaluator {
 
 public func pipelinedHashJoin<R : ResultProtocol>(joinVariables : [String], lhs : AnyIterator<R>, rhs : AnyIterator<R>, left : Bool = false) -> AnyIterator<R> {
     var table = [R:[R]]()
+    warn(">>> filling hash table")
+    var count = 0
     for result in rhs {
+        count += 1
         let key = result.projected(variables: joinVariables)
         if let results = table[key] {
             table[key] = results + [result]
@@ -867,6 +872,7 @@ public func pipelinedHashJoin<R : ResultProtocol>(joinVariables : [String], lhs 
             table[key] = [result]
         }
     }
+    warn(">>> done (\(count) results in \(Array(table.keys).count) buckets)")
     
     var buffer = [R]()
     return AnyIterator {
@@ -878,8 +884,8 @@ public func pipelinedHashJoin<R : ResultProtocol>(joinVariables : [String], lhs 
             var joined = false
             let key = result.projected(variables: joinVariables)
             if let results = table[key] {
-                for rhs in results {
-                    if let j = rhs.join(result) {
+                for lhs in results {
+                    if let j = lhs.join(result) {
                         joined = true
                         buffer.append(j)
                     }

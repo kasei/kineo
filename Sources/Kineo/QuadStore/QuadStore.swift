@@ -96,8 +96,11 @@ public class QuadStore : Sequence {
     }
     
     public func graphs() -> AnyIterator<Term> {
+        // TODO: This is really inefficient. It might be improved (still O(n), but much smaller constant) by iterating over Table pages
+        //       and testing table.first!.key[3] == table.last!.key[3]; If they are equal, no more pairs in the table need be tested.
+        //       In cases where there are many table pages but very few graphs, this should provide a speedup of roughly $ pairs_per_page/|graphs| $
         do {
-        guard let table : Table<IDQuad<UInt64>,Empty> = mediator.table(name: "quads") else { throw DatabaseError.DataError("Failed to load quads table") }
+            guard let table : Table<IDQuad<UInt64>,Empty> = mediator.table(name: "quads") else { throw DatabaseError.DataError("Failed to load quads table") }
             var graphids = Set<UInt64>()
             var last : UInt64 = 0
             for (k, _) in table {
@@ -133,7 +136,7 @@ public class QuadStore : Sequence {
                         if let pair = idquads.next() {
                             let indexOrderedIDQuad = pair.0
                             let idquad = mapping(quad: indexOrderedIDQuad)
-                            if let s = idmap.term(for: idquad[0]), p = idmap.term(for: idquad[1]), o = idmap.term(for: idquad[2]), g = idmap.term(for: idquad[3]) {
+                            if let s = idmap.term(for: idquad[0]), let p = idmap.term(for: idquad[1]), let o = idmap.term(for: idquad[2]), let g = idmap.term(for: idquad[3]) {
                                 return Quad(subject: s, predicate: p, object: o, graph: g)
                             }
                         } else {
@@ -196,7 +199,7 @@ public class QuadStore : Sequence {
             mapping[index] = i
         }
         
-        guard let si = mapping[0], pi = mapping[1], oi = mapping[2], gi = mapping[3] else { fatalError() }
+        guard let si = mapping[0], let pi = mapping[1], let oi = mapping[2], let gi = mapping[3] else { fatalError() }
         return { (quad) in
             return IDQuad(quad[si], quad[pi], quad[oi], quad[gi])
         }
@@ -210,7 +213,7 @@ public class QuadStore : Sequence {
             mapping[i] = index
         }
         
-        guard let si = mapping[0], pi = mapping[1], oi = mapping[2], gi = mapping[3] else { fatalError() }
+        guard let si = mapping[0], let pi = mapping[1], let oi = mapping[2], let gi = mapping[3] else { fatalError() }
         return { (quad) in
             return IDQuad(quad[si], quad[pi], quad[oi], quad[gi])
         }
@@ -321,7 +324,7 @@ public class QuadStore : Sequence {
         return AnyIterator {
             repeat {
                 guard let quad = idquads.next() else { return nil }
-                if let s = idmap.term(for: quad[0]), p = idmap.term(for: quad[1]), o = idmap.term(for: quad[2]), g = idmap.term(for: quad[3]) {
+                if let s = idmap.term(for: quad[0]), let p = idmap.term(for: quad[1]), let o = idmap.term(for: quad[2]), let g = idmap.term(for: quad[3]) {
                     return Quad(subject: s, predicate: p, object: o, graph: g)
                 }
             } while true
@@ -704,7 +707,7 @@ extension PersistentTermIdentityMap {
     private func pack(date s: String) -> Result? {
         let values = s.components(separatedBy: "-").map { Int($0) }
         guard values.count == 3 else { return nil }
-        if let y = values[0], m = values[1], d = values[2] {
+        if let y = values[0], let m = values[1], let d = values[2] {
             guard y <= 5000 else { return nil }
             let months  = 12 * y + m
             var value   = UInt64(0x14) << 56
@@ -887,7 +890,10 @@ public struct TermResult : CustomStringConvertible, ResultProtocol {
         for (k,v) in rhs.bindings {
             b[k] = v
         }
-        return TermResult(bindings: b)
+        
+        let result = TermResult(bindings: b)
+//        print("]]]] \(self) |><| \(rhs) ==> \(result)")
+        return result
     }
     
     public func projected(variables : [String]) -> TermResult {
@@ -928,6 +934,7 @@ public func ==(lhs: TermResult, rhs: TermResult) -> Bool {
         let rvalue = rhs[key]
         guard lvalue == rvalue else { return false }
     }
+//    print("EQUAL-TO ==> \(lhs) === \(rhs)")
     return true
 }
 

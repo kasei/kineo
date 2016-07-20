@@ -9,7 +9,7 @@
 import Foundation
 import Kineo
 
-func setup(database : FilePageDatabase, startTime : UInt64) throws {
+func setup(_ database : FilePageDatabase, startTime : UInt64) throws {
     try database.update(version: startTime) { (m) in
         do {
             _ = try QuadStore.create(mediator: m)
@@ -20,7 +20,7 @@ func setup(database : FilePageDatabase, startTime : UInt64) throws {
     }
 }
 
-func parse(database : FilePageDatabase, files : [String], startTime : UInt64, graph defaultGraphTerm: Term? = nil) throws -> Int {
+func parse(_ database : FilePageDatabase, files : [String], startTime : UInt64, graph defaultGraphTerm: Term? = nil) throws -> Int {
     var count   = 0
     let version = startTime
     try database.update(version: version) { (m) in
@@ -56,13 +56,13 @@ func parse(database : FilePageDatabase, files : [String], startTime : UInt64, gr
     return count
 }
 
-func parseQuery(database : FilePageDatabase, filename : String) throws -> Algebra? {
+func parseQuery(_ database : FilePageDatabase, filename : String) throws -> Algebra? {
     let reader      = FileReader(filename: filename)
     let qp          = QueryParser(reader: reader)
     return qp.parse()
 }
 
-func query(database : FilePageDatabase, algebra query: Algebra) throws -> Int {
+func query(_ database : FilePageDatabase, algebra query: Algebra) throws -> Int {
     var count       = 0
     try database.read { (m) in
         do {
@@ -81,7 +81,7 @@ func query(database : FilePageDatabase, algebra query: Algebra) throws -> Int {
     return count
 }
 
-func serialize(database : FilePageDatabase) throws -> Int {
+func serialize(_ database : FilePageDatabase) throws -> Int {
     var count = 0
     try database.read { (m) in
         do {
@@ -105,7 +105,7 @@ func serialize(database : FilePageDatabase) throws -> Int {
     return count
 }
 
-func graphs(database : FilePageDatabase) throws -> Int {
+func graphs(_ database : FilePageDatabase) throws -> Int {
     var count = 0
     try database.read { (m) in
         guard let store = try? QuadStore(mediator: m) else { return }
@@ -117,7 +117,7 @@ func graphs(database : FilePageDatabase) throws -> Int {
     return count
 }
 
-func indexes(database : FilePageDatabase) throws -> Int {
+func indexes(_ database : FilePageDatabase) throws -> Int {
     var count = 0
     try database.read { (m) in
         guard let store = try? QuadStore(mediator: m) else { return }
@@ -129,17 +129,17 @@ func indexes(database : FilePageDatabase) throws -> Int {
     return count
 }
 
-func output(database : FilePageDatabase) throws -> Int {
+func output(_ database : FilePageDatabase) throws -> Int {
     try database.read { (m) in
         guard let store = try? QuadStore(mediator: m) else { return }
         for (k,v) in store.id {
             print("\(k) -> \(v)")
         }
     }
-    return try serialize(database: database)
+    return try serialize(database)
 }
 
-func match(database : FilePageDatabase) throws -> Int {
+func match(_ database : FilePageDatabase) throws -> Int {
     var count = 0
     let parser = NTriplesPatternParser(reader: "")
     try database.read { (m) in
@@ -171,7 +171,7 @@ let startTime = getCurrentDateSeconds()
 var count = 0
 
 if args.count > 2 {
-    try setup(database: database, startTime: startTime)
+    try setup(database, startTime: startTime)
     let op = args[2]
     if op == "load" {
         var graph : Term? = nil
@@ -185,19 +185,19 @@ if args.count > 2 {
                 graph = Term(value: parseArgs[1], type: .iri)
                 parseArgs = Array(parseArgs.suffix(from: 2))
             }
-            count = try parse(database: database, files: parseArgs, startTime: startTime, graph: graph)
+            count = try parse(database, files: parseArgs, startTime: startTime, graph: graph)
         }
     } else if op == "graphs" {
-        count = try graphs(database: database)
+        count = try graphs(database)
     } else if op == "indexes" {
-        count = try indexes(database: database)
+        count = try indexes(database)
     } else if op == "query" {
         let qfile = args[3]
-        guard let algebra = try parseQuery(database: database, filename: qfile) else { fatalError("Failed to parse query") }
-        count = try query(database: database, algebra: algebra)
+        guard let algebra = try parseQuery(database, filename: qfile) else { fatalError("Failed to parse query") }
+        count = try query(database, algebra: algebra)
     } else if op == "qparse" {
         let qfile = args[3]
-        guard let algebra = try parseQuery(database: database, filename: qfile) else { fatalError("Failed to parse query") }
+        guard let algebra = try parseQuery(database, filename: qfile) else { fatalError("Failed to parse query") }
         let s = algebra.serialize()
         count = 1
         print(s)
@@ -218,7 +218,7 @@ if args.count > 2 {
     }
 } else {
 //    count = try output(database: database)
-    count = try serialize(database: database)
+    count = try serialize(database)
 }
 
 let endTime = getCurrentDateSeconds()

@@ -177,6 +177,7 @@
 						CreatedOnToolsVersion = 8.0;
 						DevelopmentTeam = G54M5PALR9;
 						DevelopmentTeamName = "Gregory Williams";
+						LastSwiftMigration = 0800;
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -319,6 +320,7 @@
 				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/.build/debug/";
+				SWIFT_VERSION = 3.0;
 			};
 			name = Debug;
 		};
@@ -332,6 +334,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/.build/release/";
 				SWIFT_OPTIMIZATION_LEVEL = "-Owholemodule";
+				SWIFT_VERSION = 3.0;
 			};
 			name = Release;
 		};
