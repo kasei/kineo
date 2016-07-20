@@ -22,7 +22,7 @@ import Foundation
 
 
 public struct TablePage<T : protocol<BufferSerializable,Comparable>, U : BufferSerializable> : PageMarshalled {
-    var pairs : [(T,U)]
+    public internal(set) var pairs : [(T,U)]
     var previousPage : PageId?
     var type : DatabaseInfo.Cookie
     
@@ -92,7 +92,7 @@ public struct TablePage<T : protocol<BufferSerializable,Comparable>, U : BufferS
         
         // fill payload
         var successful = 0
-        for (key, value) in pairs {
+        for (key, value) in pairs.sorted(isOrderedBefore: { (a, b) in a.0 < b.0 }) {
             do {
                 try key.serialize(to: &payloadPtr, mediator: mediator, maximumSize: bytesRemaining)
                 bytesRemaining -= key.serializedSize
@@ -105,6 +105,38 @@ public struct TablePage<T : protocol<BufferSerializable,Comparable>, U : BufferS
                 throw DatabaseError.PageOverflow(successfulItems: successful)
             }
         }
+    }
+}
+
+public struct TablePageIterator<T : protocol<BufferSerializable,Comparable>, U : BufferSerializable> : IteratorProtocol {
+    let keyType : T.Type
+    let valueType : U.Type
+    let table : Table<T,U>
+    let type : DatabaseInfo.Cookie
+    private var nextPageId : PageId?
+    
+    init (table : Table<T,U>, type : DatabaseInfo.Cookie, keyType: T.Type, valueType: U.Type) {
+        self.table = table
+        self.type = type
+        self.keyType = keyType
+        self.valueType = valueType
+        do {
+            self.nextPageId = try table.mediator.getRoot(named: table.name)
+        } catch {}
+    }
+    
+    public mutating func next() -> TablePage<T,U>? {
+        if nextPageId == nil || nextPageId == 0 {
+            return nil
+        } else {
+            do {
+                guard let pid = nextPageId else { return nil }
+                let (page, _) : (TablePage<T,U>, PageStatus) = try table.mediator.readPage(pid)
+                nextPageId = page.previousPage
+                return page
+            } catch {}
+        }
+        return nil
     }
 }
 
@@ -173,6 +205,10 @@ public struct Table<T : protocol<BufferSerializable,Comparable>, U : BufferSeria
         return nil
     }
 
+    public func pages() -> TablePageIterator<T,U> {
+        return TablePageIterator(table: self, type: type, keyType: T.self, valueType: U.self)
+    }
+    
     public func makeIterator () -> TableIterator<T,U> {
         return TableIterator(table: self, type: type, keyType: T.self, valueType: U.self)
     }

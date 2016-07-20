@@ -96,18 +96,33 @@ public class QuadStore : Sequence {
     }
     
     public func graphs() -> AnyIterator<Term> {
-        // TODO: This is really inefficient. It might be improved (still O(n), but much smaller constant) by iterating over Table pages
-        //       and testing table.first!.key[3] == table.last!.key[3]; If they are equal, no more pairs in the table need be tested.
-        //       In cases where there are many table pages but very few graphs, this should provide a speedup of roughly $ pairs_per_page/|graphs| $
         do {
             guard let table : Table<IDQuad<UInt64>,Empty> = mediator.table(name: "quads") else { throw DatabaseError.DataError("Failed to load quads table") }
+            var pages = table.pages()
             var graphids = Set<UInt64>()
             var last : UInt64 = 0
-            for (k, _) in table {
-                let g = k[3]
-                if g != last {
-                    graphids.insert(g)
-                    last = g
+            while let page = pages.next() {
+                if page.pairs.count > 0 {
+                    let firstPair = page.pairs.first!.0
+                    let lastPair = page.pairs.last!.0
+                    if firstPair[3] == lastPair[3] {
+                        let g = firstPair[3]
+                        if g != last {
+                            graphids.insert(g)
+                            last = g
+                        }
+                        //                        print("matching graph ID \(first[3])")
+                    } else {
+                        //                        print("mismatched graph ID \(first[3]) \(last[3])")
+                        for (quad, _) in page.pairs {
+                            let g = quad[3]
+                            if g != last {
+                                graphids.insert(g)
+                                last = g
+                            }
+                            //                            print("- \(quad[3])")
+                        }
+                    }
                 }
             }
             
