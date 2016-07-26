@@ -187,6 +187,55 @@ public enum TermType : BufferSerializable {
     }
 }
 
+public enum Numeric {
+    case integer(Int)
+    case decimal(Double)
+    case float(Double)
+    case double(Double)
+    
+    var value : Double {
+        switch self {
+        case .integer(let value):
+            return Double(value)
+        case .decimal(let value), .float(let value), .double(let value):
+            return value
+        }
+    }
+    
+    var term : Term {
+        switch self {
+        case .integer(let value):
+            return Term(integer: value)
+        case .float(let value):
+            return Term(float: value)
+        default:
+            fatalError("Cannot construct numeric term for \(self)")
+        }
+    }
+}
+
+func +(lhs : Numeric, rhs: Numeric) -> Numeric {
+    let value = lhs.value + rhs.value
+    switch (lhs, rhs) {
+    case (.integer(_), .integer(_)):
+        let i = Int(value) ?? 0
+        return .integer(i)
+    case (.decimal(_), .decimal(_)):
+        return .decimal(value)
+    case (.float(_), .float(_)):
+        return .float(value)
+    case (.double(_), .double(_)):
+        return .double(value)
+    case (.integer(_), .decimal(_)), (.decimal(_), .integer(_)):
+        return .decimal(value)
+    case (.integer(_), .float(_)), (.float(_), .integer(_)), (.decimal(_), .float(_)), (.float(_), .decimal(_)):
+        return .float(value)
+//    case (.integer(_), .double(_)), (.double(_), .integer(_)), (.decimal(_), .double(_)), (.double(_), .decimal(_)):
+    default:
+        return .double(value)
+    }
+}
+
 extension TermType {
     func resultType(op: String, operandType rhs: TermType) -> TermType? {
         let integer = TermType.datatype("http://www.w3.org/2001/XMLSchema#integer")
@@ -349,6 +398,25 @@ extension Term : Comparable {
         }
     }
     
+    var numeric : Numeric? {
+        switch type {
+        case .datatype("http://www.w3.org/2001/XMLSchema#integer"):
+            if let i = Int(value) {
+                return .integer(i)
+            } else {
+                return nil
+            }
+        case .datatype("http://www.w3.org/2001/XMLSchema#decimal"):
+            return .decimal(numericValue)
+        case .datatype("http://www.w3.org/2001/XMLSchema#float"):
+            return .float(numericValue)
+        case .datatype("http://www.w3.org/2001/XMLSchema#double"):
+            return .double(numericValue)
+        default:
+            return nil
+        }
+        
+    }
     var numericValue : Double {
         switch type {
         case .datatype("http://www.w3.org/2001/XMLSchema#integer"):
