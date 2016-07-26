@@ -42,6 +42,58 @@ public indirect enum Expression {
     case sub(Expression, Expression)
     case div(Expression, Expression)
     case mul(Expression, Expression)
+    
+    var isNumeric : Bool {
+        switch self {
+        case .node(_):
+            return true
+        case .add(let l, let r), .sub(let l, let r), .div(let l, let r), .mul(let l, let r):
+            return l.isNumeric && r.isNumeric
+        default:
+            return false
+        }
+    }
+    
+    func compile() throws -> (result : TermResult) throws -> Numeric {
+        guard self.isNumeric else { throw QueryError.evaluationError("Cannot compile expression as numeric") }
+        switch self {
+        case .node(.bound(let n)):
+            guard n.isNumeric else { throw QueryError.typeError("Term is not numeric") }
+            if let num = n.numeric {
+                return { (_) in
+                    return num
+                }
+            } else {
+                throw QueryError.typeError("Term is not numeric")
+            }
+        case .node(.variable(let name, _)):
+            return { (result) in
+                if let term = result[name] {
+                    if let num = term.numeric {
+                        return num
+                    } else {
+                        throw QueryError.typeError("Term is not numeric")
+                    }
+                } else {
+                    throw QueryError.typeError("Variable ?\(name) is unbound in result \(result)")
+                }
+            }
+        case .add(let l, let r):
+            print("expr: \(self)")
+            print("lhs expr: \(l)")
+            print("rhs expr: \(r)")
+            let lc = try l.compile()
+            let rc = try r.compile()
+            return { (result) throws in
+                let lv = try lc(result: result)
+                let rv = try rc(result: result)
+                return lv + rv
+            }
+        default:
+            throw QueryError.evaluationError("Cannot compile expression as numeric: \(self)")
+        }
+    }
+    
 //    case not(Expression)
 //    case call(String, [Expression])
 //    case isiri(Expression)
@@ -268,7 +320,7 @@ public indirect enum Algebra {
             d += child.serialize(depth: depth+1)
             return d
         case .extend(let child, let expr, let name):
-            var d = "\(indent)Extend \(expr) -> \(name)\n"
+            var d = "\(indent)Extend \(name) <- \(expr)\n"
             d += child.serialize(depth: depth+1)
             return d
         case .project(let child, let variables):
@@ -419,34 +471,35 @@ public class QueryParser<T : LineReadable> {
         let parser = NTriplesPatternParser(reader: "")
         let op = parts[0]
         guard let node = parser.parseNode(line: parts[1]) else { return nil }
+        let lhs : Expression = .node(node)
         var vexpr : Expression
         if let value = Double(parts[2]) {
             vexpr = .node(.bound(Term(float: value)))
         } else {
-            guard let node = parser.parseNode(line: parts[2]) else { return nil }
-            vexpr = .node(node)
+            guard let n = parser.parseNode(line: parts[2]) else { return nil }
+            vexpr = .node(n)
         }
         switch op {
         case "=":
-            return .eq(.node(node), vexpr)
+            return .eq(lhs, vexpr)
         case "!=":
-            return .ne(.node(node), vexpr)
+            return .ne(lhs, vexpr)
         case "<":
-            return .lt(.node(node), vexpr)
+            return .lt(lhs, vexpr)
         case ">":
-            return .gt(.node(node), vexpr)
+            return .gt(lhs, vexpr)
         case "<=":
-            return .le(.node(node), vexpr)
+            return .le(lhs, vexpr)
         case ">=":
-            return .ge(.node(node), vexpr)
+            return .ge(lhs, vexpr)
         case "+":
-            return .add(.node(node), vexpr)
+            return .add(lhs, vexpr)
         case "-":
-            return .sub(.node(node), vexpr)
+            return .sub(lhs, vexpr)
         case "*":
-            return .mul(.node(node), vexpr)
+            return .mul(lhs, vexpr)
         case "/":
-            return .div(.node(node), vexpr)
+            return .div(lhs, vexpr)
         default:
             fatalError("Failed to parse binary expression: \(parts)")
         }
@@ -806,10 +859,19 @@ public class SimpleQueryEvaluator {
             }
         case .extend(let child, let expr, let name):
             let i = try self.evaluate(algebra: child, activeGraph: activeGraph)
+            print("extend expression: \(expr)")
+            let cb = try? expr.compile()
             return AnyIterator {
                 guard var result = i.next() else { return nil }
-                if let term = try? expr.evaluate(result: result) {
-                    result.extend(variable: name, value: term)
+                if let compiled = cb {
+                    if let num = try? compiled(result: result) {
+                        print("numeric from compiled expression: \(num)")
+                        result.extend(variable: name, value: num.term)
+                    }
+                } else {
+                    if let term = try? expr.evaluate(result: result) {
+                        result.extend(variable: name, value: term)
+                    }
                 }
                 return result
             }
