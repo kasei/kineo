@@ -30,7 +30,7 @@ extension Term {
     }
 }
 
-public indirect enum Expression {
+public indirect enum Expression : CustomStringConvertible {
     case node(Node)
     case eq(Expression, Expression)
     case ne(Expression, Expression)
@@ -54,46 +54,6 @@ public indirect enum Expression {
         }
     }
     
-    func compile() throws -> (result : TermResult) throws -> Numeric {
-        guard self.isNumeric else { throw QueryError.evaluationError("Cannot compile expression as numeric") }
-        switch self {
-        case .node(.bound(let n)):
-            guard n.isNumeric else { throw QueryError.typeError("Term is not numeric") }
-            if let num = n.numeric {
-                return { (_) in
-                    return num
-                }
-            } else {
-                throw QueryError.typeError("Term is not numeric")
-            }
-        case .node(.variable(let name, _)):
-            return { (result) in
-                if let term = result[name] {
-                    if let num = term.numeric {
-                        return num
-                    } else {
-                        throw QueryError.typeError("Term is not numeric")
-                    }
-                } else {
-                    throw QueryError.typeError("Variable ?\(name) is unbound in result \(result)")
-                }
-            }
-        case .add(let l, let r):
-            print("expr: \(self)")
-            print("lhs expr: \(l)")
-            print("rhs expr: \(r)")
-            let lc = try l.compile()
-            let rc = try r.compile()
-            return { (result) throws in
-                let lv = try lc(result: result)
-                let rv = try rc(result: result)
-                return lv + rv
-            }
-        default:
-            throw QueryError.evaluationError("Cannot compile expression as numeric: \(self)")
-        }
-    }
-    
 //    case not(Expression)
 //    case call(String, [Expression])
 //    case isiri(Expression)
@@ -105,6 +65,7 @@ public indirect enum Expression {
 //    case langmatches(Expression, String)
 //    case bound(Expression)
     // TODO: add other expression functions
+    
     
     public func evaluate(result : TermResult) throws -> Term {
         switch self {
@@ -176,11 +137,85 @@ public indirect enum Expression {
                 guard let term = Term(numeric: value, type: type) else { throw QueryError.typeError("Cannot divide \(lval) and \(rval) and produce a valid numeric term") }
                 return term
             }
-//        default:
-//            print("*** Cannot evaluate expression \(self)")
-//            throw QueryError.evaluationError("Cannot evaluate \(self) with result \(result)")
+            //        default:
+            //            print("*** Cannot evaluate expression \(self)")
+            //            throw QueryError.evaluationError("Cannot evaluate \(self) with result \(result)")
         }
         throw QueryError.evaluationError("Failed to evaluate \(self) with result \(result)")
+    }
+    
+    public func numericEvaluate(result : TermResult) throws -> Numeric {
+//        print("numericEvaluate over result: \(result)")
+//        print("numericEvaluate expression: \(self)")
+//        guard self.isNumeric else { throw QueryError.evaluationError("Cannot compile expression as numeric") }
+        switch self {
+        case .node(.bound(let term)):
+            guard term.isNumeric else { throw QueryError.typeError("Term is not numeric") }
+            if let num = term.numeric {
+                return num
+            } else {
+                throw QueryError.typeError("Term is not numeric")
+            }
+        case .node(.variable(let name, _)):
+            if let term = result[name] {
+                if let num = term.numeric {
+                    return num
+                } else {
+                    throw QueryError.typeError("Term is not numeric")
+                }
+            } else {
+                throw QueryError.typeError("Variable ?\(name) is unbound in result \(result)")
+            }
+        case .add(let lhs, let rhs):
+            let lval = try lhs.numericEvaluate(result: result)
+            let rval = try rhs.numericEvaluate(result: result)
+            let value = lval + rval
+            return value
+        case .sub(let lhs, let rhs):
+            let lval = try lhs.numericEvaluate(result: result)
+            let rval = try rhs.numericEvaluate(result: result)
+            let value = lval - rval
+            return value
+        case .mul(let lhs, let rhs):
+            let lval = try lhs.numericEvaluate(result: result)
+            let rval = try rhs.numericEvaluate(result: result)
+            let value = lval * rval
+            return value
+        case .div(let lhs, let rhs):
+            let lval = try lhs.numericEvaluate(result: result)
+            let rval = try rhs.numericEvaluate(result: result)
+            let value = lval / rval
+            return value
+        default:
+            throw QueryError.evaluationError("Failed to numerically evaluate \(self) with result \(result)")
+        }
+    }
+
+    public var description : String {
+        switch self {
+        case .node(let node):
+            return node.description
+        case .eq(let lhs, let rhs):
+            return "(\(lhs) == \(rhs))"
+        case .ne(let lhs, let rhs):
+            return "(\(lhs) != \(rhs))"
+        case .gt(let lhs, let rhs):
+            return "(\(lhs) > \(rhs))"
+        case .lt(let lhs, let rhs):
+            return "(\(lhs) < \(rhs))"
+        case .ge(let lhs, let rhs):
+            return "(\(lhs) >= \(rhs))"
+        case .le(let lhs, let rhs):
+            return "(\(lhs) <= \(rhs))"
+        case .add(let lhs, let rhs):
+            return "(\(lhs) + \(rhs))"
+        case .sub(let lhs, let rhs):
+            return "(\(lhs) - \(rhs))"
+        case .mul(let lhs, let rhs):
+            return "(\(lhs) * \(rhs))"
+        case .div(let lhs, let rhs):
+            return "(\(lhs) / \(rhs))"
+        }
     }
 }
 
@@ -441,10 +476,15 @@ public class QueryParser<T : LineReadable> {
             guard let graph = parser.parseNode(line: rest) else { return nil }
             return .namedGraph(child, graph)
         } else if op == "extend" {
-            let name = parts[1]
+            let parser = NTriplesPatternParser(reader: "")
             guard let child = stack.popLast() else { return nil }
+            let name = parts[1]
+            guard parts.count > 2 else { return nil }
             do {
-                if let expr = try parseBinaryExpression(Array(parts.suffix(from: 2))) {
+                if parts.count > 3, let expr = try parseBinaryExpression(Array(parts.suffix(from: 2))) {
+                    return .extend(child, expr, name)
+                } else if let n = parser.parseNode(line: parts[2]) {
+                    let expr : Expression = .node(n)
                     return .extend(child, expr, name)
                 }
             } catch {}
@@ -471,35 +511,35 @@ public class QueryParser<T : LineReadable> {
         let parser = NTriplesPatternParser(reader: "")
         let op = parts[0]
         guard let node = parser.parseNode(line: parts[1]) else { return nil }
-        let lhs : Expression = .node(node)
-        var vexpr : Expression
+        let lhs = Expression.node(node)
+        let rhs : Expression
         if let value = Double(parts[2]) {
-            vexpr = .node(.bound(Term(float: value)))
+            rhs = .node(.bound(Term(float: value)))
         } else {
             guard let n = parser.parseNode(line: parts[2]) else { return nil }
-            vexpr = .node(n)
+            rhs = .node(n)
         }
         switch op {
         case "=":
-            return .eq(lhs, vexpr)
+            return .eq(lhs, rhs)
         case "!=":
-            return .ne(lhs, vexpr)
+            return .ne(lhs, rhs)
         case "<":
-            return .lt(lhs, vexpr)
+            return .lt(lhs, rhs)
         case ">":
-            return .gt(lhs, vexpr)
+            return .gt(lhs, rhs)
         case "<=":
-            return .le(lhs, vexpr)
+            return .le(lhs, rhs)
         case ">=":
-            return .ge(lhs, vexpr)
+            return .ge(lhs, rhs)
         case "+":
-            return .add(lhs, vexpr)
+            return .add(lhs, rhs)
         case "-":
-            return .sub(lhs, vexpr)
+            return .sub(lhs, rhs)
         case "*":
-            return .mul(lhs, vexpr)
+            return .mul(lhs, rhs)
         case "/":
-            return .div(lhs, vexpr)
+            return .div(lhs, rhs)
         default:
             fatalError("Failed to parse binary expression: \(parts)")
         }
@@ -860,20 +900,23 @@ public class SimpleQueryEvaluator {
         case .extend(let child, let expr, let name):
             let i = try self.evaluate(algebra: child, activeGraph: activeGraph)
             print("extend expression: \(expr)")
-            let cb = try? expr.compile()
-            return AnyIterator {
-                guard var result = i.next() else { return nil }
-                if let compiled = cb {
-                    if let num = try? compiled(result: result) {
-                        print("numeric from compiled expression: \(num)")
+            
+            if expr.isNumeric {
+                return AnyIterator {
+                    guard var result = i.next() else { return nil }
+                    if let num = try? expr.numericEvaluate(result: result) {
                         result.extend(variable: name, value: num.term)
                     }
-                } else {
+                    return result
+                }
+            } else {
+                return AnyIterator {
+                    guard var result = i.next() else { return nil }
                     if let term = try? expr.evaluate(result: result) {
                         result.extend(variable: name, value: term)
                     }
+                    return result
                 }
-                return result
             }
         case .order(let child, let expressions):
             let results = try Array(self.evaluate(algebra: child, activeGraph: activeGraph))

@@ -72,7 +72,7 @@ func query(_ database : FilePageDatabase, algebra query: Algebra) throws -> Int 
             let e           = SimpleQueryEvaluator(store: store, defaultGraph: defaultGraph)
             for result in try e.evaluate(algebra: query, activeGraph: defaultGraph) {
                 count += 1
-                print("\(count)\t\(result)")
+                print("\(count)\t\(result.description)")
             }
         } catch let e {
             warn("*** \(e)")
@@ -212,6 +212,48 @@ if args.count > 2 {
                 throw DatabaseUpdateError.Rollback
             }
         }
+    } else if op == "test" {
+        let lat : Node      = .bound(Term(value: "http://www.w3.org/2003/01/geo/wgs84_pos#lat", type: .iri))
+        let long : Node     = .bound(Term(value: "http://www.w3.org/2003/01/geo/wgs84_pos#long", type: .iri))
+        let vs : Node       = .variable("s", binding: true)
+        let vlat : Node     = .variable("lat", binding: true)
+        let vlong : Node    = .variable("long", binding: true)
+        let tlat : TriplePattern = TriplePattern(
+            subject: vs,
+            predicate: lat,
+            object: vlat
+        )
+        let tlong : TriplePattern = TriplePattern(
+            subject: vs,
+            predicate: long,
+            object: vlong
+        )
+        let join : Algebra  = .innerJoin(.triple(tlat), .triple(tlong))
+        let e1 : Expression = .gt(.node(vlat), .node(.bound(Term(integer: 31))))
+        let e2 : Expression = .lt(.node(vlat), .node(.bound(Term(integer: 33))))
+        let f1 : Algebra    = .filter(join, e1)
+        let f2 : Algebra    = .filter(f1, e2)
+
+        let e3 : Expression = .lt(.node(vlong), .node(.bound(Term(integer: -117))))
+        let f3 : Algebra    = .filter(f2, e3)
+
+        let e4 : Expression = .add(.node(vlat), .node(vlong))
+        let bind : Algebra  = .extend(f3, e4, "sum")
+        
+        let result = TermResult(bindings: ["lat": Term(integer: 32), "long": Term(integer: -118)])
+        print("-----")
+        print(e4.description)
+        print(result.description)
+
+        let term1 = try? e4.evaluate(result: result)
+        print("==> term eval result: \(term1?.description)")
+
+        let term2 = try? e4.numericEvaluate(result: result)
+        print("==> numeric eval result: \(term2?.description)")
+        
+        let algebra = bind
+        print("Query algebra:\n\(algebra.serialize())")
+        count = try query(database, algebra: algebra)
     } else {
         warn("Unrecognized operation: '\(op)'")
         exit(1)

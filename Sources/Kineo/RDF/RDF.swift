@@ -187,7 +187,7 @@ public enum TermType : BufferSerializable {
     }
 }
 
-public enum Numeric {
+public enum Numeric : CustomStringConvertible {
     case integer(Int)
     case decimal(Double)
     case float(Double)
@@ -212,10 +212,42 @@ public enum Numeric {
             fatalError("Cannot construct numeric term for \(self)")
         }
     }
+    
+    public var description : String {
+        switch self {
+        case .integer(let i):
+            return "\(i)"
+        case .decimal(let value):
+            return "\(value)dec"
+        case .float(let value):
+            return "\(value)f"
+        case .double(let value):
+            return "\(value)d"
+        }
+    }
 }
 
 func +(lhs : Numeric, rhs: Numeric) -> Numeric {
     let value = lhs.value + rhs.value
+    return nonDivResultingNumeric(value, lhs, rhs)
+}
+
+func -(lhs : Numeric, rhs: Numeric) -> Numeric {
+    let value = lhs.value - rhs.value
+    return nonDivResultingNumeric(value, lhs, rhs)
+}
+
+func *(lhs : Numeric, rhs: Numeric) -> Numeric {
+    let value = lhs.value * rhs.value
+    return nonDivResultingNumeric(value, lhs, rhs)
+}
+
+func /(lhs : Numeric, rhs: Numeric) -> Numeric {
+    let value = lhs.value + rhs.value
+    return divResultingNumeric(value, lhs, rhs)
+}
+
+private func nonDivResultingNumeric(_ value : Double, _ lhs : Numeric, _ rhs: Numeric) -> Numeric {
     switch (lhs, rhs) {
     case (.integer(_), .integer(_)):
         let i = Int(value) ?? 0
@@ -230,7 +262,25 @@ func +(lhs : Numeric, rhs: Numeric) -> Numeric {
         return .decimal(value)
     case (.integer(_), .float(_)), (.float(_), .integer(_)), (.decimal(_), .float(_)), (.float(_), .decimal(_)):
         return .float(value)
-//    case (.integer(_), .double(_)), (.double(_), .integer(_)), (.decimal(_), .double(_)), (.double(_), .decimal(_)):
+    //    case (.integer(_), .double(_)), (.double(_), .integer(_)), (.decimal(_), .double(_)), (.double(_), .decimal(_)):
+    default:
+        return .double(value)
+    }
+}
+
+private func divResultingNumeric(_ value : Double, _ lhs : Numeric, _ rhs: Numeric) -> Numeric {
+    switch (lhs, rhs) {
+    case (.integer(_), .integer(_)), (.decimal(_), .decimal(_)):
+        return .decimal(value)
+    case (.float(_), .float(_)):
+        return .float(value)
+    case (.double(_), .double(_)):
+        return .double(value)
+    case (.integer(_), .decimal(_)), (.decimal(_), .integer(_)):
+        return .decimal(value)
+    case (.integer(_), .float(_)), (.float(_), .integer(_)), (.decimal(_), .float(_)), (.float(_), .decimal(_)):
+        return .float(value)
+    //    case (.integer(_), .double(_)), (.double(_), .integer(_)), (.decimal(_), .double(_)), (.double(_), .decimal(_)):
     default:
         return .double(value)
     }
@@ -432,6 +482,9 @@ extension Term : Comparable {
 }
 
 public func <(lhs: Term, rhs: Term) -> Bool {
+    if lhs.isNumeric && rhs.isNumeric {
+        return lhs.numericValue < rhs.numericValue
+    }
     switch (lhs.type, rhs.type) {
     case (let a, let b) where a == b:
         if lhs.isNumeric {
@@ -451,6 +504,9 @@ public func <(lhs: Term, rhs: Term) -> Bool {
 
 extension Term : Equatable {}
 public func ==(lhs: Term, rhs: Term) -> Bool {
+    if lhs.isNumeric && rhs.isNumeric {
+        return lhs.numericValue == rhs.numericValue
+    }
     switch (lhs.type, rhs.type) {
     case (.iri, .iri), (.blank, .blank):
         return lhs.value == rhs.value
@@ -505,3 +561,13 @@ public enum Node {
     case variable(String, binding: Bool)
 }
 
+extension Node : CustomStringConvertible {
+    public var description : String {
+        switch self {
+        case .bound(let t):
+            return t.description
+        case .variable(let name, _):
+            return "?\(name)"
+        }
+    }
+}
