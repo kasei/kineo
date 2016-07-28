@@ -92,7 +92,7 @@ public struct TablePage<T : protocol<BufferSerializable,Comparable>, U : BufferS
         
         // fill payload
         var successful = 0
-        for (key, value) in pairs.sorted(isOrderedBefore: { (a, b) in a.0 < b.0 }) {
+        for (key, value) in pairs.sorted(by: { (a, b) in a.0 < b.0 }) {
             do {
                 try key.serialize(to: &payloadPtr, mediator: mediator, maximumSize: bytesRemaining)
                 bytesRemaining -= key.serializedSize
@@ -185,7 +185,7 @@ public struct TableIterator<T : protocol<BufferSerializable,Comparable>, U : Buf
     }
 }
 
-enum TableError : ErrorProtocol {
+enum TableError : Error {
     case StopIteration
 }
 

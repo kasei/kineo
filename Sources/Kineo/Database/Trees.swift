@@ -8,7 +8,7 @@
 
 import Foundation
 
-private enum TreeError : ErrorProtocol {
+private enum TreeError : Error {
     case stopWalk
 }
 
@@ -313,7 +313,7 @@ public class Tree<T : protocol<BufferSerializable,Comparable>, U : BufferSeriali
                         let pid = pair.1
                         let (node, _) : (TreeNode<T,U>, PageStatus) = try m.readPage(pid)
                         return node.totalCount
-                        }.reduce(UInt64(0), combine: +)
+                        }.reduce(UInt64(0), +)
                     
                     let node    = try TreeInternal(version: m.version, pageSize: m.pageSize, totalCount: total, pairs: pairs)
                     let internalNode : TreeNode<T,U> = .internalNode(node)
@@ -534,7 +534,7 @@ public final class TreeInternal<T : protocol<BufferSerializable,Comparable>> {
     @inline(__always) func spaceForPairs(_ pairs : [(T,PageId)], replacingIndex index : Int, pageSize : Int) -> Bool {
         let remove = self.pairs[index]
         let removeSize = remove.0.serializedSize + remove.1.serializedSize
-        let addSize = pairs.map { $0.0.serializedSize + $0.1.serializedSize }.reduce(0, combine: +)
+        let addSize = pairs.map { $0.0.serializedSize + $0.1.serializedSize }.reduce(0, +)
         return self.serializedSize + addSize - removeSize <= pageSize
     }
     
@@ -1051,13 +1051,12 @@ extension RWMediator {
         let counts  = adding.map { $0.0.totalCount }
         let pairs   = adding.map { ($0.0.maxKey!, $0.1) }
         for (node, pid) in adding {
-            let currentKey = node.maxKey
-            if let last = lastKey {
+            if let last = lastKey, let currentKey = node.maxKey {
                 if last > currentKey {
                     throw DatabaseError.DataError("Cannot add page \(pid) to internal node and preserve tree ordering (the max key \(currentKey) is less than the previous max key \(last))")
                 }
             }
-            lastKey = currentKey
+            lastKey = node.maxKey
         }
         
         var iter = PeekableIterator(generator: pairs.makeIterator())
@@ -1067,7 +1066,7 @@ extension RWMediator {
             let node = TreeInternal(version: version, pageSize: pageSize, totalCount: UInt64(0), pairs: &iter)
             let filled = node.pairs.count
             //            print("filled internal node with \(filled) pairs")
-            let sum = counts.prefix(filled).reduce(0, combine: { $0 + $1 })
+            let sum = counts.prefix(filled).reduce(0) { $0 + $1 }
             node.totalCount = sum
             let internalNode : TreeNode<T,U> = .internalNode(node)
             

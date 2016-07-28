@@ -155,7 +155,7 @@ func match(_ database : FilePageDatabase) throws -> Int {
 }
 
 let verbose = true
-let args = Process.arguments
+let args = CommandLine.arguments
 let pname = args[0]
 var pageSize = 16384
 guard args.count >= 2 else {

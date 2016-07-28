@@ -117,10 +117,10 @@ struct PeekableIterator<T : IteratorProtocol> : IteratorProtocol {
 extension String {
     static func fromCString(cs: UnsafePointer<CChar>, length : Int) -> String? {
         let size = length+1
-        let b = UnsafeMutablePointer<CChar>(allocatingCapacity: size)
+        let b = UnsafeMutablePointer<CChar>.allocate(capacity: size)
         defer {
             b.deinitialize(count: size)
-            b.deallocateCapacity(size)
+            b.deallocate(capacity: size)
         }
         b[length] = CChar(0)
         memcpy(b, cs, length)
@@ -412,10 +412,10 @@ public func getDateString(seconds : UInt64) -> String {
     var tt = time_t(Int(seconds))
     let tm = gmtime(&tt)
     let size = 33
-    let b = UnsafeMutablePointer<Int8>(allocatingCapacity: size)
+    let b = UnsafeMutablePointer<Int8>.allocate(capacity: size)
     defer {
         b.deinitialize(count: size)
-        b.deallocateCapacity(size)
+        b.deallocate(capacity: size)
     }
     strftime(b, 32, "%Y-%m-%dT%H:%M:%SZ", tm)
     let date = String(validatingUTF8: b) ?? ""

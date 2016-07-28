@@ -621,7 +621,7 @@ extension PersistentTermIdentityMap {
     private func unpack(string value: UInt64) -> Element? {
         var buffer = value.bigEndian
         var string : String? = nil
-        withUnsafePointer(&buffer) { (p) in
+        withUnsafePointer(to: &buffer) { (p) in
             let bytes = UnsafePointer<CChar>(p)
             var chars = [CChar]()
             for i in 1...7 {
@@ -885,7 +885,7 @@ public protocol ResultProtocol : Hashable {
 extension ResultProtocol {
     public var hashValue : Int {
         let ints = keys.map { self[$0]?.hashValue ?? 0 }
-        let hash = ints.reduce(0, combine: { $0 ^ $1 })
+        let hash = ints.reduce(0) { $0 ^ $1 }
         return hash
     }
 }

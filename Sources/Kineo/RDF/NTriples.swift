@@ -37,7 +37,7 @@ public class NTriplesParser<T : LineReadable> : Sequence {
                     return b
                 }
             case .some(let c):
-                label.append(c)
+                label.append(String(c))
                 _ = generator.next()
             }
         } while true
@@ -71,7 +71,7 @@ public class NTriplesParser<T : LineReadable> : Sequence {
         for _ in 0..<length {
             guard let c = generator.next() else { return nil }
             guard let char = String(c).uppercased().unicodeScalars.first else { return nil }
-            string.append(char)
+            string.append(String(char))
             if (char >= "A" && char <= "F") {
                 value = 16 * value + 10 + char.value - 65
             } else if (char >= "0" && char <= "9") {
@@ -94,12 +94,12 @@ public class NTriplesParser<T : LineReadable> : Sequence {
             case .some("\\"):
                 _ = generator.next()
                 if let c = parseEscape(&generator, allowEChars: false) {
-                    label.append(c)
+                    label.append(String(c))
                 } else {
                     return nil
                 }
             case .some(let c):
-                label.append(c)
+                label.append(String(c))
                 _ = generator.next()
             }
         } while true
@@ -111,7 +111,7 @@ public class NTriplesParser<T : LineReadable> : Sequence {
         repeat {
             switch generator.peek() {
             case .some(let c) where c == "-" || (c >= "A" && c <= "Z") || (c >= "a" && c <= "z"):
-                label.append(c)
+                label.append(String(c))
                 _ = generator.next()
             default:
                 _ = generator.next()
@@ -128,7 +128,7 @@ public class NTriplesParser<T : LineReadable> : Sequence {
             case .some("\\"):
                 _ = generator.next()
                 if let c = parseEscape(&generator) {
-                    label.append(c)
+                    label.append(String(c))
                 } else {
                     return nil
                 }
@@ -146,7 +146,7 @@ public class NTriplesParser<T : LineReadable> : Sequence {
                     return Term(value: label, type: .datatype("http://www.w3.org/2001/XMLSchema#string"))
                 }
             case .some(let c):
-                label.append(c)
+                label.append(String(c))
                 _ = generator.next()
             }
         } while true
@@ -216,7 +216,7 @@ public class NTriplesPatternParser<T : LineReadable> : NTriplesParser<T> {
                 _ = generator.next()
                 return label
             case .some(let c):
-                label.append(c)
+                label.append(String(c))
                 _ = generator.next()
             }
         } while true

@@ -6,12 +6,12 @@
 //  Copyright © 2016 Gregory Todd Williams. All rights reserved.
 //
 
-public enum DatabaseUpdateError : ErrorProtocol {
+public enum DatabaseUpdateError : Error {
     case Retry
     case Rollback
 }
 
-public enum DatabaseError: ErrorProtocol {
+public enum DatabaseError: Error {
     case KeyError(String)
     case DataError(String)
     case PermissionError(String)
