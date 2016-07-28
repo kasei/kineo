@@ -894,6 +894,11 @@ public struct TermResult : CustomStringConvertible, ResultProtocol {
     public typealias Element = Term
     var bindings : [String:Element]
     public var keys : [String] { return Array(bindings.keys) }
+    
+    public init(bindings: [String:Element]) {
+        self.bindings = bindings
+    }
+    
     public func join(_ rhs : TermResult) -> TermResult? {
         let lvars = Set(bindings.keys)
         let rvars = Set(rhs.bindings.keys)
