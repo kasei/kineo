@@ -892,7 +892,7 @@ extension ResultProtocol {
 
 public struct TermResult : CustomStringConvertible, ResultProtocol {
     public typealias Element = Term
-    var bindings : [String:Element]
+    private var bindings : [String:Element]
     public var keys : [String] { return Array(bindings.keys) }
     
     public init(bindings: [String:Element]) {
@@ -917,7 +917,7 @@ public struct TermResult : CustomStringConvertible, ResultProtocol {
     }
     
     public func projected(variables : [String]) -> TermResult {
-        var bindings = [String:Term]()
+        var bindings = [String:Element]()
         for name in variables {
             if let term = self[name] {
                 bindings[name] = term

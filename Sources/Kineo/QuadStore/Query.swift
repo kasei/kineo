@@ -156,7 +156,7 @@ public indirect enum Expression : CustomStringConvertible {
             } else {
                 throw QueryError.typeError("Term is not numeric")
             }
-        case .node(.variable(let name, _)):
+        case .node(.variable(let name, binding: _)):
             if let term = result[name] {
                 if let num = term.numeric {
                     return num
