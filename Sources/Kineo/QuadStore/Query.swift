@@ -627,7 +627,7 @@ public class SimpleQueryEvaluator {
         }
     }
     
-    func evaluateCount<S : Sequence where S.Iterator.Element == TermResult>(results : S, expression keyExpr : Expression) -> Term? {
+    func evaluateCount<S : Sequence>(results : S, expression keyExpr : Expression) -> Term? where S.Iterator.Element == TermResult {
         var count = 0
         for result in results {
             if let _ = try? keyExpr.evaluate(result: result) {
@@ -637,7 +637,7 @@ public class SimpleQueryEvaluator {
         return Term(integer: count)
     }
     
-    func evaluateCountAll<S : Sequence where S.Iterator.Element == TermResult>(results : S) -> Term? {
+    func evaluateCountAll<S : Sequence>(results : S) -> Term? where S.Iterator.Element == TermResult {
         var count = 0
         for _ in results {
             count += 1
@@ -645,7 +645,7 @@ public class SimpleQueryEvaluator {
         return Term(integer: count)
     }
     
-    func evaluateSum<S : Sequence where S.Iterator.Element == TermResult>(results : S, expression keyExpr : Expression) -> Term? {
+    func evaluateSum<S : Sequence>(results : S, expression keyExpr : Expression) -> Term? where S.Iterator.Element == TermResult {
         var doubleSum : Double = 0.0
         let integer = TermType.datatype("http://www.w3.org/2001/XMLSchema#integer")
         var resultingType : TermType? = integer

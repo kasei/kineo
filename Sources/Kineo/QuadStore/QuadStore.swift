@@ -45,7 +45,7 @@ public class QuadStore : Sequence {
         }
     }
     
-    private func generateIDQuadsAddingTerms<S : Sequence where S.Iterator.Element == Quad>(quads : S) throws -> AnyIterator<IDQuad<IDType>> {
+    private func generateIDQuadsAddingTerms<S : Sequence>(quads : S) throws -> AnyIterator<IDQuad<IDType>> where S.Iterator.Element == Quad {
         var idquads = [IDQuad<IDType>]()
         for quad in quads {
             var ids = [IDType]()
@@ -58,7 +58,7 @@ public class QuadStore : Sequence {
         return AnyIterator(idquads.makeIterator())
     }
 
-    public func load<S : Sequence where S.Iterator.Element == Quad>(quads : S) throws {
+    public func load<S : Sequence>(quads : S) throws where S.Iterator.Element == Quad {
         let treeName = QuadStore.defaultIndex
         guard let m = self.mediator as? RWMediator else { throw DatabaseError.PermissionError("Cannot load quads into a read-only quadstore") }
         do {
@@ -806,7 +806,7 @@ extension UInt64 : DefinedTestable {
     }
 }
 
-public struct IDQuad<T : protocol<DefinedTestable, Equatable, Comparable, BufferSerializable>> : BufferSerializable, Equatable, Comparable {
+public struct IDQuad<T : DefinedTestable & Equatable & Comparable & BufferSerializable> : BufferSerializable, Equatable, Comparable {
     var values : [T]
     public init(_ v0 : T, _ v1 : T, _ v2 : T, _ v3 : T) {
         self.values = [v0,v1,v2,v3]

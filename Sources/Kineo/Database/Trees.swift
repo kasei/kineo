@@ -14,7 +14,7 @@ private enum TreeError : Error {
 
 private let cookieHeaderSize = 32
 
-internal struct TreePath<T : protocol<BufferSerializable,Comparable>, U : BufferSerializable> : CustomStringConvertible {
+internal struct TreePath<T : BufferSerializable & Comparable, U : BufferSerializable> : CustomStringConvertible {
     private var internalPath : [(node: TreeNode<T,U>, index: Int)]
     internal var leaf : TreeLeaf<T,U>?
     private var mediator: RMediator
@@ -132,7 +132,7 @@ internal struct TreePath<T : protocol<BufferSerializable,Comparable>, U : Buffer
     }
 }
 
-public class Tree<T : protocol<BufferSerializable,Comparable>, U : BufferSerializable> {
+public class Tree<T : BufferSerializable & Comparable, U : BufferSerializable> {
     var root : PageId
     var name : String
     var mediator : RMediator
@@ -370,7 +370,7 @@ public class Tree<T : protocol<BufferSerializable,Comparable>, U : BufferSeriali
  
  **/
 
-public final class TreeLeaf<T : protocol<BufferSerializable,Comparable>, U : BufferSerializable> {
+public final class TreeLeaf<T : BufferSerializable & Comparable, U : BufferSerializable> {
     internal var typeCode : UInt32
     public var version : UInt64
     public var pairs : [(T,U)]
@@ -389,7 +389,7 @@ public final class TreeLeaf<T : protocol<BufferSerializable,Comparable>, U : Buf
         }
     }
     
-    convenience init<V : IteratorProtocol where V.Element == (T,U)>(version : UInt64, pageSize: Int, pairs iter: inout PeekableIterator<V>) {
+    convenience init<V : IteratorProtocol>(version : UInt64, pageSize: Int, pairs iter: inout PeekableIterator<V>) where V.Element == (T,U) {
         var remainingBytes = pageSize - cookieHeaderSize
         var pairs = [(T,U)]()
         
@@ -470,7 +470,7 @@ public final class TreeLeaf<T : protocol<BufferSerializable,Comparable>, U : Buf
     }
 }
 
-public final class TreeInternal<T : protocol<BufferSerializable,Comparable>> {
+public final class TreeInternal<T : BufferSerializable & Comparable> {
     internal var typeCode : UInt32
     public var version : UInt64
     public var pairs : [(T,PageId)]
@@ -503,7 +503,7 @@ public final class TreeInternal<T : protocol<BufferSerializable,Comparable>> {
         try self.init(version: version, pageSize: pageSize, totalCount: totalCount, typeCode: serializationCode(T.self, PageId.self), pairs: pairs)
     }
     
-    convenience init<V : IteratorProtocol where V.Element == (T,PageId)>(version : UInt64, pageSize: Int, totalCount : UInt64, pairs iter: inout PeekableIterator<V>) {
+    convenience init<V : IteratorProtocol>(version : UInt64, pageSize: Int, totalCount : UInt64, pairs iter: inout PeekableIterator<V>) where V.Element == (T,PageId) {
         var remainingBytes = pageSize - cookieHeaderSize
         var pairs = [(T,PageId)]()
         
@@ -579,7 +579,7 @@ public final class TreeInternal<T : protocol<BufferSerializable,Comparable>> {
     }
 }
 
-private enum TreeNode<T : protocol<BufferSerializable,Comparable>, U : BufferSerializable> : PageMarshalled {
+private enum TreeNode<T : BufferSerializable & Comparable, U : BufferSerializable> : PageMarshalled {
     case leafNode(TreeLeaf<T,U>)
     case internalNode(TreeInternal<T>)
     
@@ -777,7 +777,7 @@ private enum TreeNode<T : protocol<BufferSerializable,Comparable>, U : BufferSer
 }
 
 private extension UnsafePointer {
-    func deserialize<T : protocol<BufferSerializable,Comparable>, U : BufferSerializable>(mediator : RMediator, type : DatabaseInfo.Cookie, status: PageStatus, pageSize : Int, keyType : T.Type, valueType : U.Type) throws -> TreeNode<T,U> {
+    func deserialize<T : BufferSerializable & Comparable, U : BufferSerializable>(mediator : RMediator, type : DatabaseInfo.Cookie, status: PageStatus, pageSize : Int, keyType : T.Type, valueType : U.Type) throws -> TreeNode<T,U> {
         var ptr = UnsafePointer<Void>(self)
         guard let cookie = DatabaseInfo.Cookie(rawValue: try UInt32.deserialize(from: &ptr)) else { throw DatabaseError.DataError("Bad tree node cookie") }
         if cookie == .leafTreeNode {
@@ -793,7 +793,7 @@ private extension UnsafePointer {
         }
     }
     
-    func deserializeTree<T : protocol<BufferSerializable,Comparable>, U : BufferSerializable>(mediator : RMediator, type : DatabaseInfo.Cookie, pageSize : Int, keyType : T.Type, valueType : U.Type) throws -> (UInt32, UInt64, UInt32, UInt32, UInt64, AnyIterator<(T,U)>) {
+    func deserializeTree<T : BufferSerializable & Comparable, U : BufferSerializable>(mediator : RMediator, type : DatabaseInfo.Cookie, pageSize : Int, keyType : T.Type, valueType : U.Type) throws -> (UInt32, UInt64, UInt32, UInt32, UInt64, AnyIterator<(T,U)>) {
         let rawMemory   = UnsafePointer<Void>(self)
         var ptr         = rawMemory
         let cookie      = try UInt32.deserialize(from: &ptr)
@@ -819,7 +819,7 @@ private extension UnsafePointer {
         return (cookie, version, config1, config2, totalCount, gen)
     }
     
-    private func treeNode<T : protocol<BufferSerializable, Comparable>, U: BufferSerializable>(mediator : RMediator, status : PageStatus) throws -> TreeNode<T, U> {
+    private func treeNode<T : BufferSerializable & Comparable, U: BufferSerializable>(mediator : RMediator, status : PageStatus) throws -> TreeNode<T, U> {
         let buffer = UnsafePointer<Void>(self)
         var ptr = buffer
         guard let cookie = DatabaseInfo.Cookie(rawValue: try UInt32.deserialize(from: &ptr)) else { throw DatabaseError.DataError("Bad tree node cookie") }
@@ -857,7 +857,7 @@ extension UnsafeMutablePointer {
 }
 
 extension RMediator {
-    public func tree<T : protocol<BufferSerializable, Comparable>, U: BufferSerializable>(name: String) -> Tree<T,U>? {
+    public func tree<T : BufferSerializable & Comparable, U: BufferSerializable>(name: String) -> Tree<T,U>? {
         return Tree(name: name, mediator : self)
     }
     
@@ -1046,7 +1046,7 @@ extension RMediator {
 }
 
 extension RWMediator {
-    private func createTreeInternals<C : Sequence, T : protocol<BufferSerializable, Comparable>, U : BufferSerializable where C.Iterator.Element == (TreeNode<T,U>, PageId)>(pairs adding: C, keyType : T.Type, valueType : U.Type) throws -> [(TreeNode<T,U>, PageId)] {
+    private func createTreeInternals<C : Sequence, T : BufferSerializable & Comparable, U : BufferSerializable>(pairs adding: C, keyType : T.Type, valueType : U.Type) throws -> [(TreeNode<T,U>, PageId)] where C.Iterator.Element == (TreeNode<T,U>, PageId) {
         var lastKey : T? = nil
         let counts  = adding.map { $0.0.totalCount }
         let pairs   = adding.map { ($0.0.maxKey!, $0.1) }
@@ -1076,7 +1076,7 @@ extension RWMediator {
         return newPairs
     }
     
-    private func createTreeLeaves<C : Sequence, T : protocol<BufferSerializable, Comparable>, U : BufferSerializable where C.Iterator.Element == (T,U)>(pairs: C) throws -> [(TreeNode<T,U>, PageId)] {
+    private func createTreeLeaves<C : Sequence, T : BufferSerializable & Comparable, U : BufferSerializable>(pairs: C) throws -> [(TreeNode<T,U>, PageId)] where C.Iterator.Element == (T,U) {
         var iter = PeekableIterator(generator: pairs.makeIterator())
         var leaves = [(TreeNode<T,U>, PageId)]()
         var lastKey : T? = nil
@@ -1105,13 +1105,13 @@ extension RWMediator {
         return leaves
     }
     
-    public func create<C : Sequence, T : protocol<BufferSerializable, Comparable>, U : BufferSerializable where C.Iterator.Element == (T,U)>(tree name: String, pairs: C) throws -> PageId {
+    public func create<C : Sequence, T : BufferSerializable & Comparable, U : BufferSerializable>(tree name: String, pairs: C) throws -> PageId where C.Iterator.Element == (T,U) {
         let pid = try self.createTree(pairs: pairs)
         self.updateRoot(name: name, page: pid)
         return pid
     }
     
-    public func createTree<C : Sequence, T : protocol<BufferSerializable, Comparable>, U : BufferSerializable where C.Iterator.Element == (T,U)>(pairs: C) throws -> PageId {
+    public func createTree<C : Sequence, T : BufferSerializable & Comparable, U : BufferSerializable>(pairs: C) throws -> PageId where C.Iterator.Element == (T,U) {
         let newPairs  = try createTreeLeaves(pairs: pairs)
         if newPairs.count == 0 {
             throw DatabaseError.DataError("Failed to create tree leaves")

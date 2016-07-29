@@ -8,7 +8,7 @@
 
 import Foundation
 
-class LinkedListNode<K : protocol<Equatable, Hashable>, V> {
+class LinkedListNode<K : Equatable & Hashable, V> {
     var next : LinkedListNode<K,V>?
     weak var previous : LinkedListNode<K,V>?
     var key : K
@@ -21,7 +21,7 @@ class LinkedListNode<K : protocol<Equatable, Hashable>, V> {
     }
 }
 
-class LinkedList<K : protocol<Equatable, Hashable>, V> : Sequence {
+class LinkedList<K : Equatable & Hashable, V> : Sequence {
     var head : LinkedListNode<K,V>?
     weak var tail : LinkedListNode<K,V>?
     var count : Int
@@ -127,7 +127,7 @@ class LinkedList<K : protocol<Equatable, Hashable>, V> : Sequence {
     }
 }
 
-public class LRUCache<K : protocol<Equatable, Hashable>, V> : Sequence {
+public class LRUCache<K : Equatable & Hashable, V> : Sequence {
     var dict : [K:LinkedListNode<K,V>]
     public var capacity : Int
     var list = LinkedList<K,V>()

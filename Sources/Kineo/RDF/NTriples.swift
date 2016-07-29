@@ -16,7 +16,7 @@ public class NTriplesParser<T : LineReadable> : Sequence {
         self.blanks = [:]
     }
     
-    func parseBlank<T : IteratorProtocol where T.Element == UnicodeScalar>(_ generator: inout PeekableIterator<T>) -> Term? {
+    func parseBlank<T : IteratorProtocol>(_ generator: inout PeekableIterator<T>) -> Term? where T.Element == UnicodeScalar {
         guard generator.next() == .some("_") else { return nil }
         guard generator.next() == .some(":") else { return nil }
         var label = ""
@@ -43,7 +43,7 @@ public class NTriplesParser<T : LineReadable> : Sequence {
         } while true
     }
     
-    func parseEscape<T : IteratorProtocol where T.Element == UnicodeScalar>(_ generator: inout PeekableIterator<T>, allowEChars : Bool = true) -> UnicodeScalar? {
+    func parseEscape<T : IteratorProtocol>(_ generator: inout PeekableIterator<T>, allowEChars : Bool = true) -> UnicodeScalar? where T.Element == UnicodeScalar {
         guard let c = generator.next() else { return nil }
         switch c {
         case "t" where allowEChars:
@@ -65,7 +65,7 @@ public class NTriplesParser<T : LineReadable> : Sequence {
         }
     }
     
-    func parseHex<T : IteratorProtocol where T.Element == UnicodeScalar>(_ generator: inout PeekableIterator<T>, length : Int) -> UnicodeScalar? {
+    func parseHex<T : IteratorProtocol>(_ generator: inout PeekableIterator<T>, length : Int) -> UnicodeScalar? where T.Element == UnicodeScalar {
         var value : UInt32 = 0
         var string = ""
         for _ in 0..<length {
@@ -83,7 +83,7 @@ public class NTriplesParser<T : LineReadable> : Sequence {
         return UnicodeScalar(value)
     }
     
-    func parseIRI<T : IteratorProtocol where T.Element == UnicodeScalar>(_ generator: inout PeekableIterator<T>) -> Term? {
+    func parseIRI<T : IteratorProtocol>(_ generator: inout PeekableIterator<T>) -> Term? where T.Element == UnicodeScalar {
         guard generator.next() == .some("<") else { warn("***"); return nil }
         var label = ""
         repeat {
@@ -105,7 +105,7 @@ public class NTriplesParser<T : LineReadable> : Sequence {
         } while true
     }
     
-    func parseLang<T : IteratorProtocol where T.Element == UnicodeScalar>(_ generator: inout PeekableIterator<T>) -> TermType? {
+    func parseLang<T : IteratorProtocol>(_ generator: inout PeekableIterator<T>) -> TermType? where T.Element == UnicodeScalar {
         guard generator.next() == .some("@") else { return nil }
         var label = ""
         repeat {
@@ -120,7 +120,7 @@ public class NTriplesParser<T : LineReadable> : Sequence {
         } while true
     }
     
-    func parseLiteral<T : IteratorProtocol where T.Element == UnicodeScalar>(_ generator: inout PeekableIterator<T>) -> Term? {
+    func parseLiteral<T : IteratorProtocol>(_ generator: inout PeekableIterator<T>) -> Term? where T.Element == UnicodeScalar {
         guard generator.next() == .some("\"") else { warn("***"); return nil }
         var label = ""
         repeat {
@@ -152,7 +152,7 @@ public class NTriplesParser<T : LineReadable> : Sequence {
         } while true
     }
     
-    func parseTerm<T : IteratorProtocol where T.Element == UnicodeScalar>(_ chars: inout PeekableIterator<T>) -> Term? {
+    func parseTerm<T : IteratorProtocol>(_ chars: inout PeekableIterator<T>) -> Term? where T.Element == UnicodeScalar {
         repeat {
             if let c = chars.peek() {
                 switch c {
@@ -207,7 +207,7 @@ public class NTriplesPatternParser<T : LineReadable> : NTriplesParser<T> {
     public override init(reader : T) {
         super.init(reader: reader)
     }
-    func parseVariable<T : IteratorProtocol where T.Element == UnicodeScalar>(_ generator: inout PeekableIterator<T>) -> String? {
+    func parseVariable<T : IteratorProtocol>(_ generator: inout PeekableIterator<T>) -> String? where T.Element == UnicodeScalar {
         guard generator.next() == .some("?") else { return nil }
         var label = ""
         repeat {

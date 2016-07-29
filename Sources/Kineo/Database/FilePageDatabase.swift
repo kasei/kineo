@@ -201,7 +201,7 @@ public class FilePageRMediator : RMediator {
         precondition(pageSize >= 16)
         guard let page : (DatabaseHeaderPage, PageStatus) = try? readPage(0) else { fatalError("error while finding root pages") }
         let (header, _) = page
-        let names = header.roots.map { $0.0 } ?? []
+        let names = header.roots.map { $0.0 }
         return names
     }
     

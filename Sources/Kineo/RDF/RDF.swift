@@ -250,8 +250,7 @@ func /(lhs : Numeric, rhs: Numeric) -> Numeric {
 private func nonDivResultingNumeric(_ value : Double, _ lhs : Numeric, _ rhs: Numeric) -> Numeric {
     switch (lhs, rhs) {
     case (.integer(_), .integer(_)):
-        let i = Int(value) ?? 0
-        return .integer(i)
+        return .integer(Int(value))
     case (.decimal(_), .decimal(_)):
         return .decimal(value)
     case (.float(_), .float(_)):
