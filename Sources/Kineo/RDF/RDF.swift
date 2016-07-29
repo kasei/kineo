@@ -208,8 +208,10 @@ public enum Numeric : CustomStringConvertible {
             return Term(integer: value)
         case .float(let value):
             return Term(float: value)
-        default:
-            fatalError("Cannot construct numeric term for \(self)")
+        case .decimal(let value):
+            return Term(decimal: value)
+        case .double(let value):
+            return Term(double: value)
         }
     }
     
@@ -243,7 +245,7 @@ func *(lhs : Numeric, rhs: Numeric) -> Numeric {
 }
 
 func /(lhs : Numeric, rhs: Numeric) -> Numeric {
-    let value = lhs.value + rhs.value
+    let value = lhs.value / rhs.value
     return divResultingNumeric(value, lhs, rhs)
 }
 
@@ -352,7 +354,19 @@ public struct Term : CustomStringConvertible {
     
     public init(float value: Double) {
         self.value = "\(value)"
+        // TODO: fix the lexical form for xsd:float
         self.type = .datatype("http://www.w3.org/2001/XMLSchema#float")
+    }
+    
+    public init(double value: Double) {
+        self.value = "\(value)"
+        // TODO: fix the lexical form for xsd:double
+        self.type = .datatype("http://www.w3.org/2001/XMLSchema#double")
+    }
+    
+    public init(decimal value: Double) {
+        self.value = String(format: "%f", value)
+        self.type = .datatype("http://www.w3.org/2001/XMLSchema#decimal")
     }
     
     public init?(numeric value : Double, type : TermType) {

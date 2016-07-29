@@ -646,83 +646,73 @@ public class SimpleQueryEvaluator {
     }
     
     func evaluateSum<S : Sequence>(results : S, expression keyExpr : Expression) -> Term? where S.Iterator.Element == TermResult {
-        var doubleSum : Double = 0.0
-        let integer = TermType.datatype("http://www.w3.org/2001/XMLSchema#integer")
-        var resultingType : TermType? = integer
+        var runningSum : Numeric = .integer(0)
         var count = 0
         for result in results {
             if let term = try? keyExpr.evaluate(result: result) {
                 count += 1
-                if term.isNumeric {
-                    resultingType = resultingType?.resultType(op: "+", operandType: term.type)
-                    doubleSum += term.numericValue
+                if let numeric = term.numeric {
+                    runningSum = runningSum + numeric
                 }
             }
         }
         
-        if let type = resultingType {
-            if let n = Term(numeric: doubleSum, type: type) {
-                return n
-            } else {
-                // cannot create a numeric term with this combination of value and type
-                return nil
-            }
-        } else {
-            warn("*** Cannot determine resulting numeric datatype for SUM operation")
+        if count == 0 {
             return nil
         }
+        return runningSum.term
     }
     
     //
     func evaluateSinglePipelinedAggregation(algebra child: Algebra, groups: [Expression], aggregation agg: Aggregation, variable name: String, activeGraph : Term) throws -> AnyIterator<TermResult> {
         let i = try self.evaluate(algebra: child, activeGraph: activeGraph)
-        var groupValue = [String:Double]()
+        var groupValue = [String:Numeric]()
         var groupCount = [String:Int]()
         var groupBindings = [String:[String:Term]]()
-        let integer = TermType.datatype("http://www.w3.org/2001/XMLSchema#integer")
-        var resultingType : TermType? = integer
         for result in i {
             let group = groups.map { (expr) -> Term? in return try? expr.evaluate(result: result) }
             let groupKey = "\(group)"
             if let value = groupValue[groupKey] {
                 switch agg {
                 case .countAll:
-                    groupValue[groupKey] = value + 1.0
+                    groupValue[groupKey] = value + .integer(1)
                 case .avg(let keyExpr):
-                    if let _ = try? keyExpr.evaluate(result: result), let c = groupCount[groupKey] {
-                        groupValue[groupKey] = value + 1.0
-                        groupCount[groupKey] = c + 1
+                    if let term = try? keyExpr.evaluate(result: result), let c = groupCount[groupKey] {
+                        if let n = term.numeric {
+                            groupValue[groupKey] = value + n
+                            groupCount[groupKey] = c + 1
+                        }
                     }
                 case .count(let keyExpr):
                     if let _ = try? keyExpr.evaluate(result: result) {
-                        groupValue[groupKey] = value + 1.0
+                        groupValue[groupKey] = value + .integer(1)
                     }
                 case .sum(let keyExpr):
                     if let term = try? keyExpr.evaluate(result: result) {
-                        if term.isNumeric {
-                            resultingType = resultingType?.resultType(op: "+", operandType: term.type)
-                            groupValue[groupKey] = value + term.numericValue
+                        if let n = term.numeric {
+                            groupValue[groupKey] = value + n
                         }
                     }
                 }
             } else {
                 switch agg {
                 case .countAll:
-                    groupValue[groupKey] = 1.0
+                    groupValue[groupKey] = .integer(1)
                 case .avg(let keyExpr):
-                    if let _ = try? keyExpr.evaluate(result: result) {
-                        groupValue[groupKey] = 1.0
-                        groupCount[groupKey] = 1
+                    if let term = try? keyExpr.evaluate(result: result) {
+                        if term.isNumeric {
+                            groupValue[groupKey] = term.numeric
+                            groupCount[groupKey] = 1
+                        }
                     }
                 case .count(let keyExpr):
                     if let _ = try? keyExpr.evaluate(result: result) {
-                        groupValue[groupKey] = 1.0
+                        groupValue[groupKey] = .integer(1)
                     }
                 case .sum(let keyExpr):
                     if let term = try? keyExpr.evaluate(result: result) {
                         if term.isNumeric {
-                            groupValue[groupKey] = term.numericValue
-                            resultingType = term.type
+                            groupValue[groupKey] = term.numeric
                         }
                     }
                 }
@@ -746,20 +736,11 @@ public class SimpleQueryEvaluator {
             var value = v
             if case .avg(_) = agg {
                 guard let count = groupCount[groupKey] else { fatalError() }
-                value /= Double(count)
-                resultingType = resultingType?.resultType(op: "/", operandType: integer)
+                value = v / Numeric.double(Double(count))
             }
             
             guard var bindings = groupBindings[groupKey] else { fatalError("Unexpected missing aggregation group template") }
-            if let type = resultingType {
-                if let n = Term(numeric: value, type: type) {
-                    bindings[name] = n
-                } else {
-                    // cannot create a numeric term with this combination of value and type
-                }
-            } else {
-                warn("*** Cannot determine resulting numeric datatype for \(agg) operation")
-            }
+            bindings[name] = value.term
             return TermResult(bindings: bindings)
         }
     }
