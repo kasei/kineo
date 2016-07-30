@@ -591,9 +591,9 @@ public class SimpleQueryEvaluator {
         
         let intersection = seen.popLast()!
         if intersection.count > 0 {
-            warn("# using hash join on: \(intersection)")
-            warn("### \(lhsAlgebra)")
-            warn("### \(rhsAlgebra)")
+//            warn("# using hash join on: \(intersection)")
+//            warn("### \(lhsAlgebra)")
+//            warn("### \(rhsAlgebra)")
             let joinVariables = Array(intersection)
             let lhs = try self.evaluate(algebra: lhsAlgebra, activeGraph: activeGraph)
             let rhs = try self.evaluate(algebra: rhsAlgebra, activeGraph: activeGraph)
@@ -947,7 +947,7 @@ public class SimpleQueryEvaluator {
 
 public func pipelinedHashJoin<R : ResultProtocol>(joinVariables : [String], lhs : AnyIterator<R>, rhs : AnyIterator<R>, left : Bool = false) -> AnyIterator<R> {
     var table = [R:[R]]()
-    warn(">>> filling hash table")
+//    warn(">>> filling hash table")
     var count = 0
     for result in rhs {
         count += 1
@@ -958,7 +958,7 @@ public func pipelinedHashJoin<R : ResultProtocol>(joinVariables : [String], lhs 
             table[key] = [result]
         }
     }
-    warn(">>> done (\(count) results in \(Array(table.keys).count) buckets)")
+//    warn(">>> done (\(count) results in \(Array(table.keys).count) buckets)")
     
     var buffer = [R]()
     return AnyIterator {
