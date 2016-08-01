@@ -42,6 +42,8 @@ public indirect enum Expression : CustomStringConvertible {
     case sub(Expression, Expression)
     case div(Expression, Expression)
     case mul(Expression, Expression)
+    case and(Expression, Expression)
+    case or(Expression, Expression)
     
     var isNumeric : Bool {
         switch self {
@@ -77,6 +79,22 @@ public indirect enum Expression : CustomStringConvertible {
             } else {
                 throw QueryError.typeError("Variable ?\(name) is unbound in result \(result)")
             }
+        case .and(let lhs, let rhs):
+            if let lval = try? lhs.evaluate(result: result), let rval = try? rhs.evaluate(result: result), let lebv = try? lval.ebv(), let rebv = try? rval.ebv() {
+                return (lebv && rebv) ? Term.trueValue : Term.falseValue
+            }
+        case .or(let lhs, let rhs):
+            if let lval = try? lhs.evaluate(result: result), let lebv = try? lval.ebv() {
+                if lebv {
+                    return Term.trueValue
+                }
+            }
+            if let rval = try? rhs.evaluate(result: result), let rebv = try? rval.ebv() {
+                if rebv {
+                    return Term.trueValue
+                }
+            }
+            return Term.falseValue
         case .eq(let lhs, let rhs):
             if let lval = try? lhs.evaluate(result: result), let rval = try? rhs.evaluate(result: result) {
                 return (lval == rval) ? Term.trueValue : Term.falseValue
@@ -215,6 +233,10 @@ public indirect enum Expression : CustomStringConvertible {
             return "(\(lhs) * \(rhs))"
         case .div(let lhs, let rhs):
             return "(\(lhs) / \(rhs))"
+        case .and(let lhs, let rhs):
+            return "(\(lhs) && \(rhs))"
+        case .or(let lhs, let rhs):
+            return "(\(lhs) || \(rhs))"
         }
     }
 }
@@ -476,15 +498,11 @@ public class QueryParser<T : LineReadable> {
             guard let graph = parser.parseNode(line: rest) else { return nil }
             return .namedGraph(child, graph)
         } else if op == "extend" {
-            let parser = NTriplesPatternParser(reader: "")
             guard let child = stack.popLast() else { return nil }
             let name = parts[1]
             guard parts.count > 2 else { return nil }
             do {
-                if parts.count > 3, let expr = try parseBinaryExpression(Array(parts.suffix(from: 2))) {
-                    return .extend(child, expr, name)
-                } else if let n = parser.parseNode(line: parts[2]) {
-                    let expr : Expression = .node(n)
+                if let expr = try parseExpression(Array(parts.suffix(from: 2))) {
                     return .extend(child, expr, name)
                 }
             } catch {}
@@ -492,7 +510,7 @@ public class QueryParser<T : LineReadable> {
         } else if op == "filter" {
             guard let child = stack.popLast() else { return nil }
             do {
-                if let expr = try parseBinaryExpression(Array(parts.suffix(from: 1))) {
+                if let expr = try parseExpression(Array(parts.suffix(from: 1))) {
                     return .filter(child, expr)
                 }
             } catch {}
@@ -507,43 +525,72 @@ public class QueryParser<T : LineReadable> {
         return nil
     }
     
-    func parseBinaryExpression(_ parts : [String]) throws -> Expression? {
+    func parseExpression(_ parts : [String]) throws -> Expression? {
+        var stack = [Expression]()
+        var i = parts.makeIterator()
         let parser = NTriplesPatternParser(reader: "")
-        let op = parts[0]
-        guard let node = parser.parseNode(line: parts[1]) else { return nil }
-        let lhs = Expression.node(node)
-        let rhs : Expression
-        if let value = Double(parts[2]) {
-            rhs = .node(.bound(Term(float: value)))
-        } else {
-            guard let n = parser.parseNode(line: parts[2]) else { return nil }
-            rhs = .node(n)
+        while let s = i.next() {
+            switch s {
+            case "||":
+                let rhs = stack.popLast()!
+                let lhs = stack.popLast()!
+                stack.append(.or(lhs, rhs))
+            case "&&":
+                let rhs = stack.popLast()!
+                let lhs = stack.popLast()!
+                stack.append(.and(lhs, rhs))
+            case "=":
+                let rhs = stack.popLast()!
+                let lhs = stack.popLast()!
+                stack.append(.eq(lhs, rhs))
+            case "!=":
+                let rhs = stack.popLast()!
+                let lhs = stack.popLast()!
+                stack.append(.ne(lhs, rhs))
+            case "<":
+                let rhs = stack.popLast()!
+                let lhs = stack.popLast()!
+                stack.append(.lt(lhs, rhs))
+            case ">":
+                let rhs = stack.popLast()!
+                let lhs = stack.popLast()!
+                stack.append(.gt(lhs, rhs))
+            case "<=":
+                let rhs = stack.popLast()!
+                let lhs = stack.popLast()!
+                stack.append(.le(lhs, rhs))
+            case ">=":
+                let rhs = stack.popLast()!
+                let lhs = stack.popLast()!
+                stack.append(.ge(lhs, rhs))
+            case "+":
+                let rhs = stack.popLast()!
+                let lhs = stack.popLast()!
+                stack.append(.add(lhs, rhs))
+            case "-":
+                let rhs = stack.popLast()!
+                let lhs = stack.popLast()!
+                stack.append(.sub(lhs, rhs))
+            case "*":
+                let rhs = stack.popLast()!
+                let lhs = stack.popLast()!
+                stack.append(.mul(lhs, rhs))
+            case "/":
+                let rhs = stack.popLast()!
+                let lhs = stack.popLast()!
+                stack.append(.div(lhs, rhs))
+            default:
+                if let value = Double(s) {
+                    stack.append(.node(.bound(Term(float: value))))
+                } else {
+                    guard let n = parser.parseNode(line: s) else { return nil }
+                    stack.append(.node(n))
+                }
+            }
         }
-        switch op {
-        case "=":
-            return .eq(lhs, rhs)
-        case "!=":
-            return .ne(lhs, rhs)
-        case "<":
-            return .lt(lhs, rhs)
-        case ">":
-            return .gt(lhs, rhs)
-        case "<=":
-            return .le(lhs, rhs)
-        case ">=":
-            return .ge(lhs, rhs)
-        case "+":
-            return .add(lhs, rhs)
-        case "-":
-            return .sub(lhs, rhs)
-        case "*":
-            return .mul(lhs, rhs)
-        case "/":
-            return .div(lhs, rhs)
-        default:
-            fatalError("Failed to parse binary expression: \(parts)")
-        }
+        return stack.popLast()
     }
+    
     public func parse() -> Algebra? {
         let lines = self.reader.lines()
         for line in lines {
