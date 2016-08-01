@@ -227,26 +227,26 @@ public enum Numeric : CustomStringConvertible {
             return "\(value)d"
         }
     }
-}
 
-func +(lhs : Numeric, rhs: Numeric) -> Numeric {
-    let value = lhs.value + rhs.value
-    return nonDivResultingNumeric(value, lhs, rhs)
-}
-
-func -(lhs : Numeric, rhs: Numeric) -> Numeric {
-    let value = lhs.value - rhs.value
-    return nonDivResultingNumeric(value, lhs, rhs)
-}
-
-func *(lhs : Numeric, rhs: Numeric) -> Numeric {
-    let value = lhs.value * rhs.value
-    return nonDivResultingNumeric(value, lhs, rhs)
-}
-
-func /(lhs : Numeric, rhs: Numeric) -> Numeric {
-    let value = lhs.value / rhs.value
-    return divResultingNumeric(value, lhs, rhs)
+    public static func +(lhs : Numeric, rhs: Numeric) -> Numeric {
+        let value = lhs.value + rhs.value
+        return nonDivResultingNumeric(value, lhs, rhs)
+    }
+    
+    public static func -(lhs : Numeric, rhs: Numeric) -> Numeric {
+        let value = lhs.value - rhs.value
+        return nonDivResultingNumeric(value, lhs, rhs)
+    }
+    
+    public static func *(lhs : Numeric, rhs: Numeric) -> Numeric {
+        let value = lhs.value * rhs.value
+        return nonDivResultingNumeric(value, lhs, rhs)
+    }
+    
+    public static func /(lhs : Numeric, rhs: Numeric) -> Numeric {
+        let value = lhs.value / rhs.value
+        return divResultingNumeric(value, lhs, rhs)
+    }
 }
 
 private func nonDivResultingNumeric(_ value : Double, _ lhs : Numeric, _ rhs: Numeric) -> Numeric {
@@ -326,18 +326,18 @@ extension TermType : Hashable {
             return 3 ^ l.hashValue
         }
     }
-}
 
-public func ==(lhs: TermType, rhs: TermType) -> Bool {
-    switch (lhs, rhs) {
-    case (.iri, .iri), (.blank, .blank):
-        return true
-    case (.language(let l), .language(let r)):
-        return l == r
-    case (.datatype(let l), .datatype(let r)):
-        return l == r
-    default:
-        return false
+    public static func ==(lhs: TermType, rhs: TermType) -> Bool {
+        switch (lhs, rhs) {
+        case (.iri, .iri), (.blank, .blank):
+            return true
+        case (.language(let l), .language(let r)):
+            return l == r
+        case (.datatype(let l), .datatype(let r)):
+            return l == r
+        default:
+            return false
+        }
     }
 }
 
@@ -492,43 +492,44 @@ extension Term : Comparable {
             fatalError()
         }
     }
-}
-
-public func <(lhs: Term, rhs: Term) -> Bool {
-    if lhs.isNumeric && rhs.isNumeric {
-        return lhs.numericValue < rhs.numericValue
-    }
-    switch (lhs.type, rhs.type) {
-    case (let a, let b) where a == b:
-        if lhs.isNumeric {
+    
+    public static func <(lhs: Term, rhs: Term) -> Bool {
+        if lhs.isNumeric && rhs.isNumeric {
             return lhs.numericValue < rhs.numericValue
         }
-        return lhs.value < rhs.value
-    case (.blank, _):
-        return true
-    case (.iri, .language(_)), (.iri, .datatype(_)):
-        return true
-    case (.language(_), .datatype(_)):
-        return true
-    default:
-        return false
+        switch (lhs.type, rhs.type) {
+        case (let a, let b) where a == b:
+            if lhs.isNumeric {
+                return lhs.numericValue < rhs.numericValue
+            }
+            return lhs.value < rhs.value
+        case (.blank, _):
+            return true
+        case (.iri, .language(_)), (.iri, .datatype(_)):
+            return true
+        case (.language(_), .datatype(_)):
+            return true
+        default:
+            return false
+        }
     }
 }
 
-extension Term : Equatable {}
-public func ==(lhs: Term, rhs: Term) -> Bool {
-    if lhs.isNumeric && rhs.isNumeric {
-        return lhs.numericValue == rhs.numericValue
-    }
-    switch (lhs.type, rhs.type) {
-    case (.iri, .iri), (.blank, .blank):
-        return lhs.value == rhs.value
-    case (.language(let l), .language(let r)) where l == r:
-        return lhs.value == rhs.value
-    case (.datatype(let l), .datatype(let r)) where l == r:
-        return lhs.value == rhs.value
-    default:
-        return false
+extension Term : Equatable {
+    public static func ==(lhs: Term, rhs: Term) -> Bool {
+        if lhs.isNumeric && rhs.isNumeric {
+            return lhs.numericValue == rhs.numericValue
+        }
+        switch (lhs.type, rhs.type) {
+        case (.iri, .iri), (.blank, .blank):
+            return lhs.value == rhs.value
+        case (.language(let l), .language(let r)) where l == r:
+            return lhs.value == rhs.value
+        case (.datatype(let l), .datatype(let r)) where l == r:
+            return lhs.value == rhs.value
+        default:
+            return false
+        }
     }
 }
 

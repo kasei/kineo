@@ -238,7 +238,7 @@ public class QueryParser<T : LineReadable> {
             let parser = NTriplesPatternParser(reader: "")
             guard let pattern = parser.parseTriplePattern(line: rest) else { return nil }
             return .triple(pattern)
-        } else if op == "avg" { // (AVG(?key) AS ?name) ... GROUP BY ?x ?y ?z --> "sum key name x y z"
+        } else if op == "avg" { // (AVG(?key) AS ?name) ... GROUP BY ?x ?y ?z --> "avg key name x y z"
             let key = parts[1]
             let name = parts[2]
             let groups = parts.suffix(from: 3).map { (name) -> Expression in .node(.variable(name, binding: true)) }

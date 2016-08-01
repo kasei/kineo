@@ -208,8 +208,9 @@ extension Empty : BufferSerializable {
     public static func deserialize(from buffer : inout UnsafePointer<Void>, mediator : RMediator?=nil) throws -> Empty {
         return Empty()
     }
+
+    public static func ==(lhs: Empty, rhs: Empty) -> Bool { return true }
 }
-public func ==(lhs: Empty, rhs: Empty) -> Bool { return true }
 
 
 extension Int : BufferSerializable {

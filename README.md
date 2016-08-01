@@ -23,7 +23,7 @@ first graph created during data loading will be used as the default graph.
 
 A simple line-based query format (equivalent to a subset of SPARQL) allows querying the data.
 
-Triple patterns can be joined and results filtered:
+Triple patterns can be joined and results filtered (with expressions encoded in postfix notation):
 
 ```
 % cat geo.q

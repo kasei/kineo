@@ -24,6 +24,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		37620ED41D4F0FA100AEC10F /* Expression.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Expression.swift; sourceTree = "<group>"; };
 		377C49F41D3061EF006222B6 /* Query.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Query.swift; sourceTree = "<group>"; };
 		379C05631D219B9A00ACE54D /* libKineo.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libKineo.dylib; path = .build/debug/libKineo.dylib; sourceTree = "<group>"; };
 		37B839821D1DECF700BE718B /* kineo-cli */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "kineo-cli"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -112,6 +113,7 @@
 			children = (
 				37B8399B1D1E06B500BE718B /* QuadStore.swift */,
 				377C49F41D3061EF006222B6 /* Query.swift */,
+				37620ED41D4F0FA100AEC10F /* Expression.swift */,
 			);
 			path = QuadStore;
 			sourceTree = "<group>";
@@ -318,6 +320,7 @@
 					"$(inherited)",
 					"$(PROJECT_DIR)/.build/debug",
 				);
+				LLVM_LTO = YES_THIN;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/.build/debug/";
 				SWIFT_VERSION = 3.0;
@@ -331,6 +334,7 @@
 					"$(inherited)",
 					"$(PROJECT_DIR)/.build/debug",
 				);
+				LLVM_LTO = YES_THIN;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/.build/release/";
 				SWIFT_OPTIMIZATION_LEVEL = "-Owholemodule";

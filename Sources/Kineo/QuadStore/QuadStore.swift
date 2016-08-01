@@ -850,26 +850,27 @@ public struct IDQuad<T : DefinedTestable & Equatable & Comparable & BufferSerial
         let q = IDQuad(v0, v1, v2, v3)
         return q
     }
-}
 
-public func ==<T>(lhs: IDQuad<T>, rhs: IDQuad<T>) -> Bool {
-    if lhs[0] == rhs[0] && lhs[1] == rhs[1] && lhs[2] == rhs[2] && lhs[3] == rhs[3] {
-        return true
-    } else {
+    public static func ==<T>(lhs: IDQuad<T>, rhs: IDQuad<T>) -> Bool {
+        if lhs[0] == rhs[0] && lhs[1] == rhs[1] && lhs[2] == rhs[2] && lhs[3] == rhs[3] {
+            return true
+        } else {
+            return false
+        }
+    }
+
+    public static func < <T>(lhs: IDQuad<T>, rhs: IDQuad<T>) -> Bool {
+        for (l,r) in zip(lhs.values, rhs.values) {
+            if l < r {
+                return true
+            } else if l > r {
+                return false
+            }
+        }
         return false
     }
 }
 
-public func < <T>(lhs: IDQuad<T>, rhs: IDQuad<T>) -> Bool {
-    for (l,r) in zip(lhs.values, rhs.values) {
-        if l < r {
-            return true
-        } else if l > r {
-            return false
-        }
-    }
-    return false
-}
 
 public protocol ResultProtocol : Hashable {
     associatedtype Element : Hashable
@@ -943,31 +944,19 @@ public struct TermResult : CustomStringConvertible, ResultProtocol {
         b[variable] = value
         return TermResult(bindings: b)
     }
-}
 
-public func ==(lhs: TermResult, rhs: TermResult) -> Bool {
-    let lkeys = Array(lhs.keys).sorted()
-    let rkeys = Array(rhs.keys).sorted()
-    guard lkeys == rkeys else { return false }
-    for key in lkeys {
-        let lvalue = lhs[key]
-        let rvalue = rhs[key]
-        guard lvalue == rvalue else { return false }
+    public static func ==(lhs: TermResult, rhs: TermResult) -> Bool {
+        let lkeys = Array(lhs.keys).sorted()
+        let rkeys = Array(rhs.keys).sorted()
+        guard lkeys == rkeys else { return false }
+        for key in lkeys {
+            let lvalue = lhs[key]
+            let rvalue = rhs[key]
+            guard lvalue == rvalue else { return false }
+        }
+        //    print("EQUAL-TO ==> \(lhs) === \(rhs)")
+        return true
     }
-//    print("EQUAL-TO ==> \(lhs) === \(rhs)")
-    return true
-}
-
-public func ==(lhs: IDResult, rhs: IDResult) -> Bool {
-    let lkeys = Array(lhs.keys).sorted()
-    let rkeys = Array(rhs.keys).sorted()
-    guard lkeys == rkeys else { return false }
-    for key in lkeys {
-        let lvalue = lhs[key]
-        let rvalue = rhs[key]
-        guard lvalue == rvalue else { return false }
-    }
-    return true
 }
 
 public struct IDResult : CustomStringConvertible, ResultProtocol {
@@ -1014,5 +1003,17 @@ public struct IDResult : CustomStringConvertible, ResultProtocol {
         var b = bindings
         b[variable] = value
         return IDResult(bindings: b)
+    }
+
+    public static func ==(lhs: IDResult, rhs: IDResult) -> Bool {
+        let lkeys = Array(lhs.keys).sorted()
+        let rkeys = Array(rhs.keys).sorted()
+        guard lkeys == rkeys else { return false }
+        for key in lkeys {
+            let lvalue = lhs[key]
+            let rvalue = rhs[key]
+            guard lvalue == rvalue else { return false }
+        }
+        return true
     }
 }
