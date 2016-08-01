@@ -44,6 +44,11 @@ public indirect enum Expression : CustomStringConvertible {
     case mul(Expression, Expression)
     case and(Expression, Expression)
     case or(Expression, Expression)
+    case not(Expression)
+    case isiri(Expression)
+    case isblank(Expression)
+    case isliteral(Expression)
+    case isnumeric(Expression)
     
     var isNumeric : Bool {
         switch self {
@@ -56,12 +61,7 @@ public indirect enum Expression : CustomStringConvertible {
         }
     }
     
-//    case not(Expression)
 //    case call(String, [Expression])
-//    case isiri(Expression)
-//    case isblank(Expression)
-//    case isliteral(Expression)
-//    case isnumeric(Expression)
 //    case lang(Expression)
 //    case datatype(Expression)
 //    case langmatches(Expression, String)
@@ -158,6 +158,40 @@ public indirect enum Expression : CustomStringConvertible {
             //        default:
             //            print("*** Cannot evaluate expression \(self)")
             //            throw QueryError.evaluationError("Cannot evaluate \(self) with result \(result)")
+        case .not(let expr):
+            let val = try expr.evaluate(result: result)
+            let ebv = try val.ebv()
+            return ebv ? Term.falseValue : Term.trueValue
+        case .isiri(let expr):
+            let val = try expr.evaluate(result: result)
+            if case .iri = val.type {
+                return Term.trueValue
+            } else {
+                return Term.falseValue
+            }
+        case .isblank(let expr):
+            let val = try expr.evaluate(result: result)
+            if case .blank = val.type {
+                return Term.trueValue
+            } else {
+                return Term.falseValue
+            }
+        case .isliteral(let expr):
+            let val = try expr.evaluate(result: result)
+            if case .language(_) = val.type {
+                return Term.trueValue
+            } else if case .datatype(_) = val.type {
+                return Term.trueValue
+            } else {
+                return Term.falseValue
+            }
+        case .isnumeric(let expr):
+            let val = try expr.evaluate(result: result)
+            if val.isNumeric {
+                return Term.trueValue
+            } else {
+                return Term.falseValue
+            }
         }
         throw QueryError.evaluationError("Failed to evaluate \(self) with result \(result)")
     }
@@ -237,6 +271,16 @@ public indirect enum Expression : CustomStringConvertible {
             return "(\(lhs) && \(rhs))"
         case .or(let lhs, let rhs):
             return "(\(lhs) || \(rhs))"
+        case .not(let expr):
+            return "NOT(\(expr))"
+        case .isiri(let expr):
+            return "ISIRI(\(expr))"
+        case .isblank(let expr):
+            return "ISBLANK(\(expr))"
+        case .isliteral(let expr):
+            return "ISLITERAL(\(expr))"
+        case .isnumeric(let expr):
+            return "ISNUMERIC(\(expr))"
         }
     }
 }
@@ -579,6 +623,21 @@ public class QueryParser<T : LineReadable> {
                 let rhs = stack.popLast()!
                 let lhs = stack.popLast()!
                 stack.append(.div(lhs, rhs))
+            case "not":
+                let expr = stack.popLast()!
+                stack.append(.not(expr))
+            case "isiri":
+                let expr = stack.popLast()!
+                stack.append(.isiri(expr))
+            case "isliteral":
+                let expr = stack.popLast()!
+                stack.append(.isliteral(expr))
+            case "isblank":
+                let expr = stack.popLast()!
+                stack.append(.isblank(expr))
+            case "isnumeric":
+                let expr = stack.popLast()!
+                stack.append(.isnumeric(expr))
             default:
                 if let value = Double(s) {
                     stack.append(.node(.bound(Term(float: value))))
