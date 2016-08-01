@@ -621,7 +621,7 @@ extension PersistentTermIdentityMap {
     private func unpack(string value: UInt64) -> Element? {
         var buffer = value.bigEndian
         var string : String? = nil
-        withUnsafePointer(to: &buffer) { (p) in
+        withUnsafePointer(&buffer) { (p) in
             let bytes = UnsafePointer<CChar>(p)
             var chars = [CChar]()
             for i in 1...7 {

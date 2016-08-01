@@ -116,7 +116,7 @@ public indirect enum Algebra {
     }
     
     public func serialize(depth : Int=0) -> String {
-        let indent = String(repeating: " ", count: (depth*2))
+        let indent = String(repeating: Character(" "), count: (depth*2))
         switch self {
         case .quad(let q):
             return "\(indent)Quad(\(q))\n"
