@@ -245,7 +245,7 @@ class QueryEvaluationTest: XCTestCase {
         let ascValues = ascResults.map { $0["o"]!.numericValue }
         XCTAssertEqualWithAccuracy(ascValues[0], -118.0, accuracy: 0.1)
         XCTAssertEqualWithAccuracy(ascValues[1], 32.7, accuracy: 0.1)
-
+        
         let descending : Algebra = .order(quad, [(false, .node(.variable("o", binding: false)))])
         guard let descResults = try? Array(eval(algebra: descending)) else { XCTFail(); return }
         
@@ -253,6 +253,14 @@ class QueryEvaluationTest: XCTestCase {
         let descValues = descResults.map { $0["o"]!.numericValue }
         XCTAssertEqualWithAccuracy(descValues[0], 32.7, accuracy: 0.1)
         XCTAssertEqualWithAccuracy(descValues[1], -118.0, accuracy: 0.1)
+        
+        let negated : Algebra = .order(quad, [(false, .neg(.node(.variable("o", binding: false))))])
+        guard let negResults = try? Array(eval(algebra: negated)) else { XCTFail(); return }
+        
+        XCTAssertEqual(negResults.count, 2)
+        let negValues = negResults.map { $0["o"]!.numericValue }
+        XCTAssertEqualWithAccuracy(negValues[0], -118.0, accuracy: 0.1)
+        XCTAssertEqualWithAccuracy(negValues[1], 32.7, accuracy: 0.1)
     }
     
     func testIRINamedGraphEval() {

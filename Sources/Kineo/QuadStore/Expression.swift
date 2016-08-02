@@ -39,6 +39,7 @@ public indirect enum Expression : CustomStringConvertible {
     case sub(Expression, Expression)
     case div(Expression, Expression)
     case mul(Expression, Expression)
+    case neg(Expression)
     case and(Expression, Expression)
     case or(Expression, Expression)
     case not(Expression)
@@ -57,6 +58,8 @@ public indirect enum Expression : CustomStringConvertible {
         switch self {
         case .node(_):
             return true
+        case .neg(let expr):
+            return expr.isNumeric
         case .add(let l, let r), .sub(let l, let r), .div(let l, let r), .mul(let l, let r):
             return l.isNumeric && r.isNumeric
         case .call("http://www.w3.org/2001/XMLSchema#integer", let exprs),
@@ -172,6 +175,12 @@ public indirect enum Expression : CustomStringConvertible {
             //        default:
             //            print("*** Cannot evaluate expression \(self)")
         //            throw QueryError.evaluationError("Cannot evaluate \(self) with result \(result)")
+        case .neg(let expr):
+            if let val = try? expr.evaluate(result: result) {
+                guard let num = val.numeric else { throw QueryError.typeError("Value \(val) is not numeric") }
+                let neg = -num
+                return neg.term
+            }
         case .not(let expr):
             let val = try expr.evaluate(result: result)
             let ebv = try val.ebv()
@@ -272,6 +281,9 @@ public indirect enum Expression : CustomStringConvertible {
             } else {
                 throw QueryError.typeError("Variable ?\(name) is unbound in result \(result)")
             }
+        case .neg(let expr):
+            let val = try expr.numericEvaluate(result: result)
+            return -val
         case .add(let lhs, let rhs):
             let lval = try lhs.numericEvaluate(result: result)
             let rval = try rhs.numericEvaluate(result: result)
@@ -335,6 +347,8 @@ public indirect enum Expression : CustomStringConvertible {
             return "(\(lhs) * \(rhs))"
         case .div(let lhs, let rhs):
             return "(\(lhs) / \(rhs))"
+        case .neg(let expr):
+            return "-(\(expr))"
         case .and(let lhs, let rhs):
             return "(\(lhs) && \(rhs))"
         case .or(let lhs, let rhs):

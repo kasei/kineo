@@ -247,6 +247,19 @@ public enum Numeric : CustomStringConvertible {
         let value = lhs.value / rhs.value
         return divResultingNumeric(value, lhs, rhs)
     }
+    
+    public static prefix func -(num : Numeric) -> Numeric {
+        switch num {
+        case .integer(let value):
+            return .integer(-value)
+        case .decimal(let value):
+            return .decimal(-value)
+        case .float(let value):
+            return .float(-value)
+        case .double(let value):
+            return .double(-value)
+        }
+    }
 }
 
 public extension Numeric {
