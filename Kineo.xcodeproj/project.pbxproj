@@ -7,6 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		372C15561D500FF4005AD596 /* QueryParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 372C15491D500FAB005AD596 /* QueryParser.swift */; };
+		372C15571D501024005AD596 /* libKineo.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 379C05631D219B9A00ACE54D /* libKineo.dylib */; };
+		372C155A1D501089005AD596 /* Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 372C15591D501089005AD596 /* Info.plist */; };
+		372C155C1D50721C005AD596 /* QueryEvaluation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 372C155B1D50721C005AD596 /* QueryEvaluation.swift */; };
 		379C05651D219C8B00ACE54D /* libKineo.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 379C05631D219B9A00ACE54D /* libKineo.dylib */; };
 		37B839B71D1E06B500BE718B /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37B839A31D1E06B500BE718B /* main.swift */; };
 /* End PBXBuildFile section */
@@ -24,6 +28,10 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		372C15491D500FAB005AD596 /* QueryParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QueryParser.swift; sourceTree = "<group>"; };
+		372C154E1D500FD6005AD596 /* kineo-test.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "kineo-test.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		372C15591D501089005AD596 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		372C155B1D50721C005AD596 /* QueryEvaluation.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = QueryEvaluation.swift; sourceTree = "<group>"; };
 		37620ED41D4F0FA100AEC10F /* Expression.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Expression.swift; sourceTree = "<group>"; };
 		377C49F41D3061EF006222B6 /* Query.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Query.swift; sourceTree = "<group>"; };
 		379C05631D219B9A00ACE54D /* libKineo.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libKineo.dylib; path = .build/debug/libKineo.dylib; sourceTree = "<group>"; };
@@ -41,6 +49,14 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		372C154B1D500FD6005AD596 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				372C15571D501024005AD596 /* libKineo.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		37B8397F1D1DECF700BE718B /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -52,6 +68,24 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		372C15471D500FAB005AD596 /* Tests */ = {
+			isa = PBXGroup;
+			children = (
+				372C15481D500FAB005AD596 /* Kineo */,
+			);
+			path = Tests;
+			sourceTree = "<group>";
+		};
+		372C15481D500FAB005AD596 /* Kineo */ = {
+			isa = PBXGroup;
+			children = (
+				372C15591D501089005AD596 /* Info.plist */,
+				372C15491D500FAB005AD596 /* QueryParser.swift */,
+				372C155B1D50721C005AD596 /* QueryEvaluation.swift */,
+			);
+			path = Kineo;
+			sourceTree = "<group>";
+		};
 		379C05621D219B9A00ACE54D /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
@@ -63,6 +97,7 @@
 		37B839421D1DA34100BE718B = {
 			isa = PBXGroup;
 			children = (
+				372C15471D500FAB005AD596 /* Tests */,
 				37B839931D1E06B500BE718B /* Sources */,
 				37B8394C1D1DA34200BE718B /* Products */,
 				379C05621D219B9A00ACE54D /* Frameworks */,
@@ -73,6 +108,7 @@
 			isa = PBXGroup;
 			children = (
 				37B839821D1DECF700BE718B /* kineo-cli */,
+				372C154E1D500FD6005AD596 /* kineo-test.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -147,6 +183,24 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		372C154D1D500FD6005AD596 /* kineo-test */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 372C15531D500FD6005AD596 /* Build configuration list for PBXNativeTarget "kineo-test" */;
+			buildPhases = (
+				372C15581D501051005AD596 /* ShellScript */,
+				372C154A1D500FD6005AD596 /* Sources */,
+				372C154B1D500FD6005AD596 /* Frameworks */,
+				372C154C1D500FD6005AD596 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "kineo-test";
+			productName = "kineo-test";
+			productReference = 372C154E1D500FD6005AD596 /* kineo-test.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 		37B839811D1DECF700BE718B /* kineo-cli */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 37B839861D1DECF700BE718B /* Build configuration list for PBXNativeTarget "kineo-cli" */;
@@ -175,6 +229,11 @@
 				LastUpgradeCheck = 0800;
 				ORGANIZATIONNAME = "Gregory Todd Williams";
 				TargetAttributes = {
+					372C154D1D500FD6005AD596 = {
+						CreatedOnToolsVersion = 8.0;
+						DevelopmentTeam = G54M5PALR9;
+						ProvisioningStyle = Automatic;
+					};
 					37B839811D1DECF700BE718B = {
 						CreatedOnToolsVersion = 8.0;
 						DevelopmentTeam = G54M5PALR9;
@@ -197,11 +256,36 @@
 			projectRoot = "";
 			targets = (
 				37B839811D1DECF700BE718B /* kineo-cli */,
+				372C154D1D500FD6005AD596 /* kineo-test */,
 			);
 		};
 /* End PBXProject section */
 
+/* Begin PBXResourcesBuildPhase section */
+		372C154C1D500FD6005AD596 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				372C155A1D501089005AD596 /* Info.plist in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
 /* Begin PBXShellScriptBuildPhase section */
+		372C15581D501051005AD596 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "swift build --chdir \"$SRCROOT\"\n";
+		};
 		379C05611D219A7700ACE54D /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -218,6 +302,15 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		372C154A1D500FD6005AD596 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				372C155C1D50721C005AD596 /* QueryEvaluation.swift in Sources */,
+				372C15561D500FF4005AD596 /* QueryParser.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		37B8397E1D1DECF700BE718B /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -229,6 +322,48 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
+		372C15541D500FD6005AD596 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_SUSPICIOUS_MOVES = YES;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = G54M5PALR9;
+				INFOPLIST_FILE = Tests/Kineo/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @loader_path/../Frameworks";
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/.build/debug",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "us.kasei.kineo-test";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/.build/debug/";
+				SWIFT_VERSION = 3.0;
+			};
+			name = Debug;
+		};
+		372C15551D500FD6005AD596 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_SUSPICIOUS_MOVES = YES;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = G54M5PALR9;
+				INFOPLIST_FILE = Tests/Kineo/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @loader_path/../Frameworks";
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/.build/release",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "us.kasei.kineo-test";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/.build/release/";
+				SWIFT_OPTIMIZATION_LEVEL = "-Owholemodule";
+				SWIFT_VERSION = 3.0;
+			};
+			name = Release;
+		};
 		37B839501D1DA34200BE718B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -332,7 +467,7 @@
 			buildSettings = {
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(PROJECT_DIR)/.build/debug",
+					"$(PROJECT_DIR)/.build/release",
 				);
 				LLVM_LTO = YES_THIN;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -345,6 +480,14 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		372C15531D500FD6005AD596 /* Build configuration list for PBXNativeTarget "kineo-test" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				372C15541D500FD6005AD596 /* Debug */,
+				372C15551D500FD6005AD596 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+		};
 		37B839461D1DA34100BE718B /* Build configuration list for PBXProject "Kineo" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

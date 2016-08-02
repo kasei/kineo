@@ -59,7 +59,7 @@ func parse(_ database : FilePageDatabase, files : [String], startTime : UInt64, 
 func parseQuery(_ database : FilePageDatabase, filename : String) throws -> Algebra? {
     let reader      = FileReader(filename: filename)
     let qp          = QueryParser(reader: reader)
-    return qp.parse()
+    return try qp.parse()
 }
 
 func query(_ database : FilePageDatabase, algebra query: Algebra) throws -> Int {

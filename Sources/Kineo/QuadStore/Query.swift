@@ -28,7 +28,7 @@ public indirect enum Algebra {
     case innerJoin(Algebra, Algebra)
     case leftOuterJoin(Algebra, Algebra, Expression)
     case filter(Algebra, Expression)
-    case union([Algebra])
+    case union(Algebra, Algebra)
     case namedGraph(Algebra, Node)
     case extend(Algebra, Expression, String)
     case minus(Algebra, Algebra)
@@ -57,10 +57,8 @@ public indirect enum Algebra {
         switch self {
         case .project(_, let vars):
             return Set(vars)
-        case .innerJoin(let lhs, let rhs):
+        case .innerJoin(let lhs, let rhs), .union(let lhs, let rhs):
             return inscopeUnion(children: [lhs, rhs])
-        case .union(let children):
-            return inscopeUnion(children: children)
         case .triple(let t):
             for node in [t.subject, t.predicate, t.object] {
                 if case .variable(let name, _) = node {
@@ -139,9 +137,9 @@ public indirect enum Algebra {
                 d += c.serialize(depth: depth+1)
             }
             return d
-        case .union(let children):
+        case .union(let lhs, let rhs):
             var d = "\(indent)Union\n"
-            for c in children {
+            for c in [lhs, rhs] {
                 d += c.serialize(depth: depth+1)
             }
             return d
@@ -202,31 +200,29 @@ public class QueryParser<T : LineReadable> {
         self.stack = []
     }
     
-    func parse(line : String) -> Algebra? {
+    func parse(line : String) throws -> Algebra? {
         var parts = line.components(separatedBy: " ").filter { $0 != "" && !$0.hasPrefix("\t") }
         guard parts.count > 0 else { return nil }
         if parts[0].hasPrefix("#") { return nil }
         let rest = parts.suffix(from: 1).joined(separator: " ")
         let op = parts[0]
         if op == "project" {
-            guard let child = stack.popLast() else { return nil }
+            guard let child = stack.popLast() else { throw QueryError.parseError("Not enough operands for \(op)") }
             let vars = Array(parts.suffix(from: 1))
+            guard vars.count > 0 else { throw QueryError.parseError("No projection variables supplied") }
             return .project(child, vars)
         } else if op == "join" {
-            guard stack.count >= 2 else { return nil }
+            guard stack.count >= 2 else { throw QueryError.parseError("Not enough operands for \(op)") }
             guard let rhs = stack.popLast() else { return nil }
             guard let lhs = stack.popLast() else { return nil }
             return .innerJoin(lhs, rhs)
         } else if op == "union" {
-            guard let count = Int(rest) else { return nil }
-            var children = [Algebra]()
-            for _ in 0..<count {
-                guard let child = stack.popLast() else { return nil }
-                children.insert(child, at: 0)
-            }
-            return .union(children)
+            guard stack.count >= 2 else { throw QueryError.parseError("Not enough operands for \(op)") }
+            guard let rhs = stack.popLast() else { return nil }
+            guard let lhs = stack.popLast() else { return nil }
+            return .union(lhs, rhs)
         } else if op == "leftjoin" {
-            guard stack.count >= 2 else { return nil }
+            guard stack.count >= 2 else { throw QueryError.parseError("Not enough operands for \(op)") }
             guard let rhs = stack.popLast() else { return nil }
             guard let lhs = stack.popLast() else { return nil }
             return .leftOuterJoin(lhs, rhs, .node(.bound(Term.trueValue)))
@@ -263,15 +259,15 @@ public class QueryParser<T : LineReadable> {
             return .aggregate(child, groups, [(.countAll, name)])
         } else if op == "limit" {
             guard let count = Int(rest) else { return nil }
-            guard let child = stack.popLast() else { return nil }
+            guard let child = stack.popLast() else { throw QueryError.parseError("Not enough operands for \(op)") }
             return .slice(child, 0, count)
         } else if op == "graph" { 
             let parser = NTriplesPatternParser(reader: "")
-            guard let child = stack.popLast() else { return nil }
+            guard let child = stack.popLast() else { throw QueryError.parseError("Not enough operands for \(op)") }
             guard let graph = parser.parseNode(line: rest) else { return nil }
             return .namedGraph(child, graph)
         } else if op == "extend" {
-            guard let child = stack.popLast() else { return nil }
+            guard let child = stack.popLast() else { throw QueryError.parseError("Not enough operands for \(op)") }
             let name = parts[1]
             guard parts.count > 2 else { return nil }
             do {
@@ -281,7 +277,7 @@ public class QueryParser<T : LineReadable> {
             } catch {}
             fatalError("Failed to parse filter expression: \(parts)")
         } else if op == "filter" {
-            guard let child = stack.popLast() else { return nil }
+            guard let child = stack.popLast() else { throw QueryError.parseError("Not enough operands for \(op)") }
             do {
                 if let expr = try ExpressionParser.parseExpression(Array(parts.suffix(from: 1))) {
                     return .filter(child, expr)
@@ -291,27 +287,27 @@ public class QueryParser<T : LineReadable> {
         } else if op == "sort" {
             // TODO: this is only parsing variable names right now
             let names = parts.suffix(from: 1).map { (name) -> Expression in .node(.variable(name, binding: true)) }
-            guard let child = stack.popLast() else { return nil }
+            guard let child = stack.popLast() else { throw QueryError.parseError("Not enough operands for \(op)") }
             return .order(child, names)
         }
         warn("Cannot parse query line: \(line)")
         return nil
     }
     
-    public func parse() -> Algebra? {
+    public func parse() throws -> Algebra? {
         let lines = self.reader.lines()
         for line in lines {
-            guard let algebra = self.parse(line: line) else { continue }
+            guard let algebra = try self.parse(line: line) else { continue }
             stack.append(algebra)
         }
         return stack.popLast()
     }
 }
 
-public class SimpleQueryEvaluator {
-    var store : QuadStore
+public class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
+    var store : Q
     var defaultGraph : Term
-    public init(store : QuadStore, defaultGraph : Term) {
+    public init(store : Q, defaultGraph : Term) {
         self.store = store
         self.defaultGraph = defaultGraph
     }
@@ -585,8 +581,8 @@ public class SimpleQueryEvaluator {
             return try self.evaluateJoin(lhs: lhs, rhs: rhs, left: false, activeGraph: activeGraph)
         case .leftOuterJoin(let lhs, let rhs, let expr):
             return try self.evaluateLeftJoin(lhs: lhs, rhs: rhs, expression: expr, activeGraph: activeGraph)
-        case .union(let patterns):
-            return try self.evaluateUnion(patterns, activeGraph: activeGraph)
+        case .union(let lhs, let rhs):
+            return try self.evaluateUnion([lhs, rhs], activeGraph: activeGraph)
         case .project(let child, let vars):
             let i = try self.evaluate(algebra: child, activeGraph: activeGraph)
             return AnyIterator {

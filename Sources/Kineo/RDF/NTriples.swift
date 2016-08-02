@@ -176,8 +176,13 @@ public class NTriplesParser<T : LineReadable> : Sequence {
             }
         } while true
     }
-    
-    func parseTriple(line : String) -> Triple? {
+
+    public func parseQuad(line : String, graph : Term) -> Quad? {
+        guard let t = parseTriple(line: line) else { return nil }
+        return Quad(subject: t.subject, predicate: t.predicate, object: t.object, graph: graph)
+    }
+
+    public func parseTriple(line : String) -> Triple? {
         var chars = PeekableIterator(generator: line.unicodeScalars.makeIterator())
         chars.dropWhile { $0 == " " || $0 == "\t" }
         if chars.peek() == "#" { return nil }
@@ -273,6 +278,8 @@ public class NTriplesPatternParser<T : LineReadable> : NTriplesParser<T> {
                 return nil
             }
         } while nodes.count != 4
+        chars.dropWhile { $0 == " " || $0 == "." }
+        guard chars.peek() == nil else { return nil }
         return QuadPattern(subject: nodes[0], predicate: nodes[1], object: nodes[2], graph: nodes[3])
     }
     
@@ -290,6 +297,8 @@ public class NTriplesPatternParser<T : LineReadable> : NTriplesParser<T> {
                 return nil
             }
         } while nodes.count != 3
+        chars.dropWhile { $0 == " " || $0 == "." }
+        guard chars.peek() == nil else { return nil }
         return TriplePattern(subject: nodes[0], predicate: nodes[1], object: nodes[2])
     }
 }

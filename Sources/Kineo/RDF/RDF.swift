@@ -342,6 +342,9 @@ extension TermType : Hashable {
 }
 
 public struct Term : CustomStringConvertible {
+    public var value : String
+    public var type : TermType
+
     public init(value : String, type : TermType) {
         self.value  = value
         self.type   = type
@@ -385,8 +388,6 @@ public struct Term : CustomStringConvertible {
         }
     }
     
-    var value : String
-    var type : TermType
     public var description : String {
         switch type {
 //        case .iri where value == "http://www.w3.org/1999/02/22-rdf-syntax-ns#type":

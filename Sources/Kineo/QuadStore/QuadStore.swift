@@ -8,7 +8,14 @@
 
 import Foundation
 
-public class QuadStore : Sequence {
+public protocol QuadStoreProtocol : Sequence {
+    func graphs() -> AnyIterator<Term>
+    func makeIterator() -> AnyIterator<Quad>
+    func results(matching pattern: QuadPattern) throws -> AnyIterator<TermResult>
+    func quads(matching pattern: QuadPattern) throws -> AnyIterator<Quad>
+}
+
+public class QuadStore : Sequence, QuadStoreProtocol {
     typealias IDType = UInt64
     static let defaultIndex = "pogs"
     private var mediator : RMediator
@@ -374,6 +381,27 @@ public struct QuadPattern : CustomStringConvertible {
     }
     public var description : String {
         return "\(subject) \(predicate) \(object) \(graph)."
+    }
+    
+    public func matches(quad : Quad) -> TermResult? {
+        let terms = [quad.subject, quad.predicate, quad.object, quad.graph]
+        let nodes = [subject, predicate, object, graph]
+        var bindings = [String:Term]()
+        for i in 0..<4 {
+            let term = terms[i]
+            let node = nodes[i]
+            switch node {
+            case .bound(let t):
+                if t != term {
+                    return nil
+                }
+            case .variable(let name, binding: let b):
+                if b {
+                    bindings[name] = term
+                }
+            }
+        }
+        return TermResult(bindings: bindings)
     }
 }
 
