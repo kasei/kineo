@@ -550,8 +550,8 @@ public class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
                     var count = 0
                     for result in results {
                         if let term = try? keyExpr.evaluate(result: result) {
-                            count += 1
                             if term.isNumeric {
+                                count += 1
                                 resultingType = resultingType?.resultType(op: "+", operandType: term.type)
                                 doubleSum += term.numericValue
                             }

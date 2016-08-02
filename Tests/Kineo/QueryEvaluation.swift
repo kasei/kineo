@@ -208,6 +208,28 @@ class QueryEvaluationTest: XCTestCase {
         XCTAssertEqualWithAccuracy(value.numericValue, -42.65, accuracy: 0.1)
     }
     
+    func testMultiAggEval() {
+        let quad : Algebra = .quad(QuadPattern(
+            subject: .variable("s", binding: true),
+            predicate: .variable("p", binding: true),
+            object: .variable("o", binding: true),
+            graph: .bound(Term(value: "http://example.org/numbers", type: .iri))
+            ))
+        let agg : Algebra = .aggregate(quad, [], [
+            (.sum(.node(.variable("o", binding: false))), "sum"),
+            (.avg(.node(.variable("o", binding: false))), "avg")
+            ])
+        
+        guard let results = try? Array(eval(algebra: agg)) else { XCTFail(); return }
+        XCTAssertEqual(results.count, 1)
+        guard let result = results.first else { XCTFail(); return }
+        guard let sum = result["sum"] else { XCTFail(); return }
+        guard let avg = result["avg"] else { XCTFail(); return }
+
+        XCTAssertEqualWithAccuracy(sum.numericValue, -85.3, accuracy: 0.1)
+        XCTAssertEqualWithAccuracy(avg.numericValue, -42.65, accuracy: 0.1)
+    }
+    
     func testSortEval() {
         let quad : Algebra = .quad(QuadPattern(
             subject: .variable("s", binding: true),
@@ -250,12 +272,10 @@ class QueryEvaluationTest: XCTestCase {
     
     func testExtendEval() {
         guard let algebra = parse(query: "quad ?s ?p ?o <http://example.org/numbers>\nextend value ?o 1 + int\nsort value") else { XCTFail(); fatalError() }
-        print("\(algebra)")
         guard let results = try? Array(eval(algebra: algebra)) else { XCTFail(); return }
         
         XCTAssertEqual(results.count, 3)
         let values = results.flatMap { $0["value"] }.flatMap { $0.numeric }
-        print("\(values)")
         XCTAssertTrue(values[0] === .integer(-117))
         XCTAssertTrue(values[1] === .integer(33))
     }
