@@ -637,7 +637,6 @@ public class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
             }
         case .extend(let child, let expr, let name):
             let i = try self.evaluate(algebra: child, activeGraph: activeGraph)
-            print("extend expression: \(expr)")
             
             if expr.isNumeric {
                 return AnyIterator {

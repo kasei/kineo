@@ -249,6 +249,23 @@ public enum Numeric : CustomStringConvertible {
     }
 }
 
+public extension Numeric {
+    public static func ===(lhs : Numeric, rhs : Numeric) -> Bool {
+        switch (lhs, rhs) {
+        case (.integer(let l), .integer(let r)) where l == r:
+            return true
+        case (.decimal(let l), .decimal(let r)) where l == r:
+            return true
+        case (.float(let l), .float(let r)) where l == r:
+            return true
+        case (.double(let l), .double(let r)) where l == r:
+            return true
+        default:
+            return false
+        }
+    }
+}
+
 private func nonDivResultingNumeric(_ value : Double, _ lhs : Numeric, _ rhs: Numeric) -> Numeric {
     switch (lhs, rhs) {
     case (.integer(_), .integer(_)):
@@ -450,7 +467,7 @@ extension Term : Hashable {
 }
 
 extension Term : Comparable {
-    var isNumeric : Bool {
+    public var isNumeric : Bool {
         switch type {
         case .datatype("http://www.w3.org/2001/XMLSchema#integer"),
              .datatype("http://www.w3.org/2001/XMLSchema#decimal"),

@@ -50,7 +50,10 @@ class QueryEvaluationTest: XCTestCase {
         guard let n1 = parser.parseQuad(line: "_:n1 <http://example.org/value> \"32.7\"^^<http://www.w3.org/2001/XMLSchema#float>", graph: numbers) else { return }
         guard let n2 = parser.parseQuad(line: "_:n2 <http://example.org/value> \"-118\"^^<http://www.w3.org/2001/XMLSchema#integer>", graph: numbers) else { return }
 
-        let quads = [b1, b2, s, n0, n1, n2]
+        let other = Term(value: "http://example.org/other", type: .iri)
+        guard let x1 = parser.parseQuad(line: "_:x <http://example.org/p> \"hello\"@en", graph: other) else { return }
+
+        let quads = [b1, b2, s, n0, n1, n2, x1]
         
         store = TestStore(quads: quads)
     }
@@ -65,10 +68,14 @@ class QueryEvaluationTest: XCTestCase {
         }
     }
     
-    private func eval(query : String) throws -> AnyIterator<TermResult> {
-        guard let algebra = parse(query: query) else { XCTFail(); fatalError() }
+    private func eval(algebra : Algebra) throws -> AnyIterator<TermResult> {
         let e = SimpleQueryEvaluator(store: store, defaultGraph: self.graph)
         return try e.evaluate(algebra: algebra, activeGraph: self.graph)
+    }
+
+    private func eval(query : String) throws -> AnyIterator<TermResult> {
+        guard let algebra = parse(query: query) else { XCTFail(); fatalError() }
+        return try eval(algebra: algebra)
     }
     
     func testTripleEval() {
@@ -202,17 +209,54 @@ class QueryEvaluationTest: XCTestCase {
     }
     
     func testSortEval() {
-        guard let results = try? Array(eval(query: "quad ?s <http://example.org/value> ?o <http://example.org/numbers>\nsort o")) else { XCTFail(); return }
-        XCTAssertEqual(results.count, 2)
-        for r in results {
-            print("\(r)")
-        }
+        let quad : Algebra = .quad(QuadPattern(
+            subject: .variable("s", binding: true),
+            predicate: .bound(Term(value: "http://example.org/value", type: .iri)),
+            object: .variable("o", binding: true),
+            graph: .bound(Term(value: "http://example.org/numbers", type: .iri))
+            ))
+
+        let ascending : Algebra = .order(quad, [(true, .node(.variable("o", binding: false)))])
+        guard let ascResults = try? Array(eval(algebra: ascending)) else { XCTFail(); return }
+        
+        XCTAssertEqual(ascResults.count, 2)
+        let ascValues = ascResults.map { $0["o"]!.numericValue }
+        XCTAssertEqualWithAccuracy(ascValues[0], -118.0, accuracy: 0.1)
+        XCTAssertEqualWithAccuracy(ascValues[1], 32.7, accuracy: 0.1)
+
+        let descending : Algebra = .order(quad, [(false, .node(.variable("o", binding: false)))])
+        guard let descResults = try? Array(eval(algebra: descending)) else { XCTFail(); return }
+        
+        XCTAssertEqual(descResults.count, 2)
+        let descValues = descResults.map { $0["o"]!.numericValue }
+        XCTAssertEqualWithAccuracy(descValues[0], 32.7, accuracy: 0.1)
+        XCTAssertEqualWithAccuracy(descValues[1], -118.0, accuracy: 0.1)
     }
     
-
-//    * `graph ?VAR` - Evaluate the pattern on the top of the stack with each named graph in the store as the active graph (and bound to `?VAR`)
-//    * `graph <IRI>` - Change the active graph to `IRI`
-//    * `extend RESULT EXPR` - Evaluate results for the pattern on the top of the stack, evaluating `EXPR` for each row, and binding the result to `?RESULT`
-//    * `sort VAR` - Sort the results for the pattern on the top of the stack by `?VAR`
-
+    func testIRINamedGraphEval() {
+        guard let results = try? Array(eval(query: "triple ?s ?p ?o\ngraph <http://example.org/other>\n")) else { XCTFail(); return }
+        XCTAssertEqual(results.count, 1)
+    }
+    
+    func testVarNamedGraphEval() {
+        guard let results = try? Array(eval(query: "triple ?s ?p ?o\ngraph ?g\n")) else { XCTFail(); return }
+        XCTAssertEqual(results.count, 4)
+        var graphs = Set<String>()
+        for r in results {
+            graphs.insert(r["g"]!.value)
+        }
+        XCTAssertEqual(graphs, Set(["http://example.org/numbers", "http://example.org/other"]))
+    }
+    
+    func testExtendEval() {
+        guard let algebra = parse(query: "quad ?s ?p ?o <http://example.org/numbers>\nextend value ?o 1 + int\nsort value") else { XCTFail(); fatalError() }
+        print("\(algebra)")
+        guard let results = try? Array(eval(algebra: algebra)) else { XCTFail(); return }
+        
+        XCTAssertEqual(results.count, 3)
+        let values = results.flatMap { $0["value"] }.flatMap { $0.numeric }
+        print("\(values)")
+        XCTAssertTrue(values[0] === .integer(-117))
+        XCTAssertTrue(values[1] === .integer(33))
+    }
 }
