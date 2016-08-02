@@ -462,7 +462,7 @@ extension Term : Comparable {
         }
     }
     
-    var numeric : Numeric? {
+    public var numeric : Numeric? {
         switch type {
         case .datatype("http://www.w3.org/2001/XMLSchema#integer"):
             if let i = Int(value) {
@@ -481,7 +481,7 @@ extension Term : Comparable {
         }
         
     }
-    var numericValue : Double {
+    public var numericValue : Double {
         switch type {
         case .datatype("http://www.w3.org/2001/XMLSchema#integer"):
             return Double(value) ?? 0.0

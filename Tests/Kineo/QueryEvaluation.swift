@@ -45,7 +45,12 @@ class QueryEvaluationTest: XCTestCase {
         guard let b2 = parser.parseQuad(line: "<http://example.org/Berlin> <http://xmlns.com/foaf/0.1/homepage> <http://www.berlin.de/en/>", graph: self.graph) else { return }
         guard let s = parser.parseQuad(line: "_:a <http://purl.org/dc/elements/1.1/title> \"Santa Monica\"", graph: self.graph) else { return }
 
-        let quads = [b1, b2, s]
+        let numbers = Term(value: "http://example.org/numbers", type: .iri)
+        guard let n0 = parser.parseQuad(line: "_:n1 <http://xmlns.com/foaf/0.1/name> \"a number\"", graph: numbers) else { return }
+        guard let n1 = parser.parseQuad(line: "_:n1 <http://example.org/value> \"32.7\"^^<http://www.w3.org/2001/XMLSchema#float>", graph: numbers) else { return }
+        guard let n2 = parser.parseQuad(line: "_:n2 <http://example.org/value> \"-118\"^^<http://www.w3.org/2001/XMLSchema#integer>", graph: numbers) else { return }
+
+        let quads = [b1, b2, s, n0, n1, n2]
         
         store = TestStore(quads: quads)
     }
@@ -146,22 +151,68 @@ class QueryEvaluationTest: XCTestCase {
     func testLimitEval() {
         guard let results0 = try? Array(eval(query: "triple ?s ?p ?o\nlimit 0")) else { XCTFail(); return }
         XCTAssertEqual(results0.count, 0)
-
+        
         guard let results1 = try? Array(eval(query: "triple ?s ?p ?o\nlimit 1")) else { XCTFail(); return }
         XCTAssertEqual(results1.count, 1)
-
+        
         guard let results2 = try? Array(eval(query: "triple ?s ?p ?o\nlimit 2")) else { XCTFail(); return }
         XCTAssertEqual(results2.count, 2)
-}
+    }
     
-//    * `avg KEY RESULT GROUPVAR1 GROUPVAR2 ...` - Aggregate the pattern on the top of the stack, grouping by the group variables, binding the *average* of the `?KEY` variable to `?RESULT`
-//    * `sum KEY RESULT GROUPVAR1 GROUPVAR2 ...` - Aggregate the pattern on the top of the stack, grouping by the group variables, binding the *sum* of the `?KEY` variable to `?RESULT`
-//    * `count KEY RESULT GROUPVAR1 GROUPVAR2 ...` - Aggregate the pattern on the top of the stack, grouping by the group variables, binding the *count* of bound values of `?KEY` to `?RESULT`
-//    * `countall RESULT GROUPVAR1 GROUPVAR2 ...` - Aggregate the pattern on the top of the stack, grouping by the group variables, binding the *count* of results to `?RESULT`
+    func testCountAllEval() {
+        guard let results = try? Array(eval(query: "triple ?s <http://xmlns.com/foaf/0.1/name> ?name\ntriple ?s <http://purl.org/dc/elements/1.1/title> ?name\nunion\ntriple ?s <http://xmlns.com/foaf/0.1/homepage> ?page\nleftjoin\ncountall cnt\n")) else { XCTFail(); return }
+        XCTAssertEqual(results.count, 1)
+        guard let result = results.first else { XCTFail(); return }
+        guard let c = result["cnt"] else { XCTFail(); return }
+        XCTAssertEqual(c, Term(integer: 2))
+    }
+    
+    func testCountAllEvalWithGroup() {
+        guard let results = try? Array(eval(query: "triple ?s ?p ?o\ncountall cnt s\n")) else { XCTFail(); return }
+        XCTAssertEqual(results.count, 2)
+        var data = [TermType:Int]()
+        for r in results {
+            data[r["s"]!.type] = Int(r["cnt"]!.numericValue)
+        }
+        XCTAssertEqual(data, [.iri: 2, .blank: 1])
+    }
+    
+    func testCountEval() {
+        guard let results = try? Array(eval(query: "triple ?s <http://xmlns.com/foaf/0.1/name> ?name\ntriple ?s <http://purl.org/dc/elements/1.1/title> ?name\nunion\ntriple ?s <http://xmlns.com/foaf/0.1/homepage> ?page\nleftjoin\ncount page cnt")) else { XCTFail(); return }
+        XCTAssertEqual(results.count, 1)
+        guard let result = results.first else { XCTFail(); return }
+        guard let value = result["cnt"] else { XCTFail(); return }
+        XCTAssertEqual(value, Term(integer: 1))
+    }
+
+    func testSumEval() {
+        guard let results = try? Array(eval(query: "quad ?s ?p ?o <http://example.org/numbers>\nsum o sum\n")) else { XCTFail(); return }
+        XCTAssertEqual(results.count, 1)
+        guard let result = results.first else { XCTFail(); return }
+        guard let value = result["sum"] else { XCTFail(); return }
+        XCTAssertEqualWithAccuracy(value.numericValue, -85.3, accuracy: 0.1)
+    }
+    
+    func testAvgEval() {
+        guard let results = try? Array(eval(query: "quad ?s ?p ?o <http://example.org/numbers>\navg o avg\n")) else { XCTFail(); return }
+        XCTAssertEqual(results.count, 1)
+        guard let result = results.first else { XCTFail(); return }
+        guard let value = result["avg"] else { XCTFail(); return }
+        XCTAssertEqualWithAccuracy(value.numericValue, -42.65, accuracy: 0.1)
+    }
+    
+    func testSortEval() {
+        guard let results = try? Array(eval(query: "quad ?s <http://example.org/value> ?o <http://example.org/numbers>\nsort o")) else { XCTFail(); return }
+        XCTAssertEqual(results.count, 2)
+        for r in results {
+            print("\(r)")
+        }
+    }
+    
+
 //    * `graph ?VAR` - Evaluate the pattern on the top of the stack with each named graph in the store as the active graph (and bound to `?VAR`)
 //    * `graph <IRI>` - Change the active graph to `IRI`
 //    * `extend RESULT EXPR` - Evaluate results for the pattern on the top of the stack, evaluating `EXPR` for each row, and binding the result to `?RESULT`
-//    * `filter EXPR` - Evaluate results for the pattern on the top of the stack, evaluating `EXPR` for each row, and returning the result iff a true value is produced
 //    * `sort VAR` - Sort the results for the pattern on the top of the stack by `?VAR`
 
 }

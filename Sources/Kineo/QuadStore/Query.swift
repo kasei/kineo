@@ -35,7 +35,7 @@ public indirect enum Algebra {
     case project(Algebra, [String])
     case distinct(Algebra)
     case slice(Algebra, Int?, Int?)
-    case order(Algebra, [Expression])
+    case order(Algebra, [(Bool, Expression)])
     case aggregate(Algebra, [Expression], [(Aggregation, String)])
     // TODO: add property paths
     
@@ -171,7 +171,8 @@ public indirect enum Algebra {
             var d = "\(indent)Slice offset=\(offset) limit=\(limit)\n"
             d += child.serialize(depth: depth+1)
             return d
-        case .order(let child, let expressions):
+        case .order(let child, let orders):
+            let expressions = orders.map { $0.0 ? "\($0.1)" : "DESC(\($0.1))" }
             var d = "\(indent)OrderBy \(expressions)\n"
             d += child.serialize(depth: depth+1)
             return d
@@ -235,24 +236,28 @@ public class QueryParser<T : LineReadable> {
             guard let pattern = parser.parseTriplePattern(line: rest) else { return nil }
             return .triple(pattern)
         } else if op == "avg" { // (AVG(?key) AS ?name) ... GROUP BY ?x ?y ?z --> "avg key name x y z"
+            guard parts.count > 2 else { return nil }
             let key = parts[1]
             let name = parts[2]
             let groups = parts.suffix(from: 3).map { (name) -> Expression in .node(.variable(name, binding: true)) }
             guard let child = stack.popLast() else { return nil }
             return .aggregate(child, groups, [(.avg(.node(.variable(key, binding: true))), name)])
         } else if op == "sum" { // (SUM(?key) AS ?name) ... GROUP BY ?x ?y ?z --> "sum key name x y z"
+            guard parts.count > 2 else { throw QueryError.parseError("Not enough arguments for \(op)") }
             let key = parts[1]
             let name = parts[2]
             let groups = parts.suffix(from: 3).map { (name) -> Expression in .node(.variable(name, binding: true)) }
             guard let child = stack.popLast() else { return nil }
             return .aggregate(child, groups, [(.sum(.node(.variable(key, binding: true))), name)])
         } else if op == "count" { // (COUNT(?key) AS ?name) ... GROUP BY ?x ?y ?z --> "count key name x y z"
+            guard parts.count > 2 else { throw QueryError.parseError("Not enough arguments for \(op)") }
             let key = parts[1]
             let name = parts[2]
             let groups = parts.suffix(from: 3).map { (name) -> Expression in .node(.variable(name, binding: true)) }
             guard let child = stack.popLast() else { return nil }
             return .aggregate(child, groups, [(.count(.node(.variable(key, binding: true))), name)])
         } else if op == "countall" { // (COUNT(*) AS ?name) ... GROUP BY ?x ?y ?z --> "count name x y z"
+            guard parts.count > 1 else { throw QueryError.parseError("Not enough arguments for \(op)") }
             let name = parts[1]
             let groups = parts.suffix(from: 2).map { (name) -> Expression in .node(.variable(name, binding: true)) }
             guard let child = stack.popLast() else { return nil }
@@ -286,9 +291,11 @@ public class QueryParser<T : LineReadable> {
             fatalError("Failed to parse filter expression: \(parts)")
         } else if op == "sort" {
             // TODO: this is only parsing variable names right now
-            let names = parts.suffix(from: 1).map { (name) -> Expression in .node(.variable(name, binding: true)) }
+            let orders = parts.suffix(from: 1).map { (name) -> (Bool, Expression) in
+                return (true, .node(.variable(name, binding: true)))
+            }
             guard let child = stack.popLast() else { throw QueryError.parseError("Not enough operands for \(op)") }
-            return .order(child, names)
+            return .order(child, orders)
         }
         warn("Cannot parse query line: \(line)")
         return nil
@@ -649,12 +656,15 @@ public class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
                     return result
                 }
             }
-        case .order(let child, let expressions):
+        case .order(let child, let orders):
             let results = try Array(self.evaluate(algebra: child, activeGraph: activeGraph))
             let s = results.sorted { (a,b) -> Bool in
-                for expr in expressions {
-                    guard let lhs = try? expr.evaluate(result: a) else { return true }
-                    guard let rhs = try? expr.evaluate(result: b) else { return false }
+                for (ascending, expr) in orders {
+                    guard var lhs = try? expr.evaluate(result: a) else { return true }
+                    guard var rhs = try? expr.evaluate(result: b) else { return false }
+                    if !ascending {
+                        (lhs, rhs) = (rhs, lhs)
+                    }
                     if lhs < rhs {
                         return true
                     } else if lhs > rhs {
