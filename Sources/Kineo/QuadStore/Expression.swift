@@ -384,86 +384,113 @@ class ExpressionParser {
         while let s = i.next() {
             switch s {
             case "||":
+                guard stack.count >= 2 else { throw QueryError.parseError("Not enough expressions on the stack for \(s)") }
                 let rhs = stack.popLast()!
                 let lhs = stack.popLast()!
                 stack.append(.or(lhs, rhs))
             case "&&":
+                guard stack.count >= 2 else { throw QueryError.parseError("Not enough expressions on the stack for \(s)") }
                 let rhs = stack.popLast()!
                 let lhs = stack.popLast()!
                 stack.append(.and(lhs, rhs))
             case "=":
+                guard stack.count >= 2 else { throw QueryError.parseError("Not enough expressions on the stack for \(s)") }
                 let rhs = stack.popLast()!
                 let lhs = stack.popLast()!
                 stack.append(.eq(lhs, rhs))
             case "!=":
+                guard stack.count >= 2 else { throw QueryError.parseError("Not enough expressions on the stack for \(s)") }
                 let rhs = stack.popLast()!
                 let lhs = stack.popLast()!
                 stack.append(.ne(lhs, rhs))
             case "between":
+                guard stack.count >= 3 else { throw QueryError.parseError("Not enough expressions on the stack for \(s)") }
                 let upper = stack.popLast()!
                 let lower = stack.popLast()!
                 let value = stack.popLast()!
                 stack.append(.between(value, lower, upper))
             case "<":
+                guard stack.count >= 2 else { throw QueryError.parseError("Not enough expressions on the stack for \(s)") }
                 let rhs = stack.popLast()!
                 let lhs = stack.popLast()!
                 stack.append(.lt(lhs, rhs))
             case ">":
+                guard stack.count >= 2 else { throw QueryError.parseError("Not enough expressions on the stack for \(s)") }
                 let rhs = stack.popLast()!
                 let lhs = stack.popLast()!
                 stack.append(.gt(lhs, rhs))
             case "<=":
+                guard stack.count >= 2 else { throw QueryError.parseError("Not enough expressions on the stack for \(s)") }
                 let rhs = stack.popLast()!
                 let lhs = stack.popLast()!
                 stack.append(.le(lhs, rhs))
             case ">=":
+                guard stack.count >= 2 else { throw QueryError.parseError("Not enough expressions on the stack for \(s)") }
                 let rhs = stack.popLast()!
                 let lhs = stack.popLast()!
                 stack.append(.ge(lhs, rhs))
             case "+":
+                guard stack.count >= 2 else { throw QueryError.parseError("Not enough expressions on the stack for \(s)") }
                 let rhs = stack.popLast()!
                 let lhs = stack.popLast()!
                 stack.append(.add(lhs, rhs))
             case "-":
+                guard stack.count >= 2 else { throw QueryError.parseError("Not enough expressions on the stack for \(s)") }
                 let rhs = stack.popLast()!
                 let lhs = stack.popLast()!
                 stack.append(.sub(lhs, rhs))
+            case "neg":
+                guard stack.count >= 1 else { throw QueryError.parseError("Not enough expressions on the stack for \(s)") }
+                let expr = stack.popLast()!
+                stack.append(.neg(expr))
             case "*":
+                guard stack.count >= 2 else { throw QueryError.parseError("Not enough expressions on the stack for \(s)") }
                 let rhs = stack.popLast()!
                 let lhs = stack.popLast()!
                 stack.append(.mul(lhs, rhs))
             case "/":
+                guard stack.count >= 2 else { throw QueryError.parseError("Not enough expressions on the stack for \(s)") }
                 let rhs = stack.popLast()!
                 let lhs = stack.popLast()!
                 stack.append(.div(lhs, rhs))
             case "not":
+                guard stack.count >= 1 else { throw QueryError.parseError("Not enough expressions on the stack for \(s)") }
                 let expr = stack.popLast()!
                 stack.append(.not(expr))
             case "isiri":
+                guard stack.count >= 1 else { throw QueryError.parseError("Not enough expressions on the stack for \(s)") }
                 let expr = stack.popLast()!
                 stack.append(.isiri(expr))
             case "isliteral":
+                guard stack.count >= 1 else { throw QueryError.parseError("Not enough expressions on the stack for \(s)") }
                 let expr = stack.popLast()!
                 stack.append(.isliteral(expr))
             case "isblank":
+                guard stack.count >= 1 else { throw QueryError.parseError("Not enough expressions on the stack for \(s)") }
                 let expr = stack.popLast()!
                 stack.append(.isblank(expr))
             case "isnumeric":
+                guard stack.count >= 1 else { throw QueryError.parseError("Not enough expressions on the stack for \(s)") }
                 let expr = stack.popLast()!
                 stack.append(.isnumeric(expr))
             case "lang":
+                guard stack.count >= 1 else { throw QueryError.parseError("Not enough expressions on the stack for \(s)") }
                 let expr = stack.popLast()!
                 stack.append(.lang(expr))
             case "datatype":
+                guard stack.count >= 1 else { throw QueryError.parseError("Not enough expressions on the stack for \(s)") }
                 let expr = stack.popLast()!
                 stack.append(.datatype(expr))
             case "int":
+                guard stack.count >= 1 else { throw QueryError.parseError("Not enough expressions on the stack for \(s)") }
                 let expr = stack.popLast()!
                 stack.append(.call("http://www.w3.org/2001/XMLSchema#integer", [expr]))
             case "float":
+                guard stack.count >= 1 else { throw QueryError.parseError("Not enough expressions on the stack for \(s)") }
                 let expr = stack.popLast()!
                 stack.append(.call("http://www.w3.org/2001/XMLSchema#float", [expr]))
             case "double":
+                guard stack.count >= 1 else { throw QueryError.parseError("Not enough expressions on the stack for \(s)") }
                 let expr = stack.popLast()!
                 stack.append(.call("http://www.w3.org/2001/XMLSchema#double", [expr]))
             default:

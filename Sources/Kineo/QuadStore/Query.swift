@@ -173,7 +173,7 @@ public indirect enum Algebra {
             return d
         case .order(let child, let orders):
             let expressions = orders.map { $0.0 ? "\($0.1)" : "DESC(\($0.1))" }
-            var d = "\(indent)OrderBy \(expressions)\n"
+            var d = "\(indent)OrderBy { \(expressions.joined(separator: ", ")) }\n"
             d += child.serialize(depth: depth+1)
             return d
         case .filter(let child, let expr):
@@ -235,6 +235,47 @@ public class QueryParser<T : LineReadable> {
             let parser = NTriplesPatternParser(reader: "")
             guard let pattern = parser.parseTriplePattern(line: rest) else { return nil }
             return .triple(pattern)
+        } else if op == "agg" { // (SUM(?skey) AS ?sresult) (AVG(?akey) AS ?aresult) ... GROUP BY ?x ?y ?z --> "agg sum sresult ?skey , avg aresult ?akey ; ?x , ?y , ?z"
+            let pair = parts.suffix(from: 1).split(separator: ";")
+            guard pair.count >= 1 else { throw QueryError.parseError("Bad syntax for agg operation") }
+            let aggs = pair[0].split(separator: ",")
+            guard aggs.count > 0 else { throw QueryError.parseError("Bad syntax for agg operation") }
+            let groupby = pair.count == 2 ? pair[1].split(separator: ",") : []
+            
+            var aggregates = [(Aggregation, String)]()
+            for a in aggs {
+                let strings = Array(a)
+                guard strings.count >= 3 else { throw QueryError.parseError("Failed to parse aggregate expression") }
+                let op = strings[0]
+                let name = strings[1]
+                var expr : Expression!
+                if op != "countall" {
+                    guard let e = try ExpressionParser.parseExpression(Array(strings.suffix(from: 2))) else { throw QueryError.parseError("Failed to parse aggregate expression") }
+                    expr = e
+                }
+                var agg : Aggregation
+                switch op {
+                case "avg":
+                    agg = .avg(expr)
+                case "sum":
+                    agg = .sum(expr)
+                case "count":
+                    agg = .sum(expr)
+                case "countall":
+                    agg = .countAll
+                default:
+                    throw QueryError.parseError("Unexpected aggregation operation: \(op)")
+                }
+                aggregates.append((agg, name))
+            }
+            
+            let groups = try groupby.map { (gstrings) -> Expression in
+                guard let e = try ExpressionParser.parseExpression(Array(gstrings)) else { throw QueryError.parseError("Failed to parse aggregate expression") }
+                return e
+            }
+            
+            guard let child = stack.popLast() else { return nil }
+            return .aggregate(child, groups, aggregates)
         } else if op == "avg" { // (AVG(?key) AS ?name) ... GROUP BY ?x ?y ?z --> "avg key name x y z"
             guard parts.count > 2 else { return nil }
             let key = parts[1]
@@ -290,12 +331,12 @@ public class QueryParser<T : LineReadable> {
             } catch {}
             fatalError("Failed to parse filter expression: \(parts)")
         } else if op == "sort" {
-            // TODO: this is only parsing variable names right now
-            let orders = parts.suffix(from: 1).map { (name) -> (Bool, Expression) in
-                return (true, .node(.variable(name, binding: true)))
+            let comparators = try parts.suffix(from: 1).split(separator: ",").map { (stack) -> (Bool, Expression) in
+                guard let expr = try ExpressionParser.parseExpression(Array(stack)) else { throw QueryError.parseError("Failed to parse ORDER expression") }
+                return (true, expr)
             }
             guard let child = stack.popLast() else { throw QueryError.parseError("Not enough operands for \(op)") }
-            return .order(child, orders)
+            return .order(child, comparators)
         }
         warn("Cannot parse query line: \(line)")
         return nil

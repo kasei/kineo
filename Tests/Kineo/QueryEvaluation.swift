@@ -279,7 +279,7 @@ class QueryEvaluationTest: XCTestCase {
     }
     
     func testExtendEval() {
-        guard let algebra = parse(query: "quad ?s ?p ?o <http://example.org/numbers>\nextend value ?o 1 + int\nsort value") else { XCTFail(); fatalError() }
+        guard let algebra = parse(query: "quad ?s ?p ?o <http://example.org/numbers>\nextend value ?o 1 + int\nsort ?value") else { XCTFail(); fatalError() }
         guard let results = try? Array(eval(algebra: algebra)) else { XCTFail(); return }
         
         XCTAssertEqual(results.count, 3)
