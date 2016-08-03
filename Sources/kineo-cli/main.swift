@@ -15,7 +15,7 @@ func setup(_ database : FilePageDatabase, startTime : UInt64) throws {
             _ = try QuadStore.create(mediator: m)
         } catch let e {
             warn("*** \(e)")
-            throw DatabaseUpdateError.Rollback
+            throw DatabaseUpdateError.rollback
         }
     }
 }
@@ -50,7 +50,7 @@ func parse(_ database : FilePageDatabase, files : [String], startTime : UInt64, 
             }
         } catch let e {
             warn("*** Failed during load of RDF (\(count) triples handled); \(e)")
-            throw DatabaseUpdateError.Rollback
+            throw DatabaseUpdateError.rollback
         }
     }
     return count
@@ -209,7 +209,7 @@ if args.count > 2 {
                 try store.addQuadIndex(index)
             } catch let e {
                 warn("*** \(e)")
-                throw DatabaseUpdateError.Rollback
+                throw DatabaseUpdateError.rollback
             }
         }
     } else if op == "test" {

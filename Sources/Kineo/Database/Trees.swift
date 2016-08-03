@@ -132,7 +132,7 @@ internal struct TreePath<T : BufferSerializable & Comparable, U : BufferSerializ
     }
 }
 
-public class Tree<T : BufferSerializable & Comparable, U : BufferSerializable> {
+public class Tree<T : BufferSerializable & Comparable, U : BufferSerializable> : Sequence {
     var root : PageId
     var name : String
     var mediator : RMediator
@@ -221,6 +221,67 @@ public class Tree<T : BufferSerializable & Comparable, U : BufferSerializable> {
             return node.maxKey(in: range, mediator: mediator)
         } catch {}
         return nil
+    }
+    
+    public func remove(key: T) throws {
+        //        print("==================================================================")
+        //        print("TREE add: \(pair)")
+        let (node, rootStatus) : (TreeNode<T,U>, PageStatus) = try mediator.readPage(root)
+        guard let m = mediator as? RWMediator else { throw DatabaseError.PermissionError("Cannot modify a tree in a read-only transaction") }
+        
+        // find leaf for pair (and its path from the root)
+        var (path, leaf, leafStatus) = try node.pathToLeaf(for: key, mediator: m, currentStatus: rootStatus)
+        var newPairs = [(T,PageId)]()
+        
+        var updatedPid : PageId!
+        try leaf.remove(key: key)
+        newPairs = []
+        let leafNode : TreeNode<T,U> = .leafNode(leaf)
+        if case .dirty(let pid) = leafStatus {
+            try m.update(page: pid, with: leafNode)
+            if let max = leaf.max {
+                newPairs.append((max, pid))
+            }
+            updatedPid = pid
+        } else {
+            let pid = try m.createPage(for: leafNode)
+            if let max = leaf.max {
+                newPairs.append((max, pid))
+            }
+            updatedPid = pid
+        }
+        
+        while let x = path.popLast() {
+            //            print("- adding \(newPairs.count) pairs to internal node")
+            let node = x.node
+            let index = x.childIndex
+            let status = x.status
+            
+            let totalCount = node.totalCount + 1
+            try node.addPairs(newPairs, replacingIndex: index, totalCount: totalCount)
+            
+            newPairs = []
+            let internalNode : TreeNode<T,U> = .internalNode(node)
+            if case .dirty(let pid) = status {
+                try m.update(page: pid, with: internalNode)
+                if let max = node.max {
+                    newPairs = [(max,pid)]
+                }
+                updatedPid = pid
+            } else {
+                let pid = try m.createPage(for: internalNode)
+                if let max = node.max {
+                    newPairs = [(max,pid)]
+                }
+                updatedPid = pid
+            }
+        }
+        
+        guard path.count == 0 else { fatalError("update of tree ancestors failed") }
+        //        print("linking root '\(name)' to root node \(updatedPid)")
+        self.root = updatedPid
+        m.updateRoot(name: name, page: updatedPid)
+        return
     }
     
     public func add(pair : (T, U)) throws {
@@ -433,6 +494,12 @@ public final class TreeLeaf<T : BufferSerializable & Comparable, U : BufferSeria
     
     @inline(__always) func spaceForPair(_ pair : (T,U), pageSize : Int) -> Bool {
         return self.serializedSize + pair.0.serializedSize + pair.1.serializedSize <= pageSize
+    }
+    
+    func remove(key: T) throws {
+        pairs = pairs.filter { (pair) -> Bool in
+            key != pair.0
+        }
     }
     
     func addPair(_ pair : (T,U)) throws {

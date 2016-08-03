@@ -47,7 +47,7 @@ public class QuadStore : Sequence, QuadStoreProtocol {
                 return store
             } catch let e {
                 warn("*** \(e)")
-                throw DatabaseUpdateError.Rollback
+                throw DatabaseUpdateError.rollback
             }
         }
     }
@@ -88,7 +88,7 @@ public class QuadStore : Sequence, QuadStoreProtocol {
             try addQuadIndex(QuadStore.defaultIndex)
         } catch let e {
             warn("*** \(e)")
-            throw DatabaseUpdateError.Rollback
+            throw DatabaseUpdateError.rollback
         }
     }
 
@@ -834,7 +834,7 @@ extension UInt64 : DefinedTestable {
     }
 }
 
-public struct IDQuad<T : DefinedTestable & Equatable & Comparable & BufferSerializable> : BufferSerializable, Equatable, Comparable {
+public struct IDQuad<T : DefinedTestable & Equatable & Comparable & BufferSerializable> : BufferSerializable, Equatable, Comparable, Sequence {
     var values : [T]
     public init(_ v0 : T, _ v1 : T, _ v2 : T, _ v3 : T) {
         self.values = [v0,v1,v2,v3]
@@ -896,6 +896,10 @@ public struct IDQuad<T : DefinedTestable & Equatable & Comparable & BufferSerial
             }
         }
         return false
+    }
+    
+    public func makeIterator() -> IndexingIterator<Array<T>> {
+        return values.makeIterator()
     }
 }
 

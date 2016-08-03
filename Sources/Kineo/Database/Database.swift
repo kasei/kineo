@@ -7,8 +7,8 @@
 //
 
 public enum DatabaseUpdateError : Error {
-    case Retry
-    case Rollback
+    case retry
+    case rollback
 }
 
 public enum DatabaseError: Error {

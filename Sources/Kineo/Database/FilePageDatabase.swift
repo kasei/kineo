@@ -76,11 +76,11 @@ public struct DatabaseHeaderPage : PageMarshalled {
             precondition(UInt64(page) <= UInt64(UInt32.max))
             
             totalBytes += string.serializedSize
-            guard totalBytes <= pageSize else { throw DatabaseUpdateError.Rollback }
+            guard totalBytes <= pageSize else { throw DatabaseUpdateError.rollback }
             try string.serialize(to: &ptr)
             
             totalBytes += UInt32(page).serializedSize
-            guard totalBytes <= pageSize else { throw DatabaseUpdateError.Rollback }
+            guard totalBytes <= pageSize else { throw DatabaseUpdateError.rollback }
             try UInt32(page).serialize(to: &ptr)
         }
     }
@@ -151,7 +151,7 @@ public class FilePageDatabase : Database {
                     try cb(mediator: w)
         //            print("need to commit \(w.pages.count) pages")
                     try w.commit()
-                } catch DatabaseUpdateError.Rollback {
+                } catch DatabaseUpdateError.rollback {
                 } catch let e {
                     return e
                 }
@@ -165,7 +165,7 @@ public class FilePageDatabase : Database {
                 try cb(mediator: w)
                 //            print("need to commit \(w.pages.count) pages")
                 try w.commit()
-            } catch DatabaseUpdateError.Rollback {
+            } catch DatabaseUpdateError.rollback {
             }
         #endif
     }
@@ -272,7 +272,7 @@ public class FilePageRWMediator : FilePageRMediator, RWMediator {
             let offset = off_t(pageSize * page)
             try object.serialize(to: writeBuffer, status: .dirty(page), mediator: self)
             let bw = pwrite(database.fd, writeBuffer, pageSize, offset)
-            guard bw == pageSize else { throw DatabaseUpdateError.Rollback }
+            guard bw == pageSize else { throw DatabaseUpdateError.rollback }
         }
         let pageCount = maxPage + 1
         if pageCount != database.pageCount {
@@ -287,7 +287,7 @@ public class FilePageRWMediator : FilePageRMediator, RWMediator {
         let header = DatabaseHeaderPage(version: version, roots: pairs)
         try header.serialize(to: writeBuffer, status: .dirty(0), pageSize: pageSize)
         let bw = pwrite(database.fd, writeBuffer, pageSize, 0)
-        guard bw == pageSize else { throw DatabaseUpdateError.Rollback }
+        guard bw == pageSize else { throw DatabaseUpdateError.rollback }
         
         newPages = Set()
         dirty = [:]
