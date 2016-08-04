@@ -250,7 +250,7 @@ public class Tree<T : BufferSerializable & Comparable, U : BufferSerializable> :
         var newPairs = [(T,PageId)]()
         
         var updatedPid : PageId!
-        try leaf.remove(key: key)
+        try leaf.remove(key: key, version: m.version)
         newPairs = []
         var leafNode : TreeNode<T,U> = .leafNode(leaf)
         if case .dirty(let pid) = leafStatus {
@@ -326,7 +326,7 @@ public class Tree<T : BufferSerializable & Comparable, U : BufferSerializable> :
         // if leaf can add pair:
         if leaf.spaceForPair(pair, pageSize: m.pageSize) {
 //            print("- there is space in the \(leafStatus) leaf for the add")
-            try leaf.addPair(pair)
+            try leaf.addPair(pair, version: m.version)
             let max = leaf.max!
             
             var leafNode : TreeNode<T,U> = .leafNode(leaf)
@@ -557,13 +557,15 @@ public final class TreeLeaf<T : BufferSerializable & Comparable, U : BufferSeria
         return self.serializedSize + pair.0.serializedSize + pair.1.serializedSize <= pageSize
     }
     
-    func remove(key: T) throws {
+    func remove(key: T, version : UInt64) throws {
+        self.version = version
         pairs = pairs.filter { (pair) -> Bool in
             key != pair.0
         }
     }
     
-    func addPair(_ pair : (T,U)) throws {
+    func addPair(_ pair : (T,U), version : UInt64) throws {
+        self.version = version
         pairs.insertSorted(pair) { (l,r) in return l.0 < r.0 }
         self.serializedSize += pair.0.serializedSize
         self.serializedSize += pair.1.serializedSize

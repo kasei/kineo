@@ -283,9 +283,9 @@ if args.count > 2 {
             }
         }
     } else if op == "testcreate" {
-        let version = startTime
+        print("\(getDateString(seconds: startTime))")
         let name = "testvalues"
-        try database.update(version: version) { (m) in
+        try database.update(version: startTime) { (m) in
             let pairs : [(UInt32, String)] = []
             _ = try m.create(tree: name, pairs: pairs)
         }
@@ -299,20 +299,20 @@ if args.count > 2 {
             }
         }
     } else if op == "testadd" {
-        let version = startTime
+        print("\(getDateString(seconds: startTime))")
         let name = "testvalues"
         let key = UInt32(args[3])!
         let value = args[4]
-        try database.update(version: version) { (m) in
+        try database.update(version: startTime) { (m) in
             guard let t : Tree<UInt32, String> = m.tree(name: name) else { fatalError("No such tree") }
             try t.add(pair: (key, value))
         }
     } else if op == "testremove" {
-        let version = startTime
+        print("\(getDateString(seconds: startTime))")
         let name = "testvalues"
         let key = UInt32(args[3])!
         print("Removing pair for key \(key)...")
-        try database.update(version: version) { (m) in
+        try database.update(version: startTime) { (m) in
             guard let t : Tree<UInt32, String> = m.tree(name: name) else { fatalError("No such tree") }
             try t.remove(key: key)
         }
