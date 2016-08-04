@@ -505,3 +505,9 @@ public extension Array {
         }
     }
 }
+
+public func myprintf(_ format: String, _ arguments: CVarArg...) {
+    _ = withVaList(arguments) {
+        vprintf(format, $0)
+    }
+}

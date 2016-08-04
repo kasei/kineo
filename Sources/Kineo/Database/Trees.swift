@@ -137,13 +137,29 @@ public class Tree<T : BufferSerializable & Comparable, U : BufferSerializable> :
     var name : String
     var mediator : RMediator
     
-    init(name : String, root : PageId, mediator : RMediator) {
+    public var previousPage : PageId? {
+        guard let (node, _) : (TreeNode<T,U>, PageStatus) = try? mediator.readPage(root) else { return nil }
+        return node.previousPage
+    }
+
+    public var version : UInt64? {
+        // TOOD: read the page header without reading the page contents
+        guard let (node, _) : (TreeNode<T,U>, PageStatus) = try? mediator.readPage(root) else { return nil }
+        switch node {
+        case .leafNode(let leaf):
+            return leaf.version
+        case .internalNode(let i):
+            return i.version
+        }
+    }
+    
+    public init(name : String, root : PageId, mediator : RMediator) {
         self.name = name
         self.root = root
         self.mediator = mediator
     }
     
-    init?(name : String, mediator : RMediator) {
+    public init?(name : String, mediator : RMediator) {
         if let root = try? mediator.getRoot(named: name) {
             self.name = name
             self.root = root
@@ -236,7 +252,7 @@ public class Tree<T : BufferSerializable & Comparable, U : BufferSerializable> :
         var updatedPid : PageId!
         try leaf.remove(key: key)
         newPairs = []
-        let leafNode : TreeNode<T,U> = .leafNode(leaf)
+        var leafNode : TreeNode<T,U> = .leafNode(leaf)
         if case .dirty(let pid) = leafStatus {
             try m.update(page: pid, with: leafNode)
             if let max = leaf.max {
@@ -244,6 +260,13 @@ public class Tree<T : BufferSerializable & Comparable, U : BufferSerializable> :
             }
             updatedPid = pid
         } else {
+            switch leafStatus {
+            case .clean(let pid), .dirty(let pid):
+                leafNode.previousPage = pid
+            default:
+                break
+            }
+            
             let pid = try m.createPage(for: leafNode)
             if let max = leaf.max {
                 newPairs.append((max, pid))
@@ -261,7 +284,7 @@ public class Tree<T : BufferSerializable & Comparable, U : BufferSerializable> :
             try node.addPairs(newPairs, replacingIndex: index, totalCount: totalCount)
             
             newPairs = []
-            let internalNode : TreeNode<T,U> = .internalNode(node)
+            var internalNode : TreeNode<T,U> = .internalNode(node)
             if case .dirty(let pid) = status {
                 try m.update(page: pid, with: internalNode)
                 if let max = node.max {
@@ -269,6 +292,13 @@ public class Tree<T : BufferSerializable & Comparable, U : BufferSerializable> :
                 }
                 updatedPid = pid
             } else {
+                switch status {
+                case .clean(let pid), .dirty(let pid):
+                    internalNode.previousPage = pid
+                default:
+                    break
+                }
+
                 let pid = try m.createPage(for: internalNode)
                 if let max = node.max {
                     newPairs = [(max,pid)]
@@ -299,11 +329,18 @@ public class Tree<T : BufferSerializable & Comparable, U : BufferSerializable> :
             try leaf.addPair(pair)
             let max = leaf.max!
             
-            let leafNode : TreeNode<T,U> = .leafNode(leaf)
+            var leafNode : TreeNode<T,U> = .leafNode(leaf)
             if case .dirty(let pid) = leafStatus {
                 try m.update(page: pid, with: leafNode)
                 newPairs.append((max, pid))
             } else {
+                switch leafStatus {
+                case .clean(let pid), .dirty(let pid):
+                    leafNode.previousPage = pid
+                default:
+                    break
+                }
+
                 let pid = try m.createPage(for: leafNode)
                 newPairs.append((max, pid))
             }
@@ -319,7 +356,14 @@ public class Tree<T : BufferSerializable & Comparable, U : BufferSerializable> :
             
             for pairs in [lpairs, rpairs] {
                 let leaf        = try TreeLeaf(version: m.version, pageSize: m.pageSize, pairs: pairs)
-                let leafNode : TreeNode<T,U> = .leafNode(leaf)
+                var leafNode : TreeNode<T,U> = .leafNode(leaf)
+                switch leafStatus {
+                case .clean(let pid), .dirty(let pid):
+                    leafNode.previousPage = pid
+                default:
+                    break
+                }
+
                 let max         = leaf.max!
                 if case .dirty(let pid) = leafStatus {
                     try m.update(page: pid, with: leafNode)
@@ -345,11 +389,18 @@ public class Tree<T : BufferSerializable & Comparable, U : BufferSerializable> :
                 try node.addPairs(newPairs, replacingIndex: index, totalCount: totalCount)
                 let max         = node.max!
                 
-                let internalNode : TreeNode<T,U> = .internalNode(node)
+                var internalNode : TreeNode<T,U> = .internalNode(node)
                 if case .dirty(let pid) = status {
                     try m.update(page: pid, with: internalNode)
                     newPairs = [(max,pid)]
                 } else {
+                    switch status {
+                    case .clean(let pid), .dirty(let pid):
+                        internalNode.previousPage = pid
+                    default:
+                        break
+                    }
+
                     let pid = try m.createPage(for: internalNode)
                     newPairs = [(max,pid)]
                 }
@@ -377,9 +428,16 @@ public class Tree<T : BufferSerializable & Comparable, U : BufferSerializable> :
                         }.reduce(UInt64(0), +)
                     
                     let node    = try TreeInternal(version: m.version, pageSize: m.pageSize, totalCount: total, pairs: pairs)
-                    let internalNode : TreeNode<T,U> = .internalNode(node)
+                    var internalNode : TreeNode<T,U> = .internalNode(node)
                     let max     = node.max!
-                    
+
+                    switch status {
+                    case .clean(let pid), .dirty(let pid):
+                        internalNode.previousPage = pid
+                    default:
+                        break
+                    }
+
                     if let pid = availablePageForReuse.popLast() {
                         try m.update(page: pid, with: internalNode)
                         newPairs.append((max, pid))
@@ -437,8 +495,10 @@ public final class TreeLeaf<T : BufferSerializable & Comparable, U : BufferSeria
     public var pairs : [(T,U)]
     public var serializedSize : Int
     public var max : T?
+    public var previousPage : PageId?
     
     init(version : UInt64, pageSize: Int, typeCode : UInt32, pairs : [(T,U)]) throws {
+        self.previousPage = nil
         self.version = version
         self.pairs = pairs
         self.typeCode = typeCode
@@ -481,10 +541,11 @@ public final class TreeLeaf<T : BufferSerializable & Comparable, U : BufferSeria
     }
     
     convenience init?(mediator : RMediator, buffer : UnsafePointer<Void>, status: PageStatus) {
-        guard let (_, version, typeCode, _, _, gen) = try? buffer.deserializeTree(mediator: mediator, type: .leafTreeNode, pageSize: mediator.pageSize, keyType: T.self, valueType: U.self) else { return nil }
+        guard let (_, version, typeCode, previousPage, _, gen) = try? buffer.deserializeTree(mediator: mediator, type: .leafTreeNode, pageSize: mediator.pageSize, keyType: T.self, valueType: U.self) else { return nil }
         let pairs = Array(gen)
         do {
             try self.init(version: version, pageSize: mediator.pageSize, typeCode: typeCode, pairs: pairs)
+            self.previousPage = PageId(previousPage)
         } catch {
             return nil
         }
@@ -512,9 +573,13 @@ public final class TreeLeaf<T : BufferSerializable & Comparable, U : BufferSeria
     func serialize(to buffer: UnsafeMutablePointer<Void>, pageSize : Int) throws {
         let cookie      = DatabaseInfo.Cookie.leafTreeNode
         let config1     = serializationCode(T.self, U.self)
-        let config2     = UInt32(0)
+        var config2     = UInt32(0)
         let count       = UInt32(self.pairs.count)
         let totalCount  = UInt64(count)
+        
+        if let pp = self.previousPage {
+            config2 = UInt32(pp)
+        }
         
         let byteCount   = try buffer.writeTreeHeader(type: cookie, version: self.version, config1: config1, config2: config2, totalCount: totalCount, count: count)
         assert(byteCount == cookieHeaderSize)
@@ -543,9 +608,11 @@ public final class TreeInternal<T : BufferSerializable & Comparable> {
     public var pairs : [(T,PageId)]
     public var totalCount : UInt64
     public var serializedSize : Int
+    public var previousPage : PageId?
     public var max : T?
     
     init(version : UInt64, pageSize : Int, totalCount : UInt64, typeCode : UInt32, pairs : [(T,PageId)]) throws {
+        self.previousPage = nil
         self.version = version
         self.pairs = pairs
         self.totalCount = totalCount
@@ -589,10 +656,11 @@ public final class TreeInternal<T : BufferSerializable & Comparable> {
     }
     
     convenience init?(mediator : RMediator, buffer : UnsafePointer<Void>, status: PageStatus) {
-        guard let (_, version, typeCode, _, totalCount, gen) = try? buffer.deserializeTree(mediator: mediator, type: .internalTreeNode, pageSize: mediator.pageSize, keyType: T.self, valueType: PageId.self) else { return nil }
+        guard let (_, version, typeCode, previousPage, totalCount, gen) = try? buffer.deserializeTree(mediator: mediator, type: .internalTreeNode, pageSize: mediator.pageSize, keyType: T.self, valueType: PageId.self) else { return nil }
         let pairs = Array(gen)
         do {
             try self.init(version: version, pageSize: mediator.pageSize, totalCount: totalCount, typeCode: typeCode, pairs: pairs)
+            self.previousPage = PageId(previousPage)
         } catch {
             return nil
         }
@@ -622,10 +690,14 @@ public final class TreeInternal<T : BufferSerializable & Comparable> {
     func serialize(to buffer : UnsafeMutablePointer<Void>, pageSize : Int) throws {
         let cookie      = DatabaseInfo.Cookie.internalTreeNode
         let config1     = serializationCode(T.self, PageId.self)
-        let config2     = UInt32(0)
+        var config2     = UInt32(0)
         let totalCount  = self.totalCount;
         let count       = UInt32(self.pairs.count)
-        
+
+        if let pp = self.previousPage {
+            config2 = UInt32(pp)
+        }
+
         let byteCount   = try buffer.writeTreeHeader(type: cookie, version: self.version, config1: config1, config2: config2, totalCount: totalCount, count: count)
         assert(byteCount == cookieHeaderSize)
         let end         = buffer + pageSize
@@ -646,7 +718,7 @@ public final class TreeInternal<T : BufferSerializable & Comparable> {
     }
 }
 
-private enum TreeNode<T : BufferSerializable & Comparable, U : BufferSerializable> : PageMarshalled {
+internal enum TreeNode<T : BufferSerializable & Comparable, U : BufferSerializable> : PageMarshalled {
     case leafNode(TreeLeaf<T,U>)
     case internalNode(TreeInternal<T>)
     
@@ -665,6 +737,25 @@ private enum TreeNode<T : BufferSerializable & Comparable, U : BufferSerializabl
             return UInt64(l.pairs.count)
         case .internalNode(let i):
             return i.totalCount
+        }
+    }
+    
+    public var previousPage : PageId? {
+        get {
+            switch self {
+            case .leafNode(let l):
+                return l.previousPage
+            case .internalNode(let i):
+                return i.previousPage
+            }
+        }
+        set(newValue) {
+            switch self {
+            case .leafNode(let l):
+                l.previousPage = newValue
+            case .internalNode(let i):
+                i.previousPage = newValue
+            }
         }
     }
     

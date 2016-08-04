@@ -68,3 +68,18 @@ public class DatabaseInfo {
         case leafTreeNode       = 0x5452456c // 'TREl'
     }
 }
+
+extension DatabaseInfo.Cookie : CustomStringConvertible {
+    public var description : String {
+        switch self {
+        case .databaseHeader:
+            return "Database Header"
+        case .intStringTable:
+            return "Table (Int -> String)"
+        case .internalTreeNode:
+            return "Tree Node (Internal)"
+        case .leafTreeNode:
+            return "Tree Node (Leaf)"
+        }
+    }
+}

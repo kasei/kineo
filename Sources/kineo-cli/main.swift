@@ -154,6 +154,45 @@ func match(_ database : FilePageDatabase) throws -> Int {
     return count
 }
 
+func pageInfo(mediator m : FilePageRMediator, page : PageId) -> (String, String, PageId?)? {
+    var r : (String, String, PageId?)? = nil
+    _ = try? m._pageBufferPointer(page) { (p) in
+        do {
+            var ptr         = UnsafePointer<Void>(p)
+            let cookie      = try UInt32.deserialize(from: &ptr)
+            let version     = try UInt64.deserialize(from: &ptr)
+            let _           = try UInt32.deserialize(from: &ptr)
+            let config2     = try UInt32.deserialize(from: &ptr)
+            let date = getDateString(seconds: version)
+            var prev : PageId? = nil
+            if page > 0 && config2 > 0 {
+                prev = PageId(config2)
+            }
+            
+            var type : String
+            if let c = DatabaseInfo.Cookie(rawValue: cookie) {
+                type = "\(c)"
+            } else {
+                type = "????"
+            }
+            r = (type, date, prev)
+        } catch {}
+    }
+    return r
+}
+
+func printPageInfo(mediator m : FilePageRMediator, name : String, page : PageId) {
+    if let (type, date, previous) = pageInfo(mediator: m, page: page) {
+        var prev : String
+        switch previous {
+        case .none, .some(0):
+            prev = ""
+        case .some(let value):
+            prev = "\(value)"
+        }
+        print("  \(page)\t\(date)\t\(name.padding(toLength: 16, withPad: " ", startingAt: 0))\t\(type.padding(toLength: 16, withPad: " ", startingAt: 0))\t\tPrevious Page: \(prev)")
+    }
+}
 let verbose = true
 let args = CommandLine.arguments
 let pname = args[0]
@@ -212,49 +251,72 @@ if args.count > 2 {
                 throw DatabaseUpdateError.rollback
             }
         }
-    } else if op == "test" {
-        let lat : Node      = .bound(Term(value: "http://www.w3.org/2003/01/geo/wgs84_pos#lat", type: .iri))
-        let long : Node     = .bound(Term(value: "http://www.w3.org/2003/01/geo/wgs84_pos#long", type: .iri))
-        let vs : Node       = .variable("s", binding: true)
-        let vlat : Node     = .variable("lat", binding: true)
-        let vlong : Node    = .variable("long", binding: true)
-        let tlat : TriplePattern = TriplePattern(
-            subject: vs,
-            predicate: lat,
-            object: vlat
-        )
-        let tlong : TriplePattern = TriplePattern(
-            subject: vs,
-            predicate: long,
-            object: vlong
-        )
-        let join : Algebra  = .innerJoin(.triple(tlat), .triple(tlong))
-        let e1 : Expression = .gt(.node(vlat), .node(.bound(Term(integer: 31))))
-        let e2 : Expression = .lt(.node(vlat), .node(.bound(Term(integer: 33))))
-        let f1 : Algebra    = .filter(join, e1)
-        let f2 : Algebra    = .filter(f1, e2)
-
-        let e3 : Expression = .lt(.node(vlong), .node(.bound(Term(integer: -117))))
-        let f3 : Algebra    = .filter(f2, e3)
-
-        let e4 : Expression = .add(.node(vlat), .node(vlong))
-        let bind : Algebra  = .extend(f3, e4, "sum")
-        
-        let result = TermResult(bindings: ["lat": Term(integer: 32), "long": Term(integer: -118)])
-        print("-----")
-        print(e4.description)
-        print(result.description)
-
-        let term1 = try? e4.evaluate(result: result)
-        print("==> term eval result: \(term1?.description)")
-
-        let term2 = try? e4.numericEvaluate(result: result)
-        print("==> numeric eval result: \(term2?.description)")
-        
-        let algebra = bind
-        print("Query algebra:\n\(algebra.serialize())")
-        count = try query(database, algebra: algebra)
-    } else {
+    } else if op == "roots" {
+        try database.read { (m) in
+            let roots = m.rootNames
+            if roots.count > 0 {
+                print("Page size: \(database.pageSize)")
+                print("Roots:")
+                for name in roots {
+                    if let i = try? m.getRoot(named: name) {
+                        printPageInfo(mediator: m, name : name, page : i)
+                    }
+                }
+            }
+        }
+    } else if op == "info" {
+        try database.read { (m) in
+            var roots = [Int:String]()
+            for name in m.rootNames {
+                if let i = try? m.getRoot(named: name) {
+                    roots[Int(i)] = name
+                }
+            }
+            
+            var pages = Array(args.suffix(from: 3).flatMap { Int($0) })
+            if pages.count == 0 {
+                pages = Array(0..<m.pageCount)
+            }
+            for pid in pages {
+                let name = roots[pid] ?? "_"
+                printPageInfo(mediator: m, name : name, page : pid)
+            }
+        }
+    } else if op == "testcreate" {
+        let version = startTime
+        let name = "testvalues"
+        try database.update(version: version) { (m) in
+            let pairs : [(UInt32, String)] = []
+            _ = try m.create(tree: name, pairs: pairs)
+        }
+    } else if op == "testread" {
+        let name = "testvalues"
+        try database.read { (m) in
+            guard let t : Tree<UInt32, String> = m.tree(name: name) else { fatalError("No such tree") }
+            print("tree: \(t)")
+            for (k, v) in t {
+                print("- \(k) -> \(v)")
+            }
+        }
+    } else if op == "testadd" {
+        let version = startTime
+        let name = "testvalues"
+        let key = UInt32(args[3])!
+        let value = args[4]
+        try database.update(version: version) { (m) in
+            guard let t : Tree<UInt32, String> = m.tree(name: name) else { fatalError("No such tree") }
+            try t.add(pair: (key, value))
+        }
+    } else if op == "testremove" {
+        let version = startTime
+        let name = "testvalues"
+        let key = UInt32(args[3])!
+        print("Removing pair for key \(key)...")
+        try database.update(version: version) { (m) in
+            guard let t : Tree<UInt32, String> = m.tree(name: name) else { fatalError("No such tree") }
+            try t.remove(key: key)
+        }
+} else {
         warn("Unrecognized operation: '\(op)'")
         exit(1)
     }

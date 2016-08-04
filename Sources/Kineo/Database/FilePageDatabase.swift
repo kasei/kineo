@@ -240,6 +240,16 @@ public class FilePageRMediator : RMediator {
             }
         }
     }
+    
+    public func _pageBufferPointer(_ page : PageId, cb : (UnsafeMutablePointer<Void>) -> ()) throws {
+        let offset = off_t(pageSize * page)
+        let sr = pread(database.fd, readBuffer, pageSize, offset)
+        if sr == pageSize {
+            cb(readBuffer)
+        } else {
+            throw DatabaseError.DataError("Failed to read \(pageSize) bytes for page \(page)")
+        }
+    }
 }
 
 public class FilePageRWMediator : FilePageRMediator, RWMediator {
