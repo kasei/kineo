@@ -64,15 +64,31 @@
       <CommandLineArguments>
          <CommandLineArgument
             argument = "/Users/greg/data/prog/git/sparql/kineo/geo.db"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "/Users/greg/data/prog/git/sparql/kineo/test.db"
             isEnabled = "YES">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "info"
+            isEnabled = "YES">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "testremove"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "7"
+            isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
             argument = "query"
-            isEnabled = "YES">
+            isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
             argument = "/Users/greg/data/prog/git/sparql/kineo/geo.q"
-            isEnabled = "YES">
+            isEnabled = "NO">
          </CommandLineArgument>
       </CommandLineArguments>
       <AdditionalOptions>
