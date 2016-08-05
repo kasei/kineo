@@ -86,7 +86,7 @@ public struct DatabaseHeaderPage : PageMarshalled {
     }
 }
 
-public class FilePageDatabase : Database {
+public final class FilePageDatabase : Database {
     public typealias ReadMediator = FilePageRMediator
     public typealias UpdateMediator = FilePageRWMediator
     
@@ -249,6 +249,33 @@ public class FilePageRMediator : RMediator {
         } else {
             throw DatabaseError.DataError("Failed to read \(pageSize) bytes for page \(page)")
         }
+    }
+    
+    public func _pageInfo(page : PageId) -> (String, String, PageId?)? {
+        var r : (String, String, PageId?)? = nil
+        _ = try? self._pageBufferPointer(page) { (p) in
+            do {
+                var ptr         = UnsafePointer<Void>(p)
+                let cookie      = try UInt32.deserialize(from: &ptr)
+                let version     = try UInt64.deserialize(from: &ptr)
+                let _           = try UInt32.deserialize(from: &ptr)
+                let config2     = try UInt32.deserialize(from: &ptr)
+                let date = getDateString(seconds: version)
+                var prev : PageId? = nil
+                if page > 0 && config2 > 0 {
+                    prev = PageId(config2)
+                }
+                
+                var type : String
+                if let c = DatabaseInfo.Cookie(rawValue: cookie) {
+                    type = "\(c)"
+                } else {
+                    type = "????"
+                }
+                r = (type, date, prev)
+            } catch {}
+        }
+        return r
     }
 }
 

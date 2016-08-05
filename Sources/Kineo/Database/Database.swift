@@ -63,7 +63,7 @@ public protocol Database {
 public class DatabaseInfo {
     public enum Cookie : UInt32 {
         case databaseHeader     = 0x702e4442 // 'p.DB'
-        case intStringTable     = 0x54426973 // 'TBis'
+        case tablePage          = 0x54426973 // 'TBis'
         case internalTreeNode   = 0x54524569 // 'TREi'
         case leafTreeNode       = 0x5452456c // 'TREl'
     }
@@ -74,7 +74,7 @@ extension DatabaseInfo.Cookie : CustomStringConvertible {
         switch self {
         case .databaseHeader:
             return "Database Header"
-        case .intStringTable:
+        case .tablePage:
             return "Table (Int -> String)"
         case .internalTreeNode:
             return "Tree Node (Internal)"

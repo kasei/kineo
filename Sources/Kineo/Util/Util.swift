@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import CoreFoundation
 
 public func warn(_ items: String...) {
     for string in items {
@@ -407,6 +408,10 @@ public func getCurrentDateSeconds() -> UInt64 {
     var startTime : time_t
     startTime = time(nil)
     return UInt64(startTime)
+}
+
+public func getCurrentTime() -> CFAbsoluteTime {
+    return CFAbsoluteTimeGetCurrent()
 }
 
 public func getDateString(seconds : UInt64) -> String {
