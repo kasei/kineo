@@ -66,7 +66,8 @@ func query(_ database : FilePageDatabase, algebra query: Algebra) throws -> Int 
     var count       = 0
     try database.read { (m) in
         do {
-            let store       = try QuadStore(mediator: m)
+            let store       = try LanguageQuadStore(mediator: m, acceptLanguages: [("en", 1.0), ("", 0.5)])
+//            let store       = try QuadStore(mediator: m)
             guard let defaultGraph = store.graphs().next() else { return }
             warn("Using default graph \(defaultGraph)")
             let e           = SimpleQueryEvaluator(store: store, defaultGraph: defaultGraph)

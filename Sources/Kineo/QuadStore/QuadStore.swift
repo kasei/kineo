@@ -133,7 +133,7 @@ public class QuadStore : Sequence, QuadStoreProtocol {
                 }
             }
             
-            let idmap = try PersistentTermIdentityMap(mediator: mediator)
+            let idmap = self.id
             let graphs = Array(graphids).map { (gid) -> Term in
                 guard let g = idmap.term(for: gid) else { fatalError() }
                 return g
@@ -145,11 +145,19 @@ public class QuadStore : Sequence, QuadStoreProtocol {
         return AnyIterator { return nil }
     }
     
+    public func quad(from idquad : IDQuad<UInt64>) -> Quad? {
+        let idmap = self.id
+        if let s = idmap.term(for: idquad[0]), let p = idmap.term(for: idquad[1]), let o = idmap.term(for: idquad[2]), let g = idmap.term(for: idquad[3]) {
+            return Quad(subject: s, predicate: p, object: o, graph: g)
+        }
+        return nil
+    }
+    
     public func makeIterator() -> AnyIterator<Quad> {
         let treeName = QuadStore.defaultIndex
         do {
             let mapping = try quadMapping(fromOrder: treeName)
-            let idmap = try PersistentTermIdentityMap(mediator: mediator)
+            let idmap = self.id
             if let quadsTree : Tree<IDQuad<UInt64>,Empty> = mediator.tree(name: treeName) {
 //            if let quadsTable : Table<IDQuad<UInt64>,Empty> = mediator.table(name: "quads") {
                 let idquads = quadsTree.makeIterator()
@@ -1048,4 +1056,86 @@ public struct IDResult : CustomStringConvertible, ResultProtocol {
         }
         return true
     }
+}
+
+public class LanguageQuadStore : QuadStore {
+    var acceptLanguages : [(String,Double)]
+    public init(mediator : RMediator, acceptLanguages: [(String,Double)]) throws {
+        self.acceptLanguages = acceptLanguages
+        try super.init(mediator: mediator)
+    }
+    
+    override internal func idquads(matching pattern: QuadPattern) throws -> AnyIterator<IDQuad<IDType>> {
+        let i = try super.idquads(matching: pattern)
+        return AnyIterator {
+            repeat {
+                guard let idquad = i.next() else { return nil }
+                guard let quad = self.quad(from: idquad) else { return nil }
+                if self.accept(quad: quad, languages: self.acceptLanguages) {
+                    return idquad
+                }
+            } while true
+        }
+    }
+
+    /**
+    override public func quads(matching pattern: QuadPattern) throws -> AnyIterator<Quad> {
+        let i = try super.quads(matching: pattern)
+        return AnyIterator {
+            repeat {
+                guard let quad = i.next() else { return nil }
+                if self.accept(quad: quad, languages: self.acceptLanguages) {
+                    return quad
+                }
+            } while true
+        }
+    }
+    **/
+    
+    internal func qValue(_ language : String, qualityValues : [(String,Double)]) -> Double {
+        for (lang, value) in qualityValues {
+            if language.hasPrefix(lang) {
+                return value
+            }
+        }
+        return 0.0
+    }
+    
+    func siteLanguageQuality(language : String) -> Double {
+        // Site-defined quality for specific languages.
+        return 1.0
+    }
+
+    private func accept(quad : Quad, languages : [(String,Double)]) -> Bool {
+        let object = quad.object
+        switch object.type {
+        case .language(let l):
+            let pattern = QuadPattern(subject: .bound(quad.subject), predicate: .bound(quad.predicate), object: .variable(".o", binding: true), graph: .bound(quad.graph))
+            guard let quads = try? super.idquads(matching: pattern) else { return false }
+            let langs = quads.flatMap { (idquad) -> String? in
+                guard let object = self.id.term(for: idquad[2]) else { return nil }
+                if case .language(let lang) = object.type {
+                    return lang
+                }
+                return nil
+            }
+            let pairs = langs.map { (lang) -> (String, Double) in
+                let value = self.qValue(lang, qualityValues: languages) * siteLanguageQuality(language: lang)
+                return (lang, value)
+            }
+            
+            guard var (_, maxvalue) = pairs.first else { return true }
+            for (_, value) in pairs {
+                if value > maxvalue {
+                    maxvalue = value
+                }
+            }
+            
+            let acceptable = Set(pairs.filter { $0.1 == maxvalue }.map { $0.0 })
+            return acceptable.contains(l)
+        default:
+            return true
+        }
+    }
+    
 }
