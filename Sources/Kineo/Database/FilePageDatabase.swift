@@ -179,7 +179,7 @@ public final class FilePageDatabase : Database {
         #endif
     }
     
-    private func reservePageId() -> PageId {
+    internal func reservePageId() -> PageId {
         let r = nextPageId
         nextPageId += 1
         return r
@@ -192,8 +192,8 @@ public class FilePageRMediator : RMediator {
     var database : FilePageDatabase
     public var pageSize : Int { return database.pageSize }
     public var pageCount : Int { return database.pageCount }
-    private var pageObjects : [PageId:PageMarshalled]
-    private var readBuffer : UnsafeMutablePointer<Void>
+    internal var pageObjects : [PageId:PageMarshalled]
+    internal var readBuffer : UnsafeMutablePointer<Void>
     init(database d : FilePageDatabase) {
         database = d
         pageObjects = [:]

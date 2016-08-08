@@ -11,7 +11,7 @@ import CoreFoundation
 
 public func _sizeof<T>(_ x: T.Type) -> Int {
     #if os (OSX)
-    return _sizeof(x)
+    return sizeof(T.self)
     #else
     return MemoryLayout<T>.size
     #endif
