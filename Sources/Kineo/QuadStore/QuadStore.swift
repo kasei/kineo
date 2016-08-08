@@ -80,7 +80,7 @@ public class QuadStore : Sequence, QuadStoreProtocol {
             
             let spog = idquads.sorted().filter { (quadOrder) -> Bool in
                 // do not insert quads more than once
-                let indexOrder = mapping(quad: quadOrder)
+                let indexOrder = mapping(quadOrder)
                 return !quadsTree.contains(key: indexOrder)
             }.map { ($0, empty) }
             _ = try m.append(pairs: spog, toTable: "quads")
@@ -98,7 +98,7 @@ public class QuadStore : Sequence, QuadStoreProtocol {
         guard let table : Table<IDQuad<UInt64>,Empty> = m.table(name: "quads") else { throw DatabaseError.DataError("Failed to load quads table") }
         let mapping = quadMapping(toOrder: index)
         let empty = Empty()
-        let pairs = table.map { mapping(quad: $0.0) }.sorted().map { ($0, empty) }
+        let pairs = table.map { mapping($0.0) }.sorted().map { ($0, empty) }
         _ = try m.create(tree: index, pairs: pairs)
     }
     
@@ -235,7 +235,7 @@ public class QuadStore : Sequence, QuadStoreProtocol {
         }
     }
     
-    private func quadMapping(toOrder index : String) -> (quad: IDQuad<UInt64>) -> (IDQuad<UInt64>) {
+    private func quadMapping(toOrder index : String) -> (IDQuad<UInt64>) -> (IDQuad<UInt64>) {
         let QUAD_POSTIONS = ["s": 0, "p": 1, "o": 2, "g": 3]
         var mapping = [Int:Int]()
         for (i,c) in index.characters.enumerated() {
@@ -322,9 +322,9 @@ public class QuadStore : Sequence, QuadStoreProtocol {
         let fromIndexOrder      = try quadMapping(fromOrder: index_name)
         let toIndexOrder        = quadMapping(toOrder: index_name)
         let spogOrdered         = IDQuad(patternIds[0], patternIds[1], patternIds[2], patternIds[3])
-        var indexOrderedMin     = toIndexOrder(quad: spogOrdered)
-        var indexOrderedMax     = toIndexOrder(quad: spogOrdered)
-        let indexOrderedPattern = toIndexOrder(quad: spogOrdered)
+        var indexOrderedMin     = toIndexOrder(spogOrdered)
+        var indexOrderedMax     = toIndexOrder(spogOrdered)
+        let indexOrderedPattern = toIndexOrder(spogOrdered)
         for i in count..<4 {
             indexOrderedMin[i]      = umin
             indexOrderedMax[i]      = umax

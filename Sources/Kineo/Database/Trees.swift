@@ -1003,7 +1003,7 @@ private extension UnsafePointer {
 }
 
 extension UnsafeMutablePointer {
-    @inline(__always) private func writeTreeHeader(type : DatabaseInfo.Cookie, version : UInt64, config1 : UInt32, config2 : UInt32, totalCount : UInt64, count : UInt32) throws -> Int {
+    @inline(__always) internal func writeTreeHeader(type : DatabaseInfo.Cookie, version : UInt64, config1 : UInt32, config2 : UInt32, totalCount : UInt64, count : UInt32) throws -> Int {
         let buffer = UnsafeMutablePointer<Void>(self)
         var ptr = buffer
         try type.rawValue.serialize(to: &ptr)
