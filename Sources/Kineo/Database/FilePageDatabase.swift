@@ -64,18 +64,10 @@ public struct DatabaseHeaderPage : PageMarshalled {
         try DatabaseInfo.Cookie.databaseHeader.rawValue.serialize(to: &ptr)
         try version.serialize(to: &ptr)
         
-        #if os (OSX)
-            precondition(pageSize >= sizeof(UInt32.self))
-        #else
-            precondition(pageSize >= MemoryLayout<UInt32>.size)
-        #endif
+        precondition(pageSize >= _sizeof(UInt32.self))
         try UInt32(pageSize).serialize(to: &ptr)
         
-        #if os (OSX)
-        precondition(pageSize >= sizeof(UInt32.self))
-        #else
-        precondition(pageSize >= MemoryLayout<UInt32>.size)
-        #endif
+        precondition(pageSize >= _sizeof(UInt32.self))
         
         try UInt32(roots.count).serialize(to: &ptr)
         

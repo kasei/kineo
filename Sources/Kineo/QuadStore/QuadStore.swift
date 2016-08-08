@@ -867,7 +867,7 @@ public struct IDQuad<T : DefinedTestable & Equatable & Comparable & BufferSerial
         return true
     }
     
-    public var serializedSize : Int { return 4 * sizeof(T.self) }
+    public var serializedSize : Int { return 4 * _sizeof(T.self) }
     public func serialize(to buffer : inout UnsafeMutablePointer<Void>, mediator: RWMediator?, maximumSize: Int) throws {
         if serializedSize > maximumSize { throw DatabaseError.OverflowError("Cannot serialize IDQuad in available space") }
         //        print("serializing quad \(subject) \(predicate) \(object) \(graph)")
