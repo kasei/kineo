@@ -30,8 +30,8 @@ Triple patterns can be joined and results filtered (with expressions encoded in 
 triple ?s <http://www.w3.org/2003/01/geo/wgs84_pos#lat> ?lat
 triple ?s <http://www.w3.org/2003/01/geo/wgs84_pos#long> ?long
 join
-filter filter ?lat 31 > ?lat 33 < &&
-filter filter ?long -117 <
+filter ?lat 31 > ?lat 33 < &&
+filter ?long -117 <
 
 % ./.build/release/kineo-cli geo.db query geo.q
 Using default graph <file:///Users/greg/kineo/geo.nt>
