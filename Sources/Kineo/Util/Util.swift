@@ -119,6 +119,7 @@ struct PeekableIterator<T : IteratorProtocol> : IteratorProtocol {
             if !filter(bufferedElement!) {
                 break
             }
+            _ = next()
         }
     }
 }
