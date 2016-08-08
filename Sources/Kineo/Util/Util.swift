@@ -9,6 +9,14 @@
 import Foundation
 import CoreFoundation
 
+public func _sizeof<T>(_ x: T.Type) -> Int {
+    #if os (OSX)
+    return _sizeof(x)
+    #else
+    return MemoryLayout<T>.size
+    #endif
+}
+
 public func warn(_ items: String...) {
     for string in items {
         fputs(string, stderr)
@@ -215,7 +223,7 @@ extension Empty : BufferSerializable {
 
 
 extension Int : BufferSerializable {
-    public var serializedSize : Int { return sizeof(Int64.self) }
+    public var serializedSize : Int { return _sizeof(Int64.self) }
     public func serialize(to buffer : inout UnsafeMutablePointer<Void>, mediator: RWMediator?, maximumSize: Int) throws {
         if serializedSize > maximumSize { throw DatabaseError.OverflowError("Cannot serialize Int in available space") }
         UnsafeMutablePointer<Int64>(buffer).pointee   = Int64(self).bigEndian
@@ -224,13 +232,13 @@ extension Int : BufferSerializable {
     
     public static func deserialize(from buffer : inout UnsafePointer<Void>, mediator : RMediator?=nil) throws -> Int {
         let i = Int(Int64(bigEndian: UnsafePointer<Int64>(buffer).pointee))
-        buffer += sizeof(Int64.self)
+        buffer += _sizeof(Int64.self)
         return i
     }
 }
 
 extension UInt64 : BufferSerializable {
-    public var serializedSize : Int { return sizeof(UInt64.self) }
+    public var serializedSize : Int { return _sizeof(UInt64.self) }
     public func serialize(to buffer : inout UnsafeMutablePointer<Void>, mediator: RWMediator?, maximumSize: Int) throws {
         if serializedSize > maximumSize { throw DatabaseError.OverflowError("Cannot serialize UInt64 in available space") }
         UnsafeMutablePointer<UInt64>(buffer).pointee   = self.bigEndian
@@ -239,13 +247,13 @@ extension UInt64 : BufferSerializable {
     
     public static func deserialize(from buffer : inout UnsafePointer<Void>, mediator : RMediator?=nil) throws -> UInt64 {
         let u = UInt64(bigEndian: UnsafePointer<UInt64>(buffer).pointee)
-        buffer += sizeof(UInt64.self)
+        buffer += _sizeof(UInt64.self)
         return u
     }
 }
 
 extension UInt32 : BufferSerializable {
-    public var serializedSize : Int { return sizeof(UInt32.self) }
+    public var serializedSize : Int { return _sizeof(UInt32.self) }
     public func serialize(to buffer : inout UnsafeMutablePointer<Void>, mediator: RWMediator?, maximumSize: Int) throws {
         if serializedSize > maximumSize { throw DatabaseError.OverflowError("Cannot serialize UInt32 in available space") }
         UnsafeMutablePointer<UInt32>(buffer).pointee   = self.bigEndian
@@ -254,13 +262,13 @@ extension UInt32 : BufferSerializable {
     
     public static func deserialize(from buffer : inout UnsafePointer<Void>, mediator : RMediator?=nil) throws -> UInt32 {
         let u = UInt32(bigEndian: UnsafePointer<UInt32>(buffer).pointee)
-        buffer += sizeof(UInt32.self)
+        buffer += _sizeof(UInt32.self)
         return u
     }
 }
 
 extension UInt16 : BufferSerializable {
-    public var serializedSize : Int { return sizeof(UInt16.self) }
+    public var serializedSize : Int { return _sizeof(UInt16.self) }
     public func serialize(to buffer : inout UnsafeMutablePointer<Void>, mediator: RWMediator?, maximumSize: Int) throws {
         if serializedSize > maximumSize { throw DatabaseError.OverflowError("Cannot serialize UInt16 in available space") }
         UnsafeMutablePointer<UInt16>(buffer).pointee   = self.bigEndian
@@ -269,13 +277,13 @@ extension UInt16 : BufferSerializable {
     
     public static func deserialize(from buffer : inout UnsafePointer<Void>, mediator : RMediator?=nil) throws -> UInt16 {
         let u = UInt16(bigEndian: UnsafePointer<UInt16>(buffer).pointee)
-        buffer += sizeof(UInt16.self)
+        buffer += _sizeof(UInt16.self)
         return u
     }
 }
 
 extension UInt8 : BufferSerializable {
-    public var serializedSize : Int { return sizeof(UInt8.self) }
+    public var serializedSize : Int { return _sizeof(UInt8.self) }
     public func serialize(to buffer : inout UnsafeMutablePointer<Void>, mediator: RWMediator?, maximumSize: Int) throws {
         if serializedSize > maximumSize { throw DatabaseError.OverflowError("Cannot serialize UInt8 in available space") }
         UnsafeMutablePointer<UInt8>(buffer).pointee   = self
@@ -284,7 +292,7 @@ extension UInt8 : BufferSerializable {
     
     public static func deserialize(from buffer : inout UnsafePointer<Void>, mediator : RMediator?=nil) throws -> UInt8 {
         let u = UnsafePointer<UInt8>(buffer).pointee
-        buffer += sizeof(UInt8.self)
+        buffer += _sizeof(UInt8.self)
         return u
     }
 }
@@ -320,10 +328,10 @@ public enum StringBuffer : BufferSerializable {
             let chars = utf8.map { UInt8($0) }
             for c in chars {
                 UnsafeMutablePointer<UInt8>(buffer).pointee = c
-                buffer += sizeof(UInt8.self)
+                buffer += _sizeof(UInt8.self)
             }
             UnsafeMutablePointer<UInt8>(buffer).pointee = 0
-            buffer += sizeof(UInt8.self)
+            buffer += _sizeof(UInt8.self)
         case .large(let s, let p):
             UnsafeMutablePointer<UInt8>(buffer).pointee = 2
             buffer += 1
@@ -336,10 +344,10 @@ public enum StringBuffer : BufferSerializable {
             let chars = utf8.map { UInt8($0) }
             for c in chars {
                 UnsafeMutablePointer<UInt8>(buffer).pointee = c
-                buffer += sizeof(UInt8.self)
+                buffer += _sizeof(UInt8.self)
             }
             UnsafeMutablePointer<UInt8>(buffer).pointee = 0
-            buffer += sizeof(UInt8.self)
+            buffer += _sizeof(UInt8.self)
         }
     }
     

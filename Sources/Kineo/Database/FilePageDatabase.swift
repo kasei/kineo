@@ -64,10 +64,19 @@ public struct DatabaseHeaderPage : PageMarshalled {
         try DatabaseInfo.Cookie.databaseHeader.rawValue.serialize(to: &ptr)
         try version.serialize(to: &ptr)
         
-        precondition(pageSize >= sizeof(UInt32.self))
+        #if os (OSX)
+            precondition(pageSize >= sizeof(UInt32.self))
+        #else
+            precondition(pageSize >= MemoryLayout<UInt32>.size)
+        #endif
         try UInt32(pageSize).serialize(to: &ptr)
         
+        #if os (OSX)
         precondition(pageSize >= sizeof(UInt32.self))
+        #else
+        precondition(pageSize >= MemoryLayout<UInt32>.size)
+        #endif
+        
         try UInt32(roots.count).serialize(to: &ptr)
         
         var totalBytes = 16
@@ -92,7 +101,7 @@ public final class FilePageDatabase : Database {
     
     public let pageSize : Int
     public var pageCount : Int
-    private let fd : CInt
+    internal let fd : CInt
     var nextPageId : Int
 
     public init?(_ filename : String, size _pageSize : Int = 4096) {
@@ -139,7 +148,7 @@ public final class FilePageDatabase : Database {
         #if os (OSX)
             autoreleasepool { cb(r) }
         #else
-            cb(mediator: r)
+            cb(r)
         #endif
     }
     
@@ -162,7 +171,7 @@ public final class FilePageDatabase : Database {
             }
         #else
             do {
-                try cb(mediator: w)
+                try cb(w)
                 //            print("need to commit \(w.pages.count) pages")
                 try w.commit()
             } catch DatabaseUpdateError.rollback {
@@ -294,7 +303,7 @@ public class FilePageRWMediator : FilePageRMediator, RWMediator {
         super.init(database: d)
     }
     
-    private func commit() throws {
+    internal func commit() throws {
         var maxPage = database.pageCount-1
         let writeBuffer = UnsafeMutablePointer<Void>.allocate(capacity: pageSize)
         defer {
