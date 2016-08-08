@@ -72,8 +72,8 @@
 		372AE76C1D582D9F001D72DF /* KineoTests */ = {
 			isa = PBXGroup;
 			children = (
-				372AE76D1D582D9F001D72DF /* FilePageDatabase.swift */,
 				372AE76E1D582D9F001D72DF /* Info.plist */,
+				372AE76D1D582D9F001D72DF /* FilePageDatabase.swift */,
 				372AE76F1D582D9F001D72DF /* QueryEvaluation.swift */,
 				372AE7701D582D9F001D72DF /* QueryParser.swift */,
 			);

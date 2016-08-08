@@ -1,27 +1,27 @@
+import Foundation
 import XCTest
 import Kineo
 
 class FilePageDatabaseTest: XCTestCase {
-    var tempFilename : String {
-        return "/tmp/kineo-\(ProcessInfo.processInfo.globallyUniqueString).db"
-    }
-    
+    var tempFilename : String!
+
     func removeFile() {
-        let r : Int32 = tempFilename.withCString { (ptr) -> Int32 in print("removing \(ptr)"); return unlink(ptr) }
-        print("rm \(tempFilename) => \(r)")
-        if r != 0 {
-            "error".withCString { perror($0) }
-        }
+        let fileManager = FileManager.default
+        try? fileManager.removeItem(atPath: tempFilename)
     }
     
     override func setUp() {
+        self.tempFilename = "/tmp/kineo-\(ProcessInfo.processInfo.globallyUniqueString).db"
         super.setUp()
     }
     
+    override func tearDown() {
+        removeFile()
+    }
+
     func testOpen() {
         let pageSize = 1024
         let database : FilePageDatabase! = FilePageDatabase(self.tempFilename, size: pageSize)
-        defer { removeFile() }
         
         XCTAssertNotNil(database)
         XCTAssertEqual(database.pageSize, pageSize)
@@ -31,7 +31,6 @@ class FilePageDatabaseTest: XCTestCase {
     func testTreeData() throws {
         let pageSize = 256
         guard let database = FilePageDatabase(self.tempFilename, size: pageSize) else { XCTFail(); return }
-        defer { removeFile() }
 
         XCTAssertEqual(database.pageCount, 1)
 
