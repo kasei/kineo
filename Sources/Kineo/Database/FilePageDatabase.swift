@@ -134,21 +134,21 @@ public final class FilePageDatabase : Database {
         nextPageId = pageCount
     }
     
-    public func read(cb : @noescape (mediator : ReadMediator) -> ()) throws {
+    public func read(cb : @noescape (ReadMediator) -> ()) throws {
         let r = FilePageRMediator(database: self)
         #if os (OSX)
-            autoreleasepool { cb(mediator: r) }
+            autoreleasepool { cb(r) }
         #else
             cb(mediator: r)
         #endif
     }
     
-    public func update(version : Version, cb : @noescape (mediator : UpdateMediator) throws -> ()) throws {
+    public func update(version : Version, cb : @noescape (UpdateMediator) throws -> ()) throws {
         let w = FilePageRWMediator(database: self, version: version)
         #if os (OSX)
             let caughtError = autoreleasepool { () -> Error? in
                 do {
-                    try cb(mediator: w)
+                    try cb(w)
         //            print("need to commit \(w.pages.count) pages")
                     try w.commit()
                 } catch DatabaseUpdateError.rollback {

@@ -56,8 +56,8 @@ public protocol Database {
     associatedtype UpdateMediator
     var pageSize : Int { get }
     var pageCount : Int { get }
-    func read(cb : @noescape (mediator : ReadMediator) -> ()) throws
-    func update(version : Version, cb : @noescape (mediator : UpdateMediator) throws -> ()) throws
+    func read(cb : @noescape (ReadMediator) -> ()) throws
+    func update(version : Version, cb : @noescape (UpdateMediator) throws -> ()) throws
 }
 
 public class DatabaseInfo {

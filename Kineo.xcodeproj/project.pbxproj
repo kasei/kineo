@@ -7,10 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		372C15561D500FF4005AD596 /* QueryParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 372C15491D500FAB005AD596 /* QueryParser.swift */; };
+		372AE7711D582D9F001D72DF /* FilePageDatabase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 372AE76D1D582D9F001D72DF /* FilePageDatabase.swift */; };
+		372AE7731D582D9F001D72DF /* QueryEvaluation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 372AE76F1D582D9F001D72DF /* QueryEvaluation.swift */; };
+		372AE7741D582D9F001D72DF /* QueryParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 372AE7701D582D9F001D72DF /* QueryParser.swift */; };
 		372C15571D501024005AD596 /* libKineo.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 379C05631D219B9A00ACE54D /* libKineo.dylib */; };
-		372C155C1D50721C005AD596 /* QueryEvaluation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 372C155B1D50721C005AD596 /* QueryEvaluation.swift */; };
-		37932F661D53F89C0091B80D /* FilePageDatabase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37932F651D53F89C0091B80D /* FilePageDatabase.swift */; };
 		379C05651D219C8B00ACE54D /* libKineo.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 379C05631D219B9A00ACE54D /* libKineo.dylib */; };
 		37B839B71D1E06B500BE718B /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37B839A31D1E06B500BE718B /* main.swift */; };
 /* End PBXBuildFile section */
@@ -28,13 +28,13 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		372C15491D500FAB005AD596 /* QueryParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QueryParser.swift; sourceTree = "<group>"; };
+		372AE76D1D582D9F001D72DF /* FilePageDatabase.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FilePageDatabase.swift; sourceTree = "<group>"; };
+		372AE76E1D582D9F001D72DF /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		372AE76F1D582D9F001D72DF /* QueryEvaluation.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = QueryEvaluation.swift; sourceTree = "<group>"; };
+		372AE7701D582D9F001D72DF /* QueryParser.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = QueryParser.swift; sourceTree = "<group>"; };
 		372C154E1D500FD6005AD596 /* kineo-test.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "kineo-test.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
-		372C15591D501089005AD596 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		372C155B1D50721C005AD596 /* QueryEvaluation.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = QueryEvaluation.swift; sourceTree = "<group>"; };
 		37620ED41D4F0FA100AEC10F /* Expression.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Expression.swift; sourceTree = "<group>"; };
 		377C49F41D3061EF006222B6 /* Query.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Query.swift; sourceTree = "<group>"; };
-		37932F651D53F89C0091B80D /* FilePageDatabase.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FilePageDatabase.swift; sourceTree = "<group>"; };
 		379C05631D219B9A00ACE54D /* libKineo.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libKineo.dylib; path = .build/debug/libKineo.dylib; sourceTree = "<group>"; };
 		37B839821D1DECF700BE718B /* kineo-cli */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "kineo-cli"; sourceTree = BUILT_PRODUCTS_DIR; };
 		37B839961D1E06B500BE718B /* Database.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Database.swift; sourceTree = "<group>"; };
@@ -69,23 +69,23 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		372AE76C1D582D9F001D72DF /* KineoTests */ = {
+			isa = PBXGroup;
+			children = (
+				372AE76D1D582D9F001D72DF /* FilePageDatabase.swift */,
+				372AE76E1D582D9F001D72DF /* Info.plist */,
+				372AE76F1D582D9F001D72DF /* QueryEvaluation.swift */,
+				372AE7701D582D9F001D72DF /* QueryParser.swift */,
+			);
+			path = KineoTests;
+			sourceTree = "<group>";
+		};
 		372C15471D500FAB005AD596 /* Tests */ = {
 			isa = PBXGroup;
 			children = (
-				372C15481D500FAB005AD596 /* Kineo */,
+				372AE76C1D582D9F001D72DF /* KineoTests */,
 			);
 			path = Tests;
-			sourceTree = "<group>";
-		};
-		372C15481D500FAB005AD596 /* Kineo */ = {
-			isa = PBXGroup;
-			children = (
-				372C15591D501089005AD596 /* Info.plist */,
-				372C15491D500FAB005AD596 /* QueryParser.swift */,
-				372C155B1D50721C005AD596 /* QueryEvaluation.swift */,
-				37932F651D53F89C0091B80D /* FilePageDatabase.swift */,
-			);
-			path = Kineo;
 			sourceTree = "<group>";
 		};
 		379C05621D219B9A00ACE54D /* Frameworks */ = {
@@ -307,9 +307,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				372C155C1D50721C005AD596 /* QueryEvaluation.swift in Sources */,
-				37932F661D53F89C0091B80D /* FilePageDatabase.swift in Sources */,
-				372C15561D500FF4005AD596 /* QueryParser.swift in Sources */,
+				372AE7731D582D9F001D72DF /* QueryEvaluation.swift in Sources */,
+				372AE7711D582D9F001D72DF /* FilePageDatabase.swift in Sources */,
+				372AE7741D582D9F001D72DF /* QueryParser.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -331,7 +331,7 @@
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				COMBINE_HIDPI_IMAGES = YES;
 				DEVELOPMENT_TEAM = G54M5PALR9;
-				INFOPLIST_FILE = Tests/Kineo/Info.plist;
+				INFOPLIST_FILE = Tests/KineoTests/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @loader_path/../Frameworks";
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
@@ -352,7 +352,7 @@
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				COMBINE_HIDPI_IMAGES = YES;
 				DEVELOPMENT_TEAM = G54M5PALR9;
-				INFOPLIST_FILE = Tests/Kineo/Info.plist;
+				INFOPLIST_FILE = Tests/KineoTests/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @loader_path/../Frameworks";
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",

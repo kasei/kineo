@@ -165,7 +165,7 @@ public class QuadStore : Sequence, QuadStoreProtocol {
                     repeat {
                         if let pair = idquads.next() {
                             let indexOrderedIDQuad = pair.0
-                            let idquad = mapping(quad: indexOrderedIDQuad)
+                            let idquad = mapping(indexOrderedIDQuad)
                             if let s = idmap.term(for: idquad[0]), let p = idmap.term(for: idquad[1]), let o = idmap.term(for: idquad[2]), let g = idmap.term(for: idquad[3]) {
                                 return Quad(subject: s, predicate: p, object: o, graph: g)
                             }
@@ -221,7 +221,7 @@ public class QuadStore : Sequence, QuadStoreProtocol {
         }
     }
     
-    private func quadMapping(fromOrder index : String) throws -> (quad: IDQuad<UInt64>) -> (IDQuad<UInt64>) {
+    private func quadMapping(fromOrder index : String) throws -> (IDQuad<UInt64>) -> (IDQuad<UInt64>) {
         let QUAD_POSTIONS = ["s": 0, "p": 1, "o": 2, "g": 3]
         var mapping = [Int:Int]()
         for (i,c) in index.characters.enumerated() {
@@ -339,7 +339,7 @@ public class QuadStore : Sequence, QuadStoreProtocol {
                     guard let pair = iter.next() else { return nil }
                     let (indexOrder, _) = pair
                     if indexOrder.matches(indexOrderedPattern) {
-                        return fromIndexOrder(quad: indexOrder)
+                        return fromIndexOrder(indexOrder)
                     }
                 } while true
             }
