@@ -18,14 +18,18 @@ public protocol QuadStoreProtocol : Sequence {
 public class QuadStore : Sequence, QuadStoreProtocol {
     typealias IDType = UInt64
     static let defaultIndex = "pogs"
-    private var mediator : RMediator
+    internal var mediator : RMediator
+    public let readonly : Bool
     public var id : PersistentTermIdentityMap
-    public init(mediator : RMediator) throws {
+    public init(mediator : RMediator, mutable rw: Bool = false) throws {
         self.mediator = mediator
-        var readonly = true
-        if let _ = mediator as? RWMediator {
-            readonly = false
+        var readonly = !rw
+        if readonly {
+            if let _ = mediator as? RWMediator {
+                readonly = false
+            }
         }
+        self.readonly = readonly
         self.id = try PersistentTermIdentityMap(mediator: mediator, readonly: readonly)
     }
     
@@ -501,7 +505,27 @@ public class PersistentTermIdentityMap : IdentityMap, Sequence {
         self.t2icache = LRUCache(capacity: 64)
     }
     
-    private static func idRange(for type: UInt8) -> Range<UInt64> {
+    internal class func isIRI(id: Result) -> Bool {
+        let typebyte = UInt8(UInt64(id) >> 56)
+        return typebyte == iriTypeByte
+    }
+    
+    internal class func isBlank(id: Result) -> Bool {
+        let typebyte = UInt8(UInt64(id) >> 56)
+        return typebyte == blankTypeByte
+    }
+    
+    internal class func isLanguageLiteral(id: Result) -> Bool {
+        let typebyte = UInt8(UInt64(id) >> 56)
+        return typebyte == languageTypeByte
+    }
+    
+    internal class func isDatatypeLiteral(id: Result) -> Bool {
+        let typebyte = UInt8(UInt64(id) >> 56)
+        return typebyte == datatypeTypeByte
+    }
+    
+    private static func idRange(for type: UInt8) -> Range<Result> {
         let min = (UInt64(type) << 56)
         let max = (UInt64(type+1) << 56)
         return min..<max
@@ -536,7 +560,7 @@ public class PersistentTermIdentityMap : IdentityMap, Sequence {
         return nil
     }
     
-    public func id(for value: Element) -> UInt64? {
+    public func id(for value: Element) -> Result? {
         if let id = self.t2icache[value] {
             return id
         } else if let id = self.pack(value: value) {
@@ -1060,9 +1084,9 @@ public struct IDResult : CustomStringConvertible, ResultProtocol {
 
 public class LanguageQuadStore : QuadStore {
     var acceptLanguages : [(String,Double)]
-    public init(mediator : RMediator, acceptLanguages: [(String,Double)]) throws {
+    public init(mediator : RMediator, acceptLanguages: [(String,Double)], mutable : Bool = false) throws {
         self.acceptLanguages = acceptLanguages
-        try super.init(mediator: mediator)
+        try super.init(mediator: mediator, mutable: mutable)
     }
     
     override internal func idquads(matching pattern: QuadPattern) throws -> AnyIterator<IDQuad<IDType>> {
@@ -1070,9 +1094,15 @@ public class LanguageQuadStore : QuadStore {
         return AnyIterator {
             repeat {
                 guard let idquad = i.next() else { return nil }
-                guard let quad = self.quad(from: idquad) else { return nil }
-                if self.accept(quad: quad, languages: self.acceptLanguages) {
+                let oid = idquad[3]
+                let languageQuad = PersistentTermIdentityMap.isLanguageLiteral(id: oid)
+                if languageQuad {
                     return idquad
+                } else {
+                    guard let quad = self.quad(from: idquad) else { return nil }
+                    if self.accept(quad: quad, languages: self.acceptLanguages) {
+                        return idquad
+                    }
                 }
             } while true
         }
