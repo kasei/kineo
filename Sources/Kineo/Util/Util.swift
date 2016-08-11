@@ -86,6 +86,13 @@ public struct FileReader : LineReadable {
                         chars.append(char)
                     }
                 } else {
+                    if chars.count > 0 {
+                        chars.append(0)
+                        if let line = chars.withUnsafeMutableBufferPointer({ (b) -> String? in if case .some(let ptr) = b.baseAddress { return String(validatingUTF8: ptr) } else { return nil } }) {
+                            chars = []
+                            return line
+                        }
+                    }
                     return nil
                 }
             } while true
