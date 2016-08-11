@@ -14,6 +14,11 @@ enum QueryError : Error {
     case parseError(String)
 }
 
+public enum WindowFunction {
+    case rowNumber
+    case rank
+}
+
 public enum Aggregation {
     case countAll
     case count(Expression)
@@ -21,7 +26,10 @@ public enum Aggregation {
     case avg(Expression)
 }
 
+
 public indirect enum Algebra {
+    public typealias SortComparator = (Bool, Expression)
+
     case quad(QuadPattern)
     case triple(TriplePattern)
     case bgp([TriplePattern])
@@ -35,8 +43,9 @@ public indirect enum Algebra {
     case project(Algebra, [String])
     case distinct(Algebra)
     case slice(Algebra, Int?, Int?)
-    case order(Algebra, [(Bool, Expression)])
+    case order(Algebra, [SortComparator])
     case aggregate(Algebra, [Expression], [(Aggregation, String)])
+    case window(Algebra, [Expression], [(WindowFunction, [SortComparator], String)])
     // TODO: add property paths
     
     private func inscopeUnion(children : [Algebra]) -> Set<String> {
@@ -107,6 +116,12 @@ public indirect enum Algebra {
                 }
             }
             for (_, name) in aggs {
+                variables.insert(name)
+            }
+            return variables
+        case .window(let child, _, let funcs):
+            var variables = child.inscope
+            for (_, _, name) in funcs {
                 variables.insert(name)
             }
             return variables
@@ -192,6 +207,13 @@ public indirect enum Algebra {
             return d
         case .aggregate(let child, let groups, let aggs):
             var d = "\(indent)Aggregate \(aggs) over groups \(groups)\n"
+            d += child.serialize(depth: depth+1)
+            return d
+        case .window(let child, let groups, let funcs):
+            let orders = funcs.flatMap { $0.1 }
+            let expressions = orders.map { $0.0 ? "\($0.1)" : "DESC(\($0.1))" }
+            let f = funcs.map { ($0.0, $0.2) }
+            var d = "\(indent)Window \(f) over groups \(groups) ordered by { \(expressions.joined(separator: ", ")) }\n"
             d += child.serialize(depth: depth+1)
             return d
         }
@@ -281,6 +303,39 @@ public class QueryParser<T : LineReadable> {
             
             guard let child = stack.popLast() else { return nil }
             return .aggregate(child, groups, aggregates)
+        } else if op == "window" { // window row rowresult , rank rankresult ; ?x , ?y , ?z"
+            let pair = parts.suffix(from: 1).split(separator: ";")
+            guard pair.count >= 1 else { throw QueryError.parseError("Bad syntax for window operation") }
+            let w = pair[0].split(separator: ",")
+            guard w.count > 0 else { throw QueryError.parseError("Bad syntax for window operation") }
+            let groupby = pair.count == 2 ? pair[1].split(separator: ",") : []
+            
+            var windows : [(WindowFunction, [Algebra.SortComparator], String)] = []
+            for a in w {
+                let strings = Array(a)
+                guard strings.count >= 2 else { throw QueryError.parseError("Failed to parse window expression") }
+                let op = strings[0]
+                let name = strings[1]
+//                var expr : Expression!
+                var f : WindowFunction
+                switch op {
+                case "rank":
+                    f = .rank
+                case "row":
+                    f = .rowNumber
+                default:
+                    throw QueryError.parseError("Unexpected window operation: \(op)")
+                }
+                windows.append((f, [], name))
+            }
+            
+            let groups = try groupby.map { (gstrings) -> Expression in
+                guard let e = try ExpressionParser.parseExpression(Array(gstrings)) else { throw QueryError.parseError("Failed to parse aggregate expression") }
+                return e
+            }
+            
+            guard let child = stack.popLast() else { return nil }
+            return .window(child, groups, windows)
         } else if op == "avg" { // (AVG(?key) AS ?name) ... GROUP BY ?x ?y ?z --> "avg key name x y z"
             guard parts.count > 2 else { return nil }
             let key = parts[1]
@@ -336,9 +391,10 @@ public class QueryParser<T : LineReadable> {
             } catch {}
             fatalError("Failed to parse filter expression: \(parts)")
         } else if op == "sort" {
-            let comparators = try parts.suffix(from: 1).split(separator: ",").map { (stack) -> (Bool, Expression) in
+            let comparators = try parts.suffix(from: 1).split(separator: ",").map { (stack) -> Algebra.SortComparator in
                 guard let expr = try ExpressionParser.parseExpression(Array(stack)) else { throw QueryError.parseError("Failed to parse ORDER expression") }
-                return (true, expr)
+                let c : Algebra.SortComparator = (true, expr)
+                return c
             }
             guard let child = stack.popLast() else { throw QueryError.parseError("Not enough operands for \(op)") }
             return .order(child, comparators)
@@ -548,6 +604,51 @@ public class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
         }
     }
     
+    func evaluateWindow(algebra child: Algebra, groups: [Expression], functions: [(WindowFunction, [Algebra.SortComparator], String)], activeGraph: Term) throws -> AnyIterator<TermResult> {
+        let i = try self.evaluate(algebra: child, activeGraph: activeGraph)
+        var groupBuckets = [String:[TermResult]]()
+        for result in i {
+            let group = groups.map { (expr) -> Term? in return try? expr.evaluate(result: result) }
+            let groupKey = "\(group)"
+            if groupBuckets[groupKey] == nil {
+                groupBuckets[groupKey] = [result]
+                var bindings = [String:Term]()
+                for (g, term) in zip(groups, group) {
+                    if case .node(.variable(let name, true)) = g {
+                        if let term = term {
+                            bindings[name] = term
+                        }
+                    }
+                }
+            } else {
+                groupBuckets[groupKey]?.append(result)
+            }
+        }
+        
+        var groups = Array(groupBuckets.values)
+        for (f, comparators, name) in functions {
+            let results = groups.map { (results) -> [TermResult] in
+                var newResults = [TermResult]()
+                for (n, result) in _sortResults(results, comparators: comparators).enumerated() {
+                    var r = result
+                    switch f {
+                    case .rowNumber:
+                        r.extend(variable: name, value: Term(integer: n))
+                    case .rank:
+                        // TODO: assign the same rank to rows with equal comparator values
+                        r.extend(variable: name, value: Term(integer: n))
+                    }
+                    newResults.append(r)
+                }
+                return newResults
+            }
+            groups = results
+        }
+        
+        let results = groups.flatMap { $0 }
+        return AnyIterator(results.makeIterator())
+    }
+    
     func evaluateAggregation(algebra child: Algebra, groups: [Expression], aggregations aggs: [(Aggregation, String)], activeGraph : Term) throws -> AnyIterator<TermResult> {
         let i = try self.evaluate(algebra: child, activeGraph: activeGraph)
         var groupBuckets = [String:[TermResult]]()
@@ -623,6 +724,25 @@ public class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
         }
     }
     
+    private func _sortResults(_ results : [TermResult], comparators: [Algebra.SortComparator]) -> [TermResult] {
+        let s = results.sorted { (a,b) -> Bool in
+            for (ascending, expr) in comparators {
+                guard var lhs = try? expr.evaluate(result: a) else { return true }
+                guard var rhs = try? expr.evaluate(result: b) else { return false }
+                if !ascending {
+                    (lhs, rhs) = (rhs, lhs)
+                }
+                if lhs < rhs {
+                    return true
+                } else if lhs > rhs {
+                    return false
+                }
+            }
+            return false
+        }
+        return s
+    }
+
     public func evaluate(algebra : Algebra, activeGraph : Term) throws -> AnyIterator<TermResult> {
         switch algebra {
         case .triple(let t):
@@ -703,21 +823,7 @@ public class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
             }
         case .order(let child, let orders):
             let results = try Array(self.evaluate(algebra: child, activeGraph: activeGraph))
-            let s = results.sorted { (a,b) -> Bool in
-                for (ascending, expr) in orders {
-                    guard var lhs = try? expr.evaluate(result: a) else { return true }
-                    guard var rhs = try? expr.evaluate(result: b) else { return false }
-                    if !ascending {
-                        (lhs, rhs) = (rhs, lhs)
-                    }
-                    if lhs < rhs {
-                        return true
-                    } else if lhs > rhs {
-                        return false
-                    }
-                }
-                return false
-            }
+            let s = _sortResults(results, comparators: orders)
             return AnyIterator(s.makeIterator())
         case .aggregate(let child, let groups, let aggs):
             if aggs.count == 1 {
@@ -728,6 +834,8 @@ public class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
                 }
             }
             return try evaluateAggregation(algebra: child, groups: groups, aggregations: aggs, activeGraph: activeGraph)
+        case .window(let child, let groups, let funcs):
+            return try evaluateWindow(algebra: child, groups: groups, functions: funcs, activeGraph: activeGraph)
         case .filter(let child, let expr):
             let i = try self.evaluate(algebra: child, activeGraph: activeGraph)
             return AnyIterator {
