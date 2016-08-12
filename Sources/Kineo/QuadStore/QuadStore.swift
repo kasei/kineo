@@ -107,46 +107,41 @@ public class QuadStore : Sequence, QuadStoreProtocol {
     }
     
     public func graphs() -> AnyIterator<Term> {
-        do {
-            guard let table : Table<IDQuad<UInt64>,Empty> = mediator.table(name: "quads") else { throw DatabaseError.DataError("Failed to load quads table") }
-            var pages = table.pages()
-            var graphids = Set<UInt64>()
-            var last : UInt64 = 0
-            while let page = pages.next() {
-                if page.pairs.count > 0 {
-                    let firstPair = page.pairs.first!.0
-                    let lastPair = page.pairs.last!.0
-                    if firstPair[3] == lastPair[3] {
-                        let g = firstPair[3]
+        guard let table : Table<IDQuad<UInt64>,Empty> = mediator.table(name: "quads") else {
+            warn("Failed to load quads table")
+            return AnyIterator { return nil }
+        }
+        
+        let idmap = self.id
+        let pages = table.pages()
+        
+        let x = pages.lazy.map { (page) -> [UInt64] in
+            //            print("--(1) page")
+            if page.pairs.count > 0 {
+                let firstPair = page.pairs.first!.0
+                let lastPair = page.pairs.last!.0
+                if firstPair[3] == lastPair[3] {
+                    let g = firstPair[3]
+                    return [g]
+                } else {
+                    var graphids = Set<UInt64>()
+                    var last : UInt64 = 0
+                    for (quad, _) in page.pairs {
+                        let g = quad[3]
                         if g != last {
                             graphids.insert(g)
-                            last = g
                         }
-                        //                        print("matching graph ID \(first[3])")
-                    } else {
-                        //                        print("mismatched graph ID \(first[3]) \(last[3])")
-                        for (quad, _) in page.pairs {
-                            let g = quad[3]
-                            if g != last {
-                                graphids.insert(g)
-                                last = g
-                            }
-                            //                            print("- \(quad[3])")
-                        }
+                        last = g
                     }
+                    return Array(graphids)
                 }
             }
-            
-            let idmap = self.id
-            let graphs = Array(graphids).map { (gid) -> Term in
-                guard let g = idmap.term(for: gid) else { fatalError() }
-                return g
-            }
-            return AnyIterator(graphs.makeIterator())
-        } catch let e {
-            warn("*** \(e)")
-        }
-        return AnyIterator { return nil }
+            return []
+            }.flatMap { $0 }.map { (gid) -> Term? in
+                return idmap.term(for: gid)
+            }.flatMap { $0 }
+        print(">>>>>> \(x)")
+        return AnyIterator(x.makeIterator())
     }
     
     public func quad(from idquad : IDQuad<UInt64>) -> Quad? {
@@ -866,7 +861,13 @@ extension UInt64 : DefinedTestable {
     }
 }
 
-public struct IDQuad<T : DefinedTestable & Equatable & Comparable & BufferSerializable> : BufferSerializable, Equatable, Comparable, Sequence {
+public struct IDQuad<T : DefinedTestable & Equatable & Comparable & BufferSerializable> : BufferSerializable, Equatable, Comparable, Sequence, Collection {
+    public let startIndex = 0
+    public let endIndex = 4
+    public func index(after: Int) -> Int {
+        return after+1
+    }
+    
     var values : [T]
     public init(_ v0 : T, _ v1 : T, _ v2 : T, _ v3 : T) {
         self.values = [v0,v1,v2,v3]

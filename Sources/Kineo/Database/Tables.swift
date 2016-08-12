@@ -108,7 +108,7 @@ public struct TablePage<T : BufferSerializable & Comparable, U : BufferSerializa
     }
 }
 
-public struct TablePageIterator<T : BufferSerializable & Comparable, U : BufferSerializable> : IteratorProtocol {
+public struct TablePageIterator<T : BufferSerializable & Comparable, U : BufferSerializable> : Sequence, IteratorProtocol {
     let keyType : T.Type
     let valueType : U.Type
     let table : Table<T,U>
