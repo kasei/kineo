@@ -62,13 +62,20 @@ func parseQuery(_ database : FilePageDatabase, filename : String) throws -> Alge
     return try qp.parse()
 }
 
-func query(_ database : FilePageDatabase, algebra query: Algebra) throws -> Int {
+func query(_ database : FilePageDatabase, algebra query: Algebra, graph: Term? = nil) throws -> Int {
     var count       = 0
     try database.read { (m) in
         do {
             let store       = try LanguageQuadStore(mediator: m, acceptLanguages: [("en", 1.0), ("", 0.5)])
 //            let store       = try QuadStore(mediator: m)
-            guard let defaultGraph = store.graphs().next() else { return }
+            
+            var defaultGraph : Term
+            if let g = graph {
+                defaultGraph = g
+            } else {
+                guard let g = store.graphs().next() else { return }
+                defaultGraph = g
+            }
             warn("Using default graph \(defaultGraph)")
             let e           = SimpleQueryEvaluator(store: store, defaultGraph: defaultGraph)
             for result in try e.evaluate(algebra: query, activeGraph: defaultGraph) {
@@ -172,55 +179,56 @@ func printPageInfo(mediator m : FilePageRMediator, name : String, page : PageId)
 }
 
 let verbose = true
-let args = CommandLine.arguments
-let pname = args[0]
+let _args = CommandLine.arguments
+let argscount = _args.count
+var args = PeekableIterator(generator: _args.makeIterator())
+guard let pname = args.next() else { fatalError() }
 var pageSize = 8192
-guard args.count >= 2 else {
+guard argscount >= 2 else {
     print("Usage: \(pname) database.db load rdf.nt")
     print("       \(pname) database.db query query.q")
     print("       \(pname) database.db")
     print("")
     exit(1)
 }
-let filename = args[1]
+
+guard let filename = args.next() else { fatalError() }
 guard let database = FilePageDatabase(filename, size: pageSize) else { warn("Failed to open \(filename)"); exit(1) }
 let startTime = getCurrentTime()
 let startSecond = UInt64(startTime)
 var count = 0
 
-if args.count > 2 {
+if let op = args.next() {
     try setup(database, startTime: startSecond)
-    let op = args[2]
     if op == "load" {
         var graph : Term? = nil
-        var parseArgs = Array(args.suffix(from: 3))
-        if parseArgs.count > 0 {
-            if parseArgs[0] == "-g" {
-                guard parseArgs.count >= 2 else {
-                    warn("No graph IRI present after '-g'")
-                    exit(1)
-                }
-                graph = Term(value: parseArgs[1], type: .iri)
-                parseArgs = Array(parseArgs.suffix(from: 2))
-            }
-            count = try parse(database, files: parseArgs, startTime: startSecond, graph: graph)
+        if let next = args.peek(), next == "-g" {
+            _ = args.next()
+            guard let iri = args.next() else { fatalError("No IRI value given after -g") }
+            graph = Term(value: iri, type: .iri)
         }
+        
+        count = try parse(database, files: args.elements(), startTime: startSecond, graph: graph)
     } else if op == "graphs" {
         count = try graphs(database)
     } else if op == "indexes" {
         count = try indexes(database)
     } else if op == "query" {
-        let qfile = args[3]
+        var graph : Term? = nil
+        if let next = args.peek(), next == "-g" {
+            _ = args.next()
+            guard let iri = args.next() else { fatalError("No IRI value given after -g") }
+            graph = Term(value: iri, type: .iri)
+        }
+        guard let qfile = args.next() else { fatalError("No query file given") }
         guard let algebra = try parseQuery(database, filename: qfile) else { fatalError("Failed to parse query") }
-        count = try query(database, algebra: algebra)
-    } else if op == "qparse" {
-        let qfile = args[3]
+        count = try query(database, algebra: algebra, graph: graph)
+    } else if op == "qparse", let qfile = args.next() {
         guard let algebra = try parseQuery(database, filename: qfile) else { fatalError("Failed to parse query") }
         let s = algebra.serialize()
         count = 1
         print(s)
-    } else if op == "index" {
-        let index = args[3]
+    } else if op == "index", let index = args.next() {
         try database.update(version: startSecond) { (m) in
             do {
                 let store = try QuadStore.create(mediator: m)
@@ -252,7 +260,7 @@ if args.count > 2 {
                 }
             }
             
-            var pages = Array(args.suffix(from: 3).flatMap { Int($0) })
+            var pages = Array(args.elements().flatMap { Int($0) })
             if pages.count == 0 {
                 pages = Array(0..<m.pageCount)
             }
@@ -282,8 +290,8 @@ if args.count > 2 {
         }
     } else if op == "testadd" {
         let name = "testvalues"
-        let key = UInt32(args[3])!
-        let value = args[4]
+        guard let key = UInt32(args.next() ?? "") else { fatalError("Cannot interpret key as an integer") }
+        guard let value = args.next() else { fatalError("No value found") }
         if verbose {
             warn("\(getDateString(seconds: startSecond))")
             warn("Adding pair: \(key) => \(value)...")
@@ -294,7 +302,7 @@ if args.count > 2 {
         }
     } else if op == "testremove" {
         let name = "testvalues"
-        let key = UInt32(args[3])!
+        guard let key = UInt32(args.next() ?? "") else { fatalError("Cannot interpret key as an integer") }
         if verbose {
             warn("\(getDateString(seconds: startSecond))")
             warn("Removing pair for key \(key)...")
@@ -308,7 +316,6 @@ if args.count > 2 {
         exit(1)
     }
 } else {
-//    count = try output(database: database)
     count = try serialize(database)
 }
 

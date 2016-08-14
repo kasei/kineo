@@ -101,23 +101,22 @@ public struct FileReader : LineReadable {
 }
 
 
-struct PeekableIterator<T : IteratorProtocol> : IteratorProtocol {
-    typealias Element = T.Element
-    
+public struct PeekableIterator<T : IteratorProtocol> : IteratorProtocol {
+    public typealias Element = T.Element
     private var generator : T
     private var bufferedElement : Element?
-    internal init(generator _generator: T) {
+    public  init(generator _generator: T) {
         generator = _generator
         bufferedElement = generator.next()
     }
     
-    mutating internal func next() -> Element? {
+    public mutating func next() -> Element? {
         let r = bufferedElement
         bufferedElement = generator.next()
         return r
     }
     
-    internal func peek() -> Element? {
+    public func peek() -> Element? {
         return bufferedElement
     }
 
@@ -128,6 +127,14 @@ struct PeekableIterator<T : IteratorProtocol> : IteratorProtocol {
             }
             _ = next()
         }
+    }
+    
+    mutating public func elements() -> [Element] {
+        var elements = [Element]()
+        while let e = next() {
+            elements.append(e)
+        }
+        return elements
     }
 }
 
