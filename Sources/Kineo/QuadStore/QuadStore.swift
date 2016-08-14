@@ -36,18 +36,16 @@ public class QuadStore : Sequence, QuadStoreProtocol {
     public static func create(mediator : RWMediator) throws -> QuadStore {
         do {
             _ = try PersistentTermIdentityMap(mediator: mediator)
-            _ = try mediator.getRoot(named: "quads")
             _ = try mediator.getRoot(named: defaultIndex)
-            // all the tables and tables seem to be set up
+            // all the trees seem to be set up
             return try QuadStore(mediator: mediator)
         } catch {
             // empty database; set up the trees and tables
             do {
                 _ = try PersistentTermIdentityMap(mediator: mediator)
-                let gspo = [(IDQuad<UInt64>, Empty)]()
-                _ = try mediator.create(table: "quads", pairs: gspo)
                 let store = try QuadStore(mediator: mediator)
-                try store.addQuadIndex(defaultIndex)
+                let pairs : [(IDQuad<UInt64>, Empty)] = []
+                _ = try mediator.create(tree: defaultIndex, pairs: pairs)
                 return store
             } catch let e {
                 warn("*** \(e)")
@@ -70,7 +68,7 @@ public class QuadStore : Sequence, QuadStoreProtocol {
     }
 
     public func load<S : Sequence>(quads : S) throws where S.Iterator.Element == Quad {
-        let treeName = QuadStore.defaultIndex
+        let defaultIndex = QuadStore.defaultIndex
         guard let m = self.mediator as? RWMediator else { throw DatabaseError.PermissionError("Cannot load quads into a read-only quadstore") }
         do {
 //            print("Adding RDF terms to database...")
@@ -79,24 +77,29 @@ public class QuadStore : Sequence, QuadStoreProtocol {
 //            print("Adding RDF triples to database...")
             let empty = Empty()
             
-            let mapping = quadMapping(toOrder: treeName)
-            guard let quadsTree : Tree<IDQuad<UInt64>,Empty> = mediator.tree(name: treeName) else { throw DatabaseError.DataError("Missing default index \(treeName)") }
+            let toIndex = quadMapping(toOrder: defaultIndex)
+            guard let defaultQuadsIndex : Tree<IDQuad<UInt64>,Empty> = m.tree(name: defaultIndex) else { throw DatabaseError.DataError("Missing default index \(defaultIndex)") }
             
             let spog = idquads.sorted().filter { (quadOrder) -> Bool in
                 // do not insert quads more than once
-                let indexOrder = mapping(quadOrder)
-                return !quadsTree.contains(key: indexOrder)
-            }.map { ($0, empty) }
+                let indexOrder = toIndex(quadOrder)
+                return !defaultQuadsIndex.contains(key: indexOrder)
+            }
             
-            
-            
-            _ = try m.append(pairs: spog, toTable: "quads")
-            try addQuadIndex(QuadStore.defaultIndex)
-            
-            
-            
+            for spogquad in spog {
+                let indexOrder = toIndex(spogquad)
+                let pair = (indexOrder, empty)
+                try defaultQuadsIndex.add(pair: pair)
+            }
+
             for secondaryIndex in self.availableQuadIndexes.filter({ $0 != QuadStore.defaultIndex }) {
-                try addQuadIndex(secondaryIndex)
+                guard let secondaryQuadIndex : Tree<IDQuad<UInt64>,Empty> = m.tree(name: secondaryIndex) else { throw DatabaseError.DataError("Missing secondary index \(secondaryIndex)") }
+                let toSecondaryIndex = quadMapping(toOrder: secondaryIndex)
+                let indexOrdered = spog.map { toSecondaryIndex($0) }.sorted()
+                for indexOrder in indexOrdered {
+                    let pair = (indexOrder, empty)
+                    try secondaryQuadIndex.add(pair: pair)
+                }
             }
         } catch let e {
             warn("*** \(e)")
@@ -105,12 +108,21 @@ public class QuadStore : Sequence, QuadStoreProtocol {
     }
 
     public func addQuadIndex(_ index : String) throws {
+        let defaultIndex = QuadStore.defaultIndex
         guard let m = self.mediator as? RWMediator else { throw DatabaseError.PermissionError("Cannot create a quad index in a read-only quadstore") }
         guard String(index.characters.sorted()) == "gops" else { throw DatabaseError.KeyError("Not a valid quad index name: '\(index)'") }
-        guard let table : Table<IDQuad<UInt64>,Empty> = m.table(name: "quads") else { throw DatabaseError.DataError("Failed to load quads table") }
-        let mapping = quadMapping(toOrder: index)
+        guard let defaultQuadsIndex : Tree<IDQuad<UInt64>,Empty> = m.tree(name: defaultIndex) else { throw DatabaseError.DataError("Missing default index \(defaultIndex)") }
+        
+        let toSpog  = try quadMapping(fromOrder: defaultIndex)
+        let toIndex = quadMapping(toOrder: index)
+        
         let empty = Empty()
-        let pairs = table.map { mapping($0.0) }.sorted().map { ($0, empty) }
+        let pairs = defaultQuadsIndex.map { $0.0 }.map { (idquad) -> IDQuad<UInt64> in
+            let spog = toSpog(idquad)
+            let indexOrder = toIndex(spog)
+            return indexOrder
+            }.sorted().map { ($0, empty) }
+        
         _ = try m.create(tree: index, pairs: pairs)
     }
     
@@ -149,27 +161,30 @@ public class QuadStore : Sequence, QuadStoreProtocol {
         return nil
     }
     
+    public func iterator(usingIndex treeName : String) throws -> AnyIterator<Quad> {
+        let mapping = try quadMapping(fromOrder: treeName)
+        let idmap = self.id
+        if let quadsTree : Tree<IDQuad<UInt64>,Empty> = mediator.tree(name: treeName) {
+            let idquads = quadsTree.makeIterator()
+            return AnyIterator {
+                repeat {
+                    guard let pair = idquads.next() else { return nil }
+                    let indexOrderedIDQuad = pair.0
+                    let idquad = mapping(indexOrderedIDQuad)
+                    if let s = idmap.term(for: idquad[0]), let p = idmap.term(for: idquad[1]), let o = idmap.term(for: idquad[2]), let g = idmap.term(for: idquad[3]) {
+                        return Quad(subject: s, predicate: p, object: o, graph: g)
+                    }
+                } while true
+            }
+        } else {
+            throw DatabaseError.KeyError("No such index: \(treeName)")
+        }
+    }
+    
     public func makeIterator() -> AnyIterator<Quad> {
         let treeName = QuadStore.defaultIndex
         do {
-            let mapping = try quadMapping(fromOrder: treeName)
-            let idmap = self.id
-            if let quadsTree : Tree<IDQuad<UInt64>,Empty> = mediator.tree(name: treeName) {
-                let idquads = quadsTree.makeIterator()
-                return AnyIterator {
-                    repeat {
-                        if let pair = idquads.next() {
-                            let indexOrderedIDQuad = pair.0
-                            let idquad = mapping(indexOrderedIDQuad)
-                            if let s = idmap.term(for: idquad[0]), let p = idmap.term(for: idquad[1]), let o = idmap.term(for: idquad[2]), let g = idmap.term(for: idquad[3]) {
-                                return Quad(subject: s, predicate: p, object: o, graph: g)
-                            }
-                        } else {
-                            return nil
-                        }
-                    } while true
-                }
-            }
+            return try iterator(usingIndex: treeName)
         } catch let e {
             warn("*** \(e)")
         }

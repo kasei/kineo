@@ -89,22 +89,35 @@ func query(_ database : FilePageDatabase, algebra query: Algebra, graph: Term? =
     return count
 }
 
-func serialize(_ database : FilePageDatabase) throws -> Int {
+private func printQuad(quad : Quad, lastGraph : Term?) {
+    let s = quad.subject
+    let p = quad.predicate
+    let o = quad.object
+    if quad.graph != lastGraph {
+        print("# GRAPH: \(quad.graph)")
+    }
+    print("\(s) \(p) \(o) .")
+}
+
+func serialize(_ database : FilePageDatabase, index : String? = nil) throws -> Int {
     var count = 0
     try database.read { (m) in
         do {
             let store = try QuadStore(mediator: m)
             var lastGraph : Term? = nil
-            for quad in store {
-                let s = quad.subject
-                let p = quad.predicate
-                let o = quad.object
-                count += 1
-                if quad.graph != lastGraph {
-                    print("# GRAPH: \(quad.graph)")
+            if let index = index {
+                let i = try store.iterator(usingIndex: index)
+                for quad in i {
+                    printQuad(quad: quad, lastGraph: lastGraph)
+                    count += 1
                     lastGraph = quad.graph
                 }
-                print("\(s) \(p) \(o) .")
+            } else {
+                for quad in store {
+                    printQuad(quad: quad, lastGraph: lastGraph)
+                    count += 1
+                    lastGraph = quad.graph
+                }
             }
         } catch let e {
             warn("*** \(e)")
@@ -311,7 +324,10 @@ if let op = args.next() {
             guard let t : Tree<UInt32, String> = m.tree(name: name) else { fatalError("No such tree") }
             try t.remove(key: key)
         }
-} else {
+    } else if op == "dump" {
+        guard let index = args.next() else { fatalError("No index name given") }
+        count = try serialize(database, index: index)
+    } else {
         warn("Unrecognized operation: '\(op)'")
         exit(1)
     }
