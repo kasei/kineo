@@ -87,9 +87,17 @@ public class QuadStore : Sequence, QuadStoreProtocol {
                 let indexOrder = mapping(quadOrder)
                 return !quadsTree.contains(key: indexOrder)
             }.map { ($0, empty) }
+            
+            
+            
             _ = try m.append(pairs: spog, toTable: "quads")
-            // TODO: update all indexes (self.availableQuadIndexes)
             try addQuadIndex(QuadStore.defaultIndex)
+            
+            
+            
+            for secondaryIndex in self.availableQuadIndexes.filter({ $0 != QuadStore.defaultIndex }) {
+                try addQuadIndex(secondaryIndex)
+            }
         } catch let e {
             warn("*** \(e)")
             throw DatabaseUpdateError.rollback
@@ -107,36 +115,21 @@ public class QuadStore : Sequence, QuadStoreProtocol {
     }
     
     public func graphs() -> AnyIterator<Term> {
-        guard let table : Table<IDQuad<UInt64>,Empty> = mediator.table(name: "quads") else {
-            warn("Failed to load quads table")
+        guard let mapping = try? quadMapping(fromOrder: QuadStore.defaultIndex) else {
+            warn("Failed to compute mapping for quad index order \(QuadStore.defaultIndex)")
+            return AnyIterator { return nil }
+        }
+        guard let quadsTree : Tree<IDQuad<UInt64>,Empty> = mediator.tree(name: QuadStore.defaultIndex) else {
+            warn("Failed to load default index \(QuadStore.defaultIndex)")
             return AnyIterator { return nil }
         }
         
-        let idmap = self.id
-        let pages = table.pages()
-        
         var seen = Set<UInt64>()
-        let x = pages.lazy.map { (page) -> [UInt64] in
-            if page.pairs.count > 0 {
-                let firstPair = page.pairs.first!.0
-                let lastPair = page.pairs.last!.0
-                if firstPair[3] == lastPair[3] {
-                    let g = firstPair[3]
-                    return [g]
-                } else {
-                    var graphids = Set<UInt64>()
-                    var last : UInt64 = 0
-                    for (quad, _) in page.pairs {
-                        let g = quad[3]
-                        if g != last {
-                            graphids.insert(g)
-                        }
-                        last = g
-                    }
-                    return Array(graphids)
-                }
-            }
-            return []
+        let idmap = self.id
+        let graphs = quadsTree.lazy.map {
+            mapping($0.0)
+        }.map { (idquad) in
+            idquad[3]
         }.flatMap { $0 }.filter { (gid) -> Bool in
             let s = seen.contains(gid)
             seen.insert(gid)
@@ -144,8 +137,8 @@ public class QuadStore : Sequence, QuadStoreProtocol {
         }.map { (gid) -> Term? in
             return idmap.term(for: gid)
         }.flatMap { $0 }
-        
-        return AnyIterator(x.makeIterator())
+    
+        return AnyIterator(graphs.makeIterator())
     }
     
     public func quad(from idquad : IDQuad<UInt64>) -> Quad? {
@@ -162,7 +155,6 @@ public class QuadStore : Sequence, QuadStoreProtocol {
             let mapping = try quadMapping(fromOrder: treeName)
             let idmap = self.id
             if let quadsTree : Tree<IDQuad<UInt64>,Empty> = mediator.tree(name: treeName) {
-//            if let quadsTable : Table<IDQuad<UInt64>,Empty> = mediator.table(name: "quads") {
                 let idquads = quadsTree.makeIterator()
                 return AnyIterator {
                     repeat {
