@@ -115,6 +115,7 @@ public class QuadStore : Sequence, QuadStoreProtocol {
         let idmap = self.id
         let pages = table.pages()
         
+        var seen = Set<UInt64>()
         let x = pages.lazy.map { (page) -> [UInt64] in
             if page.pairs.count > 0 {
                 let firstPair = page.pairs.first!.0
@@ -136,9 +137,14 @@ public class QuadStore : Sequence, QuadStoreProtocol {
                 }
             }
             return []
-            }.flatMap { $0 }.map { (gid) -> Term? in
-                return idmap.term(for: gid)
-            }.flatMap { $0 }
+        }.flatMap { $0 }.filter { (gid) -> Bool in
+            let s = seen.contains(gid)
+            seen.insert(gid)
+            return !s
+        }.map { (gid) -> Term? in
+            return idmap.term(for: gid)
+        }.flatMap { $0 }
+        
         return AnyIterator(x.makeIterator())
     }
     
