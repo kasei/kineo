@@ -116,7 +116,6 @@ public class QuadStore : Sequence, QuadStoreProtocol {
         let pages = table.pages()
         
         let x = pages.lazy.map { (page) -> [UInt64] in
-            //            print("--(1) page")
             if page.pairs.count > 0 {
                 let firstPair = page.pairs.first!.0
                 let lastPair = page.pairs.last!.0
@@ -140,7 +139,6 @@ public class QuadStore : Sequence, QuadStoreProtocol {
             }.flatMap { $0 }.map { (gid) -> Term? in
                 return idmap.term(for: gid)
             }.flatMap { $0 }
-        print(">>>>>> \(x)")
         return AnyIterator(x.makeIterator())
     }
     
