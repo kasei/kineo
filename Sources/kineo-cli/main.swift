@@ -191,7 +191,7 @@ func printPageInfo(mediator m : FilePageRMediator, name : String, page : PageId)
     }
 }
 
-let verbose = true
+var verbose = false
 let _args = CommandLine.arguments
 let argscount = _args.count
 var args = PeekableIterator(generator: _args.makeIterator())
@@ -286,6 +286,11 @@ if let op = args.next() {
                 let name = roots[pid] ?? "_"
                 printPageInfo(mediator: m, name : name, page : pid)
             }
+        }
+    } else if op == "dot" {
+        try database.read { (m) in
+            let indexName = args.next() ?? QuadStore.defaultIndex
+            m.printTreeDOT(name: indexName)
         }
     } else if op == "testcreate" {
         if verbose {
