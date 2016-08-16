@@ -1073,6 +1073,8 @@ extension RMediator {
     
     private func printTreeDOT(page pid : PageId) -> [PageId]? {
         do {
+            guard let fm = self as? FilePageRMediator else { fatalError("Cannot serialize trees to DOT with this database mediator") }
+            guard let (_, date, _) = fm._pageInfo(page: pid) else { fatalError() }
             let (node, _) : (TreeNode<Empty,Empty>, PageStatus) = try self.readPage(pid)
             let nodeName = "p\(pid)"
             var attributes = [String]()
@@ -1080,14 +1082,14 @@ extension RMediator {
             switch node {
             case .leafNode(let l):
                 let type = pairName(l.typeCode)
-                label = "[\(pid)] \(type) leaf (\(l.pairs.count) pairs)"
+                label = "[\(pid)] \(type) leaf (\(l.pairs.count) pairs) \(date)"
                 attributes.append("label=\"\(label)\"")
                 attributes.append("shape=box")
                 print("\(nodeName) [\(attributes.joined(separator: ", "))]")
                 return []
             case .internalNode(let i):
                 let type = pairName(i.typeCode)
-                label = "[\(pid)] \(type) internal (\(i.pairs.count) children, \(i.totalCount) total)"
+                label = "[\(pid)] \(type) internal (\(i.pairs.count) children, \(i.totalCount) total) \(date)"
                 attributes.append("label=\"\(label)\"")
                 print("\(nodeName) [\(attributes.joined(separator: ", "))]")
                 var children = [PageId]()
