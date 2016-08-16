@@ -15,7 +15,7 @@ public protocol QuadStoreProtocol : Sequence {
     func quads(matching pattern: QuadPattern) throws -> AnyIterator<Quad>
 }
 
-public class QuadStore : Sequence, QuadStoreProtocol {
+open class QuadStore : Sequence, QuadStoreProtocol {
     typealias IDType = UInt64
     static let defaultIndex = "pogs"
     internal var mediator : RMediator
@@ -1095,7 +1095,7 @@ public struct IDResult : CustomStringConvertible, ResultProtocol {
     }
 }
 
-public class LanguageQuadStore : QuadStore {
+open class LanguageQuadStore : QuadStore {
     var acceptLanguages : [(String,Double)]
     public init(mediator : RMediator, acceptLanguages: [(String,Double)], mutable : Bool = false) throws {
         self.acceptLanguages = acceptLanguages

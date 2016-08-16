@@ -8,7 +8,7 @@
 
 import Foundation
 
-public class NTriplesParser<T : LineReadable> : Sequence {
+open class NTriplesParser<T : LineReadable> : Sequence {
     var blanks : [String:Term]
     let reader : T
     public init(reader : T) {
@@ -208,7 +208,7 @@ public class NTriplesParser<T : LineReadable> : Sequence {
     }
 }
 
-public class NTriplesPatternParser<T : LineReadable> : NTriplesParser<T> {
+open class NTriplesPatternParser<T : LineReadable> : NTriplesParser<T> {
     public override init(reader : T) {
         super.init(reader: reader)
     }

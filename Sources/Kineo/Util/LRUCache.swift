@@ -127,7 +127,7 @@ class LinkedList<K : Equatable & Hashable, V> : Sequence {
     }
 }
 
-public class LRUCache<K : Equatable & Hashable, V> : Sequence {
+open class LRUCache<K : Equatable & Hashable, V> : Sequence {
     var dict : [K:LinkedListNode<K,V>]
     public var capacity : Int
     var list = LinkedList<K,V>()

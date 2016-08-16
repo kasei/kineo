@@ -183,7 +183,7 @@ public final class FilePageDatabase : Database {
     }
 }
 
-public class FilePageRMediator : RMediator {
+open class FilePageRMediator : RMediator {
     public typealias Database = FilePageDatabase
     
     var database : FilePageDatabase
@@ -285,7 +285,7 @@ public class FilePageRMediator : RMediator {
     }
 }
 
-public class FilePageRWMediator : FilePageRMediator, RWMediator {
+open class FilePageRWMediator : FilePageRMediator, RWMediator {
     public typealias Database = FilePageDatabase
     private var roots : [String:PageId]
     private var dirty : [PageId:PageMarshalled]

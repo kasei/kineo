@@ -216,7 +216,7 @@ public indirect enum Algebra {
     }
 }
 
-public class QueryParser<T : LineReadable> {
+open class QueryParser<T : LineReadable> {
     let reader : T
     var stack : [Algebra]
     public init(reader : T) {
@@ -409,7 +409,7 @@ public class QueryParser<T : LineReadable> {
     }
 }
 
-public class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
+open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
     var store : Q
     var defaultGraph : Term
     public init(store : Q, defaultGraph : Term) {
