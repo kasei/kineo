@@ -205,10 +205,15 @@ guard argscount >= 2 else {
     exit(1)
 }
 
+if let next = args.peek(), next == "-v" {
+    _ = args.next()
+    verbose = true
+}
+
 guard let filename = args.next() else { fatalError() }
 guard let database = FilePageDatabase(filename, size: pageSize) else { warn("Failed to open \(filename)"); exit(1) }
 let startTime = getCurrentTime()
-let startSecond = UInt64(startTime)
+let startSecond = getCurrentDateSeconds()
 var count = 0
 
 if let op = args.next() {
