@@ -17,7 +17,7 @@ public protocol QuadStoreProtocol : Sequence {
 
 open class QuadStore : Sequence, QuadStoreProtocol {
     typealias IDType = UInt64
-    static let defaultIndex = "pogs"
+    static public let defaultIndex = "pogs"
     internal var mediator : RMediator
     public let readonly : Bool
     public var id : PersistentTermIdentityMap
