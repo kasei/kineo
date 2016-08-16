@@ -629,7 +629,7 @@ public class PersistentTermIdentityMap : IdentityMap, Sequence {
 }
 
 extension PersistentTermIdentityMap {
-    private func unpack(id: Result) -> Element? {
+    fileprivate func unpack(id: Result) -> Element? {
         let byte = id >> 56
         let value = id & 0x00ffffffffffffff
         // TODO: unpack xsd:dateTime
@@ -652,7 +652,7 @@ extension PersistentTermIdentityMap {
         }
     }
     
-    private func pack(value: Element) -> Result? {
+    fileprivate func pack(value: Element) -> Result? {
         switch (value.type, value.value) {
         // TODO: pack xsd:dateTime
         // TODO: pack xsd:boolean
@@ -687,11 +687,12 @@ extension PersistentTermIdentityMap {
     private func unpack(string value: UInt64) -> Element? {
         var buffer = value.bigEndian
         var string : String? = nil
-        withUnsafePointer(&buffer) { (p) in
-            let bytes = UnsafePointer<CChar>(p)
+        withUnsafePointer(to: &buffer) { (p) in
             var chars = [CChar]()
-            for i in 1...7 {
-                chars.append(CChar(bytes[i]))
+            p.withMemoryRebound(to: CChar.self, capacity: 8) { (charsptr) in
+                for i in 1...7 {
+                    chars.append(charsptr[i])
+                }
             }
             chars.append(0)
             chars.withUnsafeBufferPointer { (q) in
@@ -904,7 +905,7 @@ public struct IDQuad<T : DefinedTestable & Equatable & Comparable & BufferSerial
     }
     
     public var serializedSize : Int { return 4 * _sizeof(T.self) }
-    public func serialize(to buffer : inout UnsafeMutablePointer<Void>, mediator: RWMediator?, maximumSize: Int) throws {
+    public func serialize(to buffer : inout UnsafeMutableRawPointer, mediator: RWMediator?, maximumSize: Int) throws {
         if serializedSize > maximumSize { throw DatabaseError.OverflowError("Cannot serialize IDQuad in available space") }
         //        print("serializing quad \(subject) \(predicate) \(object) \(graph)")
         try self[0].serialize(to: &buffer)
@@ -913,7 +914,7 @@ public struct IDQuad<T : DefinedTestable & Equatable & Comparable & BufferSerial
         try self[3].serialize(to: &buffer)
     }
     
-    public static func deserialize(from buffer : inout UnsafePointer<Void>, mediator : RMediator?=nil) throws -> IDQuad {
+    public static func deserialize(from buffer : inout UnsafeRawPointer, mediator : RMediator?=nil) throws -> IDQuad {
         let v0      = try T.deserialize(from: &buffer, mediator: mediator)
         let v1      = try T.deserialize(from: &buffer, mediator: mediator)
         let v2      = try T.deserialize(from: &buffer, mediator: mediator)

@@ -71,73 +71,73 @@ public enum TermType : BufferSerializable {
             return 1 + dt.serializedSize
         }
     }
-    public func serialize(to buffer : inout UnsafeMutablePointer<Void>, mediator: RWMediator?, maximumSize: Int) throws {
+    public func serialize(to buffer : inout UnsafeMutableRawPointer, mediator: RWMediator?, maximumSize: Int) throws {
         if serializedSize > maximumSize { throw DatabaseError.OverflowError("Cannot serialize TermType in available space") }
         switch self {
         case .language("de"):
-            UnsafeMutablePointer<UInt8>(buffer).pointee = 200
+            buffer.assumingMemoryBound(to: UInt8.self).pointee = 200
             buffer += 1
         case .language("en"):
-            UnsafeMutablePointer<UInt8>(buffer).pointee = 201
+            buffer.assumingMemoryBound(to: UInt8.self).pointee = 201
             buffer += 1
         case .language("es"):
-            UnsafeMutablePointer<UInt8>(buffer).pointee = 202
+            buffer.assumingMemoryBound(to: UInt8.self).pointee = 202
             buffer += 1
         case .language("fr"):
-            UnsafeMutablePointer<UInt8>(buffer).pointee = 203
+            buffer.assumingMemoryBound(to: UInt8.self).pointee = 203
             buffer += 1
         case .language("ja"):
-            UnsafeMutablePointer<UInt8>(buffer).pointee = 204
+            buffer.assumingMemoryBound(to: UInt8.self).pointee = 204
             buffer += 1
         case .language("nl"):
-            UnsafeMutablePointer<UInt8>(buffer).pointee = 205
+            buffer.assumingMemoryBound(to: UInt8.self).pointee = 205
             buffer += 1
         case .language("pt"):
-            UnsafeMutablePointer<UInt8>(buffer).pointee = 206
+            buffer.assumingMemoryBound(to: UInt8.self).pointee = 206
             buffer += 1
         case .language("ru"):
-            UnsafeMutablePointer<UInt8>(buffer).pointee = 207
+            buffer.assumingMemoryBound(to: UInt8.self).pointee = 207
             buffer += 1
         case .language("en-US"):
-            UnsafeMutablePointer<UInt8>(buffer).pointee = 255
+            buffer.assumingMemoryBound(to: UInt8.self).pointee = 255
             buffer += 1
         case .datatype("http://www.w3.org/2001/XMLSchema#float"):
-            UnsafeMutablePointer<UInt8>(buffer).pointee = 10
+            buffer.assumingMemoryBound(to: UInt8.self).pointee = 10
             buffer += 1
         case .datatype("http://www.w3.org/2001/XMLSchema#integer"):
-            UnsafeMutablePointer<UInt8>(buffer).pointee = 9
+            buffer.assumingMemoryBound(to: UInt8.self).pointee = 9
             buffer += 1
         case .datatype("http://www.w3.org/2001/XMLSchema#decimal"):
-            UnsafeMutablePointer<UInt8>(buffer).pointee = 8
+            buffer.assumingMemoryBound(to: UInt8.self).pointee = 8
             buffer += 1
         case .datatype("http://www.w3.org/2001/XMLSchema#dateTime"):
-            UnsafeMutablePointer<UInt8>(buffer).pointee = 7
+            buffer.assumingMemoryBound(to: UInt8.self).pointee = 7
             buffer += 1
         case .datatype("http://www.w3.org/2001/XMLSchema#date"):
-            UnsafeMutablePointer<UInt8>(buffer).pointee = 6
+            buffer.assumingMemoryBound(to: UInt8.self).pointee = 6
             buffer += 1
         case .datatype("http://www.w3.org/2001/XMLSchema#string"):
-            UnsafeMutablePointer<UInt8>(buffer).pointee = 5
+            buffer.assumingMemoryBound(to: UInt8.self).pointee = 5
             buffer += 1
         case .iri:
-            UnsafeMutablePointer<UInt8>(buffer).pointee = 1
+            buffer.assumingMemoryBound(to: UInt8.self).pointee = 1
             buffer += 1
         case .blank:
-            UnsafeMutablePointer<UInt8>(buffer).pointee = 2
+            buffer.assumingMemoryBound(to: UInt8.self).pointee = 2
             buffer += 1
         case .language(let l):
-            UnsafeMutablePointer<UInt8>(buffer).pointee = 3
+            buffer.assumingMemoryBound(to: UInt8.self).pointee = 3
             buffer += 1
             try l.serialize(to: &buffer)
         case .datatype(let dt):
-            UnsafeMutablePointer<UInt8>(buffer).pointee = 4
+            buffer.assumingMemoryBound(to: UInt8.self).pointee = 4
             buffer += 1
             try dt.serialize(to: &buffer)
         }
     }
 
-    public static func deserialize(from buffer : inout UnsafePointer<Void>, mediator : RMediator?=nil) throws -> TermType {
-        let type = UnsafeMutablePointer<UInt8>(buffer).pointee
+    public static func deserialize(from buffer : inout UnsafeRawPointer, mediator : RMediator?=nil) throws -> TermType {
+        let type = buffer.assumingMemoryBound(to: UInt8.self).pointee
         buffer += 1
         
         switch type {
@@ -455,13 +455,13 @@ extension Term : BufferSerializable {
     public var serializedSize : Int {
         return type.serializedSize + value.serializedSize
     }
-    public func serialize(to buffer : inout UnsafeMutablePointer<Void>, mediator: RWMediator?, maximumSize: Int) throws {
+    public func serialize(to buffer : inout UnsafeMutableRawPointer, mediator: RWMediator?, maximumSize: Int) throws {
         if serializedSize > maximumSize { throw DatabaseError.OverflowError("Cannot serialize Term in available space") }
         try type.serialize(to: &buffer)
         try value.serialize(to: &buffer)
     }
     
-    public static func deserialize(from buffer : inout UnsafePointer<Void>, mediator : RMediator?=nil) throws -> Term {
+    public static func deserialize(from buffer : inout UnsafeRawPointer, mediator : RMediator?=nil) throws -> Term {
         do {
             let type    = try TermType.deserialize(from: &buffer)
             let value   = try String.deserialize(from: &buffer)

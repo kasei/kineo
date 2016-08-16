@@ -203,7 +203,7 @@ public class Tree<T : BufferSerializable & Comparable, U : BufferSerializable> :
         }
     }
     
-    public func walk(between: (T,T), onPairs: @noescape ([(T,U)]) throws -> ()) throws {
+    public func walk(between: (T,T), onPairs: ([(T,U)]) throws -> ()) throws {
         let (node, _) : (TreeNode<T,U>, PageStatus) = try mediator.readPage(root)
         var elements = [(T,U)]()
         _ = try? node.walk(mediator: mediator, between: between) { (leaf) in
@@ -540,7 +540,7 @@ public final class TreeLeaf<T : BufferSerializable & Comparable, U : BufferSeria
         try self.init(version: version, pageSize: pageSize, typeCode: serializationCode(T.self, U.self), pairs: pairs)
     }
     
-    convenience init?(mediator : RMediator, buffer : UnsafePointer<Void>, status: PageStatus) {
+    convenience init?(mediator : RMediator, buffer : UnsafeRawPointer, status: PageStatus) {
         guard let (_, version, typeCode, previousPage, _, gen) = try? buffer.deserializeTree(mediator: mediator, type: .leafTreeNode, pageSize: mediator.pageSize, keyType: T.self, valueType: U.self) else { return nil }
         let pairs = Array(gen)
         do {
@@ -572,7 +572,7 @@ public final class TreeLeaf<T : BufferSerializable & Comparable, U : BufferSeria
         self.max = self.pairs.last!.0
     }
     
-    func serialize(to buffer: UnsafeMutablePointer<Void>, pageSize : Int) throws {
+    func serialize(to buffer: UnsafeMutableRawPointer, pageSize : Int) throws {
         let cookie      = DatabaseInfo.Cookie.leafTreeNode
         let config1     = serializationCode(T.self, U.self)
         var config2     = UInt32(0)
@@ -657,7 +657,7 @@ public final class TreeInternal<T : BufferSerializable & Comparable> {
         try! self.init(version: version, pageSize: pageSize, totalCount: totalCount, typeCode: serializationCode(T.self, PageId.self), pairs: pairs)
     }
     
-    convenience init?(mediator : RMediator, buffer : UnsafePointer<Void>, status: PageStatus) {
+    convenience init?(mediator : RMediator, buffer : UnsafeRawPointer, status: PageStatus) {
         guard let (_, version, typeCode, previousPage, totalCount, gen) = try? buffer.deserializeTree(mediator: mediator, type: .internalTreeNode, pageSize: mediator.pageSize, keyType: T.self, valueType: PageId.self) else { return nil }
         let pairs = Array(gen)
         do {
@@ -689,7 +689,7 @@ public final class TreeInternal<T : BufferSerializable & Comparable> {
         self.max = self.pairs.last!.0
     }
     
-    func serialize(to buffer : UnsafeMutablePointer<Void>, pageSize : Int) throws {
+    func serialize(to buffer : UnsafeMutableRawPointer, pageSize : Int) throws {
         let cookie      = DatabaseInfo.Cookie.internalTreeNode
         let config1     = serializationCode(T.self, PageId.self)
         var config2     = UInt32(0)
@@ -762,7 +762,7 @@ internal enum TreeNode<T : BufferSerializable & Comparable, U : BufferSerializab
     }
     
     // TODO: make an Iterator version of this method
-    func walk(mediator : RMediator, between: (T,T), onEachLeaf cb: @noescape (TreeLeaf<T,U>) throws -> ()) throws {
+    func walk(mediator : RMediator, between: (T,T), onEachLeaf cb: (TreeLeaf<T,U>) throws -> ()) throws {
         switch self {
         case .leafNode(let l):
             try cb(l)
@@ -786,7 +786,7 @@ internal enum TreeNode<T : BufferSerializable & Comparable, U : BufferSerializab
     }
     
     // TODO: make an Iterator version of this method
-    func walk(mediator : RMediator, in range: Range<T>, onEachLeaf cb: @noescape (TreeLeaf<T,U>) throws -> ()) throws {
+    func walk(mediator : RMediator, in range: Range<T>, onEachLeaf cb: (TreeLeaf<T,U>) throws -> ()) throws {
         switch self {
         case .leafNode(let l):
             try cb(l)
@@ -810,7 +810,7 @@ internal enum TreeNode<T : BufferSerializable & Comparable, U : BufferSerializab
     }
     
     // TODO: make an Iterator version of this method
-    func walk(mediator : RMediator, onEachLeaf cb: @noescape (TreeLeaf<T,U>) throws -> ()) throws {
+    func walk(mediator : RMediator, onEachLeaf cb: (TreeLeaf<T,U>) throws -> ()) throws {
         switch self {
         case .leafNode(let l):
             try cb(l)
@@ -906,7 +906,7 @@ internal enum TreeNode<T : BufferSerializable & Comparable, U : BufferSerializab
         return maxKey
     }
     
-    static func deserialize(from buffer: UnsafePointer<Void>, status: PageStatus, mediator : RMediator) throws -> TreeNode<T,U> {
+    static func deserialize(from buffer: UnsafeRawPointer, status: PageStatus, mediator : RMediator) throws -> TreeNode<T,U> {
         var ptr = buffer
         guard let cookie = DatabaseInfo.Cookie(rawValue: try UInt32.deserialize(from: &ptr)) else { throw DatabaseError.DataError("Bad tree node cookie") }
         if cookie == .leafTreeNode {
@@ -926,7 +926,7 @@ internal enum TreeNode<T : BufferSerializable & Comparable, U : BufferSerializab
         }
     }
     
-    func serialize(to buffer: UnsafeMutablePointer<Void>, status: PageStatus, mediator : RWMediator) throws {
+    func serialize(to buffer: UnsafeMutableRawPointer, status: PageStatus, mediator : RWMediator) throws {
         switch self {
         case .leafNode(let l):
             try l.serialize(to: buffer, pageSize: mediator.pageSize)
@@ -936,25 +936,9 @@ internal enum TreeNode<T : BufferSerializable & Comparable, U : BufferSerializab
     }
 }
 
-private extension UnsafePointer {
-    func deserialize<T : BufferSerializable & Comparable, U : BufferSerializable>(mediator : RMediator, type : DatabaseInfo.Cookie, status: PageStatus, pageSize : Int, keyType : T.Type, valueType : U.Type) throws -> TreeNode<T,U> {
-        var ptr = UnsafePointer<Void>(self)
-        guard let cookie = DatabaseInfo.Cookie(rawValue: try UInt32.deserialize(from: &ptr)) else { throw DatabaseError.DataError("Bad tree node cookie") }
-        if cookie == .leafTreeNode {
-            if let leaf : TreeLeaf<T,U> = TreeLeaf(mediator: mediator, buffer: self, status: status) {
-                return TreeNode.leafNode(leaf)
-            }
-            throw DatabaseError.DataError("Failed to construct tree leaf node from buffer")
-        } else {
-            if let i : TreeInternal<T> = TreeInternal(mediator: mediator, buffer: self, status: status) {
-                return TreeNode.internalNode(i)
-            }
-            throw DatabaseError.DataError("Failed to construct tree internal node from buffer")
-        }
-    }
-    
+private extension UnsafeRawPointer {
     func deserializeTree<T : BufferSerializable & Comparable, U : BufferSerializable>(mediator : RMediator, type : DatabaseInfo.Cookie, pageSize : Int, keyType : T.Type, valueType : U.Type) throws -> (UInt32, UInt64, UInt32, UInt32, UInt64, AnyIterator<(T,U)>) {
-        let rawMemory   = UnsafePointer<Void>(self)
+        let rawMemory   = UnsafeRawPointer(self)
         var ptr         = rawMemory
         let cookie      = try UInt32.deserialize(from: &ptr)
         let version     = try UInt64.deserialize(from: &ptr)
@@ -978,9 +962,27 @@ private extension UnsafePointer {
         }
         return (cookie, version, config1, config2, totalCount, gen)
     }
+}
+
+private extension UnsafePointer {
+    func deserialize<T : BufferSerializable & Comparable, U : BufferSerializable>(mediator : RMediator, type : DatabaseInfo.Cookie, status: PageStatus, pageSize : Int, keyType : T.Type, valueType : U.Type) throws -> TreeNode<T,U> {
+        var ptr = UnsafeRawPointer(self)
+        guard let cookie = DatabaseInfo.Cookie(rawValue: try UInt32.deserialize(from: &ptr)) else { throw DatabaseError.DataError("Bad tree node cookie") }
+        if cookie == .leafTreeNode {
+            if let leaf : TreeLeaf<T,U> = TreeLeaf(mediator: mediator, buffer: self, status: status) {
+                return TreeNode.leafNode(leaf)
+            }
+            throw DatabaseError.DataError("Failed to construct tree leaf node from buffer")
+        } else {
+            if let i : TreeInternal<T> = TreeInternal(mediator: mediator, buffer: self, status: status) {
+                return TreeNode.internalNode(i)
+            }
+            throw DatabaseError.DataError("Failed to construct tree internal node from buffer")
+        }
+    }
     
     private func treeNode<T : BufferSerializable & Comparable, U: BufferSerializable>(mediator : RMediator, status : PageStatus) throws -> TreeNode<T, U> {
-        let buffer = UnsafePointer<Void>(self)
+        let buffer = UnsafeRawPointer(self)
         var ptr = buffer
         guard let cookie = DatabaseInfo.Cookie(rawValue: try UInt32.deserialize(from: &ptr)) else { throw DatabaseError.DataError("Bad tree node cookie") }
         if cookie == .leafTreeNode {
@@ -1002,9 +1004,9 @@ private extension UnsafePointer {
     
 }
 
-extension UnsafeMutablePointer {
+extension UnsafeMutableRawPointer {
     @inline(__always) internal func writeTreeHeader(type : DatabaseInfo.Cookie, version : UInt64, config1 : UInt32, config2 : UInt32, totalCount : UInt64, count : UInt32) throws -> Int {
-        let buffer = UnsafeMutablePointer<Void>(self)
+        let buffer = UnsafeMutableRawPointer(self)
         var ptr = buffer
         try type.rawValue.serialize(to: &ptr)
         try version.serialize(to: &ptr)

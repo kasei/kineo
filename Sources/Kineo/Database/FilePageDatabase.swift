@@ -27,20 +27,20 @@ public struct DatabaseHeaderPage : PageMarshalled {
         self.roots = roots
     }
     
-    public static func deserializeHeaderMetadata(from buffer: UnsafePointer<Void>, status: PageStatus) throws -> (UInt32, UInt64, Int) {
-        let rawMemory = UnsafePointer<UInt8>(buffer)
-        let cookie = UInt32(bigEndian: UnsafeMutablePointer<UInt32>(rawMemory+0).pointee)
-        let version = UInt64(bigEndian: UnsafePointer<UInt64>(rawMemory+4).pointee)
-        let pageSize = UInt32(bigEndian: UnsafeMutablePointer<UInt32>(rawMemory+12).pointee)
+    public static func deserializeHeaderMetadata(from buffer: UnsafeRawPointer, status: PageStatus) throws -> (UInt32, UInt64, Int) {
+        let rawMemory = buffer.assumingMemoryBound(to: UInt8.self)
+        let cookie = UInt32(bigEndian: rawMemory.withMemoryRebound(to: UInt32.self, capacity: 1) { $0[0] })
+        let version = UInt64(bigEndian: rawMemory.withMemoryRebound(to: UInt64.self, capacity: 2) { $0[1] })
+        let pageSize = UInt32(bigEndian: rawMemory.withMemoryRebound(to: UInt32.self, capacity: 4) { $0[3] })
         return (cookie, version, Int(pageSize))
     }
     
-    public static func deserialize(from buffer: UnsafePointer<Void>, status: PageStatus, mediator : RMediator) throws -> DatabaseHeaderPage {
+    public static func deserialize(from buffer: UnsafeRawPointer, status: PageStatus, mediator : RMediator) throws -> DatabaseHeaderPage {
         let (cookie, version, _) = try self.deserializeHeaderMetadata(from: buffer, status: status)
-        let rawMemory = UnsafePointer<UInt8>(buffer)
+        let rawMemory = buffer.assumingMemoryBound(to: UInt8.self)
         guard cookie == DatabaseInfo.Cookie.databaseHeader.rawValue else { throw DatabaseError.DataError("Table page has bad header cookie") }
-        let count = UInt32(bigEndian: UnsafeMutablePointer<UInt32>(rawMemory+16).pointee)
-        var payloadPtr = UnsafePointer<Void>(rawMemory+20)
+        let count = UInt32(bigEndian: rawMemory.withMemoryRebound(to: UInt32.self, capacity: 5) { $0[4] })
+        var payloadPtr = UnsafeRawPointer(rawMemory+20)
         
         var roots = [(String, PageId)]()
         for _ in 0..<count {
@@ -51,14 +51,16 @@ public struct DatabaseHeaderPage : PageMarshalled {
         return DatabaseHeaderPage(version: version, roots: roots)
     }
     
-    public func serialize(to buffer: UnsafeMutablePointer<Void>, status: PageStatus, mediator : RWMediator) throws {
+    public func serialize(to buffer: UnsafeMutableRawPointer, status: PageStatus, mediator : RWMediator) throws {
         let pageSize = mediator.pageSize
         try self.serialize(to: buffer, status: status, pageSize: pageSize)
     }
     
-    public func serialize(to buffer: UnsafeMutablePointer<Void>, status: PageStatus, pageSize: Int) throws {
-        for _ in 0..<pageSize {
-            UnsafeMutablePointer<UInt8>(buffer).pointee = 0
+    public func serialize(to buffer: UnsafeMutableRawPointer, status: PageStatus, pageSize: Int) throws {
+        buffer.bindMemory(to: UInt8.self, capacity: pageSize).withMemoryRebound(to: UInt8.self, capacity: pageSize) { (p) in
+            for i in 0..<pageSize {
+                p[i] = 0
+            }
         }
         var ptr = buffer
         try DatabaseInfo.Cookie.databaseHeader.rawValue.serialize(to: &ptr)
@@ -106,7 +108,7 @@ public final class FilePageDatabase : Database {
         if size == 0 {
             let version : UInt64 = 0
             pageSize = _pageSize
-            let b = UnsafeMutablePointer<Void>.allocate(capacity: pageSize)
+            let b = UnsafeMutableRawPointer.allocate(bytes: pageSize, alignedTo: 0)
             do {
                 let header = DatabaseHeaderPage(version: version, roots: [("sys",0)])
                 try header.serialize(to: b, status: .unassigned, pageSize: pageSize)
@@ -114,11 +116,14 @@ public final class FilePageDatabase : Database {
             guard pwrite(fd, b, pageSize, 0) != -1 else { return nil }
             size = pageSize
             pageCount = 1
-            b.deinitialize(count: pageSize)
-            b.deallocate(capacity: pageSize)
+//            b.deinitialize(count: pageSize)
+            b.deallocate(bytes: pageSize, alignedTo: 0)
         } else {
-            let b = UnsafeMutablePointer<Void>.allocate(capacity: 16)
-            defer { b.deinitialize(count: 16); b.deallocate(capacity: 16) }
+            let b = UnsafeMutableRawPointer.allocate(bytes: 16, alignedTo: 4)
+            defer {
+//                b.deinitialize(count: 16)
+                b.deallocate(bytes: 16, alignedTo: 0)
+            }
             let sr = pread(fd, b, 16, off_t(0))
             guard sr == 16 else { return nil }
             do {
@@ -135,7 +140,7 @@ public final class FilePageDatabase : Database {
         nextPageId = pageCount
     }
     
-    public func read(cb : @noescape (ReadMediator) -> ()) throws {
+    public func read(cb : (ReadMediator) -> ()) throws {
         let r = FilePageRMediator(database: self)
         #if os (OSX)
             autoreleasepool { cb(r) }
@@ -144,7 +149,7 @@ public final class FilePageDatabase : Database {
         #endif
     }
     
-    public func update(version : Version, cb : @noescape (UpdateMediator) throws -> ()) throws {
+    public func update(version : Version, cb : (UpdateMediator) throws -> ()) throws {
         let w = FilePageRWMediator(database: self, version: version)
         #if os (OSX)
             let caughtError = autoreleasepool { () -> Error? in
@@ -185,16 +190,16 @@ public class FilePageRMediator : RMediator {
     public var pageSize : Int { return database.pageSize }
     public var pageCount : Int { return database.pageCount }
     internal var pageObjects : [PageId:PageMarshalled]
-    internal var readBuffer : UnsafeMutablePointer<Void>
+    internal var readBuffer : UnsafeMutableRawPointer
     init(database d : FilePageDatabase) {
         database = d
         pageObjects = [:]
-        readBuffer = UnsafeMutablePointer<Void>.allocate(capacity: d.pageSize)
+        readBuffer = UnsafeMutableRawPointer.allocate(bytes: d.pageSize, alignedTo: 0)
     }
     
     deinit {
-        readBuffer.deinitialize(count: pageSize)
-        readBuffer.deallocate(capacity: pageSize)
+//        readBuffer.deinitialize(count: pageSize)
+        readBuffer.deallocate(bytes: pageSize, alignedTo: 0)
     }
 
     public var rootNames : [String] {
@@ -242,7 +247,7 @@ public class FilePageRMediator : RMediator {
         }
     }
     
-    public func _pageBufferPointer(_ page : PageId, cb : (UnsafeMutablePointer<Void>) -> ()) throws {
+    public func _pageBufferPointer(_ page : PageId, cb : (UnsafeMutableRawPointer) -> ()) throws {
         let offset = off_t(pageSize * page)
         let sr = pread(database.fd, readBuffer, pageSize, offset)
         if sr == pageSize {
@@ -256,7 +261,7 @@ public class FilePageRMediator : RMediator {
         var r : (String, String, PageId?)? = nil
         _ = try? self._pageBufferPointer(page) { (p) in
             do {
-                var ptr         = UnsafePointer<Void>(p)
+                var ptr         = UnsafeRawPointer(p)
                 let cookie      = try UInt32.deserialize(from: &ptr)
                 let version     = try UInt64.deserialize(from: &ptr)
                 let _           = try UInt32.deserialize(from: &ptr)
@@ -297,10 +302,10 @@ public class FilePageRWMediator : FilePageRMediator, RWMediator {
     
     internal func commit() throws {
         var maxPage = database.pageCount-1
-        let writeBuffer = UnsafeMutablePointer<Void>.allocate(capacity: pageSize)
+        let writeBuffer = UnsafeMutableRawPointer.allocate(bytes: pageSize, alignedTo: 0)
         defer {
-            writeBuffer.deinitialize(count: pageSize)
-            writeBuffer.deallocate(capacity: pageSize)
+//            writeBuffer.deinitialize(count: pageSize)
+            writeBuffer.deallocate(bytes: pageSize, alignedTo: 0)
         }
         for (page, object) in dirty {
             pageObjects.removeValue(forKey: page)

@@ -50,8 +50,8 @@ public struct TablePage<T : BufferSerializable & Comparable, U : BufferSerializa
         self.pairs.append(pair)
     }
     
-    public static func deserialize(from buffer: UnsafePointer<Void>, status: PageStatus, mediator : RMediator) throws -> TablePage<T,U> {
-        let rawMemory   = UnsafePointer<Void>(buffer)
+    public static func deserialize(from buffer: UnsafeRawPointer, status: PageStatus, mediator : RMediator) throws -> TablePage<T,U> {
+        let rawMemory   = UnsafeRawPointer(buffer)
         var ptr         = rawMemory
         let cookie      = try UInt32.deserialize(from: &ptr)
         let _           = try UInt64.deserialize(from: &ptr)
@@ -73,7 +73,7 @@ public struct TablePage<T : BufferSerializable & Comparable, U : BufferSerializa
         return TablePage(pairs: pairs, type: type, previousPage: prev)
     }
     
-    public func serialize(to rawMemory: UnsafeMutablePointer<Void>, status: PageStatus, mediator : RWMediator) throws {
+    public func serialize(to rawMemory: UnsafeMutableRawPointer, status: PageStatus, mediator : RWMediator) throws {
         let version = mediator.version
         let pageSize = mediator.pageSize
         
@@ -82,13 +82,13 @@ public struct TablePage<T : BufferSerializable & Comparable, U : BufferSerializa
         try version.serialize(to: &ptr)
         try UInt32(previousPage ?? 0).serialize(to: &ptr)
         try UInt32(0).serialize(to: &ptr)
-        let countPtr = UnsafeMutablePointer<Void>(ptr)
+        let countPtr = UnsafeMutableRawPointer(ptr)
         try UInt32(0).serialize(to: &ptr)
         let size = ptr - rawMemory
         guard size == 24 else { fatalError() }
         
         var bytesRemaining = pageSize - 24
-        var payloadPtr = UnsafeMutablePointer<Void>(rawMemory+24)
+        var payloadPtr = UnsafeMutableRawPointer(rawMemory+24)
         
         // fill payload
         var successful = 0
@@ -213,7 +213,7 @@ public struct Table<T : BufferSerializable & Comparable, U : BufferSerializable>
         return TableIterator(table: self, type: type, keyType: T.self, valueType: U.self)
     }
     
-    func filter(_ includeElement: @noescape(T) throws -> Bool) throws -> [U] {
+    func filter(_ includeElement: (T) throws -> Bool) throws -> [U] {
         var elements = [U]()
         for (key, value) in self {
             if try includeElement(key) {
@@ -223,7 +223,7 @@ public struct Table<T : BufferSerializable & Comparable, U : BufferSerializable>
         return elements
     }
     
-    public func firstMatching(_ includeElement: @noescape(T,U) throws -> Bool) throws -> (T,U)? {
+    public func firstMatching(_ includeElement: (T,U) throws -> Bool) throws -> (T,U)? {
         var element : (T,U)? = nil
         for (key, value) in self {
             if try includeElement(key, value) {
@@ -233,7 +233,7 @@ public struct Table<T : BufferSerializable & Comparable, U : BufferSerializable>
         return element
     }
     
-    func filter(_ includeElement: @noescape(U) throws -> Bool) throws -> [T] {
+    func filter(_ includeElement: (U) throws -> Bool) throws -> [T] {
         var elements = [T]()
         for (key, value) in self {
             if try includeElement(value) {
