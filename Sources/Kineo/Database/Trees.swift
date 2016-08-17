@@ -720,9 +720,18 @@ public final class TreeInternal<T : BufferSerializable & Comparable> {
     }
 }
 
-internal enum TreeNode<T : BufferSerializable & Comparable, U : BufferSerializable> : PageMarshalled {
+public enum TreeNode<T : BufferSerializable & Comparable, U : BufferSerializable> : PageMarshalled {
     case leafNode(TreeLeaf<T,U>)
     case internalNode(TreeInternal<T>)
+    
+    public var version : UInt64 {
+        switch self {
+        case .leafNode(let l):
+            return l.version
+        case .internalNode(let i):
+            return i.version
+        }
+    }
     
     var maxKey : T? {
         switch self {
@@ -906,7 +915,7 @@ internal enum TreeNode<T : BufferSerializable & Comparable, U : BufferSerializab
         return maxKey
     }
     
-    static func deserialize(from buffer: UnsafeRawPointer, status: PageStatus, mediator : RMediator) throws -> TreeNode<T,U> {
+    public static func deserialize(from buffer: UnsafeRawPointer, status: PageStatus, mediator : RMediator) throws -> TreeNode<T,U> {
         var ptr = buffer
         guard let cookie = DatabaseInfo.Cookie(rawValue: try UInt32.deserialize(from: &ptr)) else { throw DatabaseError.DataError("Bad tree node cookie") }
         if cookie == .leafTreeNode {
@@ -926,7 +935,7 @@ internal enum TreeNode<T : BufferSerializable & Comparable, U : BufferSerializab
         }
     }
     
-    func serialize(to buffer: UnsafeMutableRawPointer, status: PageStatus, mediator : RWMediator) throws {
+    public func serialize(to buffer: UnsafeMutableRawPointer, status: PageStatus, mediator : RWMediator) throws {
         switch self {
         case .leafNode(let l):
             try l.serialize(to: buffer, pageSize: mediator.pageSize)
