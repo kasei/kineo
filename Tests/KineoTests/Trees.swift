@@ -87,7 +87,7 @@ class TreesTest: XCTestCase {
             XCTAssertEqual(pid, 7, "After inserting a pair into the right-most leaf, the root should appear on page 7")
             assertValidTreeVersionMtime(m, pid, "tree read 4")
             guard let t : Tree<UInt32, String> = m.tree(name: treeName) else { fatalError("No such tree") }
-            XCTAssertEqual(t.version, 103)
+            XCTAssertEqual(t.version, 104)
             
             let oldVersion = UInt64(103)
             let newVersion = UInt64(104)

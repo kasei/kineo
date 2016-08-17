@@ -281,7 +281,7 @@ public class Tree<T : BufferSerializable & Comparable, U : BufferSerializable> :
             let status = x.status
             
             let totalCount = node.totalCount + 1
-            try node.addPairs(newPairs, replacingIndex: index, totalCount: totalCount)
+            try node.addPairs(newPairs, replacingIndex: index, totalCount: totalCount, version: m.version) // TODO: this look suspicious; probably a copy-paste error from add(pair:); should be removing instead
             
             newPairs = []
             var internalNode : TreeNode<T,U> = .internalNode(node)
@@ -386,7 +386,7 @@ public class Tree<T : BufferSerializable & Comparable, U : BufferSerializable> :
             if node.spaceForPairs(newPairs, replacingIndex: index, pageSize: m.pageSize) {
 //                print("- there is space in the \(status) internal for the add")
                 
-                try node.addPairs(newPairs, replacingIndex: index, totalCount: totalCount)
+                try node.addPairs(newPairs, replacingIndex: index, totalCount: totalCount, version: m.version)
                 let max         = node.max!
                 
                 var internalNode : TreeNode<T,U> = .internalNode(node)
@@ -675,7 +675,8 @@ public final class TreeInternal<T : BufferSerializable & Comparable> {
         return self.serializedSize + addSize - removeSize <= pageSize
     }
     
-    func addPairs(_ newPairs : [(T,PageId)], replacingIndex index : Int, totalCount newTotal: UInt64) throws {
+    func addPairs(_ newPairs : [(T,PageId)], replacingIndex index : Int, totalCount newTotal: UInt64, version : UInt64) throws {
+        self.version = version
         self.totalCount = newTotal
         
         let replacing = self.pairs[index]
