@@ -169,6 +169,22 @@ public class Tree<T : BufferSerializable & Comparable, U : BufferSerializable> :
         }
     }
     
+    public func effectiveVersion(between: (T,T)) throws -> UInt64? {
+        var version : UInt64? = nil
+        // TODO: this is inefficient. we shouldn't use walk(::) to get the leaf nodes,
+        // but instead should prefer a tree walk that returns early on an internal
+        // node if all children nodes fall in the $between range.
+        let (node, _) : (TreeNode<T,U>, PageStatus) = try mediator.readPage(root)
+        _ = try? node.walk(mediator: mediator, between: between) { (leaf) in
+            if let v = version {
+                version = Swift.max(v, leaf.version)
+            } else {
+                version = leaf.version
+            }
+        }
+        return version
+    }
+    
     public func elements(between: (T,T)) throws -> AnyIterator<(T,U)> {
         // TODO: convert this to pipeline the iterator results
         var pairs = [(T,U)]()
