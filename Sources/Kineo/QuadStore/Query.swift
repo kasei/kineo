@@ -874,9 +874,9 @@ open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
             }
         case .distinct(let child), .project(let child, _), .slice(let child, _, _), .extend(let child, _, _), .order(let child, _), .filter(let child, _):
             return try effectiveVersion(matching: child, activeGraph: activeGraph)
-        case .aggregate(let child, _, _):
+        case .aggregate(_, _, _):
             fatalError()
-        case .window(let child, _, _):
+        case .window(_, _, _):
             fatalError()
         case .bgp(let children):
             guard children.count > 0 else { return nil }
@@ -887,8 +887,6 @@ open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
                 mtime = max(mtime, triplemtime)
             }
             return mtime
-        default:
-            fatalError("Unimplemented: \(algebra)")
         }
     }
     

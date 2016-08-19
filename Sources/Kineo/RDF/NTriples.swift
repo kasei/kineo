@@ -27,11 +27,7 @@ open class NTriplesParser<T : LineReadable> : Sequence {
                 if let b = blanks[label] {
                     return b
                 } else {
-#if os (OSX)
                     let id = NSUUID().uuidString
-#else
-                    let id = NSUUID().UUIDString
-#endif
                     let b = Term(value: id, type: .blank)
                     blanks[label] = b
                     return b

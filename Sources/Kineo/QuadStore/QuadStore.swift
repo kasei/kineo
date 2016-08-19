@@ -740,11 +740,7 @@ extension PersistentTermIdentityMap {
             chars.append(0)
             chars.withUnsafeBufferPointer { (q) in
                 if let p = q.baseAddress {
-                    #if os (OSX)
-                        string = String(utf8String: p)
-                    #else
-                        string = String(UTF8String: p)
-                    #endif
+                    string = String(utf8String: p)
                 }
             }
         }
