@@ -205,8 +205,14 @@ var args = PeekableIterator(generator: _args.makeIterator())
 guard let pname = args.next() else { fatalError() }
 var pageSize = 8192
 guard argscount >= 2 else {
-    print("Usage: \(pname) database.db load rdf.nt")
+    print("Usage: \(pname) [-v] database.db COMMAND [ARGUMENTS]")
+    print("       \(pname) database.db load rdf.nt ...")
     print("       \(pname) database.db query query.q")
+    print("       \(pname) database.db qparse query.q")
+    print("       \(pname) database.db graphs")
+    print("       \(pname) database.db indexes")
+    print("       \(pname) database.db index INDEXNAME")
+    print("       \(pname) database.db dump [INDEXNAME]")
     print("       \(pname) database.db")
     print("")
     exit(1)
@@ -299,50 +305,8 @@ if let op = args.next() {
             let indexName = args.next() ?? QuadStore.defaultIndex
             m.printTreeDOT(name: indexName)
         }
-    } else if op == "testcreate" {
-        if verbose {
-            warn("\(getDateString(seconds: startSecond))")
-            warn("Creating test tree...")
-        }
-        let name = "testvalues"
-        try database.update(version: startSecond) { (m) in
-            let pairs : [(UInt32, String)] = []
-            _ = try m.create(tree: name, pairs: pairs)
-        }
-    } else if op == "testread" {
-        let name = "testvalues"
-        try database.read { (m) in
-            guard let t : Tree<UInt32, String> = m.tree(name: name) else { fatalError("No such tree") }
-            print("Tree: \(t)")
-            for (k, v) in t {
-                print("- \(k) -> \(v)")
-            }
-        }
-    } else if op == "testadd" {
-        let name = "testvalues"
-        guard let key = UInt32(args.next() ?? "") else { fatalError("Cannot interpret key as an integer") }
-        guard let value = args.next() else { fatalError("No value found") }
-        if verbose {
-            warn("\(getDateString(seconds: startSecond))")
-            warn("Adding pair: \(key) => \(value)...")
-        }
-        try database.update(version: startSecond) { (m) in
-            guard let t : Tree<UInt32, String> = m.tree(name: name) else { fatalError("No such tree") }
-            try t.add(pair: (key, value))
-        }
-    } else if op == "testremove" {
-        let name = "testvalues"
-        guard let key = UInt32(args.next() ?? "") else { fatalError("Cannot interpret key as an integer") }
-        if verbose {
-            warn("\(getDateString(seconds: startSecond))")
-            warn("Removing pair for key \(key)...")
-        }
-        try database.update(version: startSecond) { (m) in
-            guard let t : Tree<UInt32, String> = m.tree(name: name) else { fatalError("No such tree") }
-            try t.remove(key: key)
-        }
     } else if op == "dump" {
-        guard let index = args.next() else { fatalError("No index name given") }
+        let index = args.next() ?? QuadStore.defaultIndex
         count = try serialize(database, index: index)
     } else {
         warn("Unrecognized operation: '\(op)'")
