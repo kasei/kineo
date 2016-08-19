@@ -852,6 +852,46 @@ open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
             fatalError("Unimplemented: \(algebra)")
         }
     }
+
+    public func effectiveVersion(matching algebra: Algebra, activeGraph : Term) throws -> UInt64? {
+        switch algebra {
+        case .triple(let t):
+            let quad = QuadPattern(subject: t.subject, predicate: t.predicate, object: t.object, graph: .bound(activeGraph))
+            guard let mtime = try store.effectiveVersion(matching: quad) else { return nil }
+            return mtime
+        case .quad(let quad):
+            guard let mtime = try store.effectiveVersion(matching: quad) else { return nil }
+            return mtime
+        case .innerJoin(let lhs, let rhs), .leftOuterJoin(let lhs, let rhs, _), .union(let lhs, let rhs), .minus(let lhs, let rhs):
+            guard let lhsmtime = try effectiveVersion(matching: lhs, activeGraph: activeGraph) else { return nil }
+            guard let rhsmtime = try effectiveVersion(matching: rhs, activeGraph: activeGraph) else { return lhsmtime }
+            return max(lhsmtime, rhsmtime)
+        case .namedGraph(let child, let graph):
+            if case .bound(let g) = graph {
+                return try effectiveVersion(matching: child, activeGraph: g)
+            } else {
+                fatalError("Unimplemented: effectiveVersion(.namedGraph(_), )")
+            }
+        case .distinct(let child), .project(let child, _), .slice(let child, _, _), .extend(let child, _, _), .order(let child, _), .filter(let child, _):
+            return try effectiveVersion(matching: child, activeGraph: activeGraph)
+        case .aggregate(let child, _, _):
+            fatalError()
+        case .window(let child, _, _):
+            fatalError()
+        case .bgp(let children):
+            guard children.count > 0 else { return nil }
+            var mtime : UInt64 = 0
+            for t in children {
+                let quad = QuadPattern(subject: t.subject, predicate: t.predicate, object: t.object, graph: .bound(activeGraph))
+                guard let triplemtime = try store.effectiveVersion(matching: quad) else { continue }
+                mtime = max(mtime, triplemtime)
+            }
+            return mtime
+        default:
+            fatalError("Unimplemented: \(algebra)")
+        }
+    }
+    
 }
 
 public func pipelinedHashJoin<R : ResultProtocol>(joinVariables : [String], lhs : AnyIterator<R>, rhs : AnyIterator<R>, left : Bool = false) -> AnyIterator<R> {

@@ -62,7 +62,7 @@ func parseQuery(_ database : FilePageDatabase, filename : String) throws -> Alge
     return try qp.parse()
 }
 
-func query(_ database : FilePageDatabase, algebra query: Algebra, graph: Term? = nil) throws -> Int {
+func query(_ database : FilePageDatabase, algebra query: Algebra, graph: Term? = nil, verbose : Bool) throws -> Int {
     var count       = 0
     try database.read { (m) in
         do {
@@ -78,6 +78,13 @@ func query(_ database : FilePageDatabase, algebra query: Algebra, graph: Term? =
             }
             warn("Using default graph \(defaultGraph)")
             let e           = SimpleQueryEvaluator(store: store, defaultGraph: defaultGraph)
+            if let mtime = try e.effectiveVersion(matching: query, activeGraph: defaultGraph) {
+                let date = getDateString(seconds: mtime)
+                if verbose {
+                    print("# Last-Modified: \(date)")
+                }
+            }
+            
             for result in try e.evaluate(algebra: query, activeGraph: defaultGraph) {
                 count += 1
                 print("\(count)\t\(result.description)")
@@ -240,7 +247,7 @@ if let op = args.next() {
         }
         guard let qfile = args.next() else { fatalError("No query file given") }
         guard let algebra = try parseQuery(database, filename: qfile) else { fatalError("Failed to parse query") }
-        count = try query(database, algebra: algebra, graph: graph)
+        count = try query(database, algebra: algebra, graph: graph, verbose: verbose)
     } else if op == "qparse", let qfile = args.next() {
         guard let algebra = try parseQuery(database, filename: qfile) else { fatalError("Failed to parse query") }
         let s = algebra.serialize()

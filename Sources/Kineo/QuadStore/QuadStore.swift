@@ -13,6 +13,7 @@ public protocol QuadStoreProtocol : Sequence {
     func makeIterator() -> AnyIterator<Quad>
     func results(matching pattern: QuadPattern) throws -> AnyIterator<TermResult>
     func quads(matching pattern: QuadPattern) throws -> AnyIterator<Quad>
+    func effectiveVersion(matching pattern: QuadPattern) throws -> UInt64?
 }
 
 open class QuadStore : Sequence, QuadStoreProtocol {
@@ -302,6 +303,48 @@ open class QuadStore : Sequence, QuadStoreProtocol {
                 }
                 return TermResult(bindings: bindings)
             } while true
+        }
+    }
+    
+    public func effectiveVersion(matching pattern: QuadPattern) throws -> UInt64? {
+        let umin = UInt64.min
+        let umax = UInt64.max
+        let idmap = self.id
+        
+        let (index_name, count) = bestIndex(for: pattern)
+        //        print("Index '\(index_name)' is best match with \(count) prefix terms")
+        
+        let nodes = [pattern.subject, pattern.predicate, pattern.object, pattern.graph]
+        var patternIds = [UInt64]()
+        for i in 0..<4 {
+            let node = nodes[i]
+            switch node {
+            case .variable(_):
+                patternIds.append(0)
+            case .bound(let term):
+                guard let id = idmap.id(for: term) else {
+                    return nil
+                    //                    throw DatabaseError.DataError("Failed to load term ID for \(term)")
+                }
+                patternIds.append(id)
+            }
+        }
+        
+        let toIndexOrder        = quadMapping(toOrder: index_name)
+        let spogOrdered         = IDQuad(patternIds[0], patternIds[1], patternIds[2], patternIds[3])
+        var indexOrderedMin     = toIndexOrder(spogOrdered)
+        var indexOrderedMax     = toIndexOrder(spogOrdered)
+        for i in count..<4 {
+            indexOrderedMin[i]      = umin
+            indexOrderedMax[i]      = umax
+        }
+        
+        if let node : Tree<IDQuad<UInt64>,Empty> = mediator.tree(name: index_name) {
+            let min = indexOrderedMin
+            let max = indexOrderedMax
+            return try node.effectiveVersion(between: (min, max))
+        } else {
+            throw DatabaseError.DataError("No index named '\(index_name) found")
         }
     }
     
