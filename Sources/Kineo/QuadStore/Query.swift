@@ -26,8 +26,11 @@ public enum Aggregation {
     case avg(Expression)
 }
 
-public enum PropertyPath {
+public indirect enum PropertyPath {
+    case link(Term)
+    case inv(PropertyPath)
     case nps([Term])
+    case alt(PropertyPath, PropertyPath)
 }
 
 public indirect enum Algebra {
@@ -673,8 +676,28 @@ open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
 
     func evaluatePath(subject: Node, object: Node, graph: Node, path: PropertyPath) throws -> AnyIterator<TermResult> {
         switch path {
+        case .link(let predicate):
+            let quad = QuadPattern(subject: subject, predicate: .bound(predicate), object: object, graph: graph)
+            return try store.results(matching: quad)
+        case .inv(let ipath):
+            return try evaluatePath(subject: object, object: subject, graph: graph, path: ipath)
         case .nps(let iris):
             return try evaluateNPS(subject: subject, object: object, graph: graph, not: iris)
+        case .alt(let lhs, let rhs):
+            let i = try evaluatePath(subject: subject, object: object, graph: graph, path: lhs)
+            let j = try evaluatePath(subject: subject, object: object, graph: graph, path: rhs)
+            var iters = [i,j]
+            return AnyIterator {
+                repeat {
+                    if iters.count == 0 {
+                        return nil
+                    }
+                    let i = iters[0]
+                    guard let item = i.next() else { iters.remove(at: 0); continue }
+                    return item
+                } while true
+            }
+            
         }
     }
     
@@ -903,8 +926,6 @@ open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
             }
         case .path(let s, let path, let o):
             return try evaluatePath(subject: s, object: o, graph: .bound(activeGraph), path: path)
-        case .path(_, _, _):
-            fatalError("Unimplemented: \(algebra)")
         case .distinct(let child):
             let i = try self.evaluate(algebra: child, activeGraph: activeGraph)
             var seen = Set<TermResult>()
