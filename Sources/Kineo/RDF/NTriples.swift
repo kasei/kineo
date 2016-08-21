@@ -247,17 +247,28 @@ open class NTriplesPatternParser<T : LineReadable> : NTriplesParser<T> {
         }
     }
     
+    public func parseNodes(chars : inout PeekableIterator<AnyIterator<UnicodeScalar>>, count : Int) -> [Node]? {
+        var nodes = [Node]()
+        repeat {
+            chars.dropWhile { $0 == " " || $0 == "\t" }
+            if chars.peek() == "#" { return nil }
+            if let t = parseTerm(&chars) {
+                nodes.append(.bound(t))
+            } else if let s = parseVariable(&chars) {
+                nodes.append(.variable(s, binding: !s.hasPrefix(".")))
+            } else {
+                return nil
+            }
+        } while nodes.count < count
+        return nodes
+    }
+    
     public func parseNode(line : String) -> Node? {
-        var chars = PeekableIterator(generator: line.unicodeScalars.makeIterator())
-        chars.dropWhile { $0 == " " || $0 == "\t" }
-        if chars.peek() == "#" { return nil }
-        if let t = parseTerm(&chars) {
-            return .bound(t)
-        } else if let s = parseVariable(&chars) {
-            return .variable(s, binding: !s.hasPrefix("."))
-        } else {
-            return nil
-        }
+        let view = AnyIterator(line.unicodeScalars.makeIterator())
+        var chars = PeekableIterator(generator: view)
+        guard let nodes = parseNodes(chars: &chars, count: 1) else { return nil }
+        guard nodes.count == 1 else { return nil }
+        return nodes[0]
     }
     
     public func parseQuadPattern(line : String) -> QuadPattern? {

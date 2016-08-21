@@ -26,6 +26,9 @@ public enum Aggregation {
     case avg(Expression)
 }
 
+public enum PropertyPath {
+    case nps([Term])
+}
 
 public indirect enum Algebra {
     public typealias SortComparator = (Bool, Expression)
@@ -44,6 +47,7 @@ public indirect enum Algebra {
     case distinct(Algebra)
     case slice(Algebra, Int?, Int?)
     case order(Algebra, [SortComparator])
+    case path(Node, PropertyPath, Node)
     case aggregate(Algebra, [Expression], [(Aggregation, String)])
     case window(Algebra, [Expression], [(WindowFunction, [SortComparator], String)])
     // TODO: add property paths
@@ -70,7 +74,7 @@ public indirect enum Algebra {
             return inscopeUnion(children: [lhs, rhs])
         case .triple(let t):
             for node in [t.subject, t.predicate, t.object] {
-                if case .variable(let name, _) = node {
+                if case .variable(let name, true) = node {
                     variables.insert(name)
                 }
             }
@@ -107,6 +111,14 @@ public indirect enum Algebra {
             var variables = child.inscope
             if bind {
                 variables.insert(v)
+            }
+            return variables
+        case .path(let subject, _, let object):
+            var variables = Set<String>()
+            for node in [subject, object] {
+                if case .variable(let name, true) = node {
+                    variables.insert(name)
+                }
             }
             return variables
         case .aggregate(_, let groups, let aggs):
@@ -201,6 +213,8 @@ public indirect enum Algebra {
             d += lhs.serialize(depth: depth+1)
             d += rhs.serialize(depth: depth+1)
             return d
+        case .path(let subject, let pp, let object):
+            return "\(indent)Path(\(subject), \(pp), \(object))\n"
         case .aggregate(let child, let groups, let aggs):
             var d = "\(indent)Aggregate \(aggs) over groups \(groups)\n"
             d += child.serialize(depth: depth+1)
@@ -258,6 +272,15 @@ open class QueryParser<T : LineReadable> {
             let parser = NTriplesPatternParser(reader: "")
             guard let pattern = parser.parseTriplePattern(line: rest) else { return nil }
             return .triple(pattern)
+        } else if op == "nps" {
+            let parser = NTriplesPatternParser(reader: "")
+            let view = AnyIterator(rest.unicodeScalars.makeIterator())
+            var chars = PeekableIterator(generator: view)
+            guard let nodes = parser.parseNodes(chars: &chars, count: 2) else { return nil }
+            guard nodes.count == 2 else { return nil }
+            let iriStrings = chars.elements().map { String($0) }.joined(separator: "").components(separatedBy: " ")
+            let iris = iriStrings.map { Term(value: $0, type: .iri) }
+            return .path(nodes[0], .nps(iris), nodes[1])
         } else if op == "agg" { // (SUM(?skey) AS ?sresult) (AVG(?akey) AS ?aresult) ... GROUP BY ?x ?y ?z --> "agg sum sresult ?skey , avg aresult ?akey ; ?x , ?y , ?z"
             let pair = parts.suffix(from: 1).split(separator: ";")
             guard pair.count >= 1 else { throw QueryError.parseError("Bad syntax for agg operation") }
@@ -394,6 +417,9 @@ open class QueryParser<T : LineReadable> {
             }
             guard let child = stack.popLast() else { throw QueryError.parseError("Not enough operands for \(op)") }
             return .order(child, comparators)
+        } else if op == "distinct" {
+            guard let child = stack.popLast() else { throw QueryError.parseError("Not enough operands for \(op)") }
+            return .distinct(child)
         }
         warn("Cannot parse query line: \(line)")
         return nil
@@ -644,7 +670,38 @@ open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
         let results = groups.flatMap { $0 }
         return AnyIterator(results.makeIterator())
     }
+
+    func evaluatePath(subject: Node, object: Node, graph: Node, path: PropertyPath) throws -> AnyIterator<TermResult> {
+        switch path {
+        case .nps(let iris):
+            return try evaluateNPS(subject: subject, object: object, graph: graph, not: iris)
+        }
+    }
     
+    func evaluateNPS(subject: Node, object: Node, graph: Node, not iris: [Term]) throws -> AnyIterator<TermResult> {
+        let predicate : Node = .variable(".predicate", binding: true)
+        let quad = QuadPattern(subject: subject, predicate: predicate, object: object, graph: graph)
+        let i = try store.results(matching: quad)
+        // TODO: this can be made more efficient by adding an NPS function to the store,
+        //       and allowing it to do the filtering based on a IDResult objects before
+        //       materializing the terms
+        let set = Set(iris)
+        var keys = [String]()
+        for node in [subject, object] {
+            if case .variable(let name, true) = node {
+                keys.append(name)
+            }
+        }
+        return AnyIterator {
+            repeat {
+                guard let r = i.next() else { return nil }
+                guard let p = r[".predicate"] else { continue }
+                guard !set.contains(p) else { continue }
+                return r.projected(variables: keys)
+            } while true
+        }
+    }
+
     func evaluateAggregation(algebra child: Algebra, groups: [Expression], aggregations aggs: [(Aggregation, String)], activeGraph : Term) throws -> AnyIterator<TermResult> {
         let i = try self.evaluate(algebra: child, activeGraph: activeGraph)
         var groupBuckets = [String:[TermResult]]()
@@ -844,17 +901,37 @@ open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
                     }
                 } while true
             }
+        case .path(let s, let path, let o):
+            return try evaluatePath(subject: s, object: o, graph: .bound(activeGraph), path: path)
+        case .path(_, _, _):
+            fatalError("Unimplemented: \(algebra)")
+        case .distinct(let child):
+            let i = try self.evaluate(algebra: child, activeGraph: activeGraph)
+            var seen = Set<TermResult>()
+            return AnyIterator {
+                repeat {
+                    guard let result = i.next() else { return nil }
+                    guard !seen.contains(result) else { continue }
+                    seen.insert(result)
+                    return result
+                } while true
+            }
         case .bgp(_):
             fatalError("Unimplemented: \(algebra)")
         case .minus(_, _):
-            fatalError("Unimplemented: \(algebra)")
-        case .distinct(_):
             fatalError("Unimplemented: \(algebra)")
         }
     }
 
     public func effectiveVersion(matching algebra: Algebra, activeGraph : Term) throws -> UInt64? {
         switch algebra {
+        case .path(_, _, _):
+            let s : Node = .variable("s", binding: true)
+            let p : Node = .variable("p", binding: true)
+            let o : Node = .variable("o", binding: true)
+            let quad = QuadPattern(subject: s, predicate: p, object: o, graph: .bound(activeGraph))
+            guard let mtime = try store.effectiveVersion(matching: quad) else { return nil }
+            return mtime
         case .triple(let t):
             let quad = QuadPattern(subject: t.subject, predicate: t.predicate, object: t.object, graph: .bound(activeGraph))
             guard let mtime = try store.effectiveVersion(matching: quad) else { return nil }
