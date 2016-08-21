@@ -10,7 +10,7 @@ import Foundation
 import Kineo
 
 func setup(_ database : FilePageDatabase, startTime : UInt64) throws {
-    try database.update(version: startTime) { (m) in
+    try database.update(version: Version(startTime)) { (m) in
         do {
             _ = try QuadStore.create(mediator: m)
         } catch let e {
@@ -22,7 +22,7 @@ func setup(_ database : FilePageDatabase, startTime : UInt64) throws {
 
 func parse(_ database : FilePageDatabase, files : [String], startTime : UInt64, graph defaultGraphTerm: Term? = nil) throws -> Int {
     var count   = 0
-    let version = startTime
+    let version = Version(startTime)
     try database.update(version: version) { (m) in
         do {
             for filename in files {

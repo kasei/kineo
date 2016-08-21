@@ -20,14 +20,14 @@
 import Foundation
 
 public struct DatabaseHeaderPage : PageMarshalled {
-    let version : UInt64
+    let version : Version
     var roots : [(String, PageId)]
-    init(version : UInt64, roots : [(String, PageId)]) {
+    init(version : Version, roots : [(String, PageId)]) {
         self.version = version
         self.roots = roots
     }
     
-    public static func deserializeHeaderMetadata(from buffer: UnsafeRawPointer, status: PageStatus) throws -> (UInt32, UInt64, Int) {
+    public static func deserializeHeaderMetadata(from buffer: UnsafeRawPointer, status: PageStatus) throws -> (UInt32, Version, Int) {
         let rawMemory = buffer.assumingMemoryBound(to: UInt8.self)
         let cookie = UInt32(bigEndian: rawMemory.withMemoryRebound(to: UInt32.self, capacity: 1) { $0[0] })
         let version = UInt64(bigEndian: rawMemory.withMemoryRebound(to: UInt64.self, capacity: 2) { $0[1] })
@@ -106,7 +106,7 @@ public final class FilePageDatabase : Database {
         guard s == 0 else { return nil }
         var size = Int(st.st_size)
         if size == 0 {
-            let version : UInt64 = 0
+            let version : Version = 0
             pageSize = _pageSize
             let b = UnsafeMutableRawPointer.allocate(bytes: pageSize, alignedTo: 0)
             do {
@@ -263,7 +263,7 @@ open class FilePageRMediator : RMediator {
             do {
                 var ptr         = UnsafeRawPointer(p)
                 let cookie      = try UInt32.deserialize(from: &ptr)
-                let version     = try UInt64.deserialize(from: &ptr)
+                let version     = try Version.deserialize(from: &ptr)
                 let _           = try UInt32.deserialize(from: &ptr)
                 let config2     = try UInt32.deserialize(from: &ptr)
                 let date = getDateString(seconds: version)

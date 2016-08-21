@@ -944,7 +944,7 @@ open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
         }
     }
 
-    public func effectiveVersion(matching algebra: Algebra, activeGraph : Term) throws -> UInt64? {
+    public func effectiveVersion(matching algebra: Algebra, activeGraph : Term) throws -> Version? {
         switch algebra {
         case .path(_, _, _):
             let s : Node = .variable("s", binding: true)
@@ -978,7 +978,7 @@ open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
             fatalError()
         case .bgp(let children):
             guard children.count > 0 else { return nil }
-            var mtime : UInt64 = 0
+            var mtime : Version = 0
             for t in children {
                 let quad = QuadPattern(subject: t.subject, predicate: t.predicate, object: t.object, graph: .bound(activeGraph))
                 guard let triplemtime = try store.effectiveVersion(matching: quad) else { continue }

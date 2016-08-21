@@ -142,7 +142,7 @@ public class Tree<T : BufferSerializable & Comparable, U : BufferSerializable> :
         return node.previousPage
     }
 
-    public var version : UInt64? {
+    public var version : Version? {
         // TOOD: read the page header without reading the page contents
         guard let (node, _) : (TreeNode<T,U>, PageStatus) = try? mediator.readPage(root) else { return nil }
         switch node {
@@ -169,8 +169,8 @@ public class Tree<T : BufferSerializable & Comparable, U : BufferSerializable> :
         }
     }
     
-    public func effectiveVersion(between: (T,T)) throws -> UInt64? {
-        var version : UInt64? = nil
+    public func effectiveVersion(between: (T,T)) throws -> Version? {
+        var version : Version? = nil
         // TODO: this is inefficient. we shouldn't use walk(::) to get the leaf nodes,
         // but instead should prefer a tree walk that returns early on an internal
         // node if all children nodes fall in the $between range.
@@ -507,13 +507,13 @@ public class Tree<T : BufferSerializable & Comparable, U : BufferSerializable> :
 
 public final class TreeLeaf<T : BufferSerializable & Comparable, U : BufferSerializable> {
     internal var typeCode : UInt32
-    public var version : UInt64
+    public var version : Version
     public var pairs : [(T,U)]
     public var serializedSize : Int
     public var max : T?
     public var previousPage : PageId?
     
-    init(version : UInt64, pageSize: Int, typeCode : UInt32, pairs : [(T,U)]) throws {
+    init(version : Version, pageSize: Int, typeCode : UInt32, pairs : [(T,U)]) throws {
         self.previousPage = nil
         self.version = version
         self.pairs = pairs
@@ -526,7 +526,7 @@ public final class TreeLeaf<T : BufferSerializable & Comparable, U : BufferSeria
         }
     }
     
-    convenience init<V : IteratorProtocol>(version : UInt64, pageSize: Int, pairs iter: inout PeekableIterator<V>) where V.Element == (T,U) {
+    convenience init<V : IteratorProtocol>(version : Version, pageSize: Int, pairs iter: inout PeekableIterator<V>) where V.Element == (T,U) {
         var remainingBytes = pageSize - cookieHeaderSize
         var pairs = [(T,U)]()
         
@@ -544,7 +544,7 @@ public final class TreeLeaf<T : BufferSerializable & Comparable, U : BufferSeria
         try! self.init(version: version, pageSize: pageSize, typeCode: serializationCode(T.self, U.self), pairs: pairs)
     }
     
-    convenience init(version : UInt64, pageSize: Int, pairs: [(T,U)]) throws {
+    convenience init(version : Version, pageSize: Int, pairs: [(T,U)]) throws {
         var remainingBytes = pageSize - cookieHeaderSize
         for (key, value) in pairs {
             let serializedSize = key.serializedSize + value.serializedSize
@@ -573,14 +573,14 @@ public final class TreeLeaf<T : BufferSerializable & Comparable, U : BufferSeria
         return self.serializedSize + pair.0.serializedSize + pair.1.serializedSize <= pageSize
     }
     
-    func remove(key: T, version : UInt64) throws {
+    func remove(key: T, version : Version) throws {
         self.version = version
         pairs = pairs.filter { (pair) -> Bool in
             key != pair.0
         }
     }
     
-    func addPair(_ pair : (T,U), version : UInt64) throws {
+    func addPair(_ pair : (T,U), version : Version) throws {
         self.version = version
         pairs.insertSorted(pair) { (l,r) in return l.0 < r.0 }
         self.serializedSize += pair.0.serializedSize
@@ -622,14 +622,14 @@ public final class TreeLeaf<T : BufferSerializable & Comparable, U : BufferSeria
 
 public final class TreeInternal<T : BufferSerializable & Comparable> {
     internal var typeCode : UInt32
-    public var version : UInt64
+    public var version : Version
     public var pairs : [(T,PageId)]
     public var totalCount : UInt64
     public var serializedSize : Int
     public var previousPage : PageId?
     public var max : T?
     
-    init(version : UInt64, pageSize : Int, totalCount : UInt64, typeCode : UInt32, pairs : [(T,PageId)]) throws {
+    init(version : Version, pageSize : Int, totalCount : UInt64, typeCode : UInt32, pairs : [(T,PageId)]) throws {
         self.previousPage = nil
         self.version = version
         self.pairs = pairs
@@ -643,7 +643,7 @@ public final class TreeInternal<T : BufferSerializable & Comparable> {
         }
     }
     
-    convenience init(version : UInt64, pageSize: Int, totalCount : UInt64, pairs: [(T,PageId)]) throws {
+    convenience init(version : Version, pageSize: Int, totalCount : UInt64, pairs: [(T,PageId)]) throws {
         var remainingBytes = pageSize - cookieHeaderSize
         for (key, value) in pairs {
             let serializedSize  = key.serializedSize + value.serializedSize
@@ -655,7 +655,7 @@ public final class TreeInternal<T : BufferSerializable & Comparable> {
         try self.init(version: version, pageSize: pageSize, totalCount: totalCount, typeCode: serializationCode(T.self, PageId.self), pairs: pairs)
     }
     
-    convenience init<V : IteratorProtocol>(version : UInt64, pageSize: Int, totalCount : UInt64, pairs iter: inout PeekableIterator<V>) where V.Element == (T,PageId) {
+    convenience init<V : IteratorProtocol>(version : Version, pageSize: Int, totalCount : UInt64, pairs iter: inout PeekableIterator<V>) where V.Element == (T,PageId) {
         var remainingBytes = pageSize - cookieHeaderSize
         var pairs = [(T,PageId)]()
         
@@ -691,7 +691,7 @@ public final class TreeInternal<T : BufferSerializable & Comparable> {
         return self.serializedSize + addSize - removeSize <= pageSize
     }
     
-    func addPairs(_ newPairs : [(T,PageId)], replacingIndex index : Int, totalCount newTotal: UInt64, version : UInt64) throws {
+    func addPairs(_ newPairs : [(T,PageId)], replacingIndex index : Int, totalCount newTotal: UInt64, version : Version) throws {
         self.version = version
         self.totalCount = newTotal
         
@@ -741,7 +741,7 @@ public enum TreeNode<T : BufferSerializable & Comparable, U : BufferSerializable
     case leafNode(TreeLeaf<T,U>)
     case internalNode(TreeInternal<T>)
     
-    public var version : UInt64 {
+    public var version : Version {
         switch self {
         case .leafNode(let l):
             return l.version
@@ -963,11 +963,11 @@ public enum TreeNode<T : BufferSerializable & Comparable, U : BufferSerializable
 }
 
 private extension UnsafeRawPointer {
-    func deserializeTree<T : BufferSerializable & Comparable, U : BufferSerializable>(mediator : RMediator, type : DatabaseInfo.Cookie, pageSize : Int, keyType : T.Type, valueType : U.Type) throws -> (UInt32, UInt64, UInt32, UInt32, UInt64, AnyIterator<(T,U)>) {
+    func deserializeTree<T : BufferSerializable & Comparable, U : BufferSerializable>(mediator : RMediator, type : DatabaseInfo.Cookie, pageSize : Int, keyType : T.Type, valueType : U.Type) throws -> (UInt32, Version, UInt32, UInt32, UInt64, AnyIterator<(T,U)>) {
         let rawMemory   = UnsafeRawPointer(self)
         var ptr         = rawMemory
         let cookie      = try UInt32.deserialize(from: &ptr)
-        let version     = try UInt64.deserialize(from: &ptr)
+        let version     = try Version.deserialize(from: &ptr)
         let config1     = try UInt32.deserialize(from: &ptr)
         let config2     = try UInt32.deserialize(from: &ptr)
         let totalCount  = try UInt64.deserialize(from: &ptr)
@@ -1031,7 +1031,7 @@ private extension UnsafePointer {
 }
 
 extension UnsafeMutableRawPointer {
-    @inline(__always) internal func writeTreeHeader(type : DatabaseInfo.Cookie, version : UInt64, config1 : UInt32, config2 : UInt32, totalCount : UInt64, count : UInt32) throws -> Int {
+    @inline(__always) internal func writeTreeHeader(type : DatabaseInfo.Cookie, version : Version, config1 : UInt32, config2 : UInt32, totalCount : UInt64, count : UInt32) throws -> Int {
         let buffer = UnsafeMutableRawPointer(self)
         var ptr = buffer
         try type.rawValue.serialize(to: &ptr)

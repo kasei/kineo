@@ -13,7 +13,7 @@ public protocol QuadStoreProtocol : Sequence {
     func makeIterator() -> AnyIterator<Quad>
     func results(matching pattern: QuadPattern) throws -> AnyIterator<TermResult>
     func quads(matching pattern: QuadPattern) throws -> AnyIterator<Quad>
-    func effectiveVersion(matching pattern: QuadPattern) throws -> UInt64?
+    func effectiveVersion(matching pattern: QuadPattern) throws -> Version?
 }
 
 open class QuadStore : Sequence, QuadStoreProtocol {
@@ -306,7 +306,7 @@ open class QuadStore : Sequence, QuadStoreProtocol {
         }
     }
     
-    public func effectiveVersion(matching pattern: QuadPattern) throws -> UInt64? {
+    public func effectiveVersion(matching pattern: QuadPattern) throws -> Version? {
         let umin = UInt64.min
         let umax = UInt64.max
         let idmap = self.id

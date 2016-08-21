@@ -54,7 +54,7 @@ public struct TablePage<T : BufferSerializable & Comparable, U : BufferSerializa
         let rawMemory   = UnsafeRawPointer(buffer)
         var ptr         = rawMemory
         let cookie      = try UInt32.deserialize(from: &ptr)
-        let _           = try UInt64.deserialize(from: &ptr)
+        let _           = try Version.deserialize(from: &ptr)
         let previous    = try UInt32.deserialize(from: &ptr)
         let _           = try UInt32.deserialize(from: &ptr)
         let count       = try UInt32.deserialize(from: &ptr)
