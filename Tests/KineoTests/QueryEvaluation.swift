@@ -2,6 +2,10 @@ import XCTest
 import Kineo
 
 struct TestStore : QuadStoreProtocol {
+    public func effectiveVersion(matching pattern: QuadPattern) throws -> UInt64? {
+        return nil
+    }
+
     var quads : [Quad]
     
     func graphs() -> AnyIterator<Term> {
