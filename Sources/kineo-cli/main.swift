@@ -75,8 +75,8 @@ func query(_ database : FilePageDatabase, algebra query: Algebra, graph: Term? =
             } else {
                 guard let g = store.graphs().next() else { return }
                 defaultGraph = g
+                warn("Using default graph \(defaultGraph)")
             }
-            warn("Using default graph \(defaultGraph)")
             let e           = SimpleQueryEvaluator(store: store, defaultGraph: defaultGraph)
             if let mtime = try e.effectiveVersion(matching: query, activeGraph: defaultGraph) {
                 let date = getDateString(seconds: mtime)
@@ -206,8 +206,8 @@ guard let pname = args.next() else { fatalError() }
 var pageSize = 8192
 guard argscount >= 2 else {
     print("Usage: \(pname) [-v] database.db COMMAND [ARGUMENTS]")
-    print("       \(pname) database.db load rdf.nt ...")
-    print("       \(pname) database.db query query.q")
+    print("       \(pname) database.db load [-g GRAPH-IRI] rdf.nt ...")
+    print("       \(pname) database.db query [-g DEFAULT-GRAPH-IRI] query.q")
     print("       \(pname) database.db qparse query.q")
     print("       \(pname) database.db graphs")
     print("       \(pname) database.db indexes")

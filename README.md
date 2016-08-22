@@ -16,8 +16,15 @@ Create a database file (`geo.db`) and load one or more N-Triples files:
 % ./.build/release/kineo-cli geo.db load dbpedia-geo.nt
 ```
 
-Each file will be loaded into its own graph. When querying the database, the
-first graph created during data loading will be used as the default graph.
+Each file will be loaded into its own graph. By default, the first graph created
+during data loading will be used as the default graph when querying the database.
+
+Alternatively, data can be loaded into a specific named graph (similarly, a
+custom graph name can be used for the query default graph):
+
+```
+% ./.build/release/kineo-cli geo.db load -g http://example.org/dbpedia dbpedia-geo.nt
+```
 
 ### Query
 
