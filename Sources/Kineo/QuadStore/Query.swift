@@ -31,6 +31,7 @@ public indirect enum PropertyPath {
     case inv(PropertyPath)
     case nps([Term])
     case alt(PropertyPath, PropertyPath)
+    case seq(PropertyPath, PropertyPath)
 }
 
 public indirect enum Algebra {
@@ -284,6 +285,15 @@ open class QueryParser<T : LineReadable> {
             let iriStrings = chars.elements().map { String($0) }.joined(separator: "").components(separatedBy: " ")
             let iris = iriStrings.map { Term(value: $0, type: .iri) }
             return .path(nodes[0], .nps(iris), nodes[1])
+        } else if op == "path" {
+            let parser = NTriplesPatternParser(reader: "")
+            let view = AnyIterator(rest.unicodeScalars.makeIterator())
+            var chars = PeekableIterator(generator: view)
+            guard let nodes = parser.parseNodes(chars: &chars, count: 2) else { return nil }
+            guard nodes.count == 2 else { return nil }
+            let rest = chars.elements().map { String($0) }.joined(separator: "").components(separatedBy: " ")
+            guard let pp = try parsePropertyPath(rest) else { throw QueryError.parseError("Failed to parse property path") }
+            return .path(nodes[0], pp, nodes[1])
         } else if op == "agg" { // (SUM(?skey) AS ?sresult) (AVG(?akey) AS ?aresult) ... GROUP BY ?x ?y ?z --> "agg sum sresult ?skey , avg aresult ?akey ; ?x , ?y , ?z"
             let pair = parts.suffix(from: 1).split(separator: ";")
             guard pair.count >= 1 else { throw QueryError.parseError("Bad syntax for agg operation") }
@@ -428,6 +438,46 @@ open class QueryParser<T : LineReadable> {
         return nil
     }
     
+    func parsePropertyPath(_ parts : [String]) throws -> PropertyPath? {
+        var stack = [PropertyPath]()
+        var i = parts.makeIterator()
+        let parser = NTriplesPatternParser(reader: "")
+        while let s = i.next() {
+            switch s {
+            case "|":
+                guard stack.count >= 2 else { throw QueryError.parseError("Not enough property paths on the stack for \(s)") }
+                let rhs = stack.popLast()!
+                let lhs = stack.popLast()!
+                stack.append(.alt(lhs, rhs))
+            case "/":
+                guard stack.count >= 2 else { throw QueryError.parseError("Not enough property paths on the stack for \(s)") }
+                let rhs = stack.popLast()!
+                let lhs = stack.popLast()!
+                stack.append(.seq(lhs, rhs))
+            case "^":
+                guard stack.count >= 1 else { throw QueryError.parseError("Not enough property paths on the stack for \(s)") }
+                let lhs = stack.popLast()!
+                stack.append(.inv(lhs))
+            case "nps":
+                guard let c = i.next() else { throw QueryError.parseError("No count argument given for property path operation: \(s)") }
+                guard let count = Int(c) else { throw QueryError.parseError("Failed to parse count argument for property path operation: \(s)") }
+                guard stack.count >= count else { throw QueryError.parseError("Not enough property paths on the stack for \(s)") }
+                var iris = [Term]()
+                for _ in 0..<count {
+                    let link = stack.popLast()!
+                    guard case .link(let term) = link else { throw QueryError.parseError("Not an IRI for \(s)") }
+                    iris.append(term)
+                }
+                stack.append(.nps(iris))
+            default:
+                guard let n = parser.parseNode(line: s) else { throw QueryError.parseError("Failed to parse property path: \(parts.joined(separator: " "))") }
+                guard case .bound(let term) = n else { throw QueryError.parseError("Failed to parse property path: \(parts.joined(separator: " "))") }
+                stack.append(.link(term))
+            }
+        }
+        return stack.popLast()
+    }
+
     public func parse() throws -> Algebra? {
         let lines = self.reader.lines()
         for line in lines {
@@ -705,6 +755,12 @@ open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
                 } while true
             }
             
+        case .seq(let lhs, let rhs):
+            let jvar = freshVariable()
+            guard case .variable(let jvarname, _) = jvar else { fatalError() }
+            let i = try evaluatePath(subject: subject, object: jvar, graph: graph, path: lhs)
+            let j = try evaluatePath(subject: jvar, object: object, graph: graph, path: rhs)
+            return pipelinedHashJoin(joinVariables: [jvarname], lhs: i, rhs: j)
         }
     }
     
