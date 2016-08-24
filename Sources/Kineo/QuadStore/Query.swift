@@ -441,11 +441,18 @@ open class QueryParser<T : LineReadable> {
 open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
     var store : Q
     var defaultGraph : Term
+    var freshVarNumber : Int
     public init(store : Q, defaultGraph : Term) {
         self.store = store
         self.defaultGraph = defaultGraph
+        self.freshVarNumber = 1
     }
     
+    private func freshVariable() -> Node {
+        let n = freshVarNumber
+        freshVarNumber += 1
+        return .variable(".v\(n)", binding: true)
+    }
     func evaluateUnion(_ patterns : [Algebra], activeGraph : Term) throws -> AnyIterator<TermResult> {
         var iters = try patterns.map { try self.evaluate(algebra: $0, activeGraph: activeGraph) }
         return AnyIterator {
@@ -702,7 +709,7 @@ open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
     }
     
     func evaluateNPS(subject: Node, object: Node, graph: Node, not iris: [Term]) throws -> AnyIterator<TermResult> {
-        let predicate : Node = .variable(".predicate", binding: true)
+        let predicate = self.freshVariable()
         let quad = QuadPattern(subject: subject, predicate: predicate, object: object, graph: graph)
         let i = try store.results(matching: quad)
         // TODO: this can be made more efficient by adding an NPS function to the store,
@@ -718,7 +725,7 @@ open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
         return AnyIterator {
             repeat {
                 guard let r = i.next() else { return nil }
-                guard let p = r[".predicate"] else { continue }
+                guard let p = r[predicate] else { continue }
                 guard !set.contains(p) else { continue }
                 return r.projected(variables: keys)
             } while true
@@ -792,8 +799,6 @@ open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
                     } else {
                         warn("*** Cannot determine resulting numeric datatype for AVG operation")
                     }
-                    //                    default:
-                    //                        fatalError("Unimplemented aggregate: \(agg)")
                 }
             }
             return TermResult(bindings: bindings)
