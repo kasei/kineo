@@ -51,6 +51,9 @@ public indirect enum Expression : CustomStringConvertible {
     case lang(Expression)
     case datatype(Expression)
     case bound(Expression)
+    case intCast(Expression)
+    case floatCast(Expression)
+    case doubleCast(Expression)
     //    case langmatches(Expression, String)
     // TODO: add other expression functions
 
@@ -62,18 +65,11 @@ public indirect enum Expression : CustomStringConvertible {
             return expr.isNumeric
         case .add(let l, let r), .sub(let l, let r), .div(let l, let r), .mul(let l, let r):
             return l.isNumeric && r.isNumeric
-        case .call("http://www.w3.org/2001/XMLSchema#integer", let exprs),
-             .call("http://www.w3.org/2001/XMLSchema#float", let exprs),
-             .call("http://www.w3.org/2001/XMLSchema#double", let exprs):
-            if exprs.count == 1 {
-                if exprs[0].isNumeric {
-                    return true
-                }
-            }
+        case .intCast(let expr), .floatCast(let expr), .doubleCast(let expr):
+            return expr.isNumeric
         default:
             return false
         }
-        return false
     }
     
     
@@ -237,21 +233,21 @@ public indirect enum Expression : CustomStringConvertible {
             } else {
                 return Term.falseValue
             }
+        case .intCast(let expr):
+            let term = try expr.evaluate(result: result)
+            guard let n = term.numeric else { throw QueryError.typeError("Cannot coerce term to a numeric value") }
+            return Term(integer: Int(n.value))
+        case .floatCast(let expr):
+            let term = try expr.evaluate(result: result)
+            guard let n = term.numeric else { throw QueryError.typeError("Cannot coerce term to a numeric value") }
+            return Term(float: n.value)
+        case .doubleCast(let expr):
+            let term = try expr.evaluate(result: result)
+            guard let n = term.numeric else { throw QueryError.typeError("Cannot coerce term to a numeric value") }
+            return Term(float: n.value)
         case .call(let iri, let exprs):
             let terms = try exprs.map { try $0.evaluate(result: result) }
             switch iri {
-            case "http://www.w3.org/2001/XMLSchema#integer":
-                let term = terms[0]
-                guard let n = term.numeric else { throw QueryError.typeError("Cannot coerce term to a numeric value") }
-                return Term(integer: Int(n.value))
-            case "http://www.w3.org/2001/XMLSchema#float":
-                let term = terms[0]
-                guard let n = term.numeric else { throw QueryError.typeError("Cannot coerce term to a numeric value") }
-                return Term(float: n.value)
-            case "http://www.w3.org/2001/XMLSchema#double":
-                let term = terms[0]
-                guard let n = term.numeric else { throw QueryError.typeError("Cannot coerce term to a numeric value") }
-                return Term(double: n.value)
             default:
                 throw QueryError.evaluationError("Failed to evaluate CALL(<\(iri)>(\(exprs)) with result \(result)")
             }
@@ -304,17 +300,14 @@ public indirect enum Expression : CustomStringConvertible {
             let rval = try rhs.numericEvaluate(result: result)
             let value = lval / rval
             return value
-        case .call("http://www.w3.org/2001/XMLSchema#integer", let exprs):
-            guard exprs.count == 1 else { throw QueryError.evaluationError("Cannot numerically evaluate integer coercsion") }
-            let val = try exprs[0].numericEvaluate(result: result)
+        case .intCast(let expr):
+            let val = try expr.numericEvaluate(result: result)
             return .integer(Int(val.value))
-        case .call("http://www.w3.org/2001/XMLSchema#float", let exprs):
-            guard exprs.count == 1 else { throw QueryError.evaluationError("Cannot numerically evaluate float coercsion") }
-            let val = try exprs[0].numericEvaluate(result: result)
+        case .floatCast(let expr):
+            let val = try expr.numericEvaluate(result: result)
             return .float(val.value)
-        case .call("http://www.w3.org/2001/XMLSchema#double", let exprs):
-            guard exprs.count == 1 else { throw QueryError.evaluationError("Cannot numerically evaluate double coercsion") }
-            let val = try exprs[0].numericEvaluate(result: result)
+        case .doubleCast(let expr):
+            let val = try expr.numericEvaluate(result: result)
             return .double(val.value)
         default:
             throw QueryError.evaluationError("Failed to numerically evaluate \(self) with result \(result)")
@@ -363,6 +356,12 @@ public indirect enum Expression : CustomStringConvertible {
             return "ISLITERAL(\(expr))"
         case .isnumeric(let expr):
             return "ISNUMERIC(\(expr))"
+        case .intCast(let expr):
+            return "<http://www.w3.org/2001/XMLSchema#integer>(\(expr.description))"
+        case .floatCast(let expr):
+            return "<http://www.w3.org/2001/XMLSchema#float>(\(expr.description))"
+        case .doubleCast(let expr):
+            return "<http://www.w3.org/2001/XMLSchema#double>(\(expr.description))"
         case .call(let iri, let exprs):
             let strings = exprs.map { $0.description }
             return "<\(iri)>(\(strings.joined(separator: ",")))"
@@ -484,15 +483,15 @@ class ExpressionParser {
             case "int":
                 guard stack.count >= 1 else { throw QueryError.parseError("Not enough expressions on the stack for \(s)") }
                 let expr = stack.popLast()!
-                stack.append(.call("http://www.w3.org/2001/XMLSchema#integer", [expr]))
+                stack.append(.intCast(expr))
             case "float":
                 guard stack.count >= 1 else { throw QueryError.parseError("Not enough expressions on the stack for \(s)") }
                 let expr = stack.popLast()!
-                stack.append(.call("http://www.w3.org/2001/XMLSchema#float", [expr]))
+                stack.append(.floatCast(expr))
             case "double":
                 guard stack.count >= 1 else { throw QueryError.parseError("Not enough expressions on the stack for \(s)") }
                 let expr = stack.popLast()!
-                stack.append(.call("http://www.w3.org/2001/XMLSchema#double", [expr]))
+                stack.append(.doubleCast(expr))
             default:
                 if let value = Double(s) {
                     stack.append(.node(.bound(Term(float: value))))
