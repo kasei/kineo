@@ -1043,8 +1043,31 @@ public struct TermResult : CustomStringConvertible, ResultProtocol {
         return TermResult(bindings: bindings)
     }
     
+    public subscript(key : Node) -> Element? {
+        get {
+            switch key {
+            case .variable(let name, _):
+                return bindings[name]
+            default:
+                return nil
+            }
+        }
+        
+        set(value) {
+            if case .variable(let name, _) = key {
+                bindings[name] = value
+            }
+        }
+    }
+    
     public subscript(key : String) -> Element? {
-        return bindings[key]
+        get {
+            return bindings[key]
+        }
+        
+        set(value) {
+            bindings[key] = value
+        }
     }
     
     public var description : String {
