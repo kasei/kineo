@@ -246,7 +246,7 @@ public indirect enum Expression : CustomStringConvertible {
             guard let n = term.numeric else { throw QueryError.typeError("Cannot coerce term to a numeric value") }
             return Term(float: n.value)
         case .call(let iri, let exprs):
-            let terms = try exprs.map { try $0.evaluate(result: result) }
+//            let terms = try exprs.map { try $0.evaluate(result: result) }
             switch iri {
             default:
                 throw QueryError.evaluationError("Failed to evaluate CALL(<\(iri)>(\(exprs)) with result \(result)")
