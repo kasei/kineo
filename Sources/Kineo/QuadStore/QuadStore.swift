@@ -10,6 +10,7 @@ import Foundation
 
 public protocol QuadStoreProtocol : Sequence {
     func graphs() -> AnyIterator<Term>
+    func graphTerms() -> AnyIterator<Term>
     func makeIterator() -> AnyIterator<Quad>
     func results(matching pattern: QuadPattern) throws -> AnyIterator<TermResult>
     func quads(matching pattern: QuadPattern) throws -> AnyIterator<Quad>
@@ -141,17 +142,44 @@ open class QuadStore : Sequence, QuadStoreProtocol {
         let idmap = self.id
         let graphs = quadsTree.lazy.map {
             mapping($0.0)
-        }.map { (idquad) in
-            idquad[3]
-        }.flatMap { $0 }.filter { (gid) -> Bool in
-            let s = seen.contains(gid)
-            seen.insert(gid)
-            return !s
-        }.map { (gid) -> Term? in
-            return idmap.term(for: gid)
-        }.flatMap { $0 }
-    
+            }.map { (idquad) in
+                idquad[3]
+            }.flatMap { $0 }.filter { (gid) -> Bool in
+                let s = seen.contains(gid)
+                seen.insert(gid)
+                return !s
+            }.map { (gid) -> Term? in
+                return idmap.term(for: gid)
+            }.flatMap { $0 }
+        
         return AnyIterator(graphs.makeIterator())
+    }
+    
+    public func graphTerms() -> AnyIterator<Term> {
+        guard let mapping = try? quadMapping(fromOrder: QuadStore.defaultIndex) else {
+            warn("Failed to compute mapping for quad index order \(QuadStore.defaultIndex)")
+            return AnyIterator { return nil }
+        }
+        guard let quadsTree : Tree<IDQuad<UInt64>,Empty> = mediator.tree(name: QuadStore.defaultIndex) else {
+            warn("Failed to load default index \(QuadStore.defaultIndex)")
+            return AnyIterator { return nil }
+        }
+        
+        var seen = Set<UInt64>()
+        let idmap = self.id
+        let nodes = quadsTree.lazy.map {
+            mapping($0.0)
+            }.map { (idquad) in
+                [idquad[2], idquad[0]]
+            }.flatMap { $0 }.filter { (gid) -> Bool in
+                let s = seen.contains(gid)
+                seen.insert(gid)
+                return !s
+            }.map { (gid) -> Term? in
+                return idmap.term(for: gid)
+            }.flatMap { $0 }
+        
+        return AnyIterator(nodes.makeIterator())
     }
     
     public func quad(from idquad : IDQuad<UInt64>) -> Quad? {

@@ -32,6 +32,8 @@ public indirect enum PropertyPath {
     case nps([Term])
     case alt(PropertyPath, PropertyPath)
     case seq(PropertyPath, PropertyPath)
+    case plus(PropertyPath)
+    case star(PropertyPath)
 }
 
 public indirect enum Algebra {
@@ -458,6 +460,14 @@ open class QueryParser<T : LineReadable> {
                 guard stack.count >= 1 else { throw QueryError.parseError("Not enough property paths on the stack for \(s)") }
                 let lhs = stack.popLast()!
                 stack.append(.inv(lhs))
+            case "+":
+                guard stack.count >= 1 else { throw QueryError.parseError("Not enough property paths on the stack for \(s)") }
+                let lhs = stack.popLast()!
+                stack.append(.plus(lhs))
+            case "*":
+                guard stack.count >= 1 else { throw QueryError.parseError("Not enough property paths on the stack for \(s)") }
+                let lhs = stack.popLast()!
+                stack.append(.star(lhs))
             case "nps":
                 guard let c = i.next() else { throw QueryError.parseError("No count argument given for property path operation: \(s)") }
                 guard let count = Int(c) else { throw QueryError.parseError("Failed to parse count argument for property path operation: \(s)") }
@@ -731,6 +741,23 @@ open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
         return AnyIterator(results.makeIterator())
     }
 
+    private func alp(term : Term, path : PropertyPath, graph: Node) throws -> AnyIterator<Term> {
+        var v = Set<Term>()
+        try alp(term: term, path: path, seen: &v, graph: graph)
+        return AnyIterator(v.makeIterator())
+    }
+    
+    private func alp(term x : Term, path : PropertyPath, seen v : inout Set<Term>, graph: Node) throws {
+        guard !v.contains(x) else { return }
+        v.insert(x)
+        let pvar = freshVariable()
+        for result in try evaluatePath(subject: .bound(x), object: pvar, graph: graph, path: path) {
+            if let n = result[pvar] {
+                try alp(term: n, path: path, seen: &v, graph: graph)
+            }
+        }
+    }
+    
     func evaluatePath(subject: Node, object: Node, graph: Node, path: PropertyPath) throws -> AnyIterator<TermResult> {
         switch path {
         case .link(let predicate):
@@ -761,6 +788,85 @@ open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
             let i = try evaluatePath(subject: subject, object: jvar, graph: graph, path: lhs)
             let j = try evaluatePath(subject: jvar, object: object, graph: graph, path: rhs)
             return pipelinedHashJoin(joinVariables: [jvarname], lhs: i, rhs: j)
+        case .star(let pp):
+            switch (subject, object) {
+            case (.bound(let t), .variable(let oname, binding: _)):
+                let i = try alp(term: t, path: path, graph: graph)
+                return AnyIterator {
+                    guard let t = i.next() else { return nil }
+                    return TermResult(bindings: [oname: t])
+                }
+            case (.variable(_), .bound(_)):
+                let ipath : PropertyPath = .star(.inv(pp))
+                return try evaluatePath(subject: object, object: subject, graph: graph, path: ipath)
+            case (.bound(let t), .bound(let oterm)):
+                var v = Set<Term>()
+                try alp(term: t, path: path, seen: &v, graph: graph)
+                
+                var results = [TermResult]()
+                if v.contains(oterm) {
+                    results.append(TermResult(bindings: [:]))
+                }
+                return AnyIterator(results.makeIterator())
+            case (.variable(let sname, binding: _), .variable(_)):
+                var results = [TermResult]()
+                for t in store.graphTerms() {
+                    let i = try evaluatePath(subject: .bound(t), object: object, graph: graph, path: pp)
+                    let j = i.map {
+                        $0.extended(variable: sname, value: t)
+                    }
+                    results.append(contentsOf: j)
+                }
+                return AnyIterator(results.makeIterator())
+            default:
+                fatalError()
+            }
+        case .plus(let pp):
+            switch (subject, object) {
+            case (.bound(_), .variable(let oname, binding: _)):
+                let pvar = freshVariable()
+                var v = Set<Term>()
+                for result in try evaluatePath(subject: subject, object: pvar, graph: graph, path: pp) {
+                    if let n = result[pvar] {
+                        try alp(term: n, path: path, seen: &v, graph: graph)
+                    }
+                }
+                
+                var i = v.makeIterator()
+                return AnyIterator {
+                    guard let t = i.next() else { return nil }
+                    return TermResult(bindings: [oname: t])
+                }
+            case (.variable(_), .bound(_)):
+                let ipath : PropertyPath = .plus(.inv(pp))
+                return try evaluatePath(subject: object, object: subject, graph: graph, path: ipath)
+            case (.bound(_), .bound(let oterm)):
+                let pvar = freshVariable()
+                var v = Set<Term>()
+                for result in try evaluatePath(subject: subject, object: pvar, graph: graph, path: pp) {
+                    if let n = result[pvar] {
+                        try alp(term: n, path: path, seen: &v, graph: graph)
+                    }
+                }
+                
+                var results = [TermResult]()
+                if v.contains(oterm) {
+                    results.append(TermResult(bindings: [:]))
+                }
+                return AnyIterator(results.makeIterator())
+            case (.variable(let sname, binding: _), .variable(_)):
+                var results = [TermResult]()
+                for t in store.graphTerms() {
+                    let i = try evaluatePath(subject: .bound(t), object: object, graph: graph, path: pp)
+                    let j = i.map {
+                        $0.extended(variable: sname, value: t)
+                    }
+                    results.append(contentsOf: j)
+                }
+                return AnyIterator(results.makeIterator())
+            default:
+                fatalError()
+            }
         }
     }
     
