@@ -810,7 +810,7 @@ open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
                 return AnyIterator(results.makeIterator())
             case (.variable(let sname, binding: _), .variable(_)):
                 var results = [TermResult]()
-                for t in store.graphTerms() {
+                for t in store.graphNodeTerms() {
                     let i = try evaluatePath(subject: .bound(t), object: object, graph: graph, path: pp)
                     let j = i.map {
                         $0.extended(variable: sname, value: t)
@@ -856,7 +856,7 @@ open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
                 return AnyIterator(results.makeIterator())
             case (.variable(let sname, binding: _), .variable(_)):
                 var results = [TermResult]()
-                for t in store.graphTerms() {
+                for t in store.graphNodeTerms() {
                     let i = try evaluatePath(subject: .bound(t), object: object, graph: graph, path: pp)
                     let j = i.map {
                         $0.extended(variable: sname, value: t)
@@ -1139,10 +1139,10 @@ open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
             }
         case .distinct(let child), .project(let child, _), .slice(let child, _, _), .extend(let child, _, _), .order(let child, _), .filter(let child, _):
             return try effectiveVersion(matching: child, activeGraph: activeGraph)
-        case .aggregate(_, _, _):
-            fatalError()
-        case .window(_, _, _):
-            fatalError()
+        case .aggregate(let child, _, _):
+            return try effectiveVersion(matching: child, activeGraph: activeGraph)
+        case .window(let child, _, _):
+            return try effectiveVersion(matching: child, activeGraph: activeGraph)
         case .bgp(let children):
             guard children.count > 0 else { return nil }
             var mtime : Version = 0

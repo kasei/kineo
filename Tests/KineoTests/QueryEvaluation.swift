@@ -2,11 +2,17 @@ import XCTest
 import Kineo
 
 struct TestStore : QuadStoreProtocol {
+    typealias IDType = Term
+
     public func effectiveVersion(matching pattern: QuadPattern) throws -> UInt64? {
         return nil
     }
 
     var quads : [Quad]
+    
+    func graphIDs() -> AnyIterator<Term> {
+        return graphs()
+    }
     
     func graphs() -> AnyIterator<Term> {
         var graphs = Set<Term>()
@@ -16,7 +22,11 @@ struct TestStore : QuadStoreProtocol {
         return AnyIterator(graphs.makeIterator())
     }
     
-    func graphTerms() -> AnyIterator<Term> {
+    func graphNodeIDs() -> AnyIterator<Term> {
+        return graphNodeTerms()
+    }
+    
+    func graphNodeTerms() -> AnyIterator<Term> {
         var terms = Set<Term>()
         for q in self {
             terms.insert(q.subject)

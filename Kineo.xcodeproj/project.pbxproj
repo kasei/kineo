@@ -34,6 +34,7 @@
 		372AE76F1D582D9F001D72DF /* QueryEvaluation.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = QueryEvaluation.swift; sourceTree = "<group>"; };
 		372AE7701D582D9F001D72DF /* QueryParser.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = QueryParser.swift; sourceTree = "<group>"; };
 		372C154E1D500FD6005AD596 /* kineo-test.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "kineo-test.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		375BE53C1D9459D500E7E919 /* Plan.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Plan.swift; sourceTree = "<group>"; };
 		37620ED41D4F0FA100AEC10F /* Expression.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Expression.swift; sourceTree = "<group>"; };
 		377C49F41D3061EF006222B6 /* Query.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Query.swift; sourceTree = "<group>"; };
 		379BD8131D63F308009EACC2 /* Trees.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Trees.swift; sourceTree = "<group>"; };
@@ -155,6 +156,7 @@
 				37B8399B1D1E06B500BE718B /* QuadStore.swift */,
 				377C49F41D3061EF006222B6 /* Query.swift */,
 				37620ED41D4F0FA100AEC10F /* Expression.swift */,
+				375BE53C1D9459D500E7E919 /* Plan.swift */,
 			);
 			path = QuadStore;
 			sourceTree = "<group>";

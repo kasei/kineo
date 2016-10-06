@@ -9,8 +9,11 @@
 import Foundation
 
 public protocol QuadStoreProtocol : Sequence {
+    associatedtype IDType
     func graphs() -> AnyIterator<Term>
-    func graphTerms() -> AnyIterator<Term>
+    func graphIDs() -> AnyIterator<IDType>
+    func graphNodeTerms() -> AnyIterator<Term>
+    func graphNodeIDs() -> AnyIterator<IDType>
     func makeIterator() -> AnyIterator<Quad>
     func results(matching pattern: QuadPattern) throws -> AnyIterator<TermResult>
     func quads(matching pattern: QuadPattern) throws -> AnyIterator<Quad>
@@ -18,7 +21,7 @@ public protocol QuadStoreProtocol : Sequence {
 }
 
 open class QuadStore : Sequence, QuadStoreProtocol {
-    typealias IDType = UInt64
+    public typealias IDType = UInt64
     static public let defaultIndex = "pogs"
     internal var mediator : RMediator
     public let readonly : Bool
@@ -128,7 +131,7 @@ open class QuadStore : Sequence, QuadStoreProtocol {
         _ = try m.create(tree: index, pairs: pairs)
     }
     
-    public func graphs() -> AnyIterator<Term> {
+    public func graphIDs() -> AnyIterator<IDType> {
         guard let mapping = try? quadMapping(fromOrder: QuadStore.defaultIndex) else {
             warn("Failed to compute mapping for quad index order \(QuadStore.defaultIndex)")
             return AnyIterator { return nil }
@@ -139,7 +142,6 @@ open class QuadStore : Sequence, QuadStoreProtocol {
         }
         
         var seen = Set<UInt64>()
-        let idmap = self.id
         let graphs = quadsTree.lazy.map {
             mapping($0.0)
             }.map { (idquad) in
@@ -148,14 +150,22 @@ open class QuadStore : Sequence, QuadStoreProtocol {
                 let s = seen.contains(gid)
                 seen.insert(gid)
                 return !s
-            }.map { (gid) -> Term? in
-                return idmap.term(for: gid)
             }.flatMap { $0 }
         
         return AnyIterator(graphs.makeIterator())
     }
     
-    public func graphTerms() -> AnyIterator<Term> {
+    public func graphs() -> AnyIterator<Term> {
+        let idmap = self.id
+        let ids = self.graphIDs()
+        let graphs = ids.map { (gid) -> Term? in
+            return idmap.term(for: gid)
+        }.flatMap { $0 }
+        
+        return AnyIterator(graphs.makeIterator())
+    }
+
+    public func graphNodeIDs() -> AnyIterator<IDType> {
         guard let mapping = try? quadMapping(fromOrder: QuadStore.defaultIndex) else {
             warn("Failed to compute mapping for quad index order \(QuadStore.defaultIndex)")
             return AnyIterator { return nil }
@@ -166,16 +176,23 @@ open class QuadStore : Sequence, QuadStoreProtocol {
         }
         
         var seen = Set<UInt64>()
-        let idmap = self.id
         let nodes = quadsTree.lazy.map {
-            mapping($0.0)
+                mapping($0.0)
             }.map { (idquad) in
                 [idquad[2], idquad[0]]
             }.flatMap { $0 }.filter { (gid) -> Bool in
                 let s = seen.contains(gid)
                 seen.insert(gid)
                 return !s
-            }.map { (gid) -> Term? in
+            }
+        
+        return AnyIterator(nodes.makeIterator())
+    }
+    
+    public func graphNodeTerms() -> AnyIterator<Term> {
+        let idmap = self.id
+        let ids = graphNodeIDs()
+        let nodes = ids.map { (gid) -> Term? in
                 return idmap.term(for: gid)
             }.flatMap { $0 }
         
@@ -222,6 +239,35 @@ open class QuadStore : Sequence, QuadStoreProtocol {
 
     public var availableQuadIndexes : [String] {
         return mediator.rootNames.filter { String($0.characters.sorted()) == "gops" }
+    }
+
+    private func bestIndex(for bound : [Bool]) -> (String, Int) {
+        let QUAD_POSTIONS = ["s": 0, "p": 1, "o": 2, "g": 3]
+        var bestCount = 0
+        let available = availableQuadIndexes
+        var indexCoverage = [0: available[0]]
+        for index_name in available {
+            var count = 0
+            for c in index_name.characters {
+                if let pos = QUAD_POSTIONS[String(c)] {
+                    if bound[pos] {
+                        count += 1
+                    } else {
+                        break
+                    }
+                }
+            }
+            indexCoverage[count] = index_name
+            if count > bestCount {
+                bestCount = count
+            }
+        }
+        
+        if let index_name = indexCoverage[bestCount] {
+            return (index_name, bestCount)
+        } else {
+            return (available[0], 0)
+        }
     }
     
     private func bestIndex(for pattern : QuadPattern) -> (String, Int) {
@@ -377,15 +423,9 @@ open class QuadStore : Sequence, QuadStoreProtocol {
     }
     
     internal func idquads(matching pattern: QuadPattern) throws -> AnyIterator<IDQuad<IDType>> {
-        let umin = UInt64.min
-        let umax = UInt64.max
         let idmap = self.id
-        
-        let (index_name, count) = bestIndex(for: pattern)
-        //        print("Index '\(index_name)' is best match with \(count) prefix terms")
-        
         let nodes = [pattern.subject, pattern.predicate, pattern.object, pattern.graph]
-        var patternIds = [UInt64]()
+        var patternIds = [IDType]()
         for i in 0..<4 {
             let node = nodes[i]
             switch node {
@@ -399,7 +439,16 @@ open class QuadStore : Sequence, QuadStoreProtocol {
                 patternIds.append(id)
             }
         }
-        
+        return try idquads(matching: patternIds)
+    }
+    
+    internal func idquads(matching patternIds: [IDType]) throws -> AnyIterator<IDQuad<IDType>> {
+        let umin = IDType.min
+        let umax = IDType.max
+        let bound = patternIds.map { $0 != 0 }
+        let (index_name, count) = bestIndex(for: bound)
+        //        print("Index '\(index_name)' is best match with \(count) prefix terms")
+
         let fromIndexOrder      = try quadMapping(fromOrder: index_name)
         let toIndexOrder        = quadMapping(toOrder: index_name)
         let spogOrdered         = IDQuad(patternIds[0], patternIds[1], patternIds[2], patternIds[3])
@@ -947,7 +996,7 @@ public struct IDQuad<T : DefinedTestable & Equatable & Comparable & BufferSerial
         return after+1
     }
     
-    var values : [T]
+    public var values : [T]
     public init(_ v0 : T, _ v1 : T, _ v2 : T, _ v3 : T) {
         self.values = [v0,v1,v2,v3]
     }

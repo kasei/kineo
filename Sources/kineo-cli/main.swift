@@ -62,6 +62,45 @@ func parseQuery(_ database : FilePageDatabase, filename : String) throws -> Alge
     return try qp.parse()
 }
 
+func planQuery(_ database : FilePageDatabase, algebra : Algebra, graph : Term? = nil) throws -> ResultPlan {
+    fatalError()
+}
+
+func query2(_ database : FilePageDatabase, algebra: Algebra, graph: Term? = nil, verbose : Bool) throws -> Int {
+    var count       = 0
+    try database.read { (m) in
+        do {
+            let store       = try LanguageQuadStore(mediator: m, acceptLanguages: [("en", 1.0), ("", 0.5)])
+            var defaultGraph : Term
+            if let g = graph {
+                defaultGraph = g
+            } else {
+                guard let g = store.graphs().next() else { return }
+                defaultGraph = g
+                warn("Using default graph \(defaultGraph)")
+            }
+//            let e           = SimpleQueryEvaluator(store: store, defaultGraph: defaultGraph)
+//            if let mtime = try e.effectiveVersion(matching: query, activeGraph: defaultGraph) {
+//                let date = getDateString(seconds: mtime)
+//                if verbose {
+//                    print("# Last-Modified: \(date)")
+//                }
+//            }
+            
+            let planner     = QuadStorePlanner(store: store, defaultGraph: defaultGraph)
+            let plan        = try planner.plan(algebra)
+            let e           = ResultPlanEvaluator(store: store)
+            for result in try e.evaluate(plan) {
+                count += 1
+                print("\(count)\t\(result.description)")
+            }
+        } catch let e {
+            warn("*** \(e)")
+        }
+    }
+    return count
+}
+
 func query(_ database : FilePageDatabase, algebra query: Algebra, graph: Term? = nil, verbose : Bool) throws -> Int {
     var count       = 0
     try database.read { (m) in
@@ -254,6 +293,16 @@ if let op = args.next() {
         guard let qfile = args.next() else { fatalError("No query file given") }
         guard let algebra = try parseQuery(database, filename: qfile) else { fatalError("Failed to parse query") }
         count = try query(database, algebra: algebra, graph: graph, verbose: verbose)
+    } else if op == "plan" {
+        var graph : Term? = nil
+        if let next = args.peek(), next == "-g" {
+            _ = args.next()
+            guard let iri = args.next() else { fatalError("No IRI value given after -g") }
+            graph = Term(value: iri, type: .iri)
+        }
+        guard let qfile = args.next() else { fatalError("No query file given") }
+        guard let algebra = try parseQuery(database, filename: qfile) else { fatalError("Failed to parse query") }
+        count = try query2(database, algebra: algebra, graph: graph, verbose: verbose)
     } else if op == "qparse", let qfile = args.next() {
         guard let algebra = try parseQuery(database, filename: qfile) else { fatalError("Failed to parse query") }
         let s = algebra.serialize()
