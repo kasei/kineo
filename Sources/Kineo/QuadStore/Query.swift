@@ -39,6 +39,7 @@ public indirect enum PropertyPath {
 public indirect enum Algebra {
     public typealias SortComparator = (Bool, Expression)
 
+    case identity
     case quad(QuadPattern)
     case triple(TriplePattern)
     case bgp([TriplePattern])
@@ -74,6 +75,8 @@ public indirect enum Algebra {
     public var inscope : Set<String> {
         var variables = Set<String>()
         switch self {
+        case .identity:
+            return Set()
         case .project(_, let vars):
             return Set(vars)
         case .innerJoin(let lhs, let rhs), .union(let lhs, let rhs):
@@ -150,6 +153,8 @@ public indirect enum Algebra {
         let indent = String(repeating: " ", count: (depth*2))
             
         switch self {
+        case .identity:
+            return "\(indent)Identity\n"
         case .quad(let q):
             return "\(indent)Quad(\(q))\n"
         case .triple(let t):
@@ -988,6 +993,9 @@ open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
 
     public func evaluate(algebra : Algebra, activeGraph : Term) throws -> AnyIterator<TermResult> {
         switch algebra {
+        case .identity:
+            let results = [TermResult(bindings: [:])]
+            return AnyIterator(results.makeIterator())
         case .triple(let t):
             let quad = QuadPattern(subject: t.subject, predicate: t.predicate, object: t.object, graph: .bound(activeGraph))
             return try store.results(matching: quad)
@@ -1113,6 +1121,8 @@ open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
 
     public func effectiveVersion(matching algebra: Algebra, activeGraph : Term) throws -> Version? {
         switch algebra {
+        case .identity:
+            return nil
         case .path(_, _, _):
             let s : Node = .variable("s", binding: true)
             let p : Node = .variable("p", binding: true)

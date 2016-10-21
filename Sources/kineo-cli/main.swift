@@ -103,6 +103,7 @@ func query2(_ database : FilePageDatabase, algebra: Algebra, graph: Term? = nil,
 
 func query(_ database : FilePageDatabase, algebra query: Algebra, graph: Term? = nil, verbose : Bool) throws -> Int {
     var count       = 0
+    let startTime = getCurrentTime()
     try database.read { (m) in
         do {
             let store       = try LanguageQuadStore(mediator: m, acceptLanguages: [("en", 1.0), ("", 0.5)])
@@ -131,6 +132,11 @@ func query(_ database : FilePageDatabase, algebra query: Algebra, graph: Term? =
         } catch let e {
             warn("*** \(e)")
         }
+    }
+    if verbose {
+        let endTime = getCurrentTime()
+        let elapsed = endTime - startTime
+        warn("query time: \(elapsed)s")
     }
     return count
 }
@@ -247,6 +253,8 @@ guard argscount >= 2 else {
     print("Usage: \(pname) [-v] database.db COMMAND [ARGUMENTS]")
     print("       \(pname) database.db load [-g GRAPH-IRI] rdf.nt ...")
     print("       \(pname) database.db query [-g DEFAULT-GRAPH-IRI] query.q")
+    print("       \(pname) database.db sparql query.rq")
+    print("       \(pname) database.db parse query.rq")
     print("       \(pname) database.db qparse query.q")
     print("       \(pname) database.db graphs")
     print("       \(pname) database.db indexes")
@@ -283,6 +291,19 @@ if let op = args.next() {
         count = try graphs(database)
     } else if op == "indexes" {
         count = try indexes(database)
+    } else if op == "sparql" {
+        var graph : Term? = nil
+        if let next = args.peek(), next == "-g" {
+            _ = args.next()
+            guard let iri = args.next() else { fatalError("No IRI value given after -g") }
+            graph = Term(value: iri, type: .iri)
+        }
+        guard let qfile = args.next() else { fatalError("No query file given") }
+        let url = URL(fileURLWithPath: qfile)
+        let sparql = try Data(contentsOf: url)
+        guard var p = SPARQLParser(data: sparql) else { fatalError("Failed to construct SPARQL parser") }
+        let algebra = try p.parse()
+        count = try query(database, algebra: algebra, graph: graph, verbose: verbose)
     } else if op == "query" {
         var graph : Term? = nil
         if let next = args.peek(), next == "-g" {
@@ -303,6 +324,15 @@ if let op = args.next() {
         guard let qfile = args.next() else { fatalError("No query file given") }
         guard let algebra = try parseQuery(database, filename: qfile) else { fatalError("Failed to parse query") }
         count = try query2(database, algebra: algebra, graph: graph, verbose: verbose)
+    } else if op == "parse", let qfile = args.next() {
+        guard let qfile = args.next() else { fatalError("No query file given") }
+        let url = URL(fileURLWithPath: qfile)
+        let sparql = try Data(contentsOf: url)
+        guard var p = SPARQLParser(data: sparql) else { fatalError("Failed to construct SPARQL parser") }
+        let algebra = try p.parse()
+        let s = algebra.serialize()
+        count = 1
+        print(s)
     } else if op == "qparse", let qfile = args.next() {
         guard let algebra = try parseQuery(database, filename: qfile) else { fatalError("Failed to parse query") }
         let s = algebra.serialize()
