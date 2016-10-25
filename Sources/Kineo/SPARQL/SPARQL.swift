@@ -202,6 +202,16 @@ public struct SPARQLLexer : IteratorProtocol {
         return r
     }()
     
+    fileprivate static let _functions : Set<String> = {
+        let funcs = Set(["STR", "LANG", "LANGMATCHES", "DATATYPE", "BOUND", "IRI", "URI", "BNODE", "RAND", "ABS", "CEIL", "FLOOR", "ROUND", "CONCAT", "STRLEN", "UCASE", "LCASE", "ENCODE_FOR_URI", "CONTAINS", "STRSTARTS", "STRENDS", "STRBEFORE", "STRAFTER", "YEAR", "MONTH", "DAY", "HOURS", "MINUTES", "SECONDS", "TIMEZONE", "TZ", "NOW", "UUID", "STRUUID", "MD5", "SHA1", "SHA256", "SHA384", "SHA512", "COALESCE", "IF", "STRLANG", "STRDT", "SAMETERM", "SUBSTR", "REPLACE", "ISIRI", "ISURI", "ISBLANK", "ISLITERAL", "ISNUMERIC", "REGEX"])
+        return funcs
+    }()
+    
+    fileprivate static let _aggregates : Set<String> = {
+        let aggs = Set(["COUNT", "SUM", "MIN", "MAX", "AVG", "SAMPLE", "GROUP_CONCAT"])
+        return aggs
+    }()
+    
     private static let _aRegex : NSRegularExpression = {
         guard let r = try? NSRegularExpression(pattern: "a\\b", options: .anchorsMatchLines) else { fatalError() }
         return r
@@ -596,7 +606,7 @@ public struct SPARQLLexer : IteratorProtocol {
                 if c == "'" {
                     break
                 } else if c == "\\" {
-                    fatalError("TODO: handle literal escapes")
+                    try chars.append(getEscapedChar())
                 } else {
                     let cc = getChar()
                     chars.append(cc)
@@ -607,6 +617,41 @@ public struct SPARQLLexer : IteratorProtocol {
         }
     }
     
+    mutating func getEscapedChar() throws -> Character {
+        try getChar(expecting: "\\")
+        let c = try getExpectedChar()
+        switch c {
+        case "r":
+            return "\r"
+        case "n":
+            return "\n"
+        case "t":
+            return "\t"
+        case "\\":
+            return "\\"
+        case "'":
+            return "'"
+        case "\"":
+            return "\""
+        case "u":
+            let hex = try read(length: 4)
+            guard let codepoint = Int(hex, radix: 16), let s = UnicodeScalar(codepoint) else {
+                throw SPARQLParsingError.lexicalError("Invalid unicode codepoint: \(hex)")
+            }
+            let c = Character(s)
+            return c
+        case "U":
+            let hex = try read(length: 8)
+            guard let codepoint = Int(hex, radix: 16), let s = UnicodeScalar(codepoint) else {
+                throw SPARQLParsingError.lexicalError("Invalid unicode codepoint: \(hex)")
+            }
+            let c = Character(s)
+            return c
+        default:
+            throw SPARQLParsingError.lexicalError("Unexpected escape sequence \\\(c)")
+        }
+    }
+
     mutating func getPName() throws -> SPARQLToken? {
         let bufferLength = NSMakeRange(0, buffer.characters.count)
         let range = SPARQLLexer._pNameLNre.rangeOfFirstMatch(in: buffer, options: [], range: bufferLength)
@@ -716,7 +761,7 @@ public struct SPARQLLexer : IteratorProtocol {
                 if c == "\"" {
                     break
                 } else if c == "\\" {
-                    fatalError("TODO: handle literal escapes")
+                    try chars.append(getEscapedChar())
                 } else {
                     let cc = getChar()
                     chars.append(cc)
@@ -767,7 +812,23 @@ public struct SPARQLLexer : IteratorProtocol {
         }
         return c
     }
-
+    
+    @discardableResult
+    mutating func getExpectedChar() throws -> Character {
+        guard let c = buffer.characters.first else {
+            throw SPARQLParsingError.lexicalError("Unexpected EOF")
+        }
+        buffer = buffer.substring(from: buffer.index(buffer.startIndex, offsetBy: 1))
+        self.character += 1
+        if c == "\n" {
+            self.line += 1
+            self.column = 1
+        } else {
+            self.column += 1
+        }
+        return c
+    }
+    
     @discardableResult
     mutating func getChar(expecting: Character) throws -> Character {
         let c = getChar()
@@ -1232,7 +1293,10 @@ public struct SPARQLParser {
                 algebra = .slice(algebra, offset, nil)
             }
         }
-
+        
+        
+        print("\(algebra.serialize())")
+        
         /**
     
     t   = [self peekNextNonCommentToken];
@@ -1857,7 +1921,40 @@ public struct SPARQLParser {
         return expr
     }
     
-    private mutating func parseBuiltInCall() throws -> Expression { fatalError("implement") }
+    private mutating func parseBuiltInCall() throws -> Expression {
+        let t = try peekExpectedToken()
+        switch t {
+        case .keyword(let kw) where SPARQLLexer._aggregates.contains(kw):
+            let agg = try parseAggregate()
+            fatalError("??????")
+        case .keyword("NOT"):
+            try expect(token: t)
+            try expect(token: .keyword("EXISTS"))
+            let ggp = try parseGroupGraphPattern()
+            fatalError("NOT EXISTS not implemented")
+        case .keyword("EXISTS"):
+            try expect(token: t)
+            let ggp = try parseGroupGraphPattern()
+            fatalError("EXISTS not implemented")
+        case .keyword(let kw) where SPARQLLexer._functions.contains(kw):
+            try expect(token: t)
+            var args = [Expression]()
+            if try !attempt(token: ._nil) {
+                try expect(token: .lparen)
+                let expr = try parseExpression()
+                args.append(expr)
+                while try attempt(token: .comma) {
+                    let expr = try parseExpression()
+                    args.append(expr)
+                }
+                try expect(token: .rparen)
+            }
+            return .call(kw, args)
+        default:
+            throw SPARQLParsingError.parsingError("Expected built-in function call but found \(t)")
+        }
+    }
+    
     private mutating func parseAggregate() throws -> Aggregation {
         let t = try nextExpectedToken()
         guard case .keyword(let name) = t else {
@@ -2033,6 +2130,7 @@ public struct SPARQLParser {
             fatalError("SERVICE algebra is unimplemented")
 //            return .finished(.service(node, ggp, silent))
         } else if case .keyword("FILTER") = t {
+            try expect(token: t)
             let expression = try parseConstraint()
             return .filter(expression)
         } else if case .keyword("VALUES") = t {

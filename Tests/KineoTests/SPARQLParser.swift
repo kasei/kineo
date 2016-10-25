@@ -23,7 +23,7 @@ class SPARQLParserTest: XCTestCase {
                 return
             }
             
-            guard case .path(_, _, _) = pattern else {
+            guard case .triple(_) = pattern else {
                 XCTFail("Unexpected algebra: \(pattern.serialize())")
                 return
             }
@@ -68,5 +68,29 @@ class SPARQLParserTest: XCTestCase {
         XCTAssertEqual(lexer.next()!, .rparen, "expected token")
         XCTAssertEqual(lexer.next()!, .rbrace, "expected token")
         XCTAssertNil(lexer.next())
+    }
+    
+    func testLexerSingleQuotedStrings() {
+        guard let data = "'foo' 'foo\\nbar' '\\u706B' '\\U0000661F'".data(using: .utf8) else { XCTFail(); return }
+        let stream = InputStream(data: data)
+        stream.open()
+        var lexer = SPARQLLexer(source: stream)
+        
+        XCTAssertEqual(lexer.next()!, .string1s("foo"), "expected token")
+        XCTAssertEqual(lexer.next()!, .string1s("foo\nbar"), "expected token")
+        XCTAssertEqual(lexer.next()!, .string1s("火"), "expected token")
+        XCTAssertEqual(lexer.next()!, .string1s("星"), "expected token")
+    }
+    
+    func testLexerDoubleQuotedStrings() {
+        guard let data = "\"foo\" \"foo\\nbar\" \"\\u706B\" \"\\U0000661F\"".data(using: .utf8) else { XCTFail(); return }
+        let stream = InputStream(data: data)
+        stream.open()
+        var lexer = SPARQLLexer(source: stream)
+        
+        XCTAssertEqual(lexer.next()!, .string1d("foo"), "expected token")
+        XCTAssertEqual(lexer.next()!, .string1d("foo\nbar"), "expected token")
+        XCTAssertEqual(lexer.next()!, .string1d("火"), "expected token")
+        XCTAssertEqual(lexer.next()!, .string1d("星"), "expected token")
     }
 }
