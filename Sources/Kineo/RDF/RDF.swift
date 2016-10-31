@@ -606,6 +606,18 @@ public enum Node {
     case variable(String, binding: Bool)
 }
 
+extension Node : Equatable {
+    public static func ==(lhs: Node, rhs: Node) -> Bool {
+        switch (lhs, rhs) {
+        case (.bound(let l), .bound(let r)) where l == r:
+            return true
+        case (.variable(let l, _), .variable(let r, _)) where l == r:
+            return true
+        default:
+            return false
+        }
+    }
+}
 extension Node : CustomStringConvertible {
     public var description : String {
         switch self {
