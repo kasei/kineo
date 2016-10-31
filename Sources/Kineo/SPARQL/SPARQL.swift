@@ -587,10 +587,58 @@ public struct SPARQLLexer : IteratorProtocol {
     }
     mutating func getSingleLiteral() throws -> SPARQLToken? {
         var chars = [Character]()
-        try getChar(expecting: "'")
         if buffer.hasPrefix("''") {
-            fatalError("TODO: parse triple-quoted literals")
+            try read(word: "'''")
+            var quote_count = 0
+            while true {
+                if buffer.characters.count == 0 {
+                    fillBuffer()
+                    if buffer.characters.count == 0 {
+                        if quote_count >= 3 {
+                            for _ in 0..<(quote_count-3) {
+                                chars.append("'")
+                            }
+                            return .string3s(String(chars))
+                        }
+                        throw SPARQLParsingError.lexicalError("Found EOF in string literal")
+                    }
+                }
+                
+                guard let c = peekChar() else {
+                    if quote_count >= 3 {
+                        for _ in 0..<(quote_count-3) {
+                            chars.append("'")
+                        }
+                        return .string3s(String(chars))
+                    }
+                    throw SPARQLParsingError.lexicalError("Found EOF in string literal")
+                }
+                
+                if c == "'" {
+                    getChar()
+                    quote_count += 1
+                } else {
+                    if quote_count > 0 {
+                        if quote_count >= 3 {
+                            for _ in 0..<(quote_count-3) {
+                                chars.append("'")
+                            }
+                            return .string3s(String(chars))
+                        }
+                        for _ in 0..<quote_count {
+                            chars.append("'")
+                        }
+                        quote_count = 0
+                    }
+                    if c == "\\" {
+                        try chars.append(getEscapedChar())
+                    } else {
+                        chars.append(getChar())
+                    }
+                }
+            }
         } else {
+            try getChar(expecting: "'")
             while true {
                 if buffer.characters.count == 0 {
                     fillBuffer()
@@ -742,10 +790,58 @@ public struct SPARQLLexer : IteratorProtocol {
 
     mutating func getDoubleLiteral() throws -> SPARQLToken? {
         var chars = [Character]()
-        try getChar(expecting: "\"")
-        if buffer.hasPrefix("\"\"") {
-            fatalError("TODO: parse triple-quoted literals")
+        if buffer.hasPrefix("\"\"\"") {
+            try read(word: "\"\"\"")
+            var quote_count = 0
+            while true {
+                if buffer.characters.count == 0 {
+                    fillBuffer()
+                    if buffer.characters.count == 0 {
+                        if quote_count >= 3 {
+                            for _ in 0..<(quote_count-3) {
+                                chars.append("\"")
+                            }
+                            return .string3d(String(chars))
+                        }
+                        throw SPARQLParsingError.lexicalError("Found EOF in string literal")
+                    }
+                }
+                
+                guard let c = peekChar() else {
+                    if quote_count >= 3 {
+                        for _ in 0..<(quote_count-3) {
+                            chars.append("\"")
+                        }
+                        return .string3d(String(chars))
+                    }
+                    throw SPARQLParsingError.lexicalError("Found EOF in string literal")
+                }
+                
+                if c == "\"" {
+                    getChar()
+                    quote_count += 1
+                } else {
+                    if quote_count > 0 {
+                        if quote_count >= 3 {
+                            for _ in 0..<(quote_count-3) {
+                                chars.append("\"")
+                            }
+                            return .string3d(String(chars))
+                        }
+                        for _ in 0..<quote_count {
+                            chars.append("\"")
+                        }
+                        quote_count = 0
+                    }
+                    if c == "\\" {
+                        try chars.append(getEscapedChar())
+                    } else {
+                        chars.append(getChar())
+                    }
+                }
+            }
         } else {
+            try getChar(expecting: "\"")
             while true {
                 if buffer.characters.count == 0 {
                     fillBuffer()
