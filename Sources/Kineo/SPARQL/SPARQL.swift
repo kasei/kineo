@@ -1188,6 +1188,7 @@ public struct SPARQLParser {
         var distinct = false
         var star = false
         var projection : [String]? = nil
+        var projectExpressions = [(Expression, String)]()
         
         if try attempt(token: .keyword("DISTINCT")) || attempt(token: .keyword("REDUCED")) {
             distinct = true
@@ -1202,7 +1203,16 @@ public struct SPARQLParser {
                 let t = try peekExpectedToken()
                 switch t {
                 case .lparen:
-                    fatalError("implement")
+                    try expect(token: .lparen)
+                    let expression = try parseExpression()
+                    try expect(token: .keyword("AS"))
+                    let node = try parseVar()
+                    guard case .variable(let name, binding: _) = node else {
+                        throw SPARQLParsingError.parsingError("Expecting project expressions variable but got \(node)")
+                    }
+                    try expect(token: .rparen)
+                    projectExpressions.append((expression, name))
+                    projection?.append(name)
                 case ._var(let name):
                     nextToken()
                     projection?.append(name)
@@ -1210,51 +1220,14 @@ public struct SPARQLParser {
                     break LOOP
                 }
             }
-    /**
-         //@@ ( Var | ( '(' Expression 'AS' Var ')' ) )+ | '*'
-        NSMutableSet* seenProjectionVars    = [NSMutableSet set];
-        project = [NSMutableArray array];
-        while (t.type == VAR || t.type == LPAREN) {
-            if (t.type == VAR) {
-                [self nextNonCommentToken];
-                id<GTWTerm> term    = [self tokenAsTerm:t withErrors:errors];
-                if ([seenProjectionVars containsObject:term]) {
-                    return [self errorMessage:[NSString stringWithFormat:@"Attempt to project %@ multiple times", term] withErrors:errors];
-                } else {
-                    [seenProjectionVars addObject:term];
-                }
-                [project addObject:[[SPKTree alloc] initWithType:kTreeNode value:term arguments:nil]];
-            } else if (t.type == LPAREN) {
-                [self nextNonCommentToken];
-                id<SPKTree> expr    = [self parseExpressionWithErrors: errors];
-                ASSERT_EMPTY(errors);
-                [self parseExpectedTokenOfType:KEYWORD withValue:@"AS" withErrors:errors];
-                ASSERT_EMPTY(errors);
-                id<SPKTree> var     = [self parseVarWithErrors: errors];
-                id<GTWTerm> term    = var.value;
-                ASSERT_EMPTY(errors);
-                [self parseExpectedTokenOfType:RPAREN withErrors:errors];
-                ASSERT_EMPTY(errors);
-                id<SPKTree> list    = [[SPKTree alloc] initWithType:kTreeList arguments:@[expr, var]];
-                id<SPKTree> pvar    = [[SPKTree alloc] initWithType:kAlgebraExtend treeValue: list arguments:@[]];
-                if ([seenProjectionVars containsObject:term]) {
-                    return [self errorMessage:[NSString stringWithFormat:@"Attempt to project %@ multiple times", term] withErrors:errors];
-                } else {
-                    [seenProjectionVars addObject:term];
-                }
-                [project addObject:pvar];
-            }
-            t   = [self peekNextNonCommentToken];
-        }
-        if ([project count] == 0) {
-            return [self errorMessage:[NSString stringWithFormat:@"Expecting project list but found %@", t] withErrors:errors];
-        }
-         **/
         }
         
         let dataset = try parseDatasetClauses()
         try attempt(token: .keyword("WHERE"))
         var algebra = try parseGroupGraphPattern()
+        
+        algebra = projectExpressions.reduce(algebra) { .extend($0, $1.0, $1.1) }
+        
         algebra = try parseSolutionModifier(algebra: algebra, distinct: distinct, projection: projection)
         
         if let dataset = dataset {

@@ -99,4 +99,22 @@ class SPARQLParserTest: XCTestCase {
         XCTAssertEqual(lexer.next()!, .string3d("\" "), "expected token")
         XCTAssertEqual(lexer.next()!, .string3d("\"\""), "expected token")
     }
+
+    func testProjectExpression() {
+        guard var p = SPARQLParser(string: "SELECT (?x+1 AS ?y) ?x WHERE {\n_:s <p> ?x .\n}\n") else { XCTFail(); return }
+        do {
+            let a = try p.parse()
+            guard case .project(let algebra, let variables) = a else {
+                XCTFail("Unexpected algebra: \(a.serialize())")
+                return
+            }
+            
+            XCTAssertEqual(variables, ["y", "x"])
+            guard case .extend(_, _, "y") = algebra else { XCTFail(); return }
+            
+            XCTAssert(true)
+        } catch let e {
+            XCTFail("\(e)")
+        }
+    }
 }
