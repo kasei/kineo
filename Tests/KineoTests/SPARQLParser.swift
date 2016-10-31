@@ -99,7 +99,7 @@ class SPARQLParserTest: XCTestCase {
         XCTAssertEqual(lexer.next()!, .string3d("\" "), "expected token")
         XCTAssertEqual(lexer.next()!, .string3d("\"\""), "expected token")
     }
-
+    
     func testProjectExpression() {
         guard var p = SPARQLParser(string: "SELECT (?x+1 AS ?y) ?x WHERE {\n_:s <p> ?x .\n}\n") else { XCTFail(); return }
         do {
@@ -112,6 +112,29 @@ class SPARQLParserTest: XCTestCase {
             XCTAssertEqual(variables, ["y", "x"])
             guard case .extend(_, _, "y") = algebra else { XCTFail(); return }
             
+            XCTAssert(true)
+        } catch let e {
+            XCTFail("\(e)")
+        }
+    }
+    
+    func testSubSelect() {
+        guard var p = SPARQLParser(string: "SELECT ?x WHERE {\n{ SELECT ?x ?y { ?x ?y ?z } }}\n") else { XCTFail(); return }
+        do {
+            let a = try p.parse()
+            guard case .project(let algebra, let variables) = a else {
+                XCTFail("Unexpected algebra: \(a.serialize())")
+                return
+            }
+            
+            XCTAssertEqual(variables, ["x"])
+            print("\(algebra)")
+            guard case .project(_, let subvariables) = algebra else {
+                XCTFail("Unexpected algebra: \(algebra.serialize())");
+                return
+            }
+            
+            XCTAssertEqual(subvariables, ["x", "y"])
             XCTAssert(true)
         } catch let e {
             XCTFail("\(e)")

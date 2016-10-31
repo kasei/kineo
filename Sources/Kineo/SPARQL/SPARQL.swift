@@ -1197,7 +1197,6 @@ public struct SPARQLParser {
         if try attempt(token: .star) {
             star = true
         } else {
-            //@@ ( Var | ( '(' Expression 'AS' Var ')' ) )+
             projection = []
             LOOP: while true {
                 let t = try peekExpectedToken()
@@ -1225,9 +1224,7 @@ public struct SPARQLParser {
         let dataset = try parseDatasetClauses()
         try attempt(token: .keyword("WHERE"))
         var algebra = try parseGroupGraphPattern()
-        
         algebra = projectExpressions.reduce(algebra) { .extend($0, $1.0, $1.1) }
-        
         algebra = try parseSolutionModifier(algebra: algebra, distinct: distinct, projection: projection)
         
         if let dataset = dataset {
@@ -1245,6 +1242,7 @@ public struct SPARQLParser {
     private mutating func parseDescribeQuery() throws -> Algebra { fatalError("implement") }
     private mutating func parseConstructTemplate() throws -> Algebra { fatalError("implement") }
     private mutating func parseAskQuery() throws -> Algebra { fatalError("implement") }
+
     private mutating func parseDatasetClauses() throws -> Any? { return nil; fatalError("implement") } // TODO: figure out the return type here
 
     private mutating func parseGroupGraphPattern() throws -> Algebra {
@@ -1261,7 +1259,59 @@ public struct SPARQLParser {
         return algebra
     }
 
-    private mutating func parseSubSelect() throws -> Algebra { fatalError("implement") }
+    private mutating func parseSubSelect() throws -> Algebra {
+        try expect(token: .keyword("SELECT"))
+
+        var distinct = false
+        var star = false
+        var projection : [String]? = nil
+        var projectExpressions = [(Expression, String)]()
+        
+        if try attempt(token: .keyword("DISTINCT")) || attempt(token: .keyword("REDUCED")) {
+            distinct = true
+        }
+
+        if try attempt(token: .star) {
+            star = true
+        } else {
+            projection = []
+            LOOP: while true {
+                let t = try peekExpectedToken()
+                switch t {
+                case .lparen:
+                    try expect(token: .lparen)
+                    let expression = try parseExpression()
+                    try expect(token: .keyword("AS"))
+                    let node = try parseVar()
+                    guard case .variable(let name, binding: _) = node else {
+                        throw SPARQLParsingError.parsingError("Expecting project expressions variable but got \(node)")
+                    }
+                    try expect(token: .rparen)
+                    projectExpressions.append((expression, name))
+                    projection?.append(name)
+                case ._var(let name):
+                    nextToken()
+                    projection?.append(name)
+                default:
+                    break LOOP
+                }
+            }
+        }
+        
+        try attempt(token: .keyword("WHERE"))
+        var algebra = try parseGroupGraphPattern()
+        algebra = projectExpressions.reduce(algebra) { .extend($0, $1.0, $1.1) }
+        algebra = try parseSolutionModifier(algebra: algebra, distinct: distinct, projection: projection)
+        
+        // TODO: parseValuesClause
+
+        if star {
+            // TODO: verify that the query does not perform aggregation
+        }
+        
+        return algebra
+    }
+    
     private mutating func parseGroupCondition() throws -> Algebra { fatalError("implement") }
 
     private mutating func parseOrderCondition() throws -> Algebra.SortComparator? {
