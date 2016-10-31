@@ -140,4 +140,36 @@ class SPARQLParserTest: XCTestCase {
             XCTFail("\(e)")
         }
     }
+
+    func testBuiltinFunctionCallExpression() {
+        guard var p = SPARQLParser(string: "SELECT * WHERE {\n_:s <p> ?x . FILTER ISNUMERIC(?x)\n}\n") else { XCTFail(); return }
+        do {
+            let a = try p.parse()
+            guard case .filter(_, let expr) = a else {
+                XCTFail("Unexpected algebra: \(a.serialize())")
+                return
+            }
+            
+            let expected : Expression = .call("ISNUMERIC", [.node(.variable("x", binding: true))])
+            XCTAssertEqual(expr, expected)
+        } catch let e {
+            XCTFail("\(e)")
+        }
+    }
+    
+    func testFunctionCallExpression() {
+        guard var p = SPARQLParser(string: "PREFIX ex: <http://example.org/> SELECT * WHERE {\n_:s <p> ?x . FILTER ex:function(?x)\n}\n") else { XCTFail(); return }
+        do {
+            let a = try p.parse()
+            guard case .filter(_, let expr) = a else {
+                XCTFail("Unexpected algebra: \(a.serialize())")
+                return
+            }
+            
+            let expected : Expression = .call("http://example.org/function", [.node(.variable("x", binding: true))])
+            XCTAssertEqual(expr, expected)
+        } catch let e {
+            XCTFail("\(e)")
+        }
+    }
 }

@@ -1137,8 +1137,12 @@ public struct SPARQLParser {
     }
     
     private mutating func expect(token: SPARQLToken) throws {
-        guard let t = nextToken() else { throw SPARQLParsingError.parsingError("Expected \(token) but got EOF") }
-        guard t == token else { throw SPARQLParsingError.parsingError("Expected \(token) but got \(t)") }
+        guard let t = nextToken() else {
+            throw SPARQLParsingError.parsingError("Expected \(token) but got EOF")
+        }
+        guard t == token else {
+            throw SPARQLParsingError.parsingError("Expected \(token) but got \(t)")
+        }
         return
     }
         
@@ -1354,7 +1358,13 @@ public struct SPARQLParser {
         }
     }
     
-    private mutating func parseFunctionCall() throws -> Expression { fatalError("implement") }
+    private mutating func parseFunctionCall() throws -> Expression {
+        let expr = try parseIRIOrFunction()
+        guard case .call(_) = expr else {
+            throw SPARQLParsingError.parsingError("Expecting function call but got \(expr)")
+        }
+        return expr
+    }
 
     private mutating func parseSolutionModifier(algebra a: Algebra, distinct : Bool, projection : [String]?) throws -> Algebra {
         var algebra = a
@@ -2026,6 +2036,7 @@ public struct SPARQLParser {
                     let expr = try parseExpression()
                     args.append(expr)
                 }
+                try expect(token: .rparen)
                 return .call(iri.value, args)
             }
         } else {
