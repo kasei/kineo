@@ -1725,7 +1725,23 @@ public struct SPARQLParser {
         }
     }
 
-    private mutating func parseExpressionList() throws -> [Expression] { fatalError("implement") }
+    private mutating func parseExpressionList() throws -> [Expression] {
+        let t = try peekExpectedToken()
+        if case ._nil = t {
+            return []
+        } else {
+            try expect(token: .lparen)
+            let expr = try parseExpression()
+            var exprs = [expr]
+            while try attempt(token: .comma) {
+                let expr = try parseExpression()
+                exprs.append(expr)
+            }
+            try expect(token: .rparen)
+            return exprs
+        }
+    }
+    
     private mutating func parseVerb() throws -> Node { fatalError("implement") }
     private mutating func parseObjectListAsNodes() throws -> ([Node], [Algebra]) { fatalError("implement") }
     private mutating func parseObjectAsNode() throws -> (Node, [Algebra]) { fatalError("implement") }
@@ -2048,9 +2064,14 @@ public struct SPARQLParser {
                 return .ge(expr, rhs)
             }
         case .keyword("IN"):
-            fatalError("IN expressions not implemented")
+            nextToken()
+            let exprs = try parseExpressionList()
+            return .valuein(expr, exprs)
         case .keyword("NOT"):
-            fatalError("NOT IN expressions not implemented")
+            nextToken()
+            try expect(token: .keyword("IN"))
+            let exprs = try parseExpressionList()
+            return .not(.valuein(expr, exprs))
         default:
             return expr
         }

@@ -208,7 +208,6 @@ class SPARQLParserTest: XCTestCase {
         guard var p = SPARQLParser(string: "SELECT ?x (SUM(?y) AS ?sum) (AVG(?y) AS ?avg) WHERE {\n?x <p> ?y\n}\nGROUP BY ?x") else { XCTFail(); return }
         do {
             let a = try p.parse()
-            print("\(a.serialize())")
             guard case .project(let extend1, let projection) = a else {
                 XCTFail("Unexpected algebra: \(a.serialize())")
                 return
@@ -313,7 +312,6 @@ class SPARQLParserTest: XCTestCase {
         guard var p = SPARQLParser(string: "SELECT * WHERE {\n\n}\nVALUES (?x ?y) { (UNDEF 7) (2 UNDEF) }\n") else { XCTFail(); return }
         do {
             let a = try p.parse()
-            print("\(a.serialize())")
             guard case .innerJoin(.identity, let table) = a else {
                 XCTFail("Unexpected algebra: \(a.serialize())")
                 return
@@ -332,6 +330,26 @@ class SPARQLParserTest: XCTestCase {
             let term = terms[0]
             let expectedTerm = TermResult(bindings: ["y": Term(integer: 7)])
             XCTAssertEqual(term, expectedTerm)
+        } catch let e {
+            XCTFail("\(e)")
+        }
+    }
+
+    func testFilterNotIn() {
+        guard var p = SPARQLParser(string: "SELECT * WHERE {\n?x ?y ?z . FILTER(?z NOT IN (1,2,3))\n}\n") else { XCTFail(); return }
+        do {
+            let a = try p.parse()
+            guard case .filter(_, let expr) = a else {
+                XCTFail("Unexpected algebra: \(a.serialize())")
+                return
+            }
+            
+            guard case .not(.valuein(_, _)) = expr else {
+                XCTFail("Unexpected expression: \(expr.description)")
+                return
+            }
+            
+            XCTAssertEqual(expr.description, "?z NOT IN (1,2,3)")
         } catch let e {
             XCTFail("\(e)")
         }

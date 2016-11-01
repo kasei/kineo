@@ -68,9 +68,20 @@ extension Aggregation : CustomStringConvertible {
 public indirect enum Expression : CustomStringConvertible {
     case node(Node)
     case aggregate(Aggregation)
+    case neg(Expression)
+    case not(Expression)
+    case isiri(Expression)
+    case isblank(Expression)
+    case isliteral(Expression)
+    case isnumeric(Expression)
+    case lang(Expression)
+    case datatype(Expression)
+    case bound(Expression)
+    case intCast(Expression)
+    case floatCast(Expression)
+    case doubleCast(Expression)
     case eq(Expression, Expression)
     case ne(Expression, Expression)
-    case between(Expression, Expression, Expression)
     case lt(Expression, Expression)
     case le(Expression, Expression)
     case gt(Expression, Expression)
@@ -79,21 +90,11 @@ public indirect enum Expression : CustomStringConvertible {
     case sub(Expression, Expression)
     case div(Expression, Expression)
     case mul(Expression, Expression)
-    case neg(Expression)
     case and(Expression, Expression)
     case or(Expression, Expression)
-    case not(Expression)
-    case isiri(Expression)
-    case isblank(Expression)
-    case isliteral(Expression)
-    case isnumeric(Expression)
+    case between(Expression, Expression, Expression)
+    case valuein(Expression, [Expression])
     case call(String, [Expression])
-    case lang(Expression)
-    case datatype(Expression)
-    case bound(Expression)
-    case intCast(Expression)
-    case floatCast(Expression)
-    case doubleCast(Expression)
     //    case langmatches(Expression, String)
     // TODO: add other expression functions
 
@@ -111,6 +112,8 @@ public indirect enum Expression : CustomStringConvertible {
             return a.hasAggregation || b.hasAggregation || c.hasAggregation
         case .call(_, let exprs):
             return exprs.reduce(false) { $0 || $1.hasAggregation }
+        case .valuein(let expr, let exprs):
+            return exprs.reduce(expr.hasAggregation) { $0 || $1.hasAggregation }
         }
     }
 
@@ -176,6 +179,8 @@ public indirect enum Expression : CustomStringConvertible {
             mapping[name] = agg
             let node : Node = .variable(name, binding: true)
             return .node(node)
+        case .valuein(let expr, let exprs):
+            return .valuein(expr.removeAggregations(counter, mapping: &mapping), exprs.map { $0.removeAggregations(counter, mapping: &mapping) })
         }
     }
 
@@ -375,6 +380,11 @@ public indirect enum Expression : CustomStringConvertible {
             default:
                 throw QueryError.evaluationError("Failed to evaluate CALL(<\(iri)>(\(exprs)) with result \(result)")
             }
+        case .valuein(let expr, let exprs):
+            let term = try expr.evaluate(result: result)
+            let terms = try exprs.map { try $0.evaluate(result: result) }
+            let contains = terms.index(of: term) == terms.startIndex
+            return contains ? Term.trueValue : Term.falseValue
         }
         throw QueryError.evaluationError("Failed to evaluate \(self) with result \(result)")
     }
@@ -474,8 +484,6 @@ public indirect enum Expression : CustomStringConvertible {
             return "(\(lhs) && \(rhs))"
         case .or(let lhs, let rhs):
             return "(\(lhs) || \(rhs))"
-        case .not(let expr):
-            return "NOT(\(expr))"
         case .isiri(let expr):
             return "ISIRI(\(expr))"
         case .isblank(let expr):
@@ -499,6 +507,14 @@ public indirect enum Expression : CustomStringConvertible {
             return "DATATYPE(\(expr))"
         case .bound(let expr):
             return "BOUND(\(expr))"
+        case .not(.valuein(let expr, let exprs)):
+            let strings = exprs.map { $0.description }
+            return "\(expr) NOT IN (\(strings.joined(separator: ",")))"
+        case .valuein(let expr, let exprs):
+            let strings = exprs.map { $0.description }
+            return "\(expr) IN (\(strings.joined(separator: ",")))"
+        case .not(let expr):
+            return "NOT(\(expr))"
         }
     }
 }
