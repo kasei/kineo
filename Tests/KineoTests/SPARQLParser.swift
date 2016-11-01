@@ -281,4 +281,59 @@ class SPARQLParserTest: XCTestCase {
             XCTFail("\(e)")
         }
     }
+    
+    func testInlineData1() {
+        guard var p = SPARQLParser(string: "SELECT ?x WHERE {\nVALUES ?x {7 2 3}\n}\n") else { XCTFail(); return }
+        do {
+            let a = try p.parse()
+            guard case .project(let table, _) = a else {
+                XCTFail("Unexpected algebra: \(a.serialize())")
+                return
+            }
+            
+            guard case .table(let nodes, let seq) = table else {
+                XCTFail("Unexpected algebra: \(table.serialize())")
+                return
+            }
+            
+            let expectedInScope : [Node] = [.variable("x", binding: true)]
+            XCTAssertEqual(nodes, expectedInScope)
+            
+            let terms = Array(seq)
+            XCTAssertEqual(terms.count, 3)
+            let term = terms[0]
+            let expectedTerm = TermResult(bindings: ["x": Term(integer: 7)])
+            XCTAssertEqual(term, expectedTerm)
+        } catch let e {
+            XCTFail("\(e)")
+        }
+    }
+
+    func testInlineData2() {
+        guard var p = SPARQLParser(string: "SELECT * WHERE {\n\n}\nVALUES (?x ?y) { (UNDEF 7) (2 UNDEF) }\n") else { XCTFail(); return }
+        do {
+            let a = try p.parse()
+            print("\(a.serialize())")
+            guard case .innerJoin(.identity, let table) = a else {
+                XCTFail("Unexpected algebra: \(a.serialize())")
+                return
+            }
+            
+            guard case .table(let nodes, let seq) = table else {
+                XCTFail("Unexpected algebra: \(table.serialize())")
+                return
+            }
+            
+            let expectedInScope : [Node] = [.variable("x", binding: true), .variable("y", binding: true)]
+            XCTAssertEqual(nodes, expectedInScope)
+            
+            let terms = Array(seq)
+            XCTAssertEqual(terms.count, 2)
+            let term = terms[0]
+            let expectedTerm = TermResult(bindings: ["y": Term(integer: 7)])
+            XCTAssertEqual(term, expectedTerm)
+        } catch let e {
+            XCTFail("\(e)")
+        }
+    }
 }

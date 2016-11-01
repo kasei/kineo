@@ -1233,9 +1233,9 @@ public struct SPARQLParser {
         let dataset = try parseDatasetClauses()
         try attempt(token: .keyword("WHERE"))
         var algebra = try parseGroupGraphPattern()
-
         
-        algebra = try parseSolutionModifier(algebra: algebra, distinct: distinct, projection: projection, projectExpressions: projectExpressions, aggregation: aggregationExpressions)
+        let values = try parseValuesClause()
+        algebra = try parseSolutionModifier(algebra: algebra, distinct: distinct, projection: projection, projectExpressions: projectExpressions, aggregation: aggregationExpressions, valuesBlock: values)
         
         if let dataset = dataset {
             // algebra = try wrap(algebra: algebra, with: dataset)
@@ -1253,7 +1253,14 @@ public struct SPARQLParser {
     private mutating func parseConstructTemplate() throws -> Algebra { fatalError("implement") }
     private mutating func parseAskQuery() throws -> Algebra { fatalError("implement") }
 
-    private mutating func parseDatasetClauses() throws -> Any? { return nil; fatalError("implement") } // TODO: figure out the return type here
+    private mutating func parseDatasetClauses() throws -> Any? { // TODO: figure out the return type here
+        while try attempt(token: .keyword("FROM")) {
+            let named = try attempt(token: .keyword("NAMED"))
+            let iri = try parseIRI()
+        }
+        return nil;
+        fatalError("implement")
+    }
 
     private mutating func parseGroupGraphPattern() throws -> Algebra {
         try expect(token: .lbrace)
@@ -1314,9 +1321,10 @@ public struct SPARQLParser {
         
         try attempt(token: .keyword("WHERE"))
         var algebra = try parseGroupGraphPattern()
-        algebra = try parseSolutionModifier(algebra: algebra, distinct: distinct, projection: projection, projectExpressions: projectExpressions, aggregation: aggregationExpressions)
+
+        let values = try parseValuesClause()
         
-        // TODO: parseValuesClause
+        algebra = try parseSolutionModifier(algebra: algebra, distinct: distinct, projection: projection, projectExpressions: projectExpressions, aggregation: aggregationExpressions, valuesBlock: values)
 
         if star {
             // TODO: verify that the query does not perform aggregation
@@ -1411,7 +1419,7 @@ public struct SPARQLParser {
         return expr
     }
 
-    private mutating func parseSolutionModifier(algebra a: Algebra, distinct : Bool, projection : [String]?, projectExpressions: [(Expression, String)], aggregation : [String:Aggregation]) throws -> Algebra {
+    private mutating func parseSolutionModifier(algebra a: Algebra, distinct : Bool, projection : [String]?, projectExpressions: [(Expression, String)], aggregation : [String:Aggregation], valuesBlock : Algebra?) throws -> Algebra {
         var algebra = a
         let aggregations = aggregation.map { ($0.1, $0.0) }
         if try attempt(token: .keyword("GROUP")) {
@@ -1432,6 +1440,10 @@ public struct SPARQLParser {
             algebra = .filter(algebra, e)
         }
 
+        if let values = valuesBlock {
+            algebra = .innerJoin(algebra, values)
+        }
+        
         var sortConditions : [Algebra.SortComparator] = []
         if try attempt(token: .keyword("ORDER")) {
             try expect(token: .keyword("BY"))
@@ -1540,7 +1552,13 @@ public struct SPARQLParser {
         return algebra
     }
     
-    private mutating func parseValuesClause() throws -> Algebra { fatalError("implement") }
+    private mutating func parseValuesClause() throws -> Algebra? {
+        if try attempt(token: .keyword("VALUES")) {
+            return try parseDataBlock()
+        }
+        return nil
+    }
+    
     private mutating func parseQuads() throws -> [QuadPattern] { fatalError("implement") }
     private mutating func triplesByParsingTriplesTemplate() throws -> [TriplePattern] { fatalError("implement") }
 
@@ -1603,9 +1621,89 @@ public struct SPARQLParser {
         return .bind(expr, name)
     }
     
-    private mutating func parseInlineData() throws -> Algebra { fatalError("implement") }
-    private mutating func parseDataBlock() throws -> Algebra { fatalError("implement") }
-    private mutating func parseDataBlockValues() throws -> Algebra { fatalError("implement") }
+    private mutating func parseInlineData() throws -> Algebra {
+        try expect(token: .keyword("VALUES"))
+        return try parseDataBlock()
+    }
+
+    //[62]  	DataBlock	  ::=  	InlineDataOneVar | InlineDataFull
+    //[63]  	InlineDataOneVar	  ::=  	Var '{' DataBlockValue* '}'
+    //[64]  	InlineDataFull	  ::=  	( NIL | '(' Var* ')' ) '{' ( '(' DataBlockValue* ')' | NIL )* '}'
+    private mutating func parseDataBlock() throws -> Algebra {
+        var t = try peekExpectedToken()
+        if case ._var(_) = t {
+            let node = try parseVar()
+            guard case .variable(let name, binding: _) = node else {
+                throw SPARQLParsingError.parsingError("Expecting variable but got \(node)")
+            }
+            try expect(token: .lbrace)
+            let values = try parseDataBlockValues()
+            try expect(token: .rbrace)
+            
+            let results = values.flatMap { $0 }.map {
+                TermResult(bindings: [name: $0])
+            }
+            return .table([node], AnySequence(results))
+        } else {
+            var vars = [Node]()
+            var names = [String]()
+            if case ._nil = t {
+                
+            } else {
+                try expect(token: .lparen)
+                t = try peekExpectedToken()
+                while case ._var(let name) = t {
+                    try expect(token: t)
+                    vars.append(.variable(name, binding: true))
+                    names.append(name)
+                    t = try peekExpectedToken()
+                }
+                try expect(token: .rparen)
+            }
+            try expect(token: .lbrace)
+            var results = [TermResult]()
+            
+            while try peek(token: .lparen) || peek(token: ._nil) {
+                var bindings = [String:Term]()
+                if try attempt(token: .lparen) {
+                    let values = try parseDataBlockValues()
+                    try expect(token: .rparen)
+                    for (name, term) in zip(names, values) {
+                        if let term = term {
+                            bindings[name] = term
+                        }
+                    }
+                } else {
+                    try expect(token: ._nil)
+                }
+                let result = TermResult(bindings: bindings)
+                results.append(result)
+            }
+            try expect(token: .rbrace)
+            return .table(vars, AnySequence(results))
+       }
+    }
+    
+    //[65]  	DataBlockValue	  ::=  	iri |	RDFLiteral |	NumericLiteral |	BooleanLiteral |	'UNDEF'
+    private mutating func parseDataBlockValues() throws -> [Term?] {
+        var t = try peekExpectedToken()
+        var values = [Term?]()
+        while t == .keyword("UNDEF") || t.isTerm {
+            if try attempt(token: .keyword("UNDEF")) {
+                values.append(nil)
+            } else {
+                t = try nextExpectedToken()
+                let node = try tokenAsTerm(t)
+                guard case .bound(let term) = node else {
+                    throw SPARQLParsingError.parsingError("Expecting term but got \(node)")
+                }
+                values.append(term)
+            }
+            t = try peekExpectedToken()
+        }
+        return values
+    }
+    
     private mutating func triplesArrayByParsingTriplesSameSubject() throws -> [TriplePattern] { fatalError("implement") }
     private mutating func parsePropertyList(subject: Node) throws -> [TriplePattern] { fatalError("implement") }
     private mutating func parsePropertyListNotEmpty(subject: Node) throws -> [TriplePattern] { fatalError("implement") }

@@ -33,6 +33,7 @@ public indirect enum Algebra {
     public typealias SortComparator = (Bool, Expression)
 
     case identity
+    case table([Node], AnySequence<TermResult>)
     case quad(QuadPattern)
     case triple(TriplePattern)
     case bgp([TriplePattern])
@@ -139,6 +140,13 @@ public indirect enum Algebra {
                 variables.insert(name)
             }
             return variables
+        case .table(let nodes, _):
+            for node in nodes {
+                if case .variable(let name, _) = node {
+                    variables.insert(name)
+                }
+            }
+            return variables
         }
     }
     
@@ -230,6 +238,9 @@ public indirect enum Algebra {
             var d = "\(indent)Window \(f) over groups \(groups) ordered by { \(expressions.joined(separator: ", ")) }\n"
             d += child.serialize(depth: depth+1)
             return d
+        case .table(let nodes, _):
+            let vars = nodes.map { $0.description }
+            return "\(indent)Table { \(vars.joined(separator: ", ")) }\n"
         }
     }
 }
@@ -989,6 +1000,8 @@ open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
         case .identity:
             let results = [TermResult(bindings: [:])]
             return AnyIterator(results.makeIterator())
+        case .table(_, let seq):
+            return seq.makeIterator()
         case .triple(let t):
             let quad = QuadPattern(subject: t.subject, predicate: t.predicate, object: t.object, graph: .bound(activeGraph))
             return try store.results(matching: quad)
@@ -1115,6 +1128,8 @@ open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
     public func effectiveVersion(matching algebra: Algebra, activeGraph : Term) throws -> Version? {
         switch algebra {
         case .identity:
+            return nil
+        case .table(_, _):
             return nil
         case .path(_, _, _):
             let s : Node = .variable("s", binding: true)
