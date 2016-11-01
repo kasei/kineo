@@ -1054,6 +1054,7 @@ public struct SPARQLParser {
     var bnodes : [String:Term]
     var base : String?
     var tokenLookahead : SPARQLToken?
+    var freshCounter = AnyIterator(sequence(first: 1) { $0 + 1 })
     
     public init(lexer : SPARQLLexer, prefixes : [String:String] = [:], base : String? = nil) {
         self.lexer = lexer
@@ -1192,6 +1193,7 @@ public struct SPARQLParser {
         var distinct = false
         var star = false
         var projection : [String]? = nil
+        var aggregationExpressions = [String:Aggregation]()
         var projectExpressions = [(Expression, String)]()
         
         if try attempt(token: .keyword("DISTINCT")) || attempt(token: .keyword("REDUCED")) {
@@ -1207,7 +1209,10 @@ public struct SPARQLParser {
                 switch t {
                 case .lparen:
                     try expect(token: .lparen)
-                    let expression = try parseExpression()
+                    var expression = try parseExpression()
+                    if expression.hasAggregation {
+                        expression = expression.removeAggregations(freshCounter, mapping: &aggregationExpressions)
+                    }
                     try expect(token: .keyword("AS"))
                     let node = try parseVar()
                     guard case .variable(let name, binding: _) = node else {
@@ -1228,8 +1233,9 @@ public struct SPARQLParser {
         let dataset = try parseDatasetClauses()
         try attempt(token: .keyword("WHERE"))
         var algebra = try parseGroupGraphPattern()
-        algebra = projectExpressions.reduce(algebra) { .extend($0, $1.0, $1.1) }
-        algebra = try parseSolutionModifier(algebra: algebra, distinct: distinct, projection: projection)
+
+        
+        algebra = try parseSolutionModifier(algebra: algebra, distinct: distinct, projection: projection, projectExpressions: projectExpressions, aggregation: aggregationExpressions)
         
         if let dataset = dataset {
             // algebra = try wrap(algebra: algebra, with: dataset)
@@ -1269,6 +1275,7 @@ public struct SPARQLParser {
         var distinct = false
         var star = false
         var projection : [String]? = nil
+        var aggregationExpressions = [String:Aggregation]()
         var projectExpressions = [(Expression, String)]()
         
         if try attempt(token: .keyword("DISTINCT")) || attempt(token: .keyword("REDUCED")) {
@@ -1284,7 +1291,10 @@ public struct SPARQLParser {
                 switch t {
                 case .lparen:
                     try expect(token: .lparen)
-                    let expression = try parseExpression()
+                    var expression = try parseExpression()
+                    if expression.hasAggregation {
+                        expression = expression.removeAggregations(freshCounter, mapping: &aggregationExpressions)
+                    }
                     try expect(token: .keyword("AS"))
                     let node = try parseVar()
                     guard case .variable(let name, binding: _) = node else {
@@ -1304,8 +1314,7 @@ public struct SPARQLParser {
         
         try attempt(token: .keyword("WHERE"))
         var algebra = try parseGroupGraphPattern()
-        algebra = projectExpressions.reduce(algebra) { .extend($0, $1.0, $1.1) }
-        algebra = try parseSolutionModifier(algebra: algebra, distinct: distinct, projection: projection)
+        algebra = try parseSolutionModifier(algebra: algebra, distinct: distinct, projection: projection, projectExpressions: projectExpressions, aggregation: aggregationExpressions)
         
         // TODO: parseValuesClause
 
@@ -1316,7 +1325,42 @@ public struct SPARQLParser {
         return algebra
     }
     
-    private mutating func parseGroupCondition() throws -> Algebra { fatalError("implement") }
+    private mutating func parseGroupCondition(_ algebra : inout Algebra) throws -> Node {
+        var node : Node
+        if try attempt(token: .lparen) {
+            let expr = try parseExpression()
+            if try attempt(token: .keyword("AS")) {
+                node = try parseVar()
+                guard case .variable(let name, binding: _) = node else {
+                    throw SPARQLParsingError.parsingError("Expecting GROUP variable name but got \(node)")
+                }
+                algebra = .extend(algebra, expr, name)
+            } else {
+                guard let c = freshCounter.next() else { fatalError("No fresh variable available") }
+                let name = ".\(c)"
+                algebra = .extend(algebra, expr, name)
+                node = .variable(name, binding: true)
+            }
+            try expect(token: .rparen)
+            return node
+        } else {
+            let t = try peekExpectedToken()
+            if case ._var(_) = t {
+                node = try parseVar()
+                guard case .variable(let name, binding: _) = node else {
+                    throw SPARQLParsingError.parsingError("Expecting GROUP variable but got \(node)")
+                }
+                return node
+            } else {
+                let expr = try parseBuiltInCall()
+                guard let c = freshCounter.next() else { fatalError("No fresh variable available") }
+                let name = ".\(c)"
+                algebra = .extend(algebra, expr, name)
+                node = .variable(name, binding: true)
+                return node
+            }
+        }
+    }
 
     private mutating func parseOrderCondition() throws -> Algebra.SortComparator? {
         var ascending = true
@@ -1353,7 +1397,8 @@ public struct SPARQLParser {
             case .iri(_), .prefixname(_, _):
                 return try parseFunctionCall()
             default:
-                return try parseBuiltInCall()
+                let expr = try parseBuiltInCall()
+                return expr
             }
         }
     }
@@ -1366,18 +1411,25 @@ public struct SPARQLParser {
         return expr
     }
 
-    private mutating func parseSolutionModifier(algebra a: Algebra, distinct : Bool, projection : [String]?) throws -> Algebra {
+    private mutating func parseSolutionModifier(algebra a: Algebra, distinct : Bool, projection : [String]?, projectExpressions: [(Expression, String)], aggregation : [String:Aggregation]) throws -> Algebra {
         var algebra = a
+        let aggregations = aggregation.map { ($0.1, $0.0) }
         if try attempt(token: .keyword("GROUP")) {
             try expect(token: .keyword("BY"))
-            fatalError("implement")
-        } else if (false) { // if algebra contains aggregation
-            //
+            var groups = [Expression]()
+            while let node = try? parseGroupCondition(&algebra) {
+                groups.append(.node(node))
+            }
+            algebra = .aggregate(algebra, groups, aggregations)
+        } else if (aggregations.count > 0) { // if algebra contains aggregation
+            algebra = .aggregate(algebra, [], aggregations)
         }
-        
+
+        algebra = projectExpressions.reduce(algebra) { .extend($0, $1.0, $1.1) }
+
         if try attempt(token: .keyword("HAVING")) {
             let e = try parseConstraint()
-            fatalError("implement")
+            algebra = .filter(algebra, e)
         }
 
         var sortConditions : [Algebra.SortComparator] = []
@@ -1541,7 +1593,7 @@ public struct SPARQLParser {
     private mutating func parseBind() throws -> UnfinishedAlgebra {
         try expect(token: .keyword("BIND"))
         try expect(token: .lparen)
-        let expr = try parseExpression()
+        let expr = try parseNonAggregatingExpression()
         try expect(token: .rparen)
         try expect(token: .keyword("AS"))
         let node = try parseVar()
@@ -1843,6 +1895,14 @@ public struct SPARQLParser {
         return node
     }
     
+    private mutating func parseNonAggregatingExpression() throws -> Expression {
+        let expr = try parseExpression()
+        guard !expr.hasAggregation else {
+            throw SPARQLParsingError.parsingError("Unexpected aggregation in BIND expression")
+        }
+        return expr
+    }
+    
     private mutating func parseExpression() throws -> Expression {
         return try parseConditionalOrExpression()
     }
@@ -2016,7 +2076,8 @@ public struct SPARQLParser {
             case _ where t.isTermOrVar:
                 return try .node(parseVarOrTerm())
             default:
-                return try parseBuiltInCall()
+                let expr = try parseBuiltInCall()
+                return expr
             }
         }
     }
@@ -2056,7 +2117,7 @@ public struct SPARQLParser {
         switch t {
         case .keyword(let kw) where SPARQLLexer._aggregates.contains(kw):
             let agg = try parseAggregate()
-            fatalError("??????")
+            return .aggregate(agg)
         case .keyword("NOT"):
             try expect(token: t)
             try expect(token: .keyword("EXISTS"))
@@ -2101,7 +2162,7 @@ public struct SPARQLParser {
             if try attempt(token: .star) {
                 agg = .countAll
             } else {
-                let expr = try parseExpression()
+                let expr = try parseNonAggregatingExpression()
                 agg = .count(expr)
             }
             try expect(token: .rparen)
@@ -2111,7 +2172,7 @@ public struct SPARQLParser {
             if try attempt(token: .keyword("DISTINCT")) {
                 fatalError("DISTINCT aggregation is unimplemented")
             }
-            let expr = try parseExpression()
+            let expr = try parseNonAggregatingExpression()
             let agg : Aggregation = .sum(expr)
             try expect(token: .rparen)
             return agg
@@ -2120,7 +2181,7 @@ public struct SPARQLParser {
             if try attempt(token: .keyword("DISTINCT")) {
                 fatalError("DISTINCT aggregation is unimplemented")
             }
-            let expr = try parseExpression()
+            let expr = try parseNonAggregatingExpression()
             fatalError("MIN aggregate is unimplemented")
             try expect(token: .rparen)
         case "MAX":
@@ -2128,7 +2189,7 @@ public struct SPARQLParser {
             if try attempt(token: .keyword("DISTINCT")) {
                 fatalError("DISTINCT aggregation is unimplemented")
             }
-            let expr = try parseExpression()
+            let expr = try parseNonAggregatingExpression()
             fatalError("MAX aggregate is unimplemented")
             try expect(token: .rparen)
         case "AVG":
@@ -2136,7 +2197,7 @@ public struct SPARQLParser {
             if try attempt(token: .keyword("DISTINCT")) {
                 fatalError("DISTINCT aggregation is unimplemented")
             }
-            let expr = try parseExpression()
+            let expr = try parseNonAggregatingExpression()
             let agg : Aggregation = .avg(expr)
             try expect(token: .rparen)
             return agg
@@ -2145,7 +2206,7 @@ public struct SPARQLParser {
             if try attempt(token: .keyword("DISTINCT")) {
                 fatalError("DISTINCT aggregation is unimplemented")
             }
-            let expr = try parseExpression()
+            let expr = try parseNonAggregatingExpression()
             fatalError("SAMPLE aggregate is unimplemented")
             try expect(token: .rparen)
         case "GROUP_CONCAT":
@@ -2153,7 +2214,7 @@ public struct SPARQLParser {
             if try attempt(token: .keyword("DISTINCT")) {
                 fatalError("DISTINCT aggregation is unimplemented")
             }
-            let expr = try parseExpression()
+            let expr = try parseNonAggregatingExpression()
             
             var sep = " "
             if try attempt(token: .semicolon) {

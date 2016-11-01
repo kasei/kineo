@@ -26,8 +26,48 @@ extension Term {
     }
 }
 
+public enum Aggregation {
+    case countAll
+    case count(Expression)
+    case sum(Expression)
+    case avg(Expression)
+}
+
+extension Aggregation : Equatable {
+    public static func ==(lhs: Aggregation, rhs: Aggregation) -> Bool {
+        switch (lhs, rhs) {
+        case (.countAll, .countAll):
+            return true
+        case (.count(let l), .count(let r)) where l == r:
+            return true
+        case (.sum(let l), .sum(let r)) where l == r:
+            return true
+        case (.avg(let l), .avg(let r)) where l == r:
+            return true
+        default:
+            return false
+        }
+    }
+}
+
+extension Aggregation : CustomStringConvertible {
+    public var description : String {
+        switch self {
+        case .countAll:
+            return "COUNT(*)"
+        case .count(let expr):
+            return "COUNT(\(expr.description))"
+        case .sum(let expr):
+            return "SUM(\(expr.description))"
+        case .avg(let expr):
+            return "AVG(\(expr.description))"
+        }
+    }
+}
+
 public indirect enum Expression : CustomStringConvertible {
     case node(Node)
+    case aggregate(Aggregation)
     case eq(Expression, Expression)
     case ne(Expression, Expression)
     case between(Expression, Expression, Expression)
@@ -57,6 +97,88 @@ public indirect enum Expression : CustomStringConvertible {
     //    case langmatches(Expression, String)
     // TODO: add other expression functions
 
+    var hasAggregation : Bool {
+        switch self {
+        case .aggregate(_):
+            return true
+        case .node(_):
+            return false
+        case .not(let expr), .isiri(let expr), .isblank(let expr), .isliteral(let expr), .isnumeric(let expr), .lang(let expr), .datatype(let expr), .bound(let expr), .intCast(let expr), .floatCast(let expr), .doubleCast(let expr), .neg(let expr):
+            return expr.hasAggregation
+        case .eq(let lhs, let rhs), .ne(let lhs, let rhs), .lt(let lhs, let rhs), .le(let lhs, let rhs), .gt(let lhs, let rhs), .ge(let lhs, let rhs), .add(let lhs, let rhs), .sub(let lhs, let rhs), .div(let lhs, let rhs), .mul(let lhs, let rhs), .and(let lhs, let rhs), .or(let lhs, let rhs):
+            return lhs.hasAggregation || rhs.hasAggregation
+        case .between(let a, let b, let c):
+            return a.hasAggregation || b.hasAggregation || c.hasAggregation
+        case .call(_, let exprs):
+            return exprs.reduce(false) { $0 || $1.hasAggregation }
+        }
+    }
+
+    func removeAggregations(_ counter : AnyIterator<Int>, mapping : inout [String:Aggregation]) -> Expression {
+        switch self {
+        case .node(_):
+            return self
+        case .neg(let expr):
+            return .neg(expr.removeAggregations(counter, mapping: &mapping))
+        case .not(let expr):
+            return .not(expr.removeAggregations(counter, mapping: &mapping))
+        case .isiri(let expr):
+            return .isiri(expr.removeAggregations(counter, mapping: &mapping))
+        case .isblank(let expr):
+            return .isblank(expr.removeAggregations(counter, mapping: &mapping))
+        case .isliteral(let expr):
+            return .isliteral(expr.removeAggregations(counter, mapping: &mapping))
+        case .isnumeric(let expr):
+            return .isnumeric(expr.removeAggregations(counter, mapping: &mapping))
+        case .lang(let expr):
+            return .lang(expr.removeAggregations(counter, mapping: &mapping))
+        case .datatype(let expr):
+            return .datatype(expr.removeAggregations(counter, mapping: &mapping))
+        case .bound(let expr):
+            return .bound(expr.removeAggregations(counter, mapping: &mapping))
+        case .intCast(let expr):
+            return .intCast(expr.removeAggregations(counter, mapping: &mapping))
+        case .floatCast(let expr):
+            return .floatCast(expr.removeAggregations(counter, mapping: &mapping))
+        case .doubleCast(let expr):
+            return .doubleCast(expr.removeAggregations(counter, mapping: &mapping))
+        case .call(let f, let exprs):
+            return .call(f, exprs.map { $0.removeAggregations(counter, mapping: &mapping) })
+        case .eq(let lhs, let rhs):
+            return .eq(lhs.removeAggregations(counter, mapping: &mapping), rhs.removeAggregations(counter, mapping: &mapping))
+        case .ne(let lhs, let rhs):
+            return .ne(lhs.removeAggregations(counter, mapping: &mapping), rhs.removeAggregations(counter, mapping: &mapping))
+        case .lt(let lhs, let rhs):
+            return .lt(lhs.removeAggregations(counter, mapping: &mapping), rhs.removeAggregations(counter, mapping: &mapping))
+        case .le(let lhs, let rhs):
+            return .le(lhs.removeAggregations(counter, mapping: &mapping), rhs.removeAggregations(counter, mapping: &mapping))
+        case .gt(let lhs, let rhs):
+            return .gt(lhs.removeAggregations(counter, mapping: &mapping), rhs.removeAggregations(counter, mapping: &mapping))
+        case .ge(let lhs, let rhs):
+            return .ge(lhs.removeAggregations(counter, mapping: &mapping), rhs.removeAggregations(counter, mapping: &mapping))
+        case .add(let lhs, let rhs):
+            return .add(lhs.removeAggregations(counter, mapping: &mapping), rhs.removeAggregations(counter, mapping: &mapping))
+        case .sub(let lhs, let rhs):
+            return .sub(lhs.removeAggregations(counter, mapping: &mapping), rhs.removeAggregations(counter, mapping: &mapping))
+        case .div(let lhs, let rhs):
+            return .div(lhs.removeAggregations(counter, mapping: &mapping), rhs.removeAggregations(counter, mapping: &mapping))
+        case .mul(let lhs, let rhs):
+            return .mul(lhs.removeAggregations(counter, mapping: &mapping), rhs.removeAggregations(counter, mapping: &mapping))
+        case .and(let lhs, let rhs):
+            return .and(lhs.removeAggregations(counter, mapping: &mapping), rhs.removeAggregations(counter, mapping: &mapping))
+        case .or(let lhs, let rhs):
+            return .or(lhs.removeAggregations(counter, mapping: &mapping), rhs.removeAggregations(counter, mapping: &mapping))
+        case .between(let a, let b, let c):
+            return .between(a.removeAggregations(counter, mapping: &mapping), b.removeAggregations(counter, mapping: &mapping), c.removeAggregations(counter, mapping: &mapping))
+        case .aggregate(let agg):
+            guard let c = counter.next() else { fatalError("No fresh variable available") }
+            let name = ".agg-\(c)"
+            mapping[name] = agg
+            let node : Node = .variable(name, binding: true)
+            return .node(node)
+        }
+    }
+
     var isNumeric : Bool {
         switch self {
         case .node(_):
@@ -76,6 +198,8 @@ public indirect enum Expression : CustomStringConvertible {
     
     public func evaluate(result : TermResult) throws -> Term {
         switch self {
+        case .aggregate(_):
+            fatalError("cannot evaluate an aggregate expression without a query context")
         case .node(.bound(let term)):
             return term
         case .node(.variable(let name, _)):
@@ -260,6 +384,8 @@ public indirect enum Expression : CustomStringConvertible {
         //        print("numericEvaluate expression: \(self)")
         //        guard self.isNumeric else { throw QueryError.evaluationError("Cannot compile expression as numeric") }
         switch self {
+        case .aggregate(_):
+            fatalError("cannot evaluate an aggregate expression without a query context")
         case .node(.bound(let term)):
             guard term.isNumeric else { throw QueryError.typeError("Term is not numeric") }
             if let num = term.numeric {
@@ -316,6 +442,8 @@ public indirect enum Expression : CustomStringConvertible {
     
     public var description : String {
         switch self {
+        case .aggregate(let a):
+            return a.description
         case .node(let node):
             return node.description
         case .eq(let lhs, let rhs):
@@ -378,6 +506,8 @@ public indirect enum Expression : CustomStringConvertible {
 extension Expression : Equatable {
     public static func ==(lhs: Expression, rhs: Expression) -> Bool {
         switch (lhs, rhs) {
+        case (.aggregate(let l), .aggregate(let r)) where l == r:
+            return true
         case (.node(let l), .node(let r)) where l == r:
             return true
         case (.eq(let ll, let lr), .eq(let rl, let rr)) where ll == rl && lr == rr:

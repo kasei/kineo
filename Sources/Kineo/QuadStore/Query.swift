@@ -19,13 +19,6 @@ public enum WindowFunction {
     case rank
 }
 
-public enum Aggregation {
-    case countAll
-    case count(Expression)
-    case sum(Expression)
-    case avg(Expression)
-}
-
 public indirect enum PropertyPath {
     case link(Term)
     case inv(PropertyPath)
