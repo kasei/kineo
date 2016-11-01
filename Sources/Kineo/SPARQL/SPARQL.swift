@@ -1487,9 +1487,6 @@ public struct SPARQLParser {
             }
         }
         
-        
-        print("\(algebra.serialize())")
-        
         /**
     
     t   = [self peekNextNonCommentToken];
@@ -1643,7 +1640,7 @@ public struct SPARQLParser {
             let results = values.flatMap { $0 }.map {
                 TermResult(bindings: [name: $0])
             }
-            return .table([node], AnySequence(results))
+            return .table([node], results)
         } else {
             var vars = [Node]()
             var names = [String]()
@@ -1680,7 +1677,7 @@ public struct SPARQLParser {
                 results.append(result)
             }
             try expect(token: .rbrace)
-            return .table(vars, AnySequence(results))
+            return .table(vars, results)
        }
     }
     
@@ -1742,7 +1739,7 @@ public struct SPARQLParser {
         }
     }
     
-    private mutating func parseVerb() throws -> Node { fatalError("implement") }
+//    private mutating func parseVerb() throws -> Node { fatalError("implement") }
     private mutating func parseObjectListAsNodes() throws -> ([Node], [Algebra]) { fatalError("implement") }
     private mutating func parseObjectAsNode() throws -> (Node, [Algebra]) { fatalError("implement") }
 
@@ -1845,7 +1842,7 @@ public struct SPARQLParser {
     private mutating func parsePathElt() throws -> PropertyPath {
         let elt = try parsePathPrimary()
         if try attempt(token: .question) {
-            fatalError("implement")
+            return .zeroOrOne(elt)
         } else if try attempt(token: .star) {
             return .star(elt)
         } else if try attempt(token: .plus) {

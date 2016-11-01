@@ -27,13 +27,14 @@ public indirect enum PropertyPath {
     case seq(PropertyPath, PropertyPath)
     case plus(PropertyPath)
     case star(PropertyPath)
+    case zeroOrOne(PropertyPath)
 }
 
 public indirect enum Algebra {
     public typealias SortComparator = (Bool, Expression)
 
     case identity
-    case table([Node], AnySequence<TermResult>)
+    case table([Node], [TermResult])
     case quad(QuadPattern)
     case triple(TriplePattern)
     case bgp([TriplePattern])
@@ -163,7 +164,7 @@ public indirect enum Algebra {
         case .bgp(let triples):
             var d = "\(indent)BGP\n"
             for t in triples {
-                d += "  \(t)\n"
+                d += "\(indent)  \(t)\n"
             }
             return d
         case .innerJoin(let lhs, let rhs):
@@ -238,9 +239,13 @@ public indirect enum Algebra {
             var d = "\(indent)Window \(f) over groups \(groups) ordered by { \(expressions.joined(separator: ", ")) }\n"
             d += child.serialize(depth: depth+1)
             return d
-        case .table(let nodes, _):
+        case .table(let nodes, let results):
             let vars = nodes.map { $0.description }
-            return "\(indent)Table { \(vars.joined(separator: ", ")) }\n"
+            var d = "\(indent)Table { \(vars.joined(separator: ", ")) }\n"
+            for result in results {
+                d += "\(indent)  \(result)\n"
+            }
+            return d
         }
     }
 }
@@ -876,6 +881,8 @@ open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
             default:
                 fatalError()
             }
+        case .zeroOrOne(let pp):
+            fatalError("TODO: ZeroOrOne paths are not implemented yet")
         }
     }
     
@@ -1000,8 +1007,8 @@ open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
         case .identity:
             let results = [TermResult(bindings: [:])]
             return AnyIterator(results.makeIterator())
-        case .table(_, let seq):
-            return seq.makeIterator()
+        case .table(_, let results):
+            return AnyIterator(results.makeIterator())
         case .triple(let t):
             let quad = QuadPattern(subject: t.subject, predicate: t.predicate, object: t.object, graph: .bound(activeGraph))
             return try store.results(matching: quad)
