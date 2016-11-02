@@ -8,6 +8,12 @@ let package = Package(
             dependencies: [
                 .Target(name: "Kineo")
             ]
+        ),
+        Target(
+            name: "kineo-parse",
+            dependencies: [
+                .Target(name: "Kineo")
+            ]
         )
     ],
     dependencies: []

@@ -181,6 +181,12 @@ public struct SPARQLLexer : IteratorProtocol {
     var comments : Bool
     var _lookahead : SPARQLToken?
     
+    private mutating func lexError(_ message : String) -> SPARQLParsingError {
+        fillBuffer()
+        let rest = buffer
+        return SPARQLParsingError.lexicalError("\(message) at \(line):\(column) near '\(rest)...'")
+    }
+
     private static let r_PNAME_LN	= "((((([A-Z]|[a-z]|[\\x{00C0}-\\x{00D6}]|[\\x{00D8}-\\x{00F6}]|[\\x{00F8}-\\x{02FF}]|[\\x{0370}-\\x{037D}]|[\\x{037F}-\\x{1FFF}]|[\\x{200C}-\\x{200D}]|[\\x{2070}-\\x{218F}]|[\\x{2C00}-\\x{2FEF}]|[\\x{3001}-\\x{D7FF}]|[\\x{F900}-\\x{FDCF}]|[\\x{FDF0}-\\x{FFFD}]|[\\x{10000}-\\x{EFFFF}])(((([_]|([A-Z]|[a-z]|[\\x{00C0}-\\x{00D6}]|[\\x{00D8}-\\x{00F6}]|[\\x{00F8}-\\x{02FF}]|[\\x{0370}-\\x{037D}]|[\\x{037F}-\\x{1FFF}]|[\\x{200C}-\\x{200D}]|[\\x{2070}-\\x{218F}]|[\\x{2C00}-\\x{2FEF}]|[\\x{3001}-\\x{D7FF}]|[\\x{F900}-\\x{FDCF}]|[\\x{FDF0}-\\x{FFFD}]|[\\x{10000}-\\x{EFFFF}]))|-|[0-9]|\\x{00B7}|[\\x{0300}-\\x{036F}]|[\\x{203F}-\\x{2040}])|[.])*(([_]|([A-Z]|[a-z]|[\\x{00C0}-\\x{00D6}]|[\\x{00D8}-\\x{00F6}]|[\\x{00F8}-\\x{02FF}]|[\\x{0370}-\\x{037D}]|[\\x{037F}-\\x{1FFF}]|[\\x{200C}-\\x{200D}]|[\\x{2070}-\\x{218F}]|[\\x{2C00}-\\x{2FEF}]|[\\x{3001}-\\x{D7FF}]|[\\x{F900}-\\x{FDCF}]|[\\x{FDF0}-\\x{FFFD}]|[\\x{10000}-\\x{EFFFF}]))|-|[0-9]|\\x{00B7}|[\\x{0300}-\\x{036F}]|[\\x{203F}-\\x{2040}]))?))?:)((([_]|([A-Z]|[a-z]|[\\x{00C0}-\\x{00D6}]|[\\x{00D8}-\\x{00F6}]|[\\x{00F8}-\\x{02FF}]|[\\x{0370}-\\x{037D}]|[\\x{037F}-\\x{1FFF}]|[\\x{200C}-\\x{200D}]|[\\x{2070}-\\x{218F}]|[\\x{2C00}-\\x{2FEF}]|[\\x{3001}-\\x{D7FF}]|[\\x{F900}-\\x{FDCF}]|[\\x{FDF0}-\\x{FFFD}]|[\\x{10000}-\\x{EFFFF}]))|[:0-9]|((?:\\\\([-~.!&'()*+,;=/?#@%_\\$]))|%[0-9A-Fa-f]{2}))(((([_]|([A-Z]|[a-z]|[\\x{00C0}-\\x{00D6}]|[\\x{00D8}-\\x{00F6}]|[\\x{00F8}-\\x{02FF}]|[\\x{0370}-\\x{037D}]|[\\x{037F}-\\x{1FFF}]|[\\x{200C}-\\x{200D}]|[\\x{2070}-\\x{218F}]|[\\x{2C00}-\\x{2FEF}]|[\\x{3001}-\\x{D7FF}]|[\\x{F900}-\\x{FDCF}]|[\\x{FDF0}-\\x{FFFD}]|[\\x{10000}-\\x{EFFFF}]))|-|[0-9]|\\x{00B7}|[\\x{0300}-\\x{036F}]|[\\x{203F}-\\x{2040}])|((?:\\\\([-~.!&'()*+,;=/?#@%_\\$]))|%[0-9A-Fa-f]{2})|[:.])*((([_]|([A-Z]|[a-z]|[\\x{00C0}-\\x{00D6}]|[\\x{00D8}-\\x{00F6}]|[\\x{00F8}-\\x{02FF}]|[\\x{0370}-\\x{037D}]|[\\x{037F}-\\x{1FFF}]|[\\x{200C}-\\x{200D}]|[\\x{2070}-\\x{218F}]|[\\x{2C00}-\\x{2FEF}]|[\\x{3001}-\\x{D7FF}]|[\\x{F900}-\\x{FDCF}]|[\\x{FDF0}-\\x{FFFD}]|[\\x{10000}-\\x{EFFFF}]))|-|[0-9]|\\x{00B7}|[\\x{0300}-\\x{036F}]|[\\x{203F}-\\x{2040}])|[:]|((?:\\\\([-~.!&'()*+,;=/?#@%_\\$]))|%[0-9A-Fa-f]{2})))?))"
     private static let r_PNAME_NS	= "(((([A-Z]|[a-z]|[\\x{00C0}-\\x{00D6}]|[\\x{00D8}-\\x{00F6}]|[\\x{00F8}-\\x{02FF}]|[\\x{0370}-\\x{037D}]|[\\x{037F}-\\x{1FFF}]|[\\x{200C}-\\x{200D}]|[\\x{2070}-\\x{218F}]|[\\x{2C00}-\\x{2FEF}]|[\\x{3001}-\\x{D7FF}]|[\\x{F900}-\\x{FDCF}]|[\\x{FDF0}-\\x{FFFD}]|[\\x{10000}-\\x{EFFFF}])(((([_]|([A-Z]|[a-z]|[\\x{00C0}-\\x{00D6}]|[\\x{00D8}-\\x{00F6}]|[\\x{00F8}-\\x{02FF}]|[\\x{0370}-\\x{037D}]|[\\x{037F}-\\x{1FFF}]|[\\x{200C}-\\x{200D}]|[\\x{2070}-\\x{218F}]|[\\x{2C00}-\\x{2FEF}]|[\\x{3001}-\\x{D7FF}]|[\\x{F900}-\\x{FDCF}]|[\\x{FDF0}-\\x{FFFD}]|[\\x{10000}-\\x{EFFFF}]))|-|[0-9]|\\x{00B7}|[\\x{0300}-\\x{036F}]|[\\x{203F}-\\x{2040}])|[.])*(([_]|([A-Z]|[a-z]|[\\x{00C0}-\\x{00D6}]|[\\x{00D8}-\\x{00F6}]|[\\x{00F8}-\\x{02FF}]|[\\x{0370}-\\x{037D}]|[\\x{037F}-\\x{1FFF}]|[\\x{200C}-\\x{200D}]|[\\x{2070}-\\x{218F}]|[\\x{2C00}-\\x{2FEF}]|[\\x{3001}-\\x{D7FF}]|[\\x{F900}-\\x{FDCF}]|[\\x{FDF0}-\\x{FFFD}]|[\\x{10000}-\\x{EFFFF}]))|-|[0-9]|\\x{00B7}|[\\x{0300}-\\x{036F}]|[\\x{203F}-\\x{2040}]))?))?:)"
     private static let r_DOUBLE     = "(([0-9]+[.][0-9]*[eE][+-]?[0-9]+)|([.][0-9]+[eE][+-]?[0-9]+)|([0-9]+[eE][+-]?[0-9]+))"
@@ -348,12 +354,19 @@ public struct SPARQLLexer : IteratorProtocol {
         guard buffer.characters.count == 0 else { return }
         var bytes = [UInt8]()
         var charbuffer : [UInt8] = [0]
-        while true {
+        LOOP: while true {
             let read = source.read(&charbuffer, maxLength: 1)
             guard read != -1 else { print("\(source.streamError)"); break }
             guard read > 0 else { break }
             bytes.append(charbuffer[0])
+            
             if charbuffer[0] == 0x0a || charbuffer[0] == 0x0d {
+                if let s = String(bytes: bytes, encoding: .utf8) {
+                    let trimmed = s.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+                    if trimmed.hasSuffix("[") || trimmed.hasSuffix("(") {
+                        continue
+                    }
+                }
                 break
             }
         }
@@ -572,7 +585,7 @@ public struct SPARQLLexer : IteratorProtocol {
             return .boolean(value.lowercased())
         }
         
-        throw SPARQLParsingError.lexicalError("Expecting keyword near '\(buffer)'")
+        throw lexError("Expecting keyword")
     }
     mutating func getVariable() throws -> SPARQLToken? {
         getChar()
@@ -582,7 +595,7 @@ public struct SPARQLLexer : IteratorProtocol {
             let value = try read(length: variable_range.length)
             return ._var(value)
         } else {
-            throw SPARQLParsingError.lexicalError("Expecting variable name near '\(buffer)'")
+            throw lexError("Expecting variable name")
         }
     }
     mutating func getSingleLiteral() throws -> SPARQLToken? {
@@ -600,7 +613,7 @@ public struct SPARQLLexer : IteratorProtocol {
                             }
                             return .string3s(String(chars))
                         }
-                        throw SPARQLParsingError.lexicalError("Found EOF in string literal")
+                        throw lexError("Found EOF in string literal")
                     }
                 }
                 
@@ -611,7 +624,7 @@ public struct SPARQLLexer : IteratorProtocol {
                         }
                         return .string3s(String(chars))
                     }
-                    throw SPARQLParsingError.lexicalError("Found EOF in string literal")
+                    throw lexError("Found EOF in string literal")
                 }
                 
                 if c == "'" {
@@ -643,12 +656,12 @@ public struct SPARQLLexer : IteratorProtocol {
                 if buffer.characters.count == 0 {
                     fillBuffer()
                     if buffer.characters.count == 0 {
-                        throw SPARQLParsingError.lexicalError("Found EOF in string literal")
+                        throw lexError("Found EOF in string literal")
                     }
                 }
                 
                 guard let c = peekChar() else {
-                    throw SPARQLParsingError.lexicalError("Found EOF in string literal")
+                    throw lexError("Found EOF in string literal")
                 }
                 
                 if c == "'" {
@@ -684,19 +697,19 @@ public struct SPARQLLexer : IteratorProtocol {
         case "u":
             let hex = try read(length: 4)
             guard let codepoint = Int(hex, radix: 16), let s = UnicodeScalar(codepoint) else {
-                throw SPARQLParsingError.lexicalError("Invalid unicode codepoint: \(hex)")
+                throw lexError("Invalid unicode codepoint: \(hex)")
             }
             let c = Character(s)
             return c
         case "U":
             let hex = try read(length: 8)
             guard let codepoint = Int(hex, radix: 16), let s = UnicodeScalar(codepoint) else {
-                throw SPARQLParsingError.lexicalError("Invalid unicode codepoint: \(hex)")
+                throw lexError("Invalid unicode codepoint: \(hex)")
             }
             let c = Character(s)
             return c
         default:
-            throw SPARQLParsingError.lexicalError("Unexpected escape sequence \\\(c)")
+            throw lexError("Unexpected escape sequence \\\(c)")
         }
     }
 
@@ -750,7 +763,7 @@ public struct SPARQLLexer : IteratorProtocol {
             let value = try read(length: lang_range.length)
             return .lang(value.lowercased())
         } else {
-            throw SPARQLParsingError.lexicalError("Expecting language near '\(buffer)'")
+            throw lexError("Expecting language")
         }
     }
     
@@ -769,7 +782,7 @@ public struct SPARQLLexer : IteratorProtocol {
             return .iri(iri)
         } else if buffer.hasPrefix("<") {
             try getChar(expecting: "<")
-            guard let c = peekChar() else { throw SPARQLParsingError.lexicalError("Expecting relational expression near EOF") }
+            guard let c = peekChar() else { throw lexError("Expecting relational expression near EOF") }
             if c == "=" {
                 getChar()
                 return .le
@@ -778,7 +791,7 @@ public struct SPARQLLexer : IteratorProtocol {
             }
         } else {
             try getChar(expecting: ">")
-            guard let c = peekChar() else { throw SPARQLParsingError.lexicalError("Expecting relational expression near EOF") }
+            guard let c = peekChar() else { throw lexError("Expecting relational expression near EOF") }
             if c == "=" {
                 getChar()
                 return .ge
@@ -803,7 +816,7 @@ public struct SPARQLLexer : IteratorProtocol {
                             }
                             return .string3d(String(chars))
                         }
-                        throw SPARQLParsingError.lexicalError("Found EOF in string literal")
+                        throw lexError("Found EOF in string literal")
                     }
                 }
                 
@@ -814,7 +827,7 @@ public struct SPARQLLexer : IteratorProtocol {
                         }
                         return .string3d(String(chars))
                     }
-                    throw SPARQLParsingError.lexicalError("Found EOF in string literal")
+                    throw lexError("Found EOF in string literal")
                 }
                 
                 if c == "\"" {
@@ -846,12 +859,12 @@ public struct SPARQLLexer : IteratorProtocol {
                 if buffer.characters.count == 0 {
                     fillBuffer()
                     if buffer.characters.count == 0 {
-                        throw SPARQLParsingError.lexicalError("Found EOF in string literal")
+                        throw lexError("Found EOF in string literal")
                     }
                 }
                 
                 guard let c = peekChar() else {
-                    throw SPARQLParsingError.lexicalError("Found EOF in string literal")
+                    throw lexError("Found EOF in string literal")
                 }
                 
                 if c == "\"" {
@@ -876,7 +889,7 @@ public struct SPARQLLexer : IteratorProtocol {
             let value = try read(length: bnode_range.length)
             return .bnode(value)
         } else {
-            throw SPARQLParsingError.lexicalError("Expecting blank node name near '\(buffer)'")
+            throw lexError("Expecting blank node name")
         }
     }
     
@@ -912,7 +925,7 @@ public struct SPARQLLexer : IteratorProtocol {
     @discardableResult
     mutating func getExpectedChar() throws -> Character {
         guard let c = buffer.characters.first else {
-            throw SPARQLParsingError.lexicalError("Unexpected EOF")
+            throw lexError("Unexpected EOF")
         }
         buffer = buffer.substring(from: buffer.index(buffer.startIndex, offsetBy: 1))
         self.character += 1
@@ -929,7 +942,7 @@ public struct SPARQLLexer : IteratorProtocol {
     mutating func getChar(expecting: Character) throws -> Character {
         let c = getChar()
         guard c == expecting else {
-            throw SPARQLParsingError.lexicalError("Expecting '\(expecting)' but got '\(c)'")
+            throw lexError("Expecting '\(expecting)' but got '\(c)'")
         }
         return c
     }
@@ -952,12 +965,12 @@ public struct SPARQLLexer : IteratorProtocol {
     mutating func read(word: String) throws {
         fillBuffer()
         if buffer.characters.count < word.characters.count {
-            throw SPARQLParsingError.lexicalError("Expecting '\(word)' but not enough read-ahead data available")
+            throw lexError("Expecting '\(word)' but not enough read-ahead data available")
         }
         
         let index = buffer.index(buffer.startIndex, offsetBy: word.characters.count)
         guard buffer.hasPrefix(word) else {
-            throw SPARQLParsingError.lexicalError("Expecting '\(word)' but found '\(buffer.substring(to: index))'")
+            throw lexError("Expecting '\(word)' but found '\(buffer.substring(to: index))'")
         }
         
         buffer = buffer.substring(from: index)
@@ -976,7 +989,7 @@ public struct SPARQLLexer : IteratorProtocol {
     mutating func read(length: Int) throws -> String {
         fillBuffer()
         if buffer.characters.count < length {
-            throw SPARQLParsingError.lexicalError("Expecting \(length) characters but not enough read-ahead data available")
+            throw lexError("Expecting \(length) characters but not enough read-ahead data available")
         }
 
         let index = buffer.index(buffer.startIndex, offsetBy: length)
@@ -1056,6 +1069,12 @@ public struct SPARQLParser {
     var tokenLookahead : SPARQLToken?
     var freshCounter = AnyIterator(sequence(first: 1) { $0 + 1 })
     
+    private mutating func parseError(_ message : String) -> SPARQLParsingError {
+        lexer.fillBuffer()
+        let rest = lexer.buffer
+        return SPARQLParsingError.parsingError("\(message) at \(lexer.line):\(lexer.column) near '\(rest)...'")
+    }
+    
     public init(lexer : SPARQLLexer, prefixes : [String:String] = [:], base : String? = nil) {
         self.lexer = lexer
         self.prefixes = prefixes
@@ -1099,12 +1118,12 @@ public struct SPARQLParser {
     }
     
     private mutating func peekExpectedToken() throws -> SPARQLToken {
-        guard let t = peekToken() else { throw SPARQLParsingError.parsingError("Unexpected EOF") }
+        guard let t = peekToken() else { throw parseError("Unexpected EOF") }
         return t
     }
     
     private mutating func nextExpectedToken() throws -> SPARQLToken {
-        guard let t = nextToken() else { throw SPARQLParsingError.parsingError("Unexpected EOF") }
+        guard let t = nextToken() else { throw parseError("Unexpected EOF") }
         return t
     }
     
@@ -1139,10 +1158,10 @@ public struct SPARQLParser {
     
     private mutating func expect(token: SPARQLToken) throws {
         guard let t = nextToken() else {
-            throw SPARQLParsingError.parsingError("Expected \(token) but got EOF")
+            throw parseError("Expected \(token) but got EOF")
         }
         guard t == token else {
-            throw SPARQLParsingError.parsingError("Expected \(token) but got \(t)")
+            throw parseError("Expected \(token) but got \(t)")
         }
         return
     }
@@ -1153,17 +1172,20 @@ public struct SPARQLParser {
         try parsePrologue()
         
         let t = try peekExpectedToken()
-        guard case .keyword(let kw) = t else { throw SPARQLParsingError.parsingError("Expected query method not found") }
+        guard case .keyword(let kw) = t else { throw parseError("Expected query method not found") }
         
         var algebra : Algebra
         switch kw {
         case "SELECT":
             algebra = try parseSelectQuery()
-//        case "CONSTRUCT":
-//        case "DESCRIBE":
-//        case "ASK":
+        case "CONSTRUCT":
+            algebra = try parseConstructQuery()
+        case "DESCRIBE":
+            algebra = try parseDescribeQuery()
+        case "ASK":
+            algebra = try parseAskQuery()
         default:
-            throw SPARQLParsingError.parsingError("Expected query method not found: \(kw)")
+            throw parseError("Expected query method not found: \(kw)")
         }
         
         return algebra
@@ -1174,13 +1196,13 @@ public struct SPARQLParser {
         while true {
             if try attempt(token: .keyword("PREFIX")) {
                 let pn = try nextExpectedToken()
-                guard case .prefixname(let name, "") = pn else { throw SPARQLParsingError.parsingError("Expected prefix name but found \(pn)") }
+                guard case .prefixname(let name, "") = pn else { throw parseError("Expected prefix name but found \(pn)") }
                 let iri = try nextExpectedToken()
-                guard case .iri(let value) = iri else { throw SPARQLParsingError.parsingError("Expected prefix IRI but found \(iri)") }
+                guard case .iri(let value) = iri else { throw parseError("Expected prefix IRI but found \(iri)") }
                 self.prefixes[name] = value
             } else if try attempt(token: .keyword("BASE")) {
                 let iri = try nextExpectedToken()
-                guard case .iri(let value) = iri else { throw SPARQLParsingError.parsingError("Expected BASE IRI but found \(iri)") }
+                guard case .iri(let value) = iri else { throw parseError("Expected BASE IRI but found \(iri)") }
                 self.base = value
             } else {
                 break
@@ -1216,7 +1238,7 @@ public struct SPARQLParser {
                     try expect(token: .keyword("AS"))
                     let node = try parseVar()
                     guard case .variable(let name, binding: _) = node else {
-                        throw SPARQLParsingError.parsingError("Expecting project expressions variable but got \(node)")
+                        throw parseError("Expecting project expressions variable but got \(node)")
                     }
                     try expect(token: .rparen)
                     projectExpressions.append((expression, name))
@@ -1248,10 +1270,81 @@ public struct SPARQLParser {
         return algebra
     }
     
-    private mutating func parseConstructQuery() throws -> Algebra { fatalError("implement") }
-    private mutating func parseDescribeQuery() throws -> Algebra { fatalError("implement") }
-    private mutating func parseConstructTemplate() throws -> Algebra { fatalError("implement") }
-    private mutating func parseAskQuery() throws -> Algebra { fatalError("implement") }
+    private mutating func parseConstructQuery() throws -> Algebra {
+        try expect(token: .keyword("CONSTRUCT"))
+        let dataset = try parseDatasetClauses() // TODO
+        let pattern = try parseConstructTemplate()
+        try expect(token: .keyword("WHERE"))
+        var algebra = try parseGroupGraphPattern()
+        algebra = try parseSolutionModifier(algebra: algebra, distinct: true, projection: nil, projectExpressions: [], aggregation: [:], valuesBlock: nil)
+        return algebra // TODO: wrap CONSTRUCT so that it produces a set of triples
+    }
+
+    private mutating func parseDescribeQuery() throws -> Algebra {
+        try expect(token: .keyword("DESCRIBE"))
+        var star = false
+        var describe = [Node]()
+        if try attempt(token: .star) {
+            star = true
+        } else {
+            let node = try parseVarOrIRI()
+            describe.append(node)
+            
+            var t = try peekExpectedToken()
+            while true {
+                if t.isTerm {
+                    describe.append(try parseVarOrIRI())
+                } else if case ._var(_) = t {
+                    describe.append(try parseVarOrIRI())
+                } else {
+                    break
+                }
+                t = try peekExpectedToken()
+            }
+        }
+        
+        let dataset = try parseDatasetClauses() // TODO
+        try attempt(token: .keyword("WHERE"))
+        let ggp = try parseGroupGraphPattern()
+        return ggp // TODO: wrap DESCRIBE so that it produces a set of triples
+    }
+    
+    private mutating func parseConstructTemplate() throws -> Algebra {
+        try expect(token: .lbrace)
+        if try attempt(token: .rbrace) {
+            // TODO: this should be parsing more triple patterns (ConstructTriples?)
+            return .bgp([])
+        } else {
+            let tmpl = try parseTriplesBlock()
+            try expect(token: .rbrace)
+            return .bgp(tmpl)
+        }
+    }
+    
+    private mutating func parseTriplesBlock() throws -> [TriplePattern] {
+        let sameSubj = try parseTriplesSameSubject()
+        var t = try peekExpectedToken()
+        if t == .none || t != .some(.dot) {
+            return sameSubj
+        } else {
+            try expect(token: .dot)
+            t = try peekExpectedToken()
+            if t.isTerm {
+                let more = try parseTriplesBlock()
+                return sameSubj + more
+            } else {
+                return sameSubj
+            }
+        }
+    }
+    
+    private mutating func parseAskQuery() throws -> Algebra {
+        try expect(token: .keyword("ASK"))
+        let dataset = try parseDatasetClauses() // TODO
+        try attempt(token: .keyword("WHERE"))
+        let ggp = try parseGroupGraphPattern()
+        return ggp // TODO: wrap ASK so that it produces a boolean
+    }
 
     private mutating func parseDatasetClauses() throws -> Any? { // TODO: figure out the return type here
         while try attempt(token: .keyword("FROM")) {
@@ -1305,7 +1398,7 @@ public struct SPARQLParser {
                     try expect(token: .keyword("AS"))
                     let node = try parseVar()
                     guard case .variable(let name, binding: _) = node else {
-                        throw SPARQLParsingError.parsingError("Expecting project expressions variable but got \(node)")
+                        throw parseError("Expecting project expressions variable but got \(node)")
                     }
                     try expect(token: .rparen)
                     projectExpressions.append((expression, name))
@@ -1340,7 +1433,7 @@ public struct SPARQLParser {
             if try attempt(token: .keyword("AS")) {
                 node = try parseVar()
                 guard case .variable(let name, binding: _) = node else {
-                    throw SPARQLParsingError.parsingError("Expecting GROUP variable name but got \(node)")
+                    throw parseError("Expecting GROUP variable name but got \(node)")
                 }
                 algebra = .extend(algebra, expr, name)
             } else {
@@ -1356,7 +1449,7 @@ public struct SPARQLParser {
             if case ._var(_) = t {
                 node = try parseVar()
                 guard case .variable(let name, binding: _) = node else {
-                    throw SPARQLParsingError.parsingError("Expecting GROUP variable but got \(node)")
+                    throw parseError("Expecting GROUP variable but got \(node)")
                 }
                 return node
             } else {
@@ -1414,7 +1507,7 @@ public struct SPARQLParser {
     private mutating func parseFunctionCall() throws -> Expression {
         let expr = try parseIRIOrFunction()
         guard case .call(_) = expr else {
-            throw SPARQLParsingError.parsingError("Expecting function call but got \(expr)")
+            throw parseError("Expecting function call but got \(expr)")
         }
         return expr
     }
@@ -1584,7 +1677,7 @@ public struct SPARQLParser {
                     args.append(contentsOf: algebra)
                 case .lbrace, .keyword(_):
                     guard let unfinished = try treeByParsingGraphPatternNotTriples() else {
-                        throw SPARQLParsingError.parsingError("Could not parse GraphPatternNotTriples in GroupGraphPatternSub (near \(t))")
+                        throw parseError("Could not parse GraphPatternNotTriples in GroupGraphPatternSub (near \(t))")
                     }
                     
                     // TODO: this isn't right. it needs to be a post-processing step to allow filters to be applied late, but things like BIND and OPTIONAL to close immediately
@@ -1613,7 +1706,7 @@ public struct SPARQLParser {
         try expect(token: .keyword("AS"))
         let node = try parseVar()
         guard case .variable(let name, binding: _) = node else {
-            throw SPARQLParsingError.parsingError("Expecting BIND variable but got \(node)")
+            throw parseError("Expecting BIND variable but got \(node)")
         }
         return .bind(expr, name)
     }
@@ -1631,7 +1724,7 @@ public struct SPARQLParser {
         if case ._var(_) = t {
             let node = try parseVar()
             guard case .variable(let name, binding: _) = node else {
-                throw SPARQLParsingError.parsingError("Expecting variable but got \(node)")
+                throw parseError("Expecting variable but got \(node)")
             }
             try expect(token: .lbrace)
             let values = try parseDataBlockValues()
@@ -1692,7 +1785,7 @@ public struct SPARQLParser {
                 t = try nextExpectedToken()
                 let node = try tokenAsTerm(t)
                 guard case .bound(let term) = node else {
-                    throw SPARQLParsingError.parsingError("Expecting term but got \(node)")
+                    throw parseError("Expecting term but got \(node)")
                 }
                 values.append(term)
             }
@@ -1701,9 +1794,37 @@ public struct SPARQLParser {
         return values
     }
     
-    private mutating func triplesArrayByParsingTriplesSameSubject() throws -> [TriplePattern] { fatalError("implement") }
-    private mutating func parsePropertyList(subject: Node) throws -> [TriplePattern] { fatalError("implement") }
-    private mutating func parsePropertyListNotEmpty(subject: Node) throws -> [TriplePattern] { fatalError("implement") }
+    private mutating func parseTriplesSameSubject() throws -> [TriplePattern] {
+        let t = try peekExpectedToken()
+        if t.isTermOrVar {
+            let subj = try parseVarOrTerm()
+            return try parsePropertyListNotEmpty(for: subj)
+        } else if t == .lparen || t == .lbracket {
+            let (subj, triples) = try parseTriplesNodeAsNode()
+            let more = try parsePropertyList(subject: subj)
+            return triples + more
+        } else {
+            return []
+        }
+    }
+    
+    private mutating func parsePropertyList(subject: Node) throws -> [TriplePattern] {
+        let t = try peekExpectedToken()
+        guard t.isVerb else { return [] }
+        return try parsePropertyListNotEmpty(for: subject)
+    }
+    
+    private mutating func parsePropertyListNotEmpty(for subject: Node) throws -> [TriplePattern] {
+        let algebras = try parsePropertyListPathNotEmpty(for: subject)
+        var triples = [TriplePattern]()
+        for algebra in algebras {
+            guard case .triple(let tp) = simplifyPath(algebra) else {
+                throw parseError("Expected triple pattern but found \(algebra)")
+            }
+            triples.append(tp)
+        }
+        return triples
+    }
 
     private mutating func triplesArrayByParsingTriplesSameSubjectPath() throws -> [Algebra] {
         let t = try peekExpectedToken()
@@ -1880,13 +2001,13 @@ public struct SPARQLParser {
         if try attempt(token: .lparen) {
             let path = try parsePathOneInPropertySet()
             guard case .link(let iri) = path else {
-                throw SPARQLParsingError.parsingError("Expected NPS IRI but found \(path)")
+                throw parseError("Expected NPS IRI but found \(path)")
             }
             var iris = [iri]
             while try attempt(token: .or) {
                 let rhs = try parsePathOneInPropertySet()
                 guard case .link(let iri) = rhs else {
-                    throw SPARQLParsingError.parsingError("Expected NPS IRI but found \(path)")
+                    throw parseError("Expected NPS IRI but found \(path)")
                 }
                 iris.append(iri)
             }
@@ -1895,7 +2016,7 @@ public struct SPARQLParser {
         } else {
             let path = try parsePathOneInPropertySet()
             guard case .link(let iri) = path else {
-                throw SPARQLParsingError.parsingError("Expected NPS IRI but found \(path)")
+                throw parseError("Expected NPS IRI but found \(path)")
             }
             return .nps([iri])
         }
@@ -1949,8 +2070,8 @@ public struct SPARQLParser {
     private mutating func parseObjectPathAsNode() throws -> (Node, [Algebra]) {
         return try parseGraphNodePathAsNode()
     }
-    private mutating func parseTriplesNodeAsNode() throws -> (Node, [Algebra]) { fatalError("implement") }
-    private mutating func parseBlankNodePropertyListAsNode() throws -> (Node, [Algebra]) { fatalError("implement") }
+    private mutating func parseTriplesNodeAsNode() throws -> (Node, [TriplePattern]) { fatalError("implement") }
+    private mutating func parseBlankNodePropertyListAsNode() throws -> (Node, [TriplePattern]) { fatalError("implement") }
     
     private mutating func parseTriplesNodePathAsNode() throws -> (Node, [Algebra]) {
         if try attempt(token: .lparen) {
@@ -1992,7 +2113,7 @@ public struct SPARQLParser {
         if case .variable(_) = node {
         } else if case .bound(let term) = node, term.type == .iri {
         } else {
-            throw SPARQLParsingError.parsingError("Expected variable but found \(node)")
+            throw parseError("Expected variable but found \(node)")
         }
         return node
     }
@@ -2001,7 +2122,7 @@ public struct SPARQLParser {
         let t = try nextExpectedToken()
         let node = try tokenAsTerm(t)
         guard case .variable(_) = node else {
-            throw SPARQLParsingError.parsingError("Expected variable but found \(node)")
+            throw parseError("Expected variable but found \(node)")
         }
         return node
     }
@@ -2009,7 +2130,7 @@ public struct SPARQLParser {
     private mutating func parseNonAggregatingExpression() throws -> Expression {
         let expr = try parseExpression()
         guard !expr.hasAggregation else {
-            throw SPARQLParsingError.parsingError("Unexpected aggregation in BIND expression")
+            throw parseError("Unexpected aggregation in BIND expression")
         }
         return expr
     }
@@ -2188,7 +2309,7 @@ public struct SPARQLParser {
             case .iri(_), .prefixname(_, _):
                 return try parseIRIOrFunction()
             case ._nil, .anon, .bnode(_):
-                throw SPARQLParsingError.parsingError("Expected PrimaryExpression term (IRI, Literal, or Var) but found \(t)")
+                throw parseError("Expected PrimaryExpression term (IRI, Literal, or Var) but found \(t)")
             case _ where t.isTermOrVar:
                 return try .node(parseVarOrTerm())
             default:
@@ -2258,14 +2379,14 @@ public struct SPARQLParser {
             }
             return .call(kw, args)
         default:
-            throw SPARQLParsingError.parsingError("Expected built-in function call but found \(t)")
+            throw parseError("Expected built-in function call but found \(t)")
         }
     }
     
     private mutating func parseAggregate() throws -> Aggregation {
         let t = try nextExpectedToken()
         guard case .keyword(let name) = t else {
-            throw SPARQLParsingError.parsingError("Expected aggregate name but found \(t)")
+            throw parseError("Expected aggregate name but found \(t)")
         }
         
         switch name {
@@ -2339,7 +2460,7 @@ public struct SPARQLParser {
                 let t = try nextExpectedToken()
                 let node = try tokenAsTerm(t)
                 guard case .bound(let term) = node, case .datatype("http://www.w3.org/2001/XMLSchema#string") = term.type else {
-                    throw SPARQLParsingError.parsingError("Expected GROUP_CONCAT SEPARATOR but found \(node)")
+                    throw parseError("Expected GROUP_CONCAT SEPARATOR but found \(node)")
                 }
                 sep = term.value
             }
@@ -2347,7 +2468,7 @@ public struct SPARQLParser {
             fatalError("SAMPLE aggregate is unimplemented")
             try expect(token: .rparen)
         default:
-            throw SPARQLParsingError.parsingError("Unrecognized aggregate name '\(name)'")
+            throw parseError("Unrecognized aggregate name '\(name)'")
         }
     /**
  
@@ -2389,7 +2510,7 @@ public struct SPARQLParser {
         let t = try nextExpectedToken()
         let node = try tokenAsTerm(t)
         guard case .bound(let term) = node, case .iri(_) = term.type else {
-            throw SPARQLParsingError.parsingError("Bad path IRI: \(node)")
+            throw parseError("Bad path IRI: \(node)")
         }
         return term
     }
@@ -2421,16 +2542,20 @@ public struct SPARQLParser {
     private mutating func treeByParsingGraphPatternNotTriples() throws -> UnfinishedAlgebra? {
         let t = try peekExpectedToken()
         if case .keyword("OPTIONAL") = t {
+            try expect(token: t)
             let ggp = try parseGroupGraphPattern()
             return .optional(ggp)
         } else if case .keyword("MINUS") = t {
+            try expect(token: t)
             let ggp = try parseGroupGraphPattern()
             return .minus(ggp)
         } else if case .keyword("GRAPH") = t {
+            try expect(token: t)
             let node = try parseVarOrIRI()
             let ggp = try parseGroupGraphPattern()
             return .finished(.namedGraph(ggp, node))
         } else if case.keyword("SERVICE") = t {
+            try expect(token: t)
             let silent = try attempt(token: .keyword("SILENT"))
             let node = try parseVarOrIRI()
             let ggp = try parseGroupGraphPattern()
@@ -2446,7 +2571,7 @@ public struct SPARQLParser {
         } else if case .keyword("BIND") = t {
             return try parseBind()
         } else if case .keyword(_) = t {
-            throw SPARQLParsingError.parsingError("Expecting KEYWORD but got \(t)")
+            throw parseError("Expecting KEYWORD but got \(t)")
         } else if case .lbrace = t {
             var ggp = try parseGroupGraphPattern()
             while try attempt(token: .keyword("UNION")) {
@@ -2456,7 +2581,7 @@ public struct SPARQLParser {
             return .finished(ggp)
         } else {
             let t = try peekExpectedToken()
-            throw SPARQLParsingError.parsingError("Expecting group graph pattern but got \(t)")
+            throw parseError("Expecting group graph pattern but got \(t)")
         }
     }
     
@@ -2471,7 +2596,7 @@ public struct SPARQLParser {
             return .bound(Term(value: iri, type: .iri))
         case .prefixname(let pn, let ln):
             guard let base = self.prefixes[pn] else {
-                throw SPARQLParsingError.parsingError("Use of undeclared prefix '\(pn)'")
+                throw parseError("Use of undeclared prefix '\(pn)'")
             }
             let iri = base + ln // TODO: resolve against base IRI
             return .bound(Term(value: iri, type: .iri))
@@ -2495,10 +2620,10 @@ public struct SPARQLParser {
                 let t = try nextExpectedToken()
                 let dt = try tokenAsTerm(t)
                 guard case .bound(let dtterm) = dt else {
-                    throw SPARQLParsingError.lexicalError("Expecting datatype but found '\(dt)'")
+                    throw parseError("Expecting datatype but found '\(dt)'")
                 }
                 guard case .iri = dtterm.type else {
-                    throw SPARQLParsingError.lexicalError("Expecting datatype IRI but found '\(dtterm)'")
+                    throw parseError("Expecting datatype IRI but found '\(dtterm)'")
                 }
                 return .bound(Term(value: value, type: .datatype(dtterm.value)))
             } else {
@@ -2515,12 +2640,12 @@ public struct SPARQLParser {
             let t = try nextExpectedToken()
             let node = try tokenAsTerm(t)
             guard case .bound(let term) = node, term.isNumeric, let value = term.numeric else {
-                throw SPARQLParsingError.lexicalError("Cannot negate \(node)")
+                throw parseError("Cannot negate \(node)")
             }
             let neg = .integer(0) - value
             return .bound(neg.term)
         default:
-            throw SPARQLParsingError.lexicalError("Expecting term but got \(t)")
+            throw parseError("Expecting term but got \(t)")
         }
     }
     
@@ -2528,10 +2653,10 @@ public struct SPARQLParser {
         let l = try nextExpectedToken()
         let t = try tokenAsTerm(l)
         guard case .bound(let term) = t, case .datatype("http://www.w3.org/2001/XMLSchema#integer") = term.type else {
-            throw SPARQLParsingError.parsingError("Expecting integer but found \(t)")
+            throw parseError("Expecting integer but found \(t)")
         }
         guard let limit = Int(term.value) else {
-            throw SPARQLParsingError.parsingError("Failed to parse integer value from \(term)")
+            throw parseError("Failed to parse integer value from \(term)")
         }
         return limit
     }

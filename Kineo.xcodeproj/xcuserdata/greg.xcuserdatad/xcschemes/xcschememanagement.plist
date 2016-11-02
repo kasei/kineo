@@ -14,10 +14,25 @@
 			<key>orderHint</key>
 			<integer>1</integer>
 		</dict>
+		<key>kineo-parse.xcscheme</key>
+		<dict>
+			<key>orderHint</key>
+			<integer>3</integer>
+		</dict>
+		<key>kineo-test.xcscheme</key>
+		<dict>
+			<key>orderHint</key>
+			<integer>2</integer>
+		</dict>
 	</dict>
 	<key>SuppressBuildableAutocreation</key>
 	<dict>
 		<key>372C154D1D500FD6005AD596</key>
+		<dict>
+			<key>primary</key>
+			<true/>
+		</dict>
+		<key>37559FA61DC9417600B103DD</key>
 		<dict>
 			<key>primary</key>
 			<true/>
