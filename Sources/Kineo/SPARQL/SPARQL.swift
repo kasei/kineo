@@ -719,7 +719,7 @@ public struct SPARQLLexer : IteratorProtocol {
         if range.location == 0 {
             let pname = try read(length: range.length)
             if pname.contains("\\") {
-                fatalError("TODO: handle prefixname escapes")
+                fatalError("implement prefixname escapes")
             }
             
             var values = pname.components(separatedBy: ":")
@@ -776,7 +776,7 @@ public struct SPARQLLexer : IteratorProtocol {
             getChar()
             
             if iri.contains("\\") {
-                fatalError("TODO: handle IRI escapes")
+                fatalError("implement IRI escapes")
             }
             
             return .iri(iri)
@@ -1306,6 +1306,10 @@ public struct SPARQLParser {
         let dataset = try parseDatasetClauses() // TODO
         try attempt(token: .keyword("WHERE"))
         let ggp = try parseGroupGraphPattern()
+        
+        if star {
+            
+        }
         return ggp // TODO: wrap DESCRIBE so that it produces a set of triples
     }
     
@@ -1347,12 +1351,19 @@ public struct SPARQLParser {
     }
 
     private mutating func parseDatasetClauses() throws -> Any? { // TODO: figure out the return type here
+        var named = [Term]()
+        var unnamed = [Term]()
         while try attempt(token: .keyword("FROM")) {
-            let named = try attempt(token: .keyword("NAMED"))
+            let namedIRI = try attempt(token: .keyword("NAMED"))
             let iri = try parseIRI()
+            if namedIRI {
+                named.append(iri)
+            } else {
+                unnamed.append(iri)
+            }
         }
         return nil;
-        fatalError("implement")
+        fatalError("implement \(named) \(unnamed)")
     }
 
     private mutating func parseGroupGraphPattern() throws -> Algebra {
@@ -1438,7 +1449,7 @@ public struct SPARQLParser {
                 algebra = .extend(algebra, expr, name)
             } else {
                 guard let c = freshCounter.next() else { fatalError("No fresh variable available") }
-                let name = ".\(c)"
+                let name = ".group-\(c)"
                 algebra = .extend(algebra, expr, name)
                 node = .variable(name, binding: true)
             }
@@ -1448,14 +1459,14 @@ public struct SPARQLParser {
             let t = try peekExpectedToken()
             if case ._var(_) = t {
                 node = try parseVar()
-                guard case .variable(let name, binding: _) = node else {
+                guard case .variable(_) = node else {
                     throw parseError("Expecting GROUP variable but got \(node)")
                 }
                 return node
             } else {
                 let expr = try parseBuiltInCall()
                 guard let c = freshCounter.next() else { fatalError("No fresh variable available") }
-                let name = ".\(c)"
+                let name = ".group-\(c)"
                 algebra = .extend(algebra, expr, name)
                 node = .variable(name, binding: true)
                 return node
@@ -2074,7 +2085,7 @@ public struct SPARQLParser {
     private mutating func parseBlankNodePropertyListAsNode() throws -> (Node, [TriplePattern]) { fatalError("implement") }
     
     private mutating func parseTriplesNodePathAsNode() throws -> (Node, [Algebra]) {
-        if try attempt(token: .lparen) {
+        if try peek(token: .lparen) {
             return try triplesByParsingCollectionPathAsNode()
         } else {
             return try parseBlankNodePropertyListPathAsNode()
@@ -2090,7 +2101,49 @@ public struct SPARQLParser {
     }
     
     private mutating func triplesByParsingCollectionAsNode() throws -> (Node, [Algebra]) { fatalError("implement") }
-    private mutating func triplesByParsingCollectionPathAsNode() throws -> (Node, [Algebra]) { fatalError("implement") }
+    
+    private mutating func triplesByParsingCollectionPathAsNode() throws -> (Node, [Algebra]) {
+        try expect(token: .lparen)
+        let (node, graphNodePath) = try parseGraphNodePathAsNode()
+        var triples = graphNodePath
+        var nodes = [node]
+        while try !peek(token: .rparen) {
+            let (node, graphNodePath) = try parseGraphNodePathAsNode()
+            triples.append(contentsOf: graphNodePath)
+            nodes.append(node)
+        }
+        try expect(token: .rparen)
+        
+        let bnode = self.bnode()
+        var list = bnode
+        
+        let rdffirst = Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#first", type: .iri)
+        let rdfrest = Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#rest", type: .iri)
+        let rdfnil = Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#nil", type: .iri)
+        
+        var patterns = [TriplePattern]()
+        if nodes.count > 0 {
+            for (i, o) in nodes.enumerated() {
+                let triple = TriplePattern(subject: .bound(list), predicate: .bound(rdffirst), object: o)
+                patterns.append(triple)
+                if i == (nodes.count-1) {
+                    let triple = TriplePattern(subject: .bound(list), predicate: .bound(rdfrest), object: .bound(rdfnil))
+                    patterns.append(triple)
+                } else {
+                    let newlist = self.bnode()
+                    let triple = TriplePattern(subject: .bound(list), predicate: .bound(rdfrest), object: .bound(newlist))
+                    patterns.append(triple)
+                    list = newlist
+                }
+            }
+            triples.append(.bgp(patterns))
+        } else {
+            let triple = TriplePattern(subject: .bound(list), predicate: .bound(rdffirst), object: .bound(rdfnil))
+            triples.append(.bgp([triple]))
+        }
+        return (.bound(bnode), triples)
+    }
+
     private mutating func parseGraphNodeAsNode() throws -> (Node, [Algebra]) { fatalError("implement") }
 
     private mutating func parseGraphNodePathAsNode() throws -> (Node, [Algebra]) {
@@ -2359,11 +2412,11 @@ public struct SPARQLParser {
             try expect(token: t)
             try expect(token: .keyword("EXISTS"))
             let ggp = try parseGroupGraphPattern()
-            fatalError("NOT EXISTS not implemented")
+            fatalError("implement NOT EXISTS \(ggp)")
         case .keyword("EXISTS"):
             try expect(token: t)
             let ggp = try parseGroupGraphPattern()
-            fatalError("EXISTS not implemented")
+            fatalError("implement EXISTS \(ggp)")
         case .keyword(let kw) where SPARQLLexer._functions.contains(kw):
             try expect(token: t)
             var args = [Expression]()
@@ -2419,16 +2472,16 @@ public struct SPARQLParser {
                 fatalError("DISTINCT aggregation is unimplemented")
             }
             let expr = try parseNonAggregatingExpression()
-            fatalError("MIN aggregate is unimplemented")
             try expect(token: .rparen)
+            fatalError("implement MIN aggregate \(expr)")
         case "MAX":
             try expect(token: .lparen)
             if try attempt(token: .keyword("DISTINCT")) {
                 fatalError("DISTINCT aggregation is unimplemented")
             }
             let expr = try parseNonAggregatingExpression()
-            fatalError("MAX aggregate is unimplemented")
             try expect(token: .rparen)
+            fatalError("implement MAX aggregate \(expr)")
         case "AVG":
             try expect(token: .lparen)
             if try attempt(token: .keyword("DISTINCT")) {
@@ -2444,8 +2497,8 @@ public struct SPARQLParser {
                 fatalError("DISTINCT aggregation is unimplemented")
             }
             let expr = try parseNonAggregatingExpression()
-            fatalError("SAMPLE aggregate is unimplemented")
             try expect(token: .rparen)
+            fatalError("implement SAMPLE aggregate \(expr)")
         case "GROUP_CONCAT":
             try expect(token: .lparen)
             if try attempt(token: .keyword("DISTINCT")) {
@@ -2464,9 +2517,9 @@ public struct SPARQLParser {
                 }
                 sep = term.value
             }
-            
-            fatalError("SAMPLE aggregate is unimplemented")
             try expect(token: .rparen)
+            
+            fatalError("implement GROUP_CONCAT aggregate \(expr) \(sep)")
         default:
             throw parseError("Unrecognized aggregate name '\(name)'")
         }
@@ -2559,7 +2612,7 @@ public struct SPARQLParser {
             let silent = try attempt(token: .keyword("SILENT"))
             let node = try parseVarOrIRI()
             let ggp = try parseGroupGraphPattern()
-            fatalError("SERVICE algebra is unimplemented")
+            fatalError("implement SERVICE \(node) \(ggp) \(silent)")
 //            return .finished(.service(node, ggp, silent))
         } else if case .keyword("FILTER") = t {
             try expect(token: t)
