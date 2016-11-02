@@ -1326,10 +1326,27 @@ public struct SPARQLParser {
     
     private mutating func parseConstructQuery() throws -> Algebra {
         try expect(token: .keyword("CONSTRUCT"))
+        var pattern = [TriplePattern]()
+        var hasTemplate = false
+        if try peek(token: .lbrace) {
+            hasTemplate = true
+            pattern = try parseConstructTemplate()
+        }
         let dataset = try parseDatasetClauses() // TODO
-        let pattern = try parseConstructTemplate()
         try expect(token: .keyword("WHERE"))
         var algebra = try parseGroupGraphPattern()
+        
+        if !hasTemplate {
+            switch algebra {
+            case .triple(let triple):
+                pattern = [triple]
+            case .bgp(let triples):
+                pattern = triples
+            default:
+                fatalError()
+            }
+        }
+        
         algebra = try parseSolutionModifier(algebra: algebra, distinct: true, projection: nil, projectExpressions: [], aggregation: [:], valuesBlock: nil)
         return .construct(algebra, pattern)
     }
@@ -1918,6 +1935,7 @@ public struct SPARQLParser {
     private mutating func parseExpressionList() throws -> [Expression] {
         let t = try peekExpectedToken()
         if case ._nil = t {
+            try expect(token: t)
             return []
         } else {
             try expect(token: .lparen)
@@ -2417,7 +2435,7 @@ public struct SPARQLParser {
     }
     
     private mutating func parsePrimaryExpression() throws -> Expression {
-        if try peek(token: .bang) {
+        if try peek(token: .lparen) {
             return try parseBrackettedExpression()
         } else {
             let t = try peekExpectedToken()

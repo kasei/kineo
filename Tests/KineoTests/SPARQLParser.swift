@@ -359,7 +359,6 @@ class SPARQLParserTest: XCTestCase {
         guard var p = SPARQLParser(string: "SELECT * WHERE { ( () ) }") else { XCTFail(); return }
         do {
             let a = try p.parse()
-            print("\(a.serialize())")
             guard case .bgp(let triples) = a else {
                 XCTFail("Unexpected algebra: \(a.serialize())")
                 return
@@ -375,7 +374,6 @@ class SPARQLParserTest: XCTestCase {
         guard var p = SPARQLParser(string: "CONSTRUCT { ?s <p1> <o> . ?s <p2> ?o } WHERE {?s ?p ?o}") else { XCTFail(); return }
         do {
             let a = try p.parse()
-            print("\(a.serialize())")
             guard case .construct(.triple(_), let ctriples) = a else {
                 XCTFail("Unexpected algebra: \(a.serialize())")
                 return
@@ -391,7 +389,6 @@ class SPARQLParserTest: XCTestCase {
         guard var p = SPARQLParser(string: "DESCRIBE <u>") else { XCTFail(); return }
         do {
             let a = try p.parse()
-            print("\(a.serialize())")
             guard case .describe(.identity, let nodes) = a else {
                 XCTFail("Unexpected algebra: \(a.serialize())")
                 return
@@ -407,8 +404,22 @@ class SPARQLParserTest: XCTestCase {
         guard var p = SPARQLParser(string: "SELECT * WHERE { <a><b>-1 }") else { XCTFail(); return }
         do {
             let a = try p.parse()
-            print("\(a.serialize())")
             guard case .triple(_) = a else {
+                XCTFail("Unexpected algebra: \(a.serialize())")
+                return
+            }
+            
+            XCTAssert(true)
+        } catch let e {
+            XCTFail("\(e)")
+        }
+    }
+    
+    func testBind() {
+        guard var p = SPARQLParser(string: "PREFIX : <http://www.example.org> SELECT * WHERE { :s :p ?o . BIND((1+?o) AS ?o1) :s :q ?o1 }") else { XCTFail(); return }
+        do {
+            let a = try p.parse()
+            guard case .innerJoin(.extend(_, _, _), _) = a else {
                 XCTFail("Unexpected algebra: \(a.serialize())")
                 return
             }

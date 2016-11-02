@@ -65,13 +65,14 @@ do {
     } else {
         try parseAlgebra(qfile, verbose: verbose)
     }
+    //print("ok")
 } catch SPARQLParsingError.parsingError(let message) {
-    print("\(message)")
+    print("not ok \(message)")
     let s = try String(contentsOfFile: qfile, encoding: .utf8)
     print(s)
     exit(255)
 } catch SPARQLParsingError.lexicalError(let message) {
-    print("\(message)")
+    print("not ok \(message)")
     let s = try String(contentsOfFile: qfile, encoding: .utf8)
     print(s)
     exit(255)
