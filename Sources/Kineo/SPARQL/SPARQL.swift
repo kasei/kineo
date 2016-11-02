@@ -8,7 +8,7 @@
 
 import Foundation
 
-enum SPARQLParsingError : Error {
+public enum SPARQLParsingError : Error {
     case lexicalError(String)
     case parsingError(String)
 }
@@ -75,6 +75,8 @@ public enum SPARQLToken {
     public var isTerm : Bool {
         switch self {
         case .keyword("A"):
+            return true
+        case ._nil, .minus, .plus:
             return true
         case .integer(_), .decimal(_), .double(_), .anon, .boolean(_), .bnode(_), .iri(_), .prefixname(_, _), .string1d(_), .string1s(_), .string3d(_), .string3s(_):
             return true
@@ -182,7 +184,7 @@ public struct SPARQLLexer : IteratorProtocol {
     var _lookahead : SPARQLToken?
     
     private mutating func lexError(_ message : String) -> SPARQLParsingError {
-        fillBuffer()
+        try? fillBuffer()
         let rest = buffer
         return SPARQLParsingError.lexicalError("\(message) at \(line):\(column) near '\(rest)...'")
     }
@@ -349,7 +351,20 @@ public struct SPARQLLexer : IteratorProtocol {
         self._lookahead = nil
     }
     
-    mutating func fillBuffer() {
+    mutating func readUnicodeEscape(length : Int) throws -> [UInt8] {
+        var charbuffer = [UInt8](repeating: 0, count: length)
+        let read = source.read(&charbuffer, maxLength: length)
+        guard read == length else { throw lexError("Failed to read unicode escape") }
+        guard let hex = String(bytes: charbuffer, encoding: .utf8) else { throw lexError("Failed to read unicode escape") }
+        guard let codepoint = Int(hex, radix: 16), let us = UnicodeScalar(codepoint) else {
+            throw lexError("Invalid unicode codepoint: \(hex)")
+        }
+        let s = String(us)
+        let u = Array(s.utf8)
+        return u
+    }
+    
+    mutating func fillBuffer() throws {
         guard source.hasBytesAvailable else { return }
         guard buffer.characters.count == 0 else { return }
         var bytes = [UInt8]()
@@ -358,7 +373,25 @@ public struct SPARQLLexer : IteratorProtocol {
             let read = source.read(&charbuffer, maxLength: 1)
             guard read != -1 else { print("\(source.streamError)"); break }
             guard read > 0 else { break }
-            bytes.append(charbuffer[0])
+            
+            if charbuffer[0] == 0x5c {
+                // backslash; check for \u or \U escapes
+                let read = source.read(&charbuffer, maxLength: 1)
+                guard read != -1 else { print("\(source.streamError)"); break }
+                guard read > 0 else { break }
+                
+                switch charbuffer[0] {
+                case 0x75: // \u
+                    try bytes.append(contentsOf: readUnicodeEscape(length: 4))
+                case 0x55: // \U
+                    try bytes.append(contentsOf: readUnicodeEscape(length: 8))
+                default:
+                    bytes.append(0x5c)
+                    bytes.append(charbuffer[0])
+                }
+            } else {
+                bytes.append(charbuffer[0])
+            }
             
             if charbuffer[0] == 0x0a || charbuffer[0] == 0x0d {
                 if let s = String(bytes: bytes, encoding: .utf8) {
@@ -370,8 +403,6 @@ public struct SPARQLLexer : IteratorProtocol {
                 break
             }
         }
-        
-        // TODO: need to pull in more than one line if the line ends in a possible ANON or NIL token (e.g. "... [\n  ]")
         
         guard let s = String(bytes: bytes, encoding: .utf8) else { return }
         buffer = s
@@ -405,8 +436,8 @@ public struct SPARQLLexer : IteratorProtocol {
     
     mutating func _getToken() throws -> SPARQLToken? {
         while true {
-            fillBuffer()
-            guard var c = peekChar() else { return nil }
+            try fillBuffer()
+            guard var c = try peekChar() else { return nil }
             
             self.startColumn = column
             self.startLine = line
@@ -415,7 +446,7 @@ public struct SPARQLLexer : IteratorProtocol {
             if c == " " || c == "\t" || c == "\n" || c == "\r" {
                 while c == " " || c == "\t" || c == "\n" || c == "\r" {
                     getChar()
-                    if let cc = peekChar() {
+                    if let cc = try peekChar() {
                         c = cc
                     } else {
                         return nil
@@ -425,7 +456,7 @@ public struct SPARQLLexer : IteratorProtocol {
             } else if c == "#" {
                 while c != "\n" && c != "\r" {
                     getChar()
-                    if let cc = peekChar() {
+                    if let cc = try peekChar() {
                         c = cc
                     } else {
                         return nil
@@ -605,7 +636,7 @@ public struct SPARQLLexer : IteratorProtocol {
             var quote_count = 0
             while true {
                 if buffer.characters.count == 0 {
-                    fillBuffer()
+                    try fillBuffer()
                     if buffer.characters.count == 0 {
                         if quote_count >= 3 {
                             for _ in 0..<(quote_count-3) {
@@ -617,7 +648,7 @@ public struct SPARQLLexer : IteratorProtocol {
                     }
                 }
                 
-                guard let c = peekChar() else {
+                guard let c = try peekChar() else {
                     if quote_count >= 3 {
                         for _ in 0..<(quote_count-3) {
                             chars.append("'")
@@ -654,13 +685,13 @@ public struct SPARQLLexer : IteratorProtocol {
             try getChar(expecting: "'")
             while true {
                 if buffer.characters.count == 0 {
-                    fillBuffer()
+                    try fillBuffer()
                     if buffer.characters.count == 0 {
                         throw lexError("Found EOF in string literal")
                     }
                 }
                 
-                guard let c = peekChar() else {
+                guard let c = try peekChar() else {
                     throw lexError("Found EOF in string literal")
                 }
                 
@@ -771,18 +802,25 @@ public struct SPARQLLexer : IteratorProtocol {
         let bufferLength = NSMakeRange(0, buffer.characters.count)
         let range = SPARQLLexer._iriRegex.rangeOfFirstMatch(in: buffer, options: [], range: bufferLength)
         if range.location == 0 {
-            getChar()
-            var iri = try read(length: range.length-2)
-            getChar()
-            
-            if iri.contains("\\") {
-                fatalError("implement IRI escapes")
+            try getChar(expecting: "<")
+            var chars = [Character]()
+            while true {
+                guard let c = try peekChar() else { break }
+                if c == "\\" {
+                    try chars.append(getEscapedChar())
+                } else if c == ">" {
+                    break
+                } else {
+                    chars.append(getChar())
+                }
             }
+            try getChar(expecting: ">")
             
+            let iri = String(chars)
             return .iri(iri)
         } else if buffer.hasPrefix("<") {
             try getChar(expecting: "<")
-            guard let c = peekChar() else { throw lexError("Expecting relational expression near EOF") }
+            guard let c = try peekChar() else { throw lexError("Expecting relational expression near EOF") }
             if c == "=" {
                 getChar()
                 return .le
@@ -791,7 +829,7 @@ public struct SPARQLLexer : IteratorProtocol {
             }
         } else {
             try getChar(expecting: ">")
-            guard let c = peekChar() else { throw lexError("Expecting relational expression near EOF") }
+            guard let c = try peekChar() else { throw lexError("Expecting relational expression near EOF") }
             if c == "=" {
                 getChar()
                 return .ge
@@ -808,7 +846,7 @@ public struct SPARQLLexer : IteratorProtocol {
             var quote_count = 0
             while true {
                 if buffer.characters.count == 0 {
-                    fillBuffer()
+                    try fillBuffer()
                     if buffer.characters.count == 0 {
                         if quote_count >= 3 {
                             for _ in 0..<(quote_count-3) {
@@ -820,7 +858,7 @@ public struct SPARQLLexer : IteratorProtocol {
                     }
                 }
                 
-                guard let c = peekChar() else {
+                guard let c = try peekChar() else {
                     if quote_count >= 3 {
                         for _ in 0..<(quote_count-3) {
                             chars.append("\"")
@@ -857,13 +895,13 @@ public struct SPARQLLexer : IteratorProtocol {
             try getChar(expecting: "\"")
             while true {
                 if buffer.characters.count == 0 {
-                    fillBuffer()
+                    try fillBuffer()
                     if buffer.characters.count == 0 {
                         throw lexError("Found EOF in string literal")
                     }
                 }
                 
-                guard let c = peekChar() else {
+                guard let c = try peekChar() else {
                     throw lexError("Found EOF in string literal")
                 }
                 
@@ -903,8 +941,8 @@ public struct SPARQLLexer : IteratorProtocol {
         }
     }
 
-    mutating func peekChar() -> Character? {
-        fillBuffer()
+    mutating func peekChar() throws -> Character? {
+        try fillBuffer()
         return buffer.characters.first
     }
    
@@ -947,8 +985,8 @@ public struct SPARQLLexer : IteratorProtocol {
         return c
     }
     
-    mutating func getCharFillBuffer() -> Character? {
-        fillBuffer()
+    mutating func getCharFillBuffer() throws -> Character? {
+        try fillBuffer()
         guard buffer.characters.count > 0 else { return nil }
         let c = buffer.characters.first!
         buffer = buffer.substring(from: buffer.index(buffer.startIndex, offsetBy: 1))
@@ -963,7 +1001,7 @@ public struct SPARQLLexer : IteratorProtocol {
     }
     
     mutating func read(word: String) throws {
-        fillBuffer()
+        try fillBuffer()
         if buffer.characters.count < word.characters.count {
             throw lexError("Expecting '\(word)' but not enough read-ahead data available")
         }
@@ -987,7 +1025,7 @@ public struct SPARQLLexer : IteratorProtocol {
     
     @discardableResult
     mutating func read(length: Int) throws -> String {
-        fillBuffer()
+        try fillBuffer()
         if buffer.characters.count < length {
             throw lexError("Expecting \(length) characters but not enough read-ahead data available")
         }
@@ -1070,7 +1108,7 @@ public struct SPARQLParser {
     var freshCounter = AnyIterator(sequence(first: 1) { $0 + 1 })
     
     private mutating func parseError(_ message : String) -> SPARQLParsingError {
-        lexer.fillBuffer()
+        try? lexer.fillBuffer()
         let rest = lexer.buffer
         return SPARQLParsingError.parsingError("\(message) at \(lexer.line):\(lexer.column) near '\(rest)...'")
     }
@@ -1118,12 +1156,16 @@ public struct SPARQLParser {
     }
     
     private mutating func peekExpectedToken() throws -> SPARQLToken {
-        guard let t = peekToken() else { throw parseError("Unexpected EOF") }
+        guard let t = peekToken() else {
+            throw parseError("Unexpected EOF")
+        }
         return t
     }
     
     private mutating func nextExpectedToken() throws -> SPARQLToken {
-        guard let t = nextToken() else { throw parseError("Unexpected EOF") }
+        guard let t = nextToken() else {
+            throw parseError("Unexpected EOF")
+        }
         return t
     }
     
@@ -1277,7 +1319,7 @@ public struct SPARQLParser {
         try expect(token: .keyword("WHERE"))
         var algebra = try parseGroupGraphPattern()
         algebra = try parseSolutionModifier(algebra: algebra, distinct: true, projection: nil, projectExpressions: [], aggregation: [:], valuesBlock: nil)
-        return algebra // TODO: wrap CONSTRUCT so that it produces a set of triples
+        return .construct(algebra, pattern)
     }
 
     private mutating func parseDescribeQuery() throws -> Algebra {
@@ -1290,8 +1332,7 @@ public struct SPARQLParser {
             let node = try parseVarOrIRI()
             describe.append(node)
             
-            var t = try peekExpectedToken()
-            while true {
+            while let t = try peekToken() {
                 if t.isTerm {
                     describe.append(try parseVarOrIRI())
                 } else if case ._var(_) = t {
@@ -1299,29 +1340,37 @@ public struct SPARQLParser {
                 } else {
                     break
                 }
-                t = try peekExpectedToken()
             }
         }
         
         let dataset = try parseDatasetClauses() // TODO
         try attempt(token: .keyword("WHERE"))
-        let ggp = try parseGroupGraphPattern()
+        let ggp : Algebra
+        if try peek(token: .lbrace) {
+            ggp = try parseGroupGraphPattern()
+        } else {
+            ggp = .identity
+        }
         
         if star {
             
         }
-        return ggp // TODO: wrap DESCRIBE so that it produces a set of triples
+        
+        var algebra : Algebra = .describe(ggp, describe)
+        algebra = try parseSolutionModifier(algebra: algebra, distinct: true, projection: nil, projectExpressions: [], aggregation: [:], valuesBlock: nil)
+        
+        return algebra
     }
     
-    private mutating func parseConstructTemplate() throws -> Algebra {
+    private mutating func parseConstructTemplate() throws -> [TriplePattern] {
         try expect(token: .lbrace)
         if try attempt(token: .rbrace) {
             // TODO: this should be parsing more triple patterns (ConstructTriples?)
-            return .bgp([])
+            return []
         } else {
             let tmpl = try parseTriplesBlock()
             try expect(token: .rbrace)
-            return .bgp(tmpl)
+            return tmpl
         }
     }
     
@@ -1333,7 +1382,7 @@ public struct SPARQLParser {
         } else {
             try expect(token: .dot)
             t = try peekExpectedToken()
-            if t.isTerm {
+            if t.isTermOrVar {
                 let more = try parseTriplesBlock()
                 return sameSubj + more
             } else {
@@ -1347,7 +1396,7 @@ public struct SPARQLParser {
         let dataset = try parseDatasetClauses() // TODO
         try attempt(token: .keyword("WHERE"))
         let ggp = try parseGroupGraphPattern()
-        return ggp // TODO: wrap ASK so that it produces a boolean
+        return .ask(ggp)
     }
 
     private mutating func parseDatasetClauses() throws -> Any? { // TODO: figure out the return type here
@@ -1437,7 +1486,7 @@ public struct SPARQLParser {
         return algebra
     }
     
-    private mutating func parseGroupCondition(_ algebra : inout Algebra) throws -> Node {
+    private mutating func parseGroupCondition(_ algebra : inout Algebra) throws -> Node? {
         var node : Node
         if try attempt(token: .lparen) {
             let expr = try parseExpression()
@@ -1456,7 +1505,7 @@ public struct SPARQLParser {
             try expect(token: .rparen)
             return node
         } else {
-            let t = try peekExpectedToken()
+            guard let t = try peekToken() else { return nil }
             if case ._var(_) = t {
                 node = try parseVar()
                 guard case .variable(_) = node else {
@@ -1529,7 +1578,7 @@ public struct SPARQLParser {
         if try attempt(token: .keyword("GROUP")) {
             try expect(token: .keyword("BY"))
             var groups = [Expression]()
-            while let node = try? parseGroupCondition(&algebra) {
+            while let n = try? parseGroupCondition(&algebra), let node = n {
                 groups.append(.node(node))
             }
             algebra = .aggregate(algebra, groups, aggregations)

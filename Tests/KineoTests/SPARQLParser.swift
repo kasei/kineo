@@ -354,4 +354,68 @@ class SPARQLParserTest: XCTestCase {
             XCTFail("\(e)")
         }
     }
+    
+    func testList() {
+        guard var p = SPARQLParser(string: "SELECT * WHERE { ( () ) }") else { XCTFail(); return }
+        do {
+            let a = try p.parse()
+            print("\(a.serialize())")
+            guard case .bgp(let triples) = a else {
+                XCTFail("Unexpected algebra: \(a.serialize())")
+                return
+            }
+            
+            XCTAssertEqual(triples.count, 2)
+        } catch let e {
+            XCTFail("\(e)")
+        }
+    }
+    
+    func testConstruct() {
+        guard var p = SPARQLParser(string: "CONSTRUCT { ?s <p1> <o> . ?s <p2> ?o } WHERE {?s ?p ?o}") else { XCTFail(); return }
+        do {
+            let a = try p.parse()
+            print("\(a.serialize())")
+            guard case .construct(.triple(_), let ctriples) = a else {
+                XCTFail("Unexpected algebra: \(a.serialize())")
+                return
+            }
+            
+            XCTAssertEqual(ctriples.count, 2)
+        } catch let e {
+            XCTFail("\(e)")
+        }
+    }
+    
+    func testDescribe() {
+        guard var p = SPARQLParser(string: "DESCRIBE <u>") else { XCTFail(); return }
+        do {
+            let a = try p.parse()
+            print("\(a.serialize())")
+            guard case .describe(.identity, let nodes) = a else {
+                XCTFail("Unexpected algebra: \(a.serialize())")
+                return
+            }
+            
+            XCTAssertEqual(nodes.count, 1)
+        } catch let e {
+            XCTFail("\(e)")
+        }
+    }
+    
+    func testNumericLiteral() {
+        guard var p = SPARQLParser(string: "SELECT * WHERE { <a><b>-1 }") else { XCTFail(); return }
+        do {
+            let a = try p.parse()
+            print("\(a.serialize())")
+            guard case .triple(_) = a else {
+                XCTFail("Unexpected algebra: \(a.serialize())")
+                return
+            }
+            
+            XCTAssert(true)
+        } catch let e {
+            XCTFail("\(e)")
+        }
+    }
 }

@@ -52,7 +52,10 @@ public indirect enum Algebra {
     case path(Node, PropertyPath, Node)
     case aggregate(Algebra, [Expression], [(Aggregation, String)])
     case window(Algebra, [Expression], [(WindowFunction, [SortComparator], String)])
-    // TODO: add property paths
+
+    case construct(Algebra, [TriplePattern])
+    case describe(Algebra, [Node])
+    case ask(Algebra)
     
     private func inscopeUnion(children : [Algebra]) -> Set<String> {
         if children.count == 0 {
@@ -90,7 +93,7 @@ public indirect enum Algebra {
                 }
             }
             return variables
-        case .bgp(let triples):
+        case .bgp(let triples), .construct(_, let triples):
             if triples.count == 0 {
                 return Set()
             }
@@ -147,6 +150,8 @@ public indirect enum Algebra {
                     variables.insert(name)
                 }
             }
+            return variables
+        case .describe(_), .ask(_):
             return variables
         }
     }
@@ -245,6 +250,24 @@ public indirect enum Algebra {
             for result in results {
                 d += "\(indent)  \(result)\n"
             }
+            return d
+        case .construct(let child, let triples):
+            var d = "\(indent)Construct\n"
+            d += "\(indent)  Query\n"
+            d += child.serialize(depth: depth+2)
+            d += "\(indent)  Template\n"
+            for t in triples {
+                d += "\(indent)    \(t)\n"
+            }
+            return d
+        case .describe(let child, let nodes):
+            let expressions = nodes.map { "\($0)" }
+            var d = "\(indent)Describe { \(expressions.joined(separator: ", ")) }\n"
+            d += child.serialize(depth: depth+1)
+            return d
+        case .ask(let child):
+            var d = "\(indent)Ask\n"
+            d += child.serialize(depth: depth+1)
             return d
         }
     }
@@ -1125,9 +1148,7 @@ open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
                     return result
                 } while true
             }
-        case .bgp(_):
-            fatalError("Unimplemented: \(algebra)")
-        case .minus(_, _):
+        case .bgp(_), .minus(_, _), .describe(_), .ask(_), .construct(_):
             fatalError("Unimplemented: \(algebra)")
         }
     }
@@ -1135,23 +1156,33 @@ open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
     public func effectiveVersion(matching algebra: Algebra, activeGraph : Term) throws -> Version? {
         switch algebra {
         case .identity:
-            return nil
+            return 0
         case .table(_, _):
-            return nil
+            return 0
         case .path(_, _, _):
             let s : Node = .variable("s", binding: true)
             let p : Node = .variable("p", binding: true)
             let o : Node = .variable("o", binding: true)
             let quad = QuadPattern(subject: s, predicate: p, object: o, graph: .bound(activeGraph))
-            guard let mtime = try store.effectiveVersion(matching: quad) else { return nil }
-            return mtime
+            return try store.effectiveVersion(matching: quad)
         case .triple(let t):
             let quad = QuadPattern(subject: t.subject, predicate: t.predicate, object: t.object, graph: .bound(activeGraph))
-            guard let mtime = try store.effectiveVersion(matching: quad) else { return nil }
-            return mtime
+            return try store.effectiveVersion(matching: quad)
         case .quad(let quad):
-            guard let mtime = try store.effectiveVersion(matching: quad) else { return nil }
+            return try store.effectiveVersion(matching: quad)
+        case .describe(let child, let nodes):
+            guard var mtime = try effectiveVersion(matching: child, activeGraph: activeGraph) else { return nil }
+            for node in nodes {
+                let quad = QuadPattern(subject: node, predicate: .variable("p", binding: true), object: .variable("o", binding: true), graph: .bound(activeGraph))
+                guard let qmtime = try store.effectiveVersion(matching: quad) else { return nil }
+                mtime = max(mtime, qmtime)
+            }
             return mtime
+        case .construct(let child, let triples):
+            let quads = triples.map { QuadPattern(subject: $0.subject, predicate: $0.predicate, object: $0.object, graph: .bound(activeGraph)) }
+            let mtimes = try quads.map { try store.effectiveVersion(matching: $0) }.flatMap { $0 } // TODO: nil should propogate outwards, instead of being dropped by flatMap
+            guard let mtime = try effectiveVersion(matching: child, activeGraph: activeGraph) else { return nil }
+            return mtimes.reduce(mtime) { max($0, $1) }
         case .innerJoin(let lhs, let rhs), .leftOuterJoin(let lhs, let rhs, _), .union(let lhs, let rhs), .minus(let lhs, let rhs):
             guard let lhsmtime = try effectiveVersion(matching: lhs, activeGraph: activeGraph) else { return nil }
             guard let rhsmtime = try effectiveVersion(matching: rhs, activeGraph: activeGraph) else { return lhsmtime }
@@ -1162,7 +1193,7 @@ open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
             } else {
                 fatalError("Unimplemented: effectiveVersion(.namedGraph(_), )")
             }
-        case .distinct(let child), .project(let child, _), .slice(let child, _, _), .extend(let child, _, _), .order(let child, _), .filter(let child, _):
+        case .distinct(let child), .project(let child, _), .slice(let child, _, _), .extend(let child, _, _), .order(let child, _), .filter(let child, _), .ask(let child):
             return try effectiveVersion(matching: child, activeGraph: activeGraph)
         case .aggregate(let child, _, _):
             return try effectiveVersion(matching: child, activeGraph: activeGraph)
