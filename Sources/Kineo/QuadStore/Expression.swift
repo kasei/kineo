@@ -27,22 +27,31 @@ extension Term {
 }
 
 public enum Aggregation {
-    case countAll
-    case count(Expression)
-    case sum(Expression)
-    case avg(Expression)
+    case countAll(Bool)
+    case count(Expression, Bool)
+    case sum(Expression, Bool)
+    case avg(Expression, Bool)
+    case min(Expression)
+    case max(Expression)
+    case groupConcat(Expression, String, Bool)
 }
 
 extension Aggregation : Equatable {
     public static func ==(lhs: Aggregation, rhs: Aggregation) -> Bool {
         switch (lhs, rhs) {
-        case (.countAll, .countAll):
+        case (.countAll(let l), .countAll(let r)) where l == r:
             return true
         case (.count(let l), .count(let r)) where l == r:
             return true
         case (.sum(let l), .sum(let r)) where l == r:
             return true
         case (.avg(let l), .avg(let r)) where l == r:
+            return true
+        case (.min(let l), .min(let r)) where l == r:
+            return true
+        case (.max(let l), .max(let r)) where l == r:
+            return true
+        case (.groupConcat(let l), .groupConcat(let r)) where l == r:
             return true
         default:
             return false
@@ -53,15 +62,34 @@ extension Aggregation : Equatable {
 extension Aggregation : CustomStringConvertible {
     public var description : String {
         switch self {
-        case .countAll:
+        case .countAll(false):
             return "COUNT(*)"
-        case .count(let expr):
+        case .countAll(true):
+            return "COUNT(DISTINCT *)"
+        case .count(let expr, false):
             return "COUNT(\(expr.description))"
-        case .sum(let expr):
+        case .count(let expr, true):
+            return "COUNT(DISTINCT \(expr.description))"
+        case .sum(let expr, false):
             return "SUM(\(expr.description))"
-        case .avg(let expr):
+        case .sum(let expr, true):
+            return "SUM(DISTINCT \(expr.description))"
+        case .avg(let expr, false):
             return "AVG(\(expr.description))"
-        }
+        case .avg(let expr, true):
+            return "AVG(DISTINCT \(expr.description))"
+        case .min(let expr):
+            return "MIN(\(expr.description))"
+        case .max(let expr):
+            return "MAX(\(expr.description))"
+        case .groupConcat(let expr, let sep, let distinct):
+            let e = distinct ? "DISTINCT \(expr.description)" : expr.description
+            if sep == " " {
+                return "GROUP_CONCAT(\(e))"
+            } else {
+                return "GROUP_CONCAT(\(e); SEPARATOR=\"\(sep)\")"
+            }
+}
     }
 }
 

@@ -239,8 +239,8 @@ class QueryEvaluationTest: XCTestCase {
             graph: .bound(Term(value: "http://example.org/numbers", type: .iri))
             ))
         let agg : Algebra = .aggregate(quad, [], [
-            (.sum(.node(.variable("o", binding: false))), "sum"),
-            (.avg(.node(.variable("o", binding: false))), "avg")
+            (.sum(.node(.variable("o", binding: false)), false), "sum"),
+            (.avg(.node(.variable("o", binding: false)), false), "avg")
             ])
         
         guard let results = try? Array(eval(algebra: agg)) else { XCTFail(); return }

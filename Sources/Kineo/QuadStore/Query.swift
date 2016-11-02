@@ -354,13 +354,13 @@ open class QueryParser<T : LineReadable> {
                 var agg : Aggregation
                 switch op {
                 case "avg":
-                    agg = .avg(expr)
+                    agg = .avg(expr, false)
                 case "sum":
-                    agg = .sum(expr)
+                    agg = .sum(expr, false)
                 case "count":
-                    agg = .sum(expr)
+                    agg = .count(expr, false)
                 case "countall":
-                    agg = .countAll
+                    agg = .countAll(false)
                 default:
                     throw QueryError.parseError("Unexpected aggregation operation: \(op)")
                 }
@@ -413,27 +413,27 @@ open class QueryParser<T : LineReadable> {
             let name = parts[2]
             let groups = parts.suffix(from: 3).map { (name) -> Expression in .node(.variable(name, binding: true)) }
             guard let child = stack.popLast() else { return nil }
-            return .aggregate(child, groups, [(.avg(.node(.variable(key, binding: true))), name)])
+            return .aggregate(child, groups, [(.avg(.node(.variable(key, binding: true)), false), name)])
         } else if op == "sum" { // (SUM(?key) AS ?name) ... GROUP BY ?x ?y ?z --> "sum key name x y z"
             guard parts.count > 2 else { throw QueryError.parseError("Not enough arguments for \(op)") }
             let key = parts[1]
             let name = parts[2]
             let groups = parts.suffix(from: 3).map { (name) -> Expression in .node(.variable(name, binding: true)) }
             guard let child = stack.popLast() else { return nil }
-            return .aggregate(child, groups, [(.sum(.node(.variable(key, binding: true))), name)])
+            return .aggregate(child, groups, [(.sum(.node(.variable(key, binding: true)), false), name)])
         } else if op == "count" { // (COUNT(?key) AS ?name) ... GROUP BY ?x ?y ?z --> "count key name x y z"
             guard parts.count > 2 else { throw QueryError.parseError("Not enough arguments for \(op)") }
             let key = parts[1]
             let name = parts[2]
             let groups = parts.suffix(from: 3).map { (name) -> Expression in .node(.variable(name, binding: true)) }
             guard let child = stack.popLast() else { return nil }
-            return .aggregate(child, groups, [(.count(.node(.variable(key, binding: true))), name)])
+            return .aggregate(child, groups, [(.count(.node(.variable(key, binding: true)), false), name)])
         } else if op == "countall" { // (COUNT(*) AS ?name) ... GROUP BY ?x ?y ?z --> "count name x y z"
             guard parts.count > 1 else { throw QueryError.parseError("Not enough arguments for \(op)") }
             let name = parts[1]
             let groups = parts.suffix(from: 2).map { (name) -> Expression in .node(.variable(name, binding: true)) }
             guard let child = stack.popLast() else { return nil }
-            return .aggregate(child, groups, [(.countAll, name)])
+            return .aggregate(child, groups, [(.countAll(false), name)])
         } else if op == "limit" {
             guard let count = Int(rest) else { return nil }
             guard let child = stack.popLast() else { throw QueryError.parseError("Not enough operands for \(op)") }
@@ -662,47 +662,51 @@ open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
             let groupKey = "\(group)"
             if let value = groupValue[groupKey] {
                 switch agg {
-                case .countAll:
+                case .countAll(false):
                     groupValue[groupKey] = value + .integer(1)
-                case .avg(let keyExpr):
+                case .avg(let keyExpr, false):
                     if let term = try? keyExpr.evaluate(result: result), let c = groupCount[groupKey] {
                         if let n = term.numeric {
                             groupValue[groupKey] = value + n
                             groupCount[groupKey] = c + 1
                         }
                     }
-                case .count(let keyExpr):
+                case .count(let keyExpr, false):
                     if let _ = try? keyExpr.evaluate(result: result) {
                         groupValue[groupKey] = value + .integer(1)
                     }
-                case .sum(let keyExpr):
+                case .sum(let keyExpr, false):
                     if let term = try? keyExpr.evaluate(result: result) {
                         if let n = term.numeric {
                             groupValue[groupKey] = value + n
                         }
                     }
+                default:
+                    fatalError("implement evaluation for \(agg)")
                 }
             } else {
                 switch agg {
-                case .countAll:
+                case .countAll(false):
                     groupValue[groupKey] = .integer(1)
-                case .avg(let keyExpr):
+                case .avg(let keyExpr, false):
                     if let term = try? keyExpr.evaluate(result: result) {
                         if term.isNumeric {
                             groupValue[groupKey] = term.numeric
                             groupCount[groupKey] = 1
                         }
                     }
-                case .count(let keyExpr):
+                case .count(let keyExpr, false):
                     if let _ = try? keyExpr.evaluate(result: result) {
                         groupValue[groupKey] = .integer(1)
                     }
-                case .sum(let keyExpr):
+                case .sum(let keyExpr, false):
                     if let term = try? keyExpr.evaluate(result: result) {
                         if term.isNumeric {
                             groupValue[groupKey] = term.numeric
                         }
                     }
+                default:
+                    fatalError("implement evaluation for \(agg)")
                 }
                 var bindings = [String:Term]()
                 for (g, term) in zip(groups, group) {
@@ -962,19 +966,19 @@ open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
             guard var bindings = groupBindings[groupKey] else { fatalError("Unexpected missing aggregation group template") }
             for (agg, name) in aggs {
                 switch agg {
-                case .countAll:
+                case .countAll(false):
                     if let n = self.evaluateCountAll(results: results) {
                         bindings[name] = n
                     }
-                case .count(let keyExpr):
+                case .count(let keyExpr, false):
                     if let n = self.evaluateCount(results: results, expression: keyExpr) {
                         bindings[name] = n
                     }
-                case .sum(let keyExpr):
+                case .sum(let keyExpr, false):
                     if let n = self.evaluateSum(results: results, expression: keyExpr) {
                         bindings[name] = n
                     }
-                case .avg(let keyExpr):
+                case .avg(let keyExpr, false):
                     var doubleSum : Double = 0.0
                     let integer = TermType.datatype("http://www.w3.org/2001/XMLSchema#integer")
                     var resultingType : TermType? = integer
@@ -1000,6 +1004,8 @@ open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
                     } else {
                         warn("*** Cannot determine resulting numeric datatype for AVG operation")
                     }
+                default:
+                    fatalError("implement evaluation for \(agg)")
                 }
             }
             return TermResult(bindings: bindings)
@@ -1116,7 +1122,7 @@ open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
             if aggs.count == 1 {
                 let (agg, name) = aggs[0]
                 switch agg {
-                case .sum(_), .count(_), .countAll, .avg(_):
+                case .sum(_), .count(_), .countAll, .avg(_), .min(_), .max(_), .groupConcat(_):
                     return try evaluateSinglePipelinedAggregation(algebra: child, groups: groups, aggregation: agg, variable: name, activeGraph: activeGraph)
                 }
             }

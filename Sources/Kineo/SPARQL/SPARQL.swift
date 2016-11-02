@@ -748,9 +748,21 @@ public struct SPARQLLexer : IteratorProtocol {
         let bufferLength = NSMakeRange(0, buffer.characters.count)
         let range = SPARQLLexer._pNameLNre.rangeOfFirstMatch(in: buffer, options: [], range: bufferLength)
         if range.location == 0 {
-            let pname = try read(length: range.length)
+            var pname = try read(length: range.length)
             if pname.contains("\\") {
-                fatalError("implement prefixname escapes")
+                var chars = [Character]()
+                var i = pname.characters.makeIterator()
+                while let c = i.next() {
+                    if c == "\\" {
+                        guard let cc = i.next() else { throw lexError("Invalid prefixedname escape") }
+                        // TODO: verify that cc is one of the allowed escape characters:
+                        // '_' | '~' | '.' | '-' | '!' | '$' | '&' | "'" | '(' | ')' | '*' | '+' | ',' | ';' | '=' | '/' | '?' | '#' | '@' | '%'
+                        chars.append(c)
+                    } else {
+                        chars.append(c)
+                    }
+                }
+                pname = String(chars)
             }
             
             var values = pname.components(separatedBy: ":")
@@ -1762,9 +1774,9 @@ public struct SPARQLParser {
         try expect(token: .keyword("BIND"))
         try expect(token: .lparen)
         let expr = try parseNonAggregatingExpression()
-        try expect(token: .rparen)
         try expect(token: .keyword("AS"))
         let node = try parseVar()
+        try expect(token: .rparen)
         guard case .variable(let name, binding: _) = node else {
             throw parseError("Expecting BIND variable but got \(node)")
         }
@@ -1798,7 +1810,7 @@ public struct SPARQLParser {
             var vars = [Node]()
             var names = [String]()
             if case ._nil = t {
-                
+                try expect(token: t)
             } else {
                 try expect(token: .lparen)
                 t = try peekExpectedToken()
@@ -2356,6 +2368,7 @@ public struct SPARQLParser {
         var expr = try parseMultiplicativeExpression()
         var t = try peekExpectedToken()
         while t == .plus || t == .minus {
+            try expect(token: t)
             let rhs = try parseMultiplicativeExpression()
             if t == .plus {
                 expr = .add(expr, rhs)
@@ -2371,6 +2384,7 @@ public struct SPARQLParser {
         var expr = try parseUnaryExpression()
         var t = try peekExpectedToken()
         while t == .star || t == .slash {
+            try expect(token: t)
             let rhs = try parseUnaryExpression()
             if t == .star {
                 expr = .mul(expr, rhs)
@@ -2494,65 +2508,53 @@ public struct SPARQLParser {
         switch name {
         case "COUNT":
             try expect(token: .lparen)
-            if try attempt(token: .keyword("DISTINCT")) {
-                fatalError("DISTINCT aggregation is unimplemented")
-            }
+            let distinct = try attempt(token: .keyword("DISTINCT"))
             let agg : Aggregation
             if try attempt(token: .star) {
-                agg = .countAll
+                agg = .countAll(distinct)
             } else {
                 let expr = try parseNonAggregatingExpression()
-                agg = .count(expr)
+                agg = .count(expr, distinct)
             }
             try expect(token: .rparen)
             return agg
         case "SUM":
             try expect(token: .lparen)
-            if try attempt(token: .keyword("DISTINCT")) {
-                fatalError("DISTINCT aggregation is unimplemented")
-            }
+            let distinct = try attempt(token: .keyword("DISTINCT"))
             let expr = try parseNonAggregatingExpression()
-            let agg : Aggregation = .sum(expr)
+            let agg : Aggregation = .sum(expr, distinct)
             try expect(token: .rparen)
             return agg
         case "MIN":
             try expect(token: .lparen)
-            if try attempt(token: .keyword("DISTINCT")) {
-                fatalError("DISTINCT aggregation is unimplemented")
-            }
+            let _ = try attempt(token: .keyword("DISTINCT"))
             let expr = try parseNonAggregatingExpression()
+            let agg : Aggregation = .min(expr)
             try expect(token: .rparen)
-            fatalError("implement MIN aggregate \(expr)")
+            return agg
         case "MAX":
             try expect(token: .lparen)
-            if try attempt(token: .keyword("DISTINCT")) {
-                fatalError("DISTINCT aggregation is unimplemented")
-            }
+            let _ = try attempt(token: .keyword("DISTINCT"))
             let expr = try parseNonAggregatingExpression()
+            let agg : Aggregation = .max(expr)
             try expect(token: .rparen)
-            fatalError("implement MAX aggregate \(expr)")
+            return agg
         case "AVG":
             try expect(token: .lparen)
-            if try attempt(token: .keyword("DISTINCT")) {
-                fatalError("DISTINCT aggregation is unimplemented")
-            }
+            let distinct = try attempt(token: .keyword("DISTINCT"))
             let expr = try parseNonAggregatingExpression()
-            let agg : Aggregation = .avg(expr)
+            let agg : Aggregation = .avg(expr, distinct)
             try expect(token: .rparen)
             return agg
         case "SAMPLE":
             try expect(token: .lparen)
-            if try attempt(token: .keyword("DISTINCT")) {
-                fatalError("DISTINCT aggregation is unimplemented")
-            }
+            let distinct = try attempt(token: .keyword("DISTINCT"))
             let expr = try parseNonAggregatingExpression()
             try expect(token: .rparen)
             fatalError("implement SAMPLE aggregate \(expr)")
         case "GROUP_CONCAT":
             try expect(token: .lparen)
-            if try attempt(token: .keyword("DISTINCT")) {
-                fatalError("DISTINCT aggregation is unimplemented")
-            }
+            let distinct = try attempt(token: .keyword("DISTINCT"))
             let expr = try parseNonAggregatingExpression()
             
             var sep = " "
@@ -2566,9 +2568,9 @@ public struct SPARQLParser {
                 }
                 sep = term.value
             }
+            let agg : Aggregation = .groupConcat(expr, sep, distinct)
             try expect(token: .rparen)
-            
-            fatalError("implement GROUP_CONCAT aggregate \(expr) \(sep)")
+            return agg
         default:
             throw parseError("Unrecognized aggregate name '\(name)'")
         }
