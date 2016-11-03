@@ -1144,8 +1144,8 @@ public struct SPARQLParser {
         if let name = name, let term = self.bnodes[name] {
             return term
         } else {
-            let id = NSUUID().uuidString
-            let b = Term(value: id, type: .blank)
+            guard let id = freshCounter.next() else { fatalError("No fresh variable available") }
+            let b = Term(value: "b\(id)", type: .blank)
             if let name = name {
                 self.bnodes[name] = b
             }
