@@ -755,8 +755,10 @@ public struct SPARQLLexer : IteratorProtocol {
                 while let c = i.next() {
                     if c == "\\" {
                         guard let cc = i.next() else { throw lexError("Invalid prefixedname escape") }
-                        // TODO: verify that cc is one of the allowed escape characters:
-                        // '_' | '~' | '.' | '-' | '!' | '$' | '&' | "'" | '(' | ')' | '*' | '+' | ',' | ';' | '=' | '/' | '?' | '#' | '@' | '%'
+                        let escapable = CharacterSet(charactersIn: "_~.-!$&'()*+,;=/?#@%")
+                        guard let us = UnicodeScalar("\(cc)"), escapable.contains(us) else {
+                            throw lexError("Character cannot be escaped in a prefixedname: '\(cc)'")
+                        }
                         chars.append(c)
                     } else {
                         chars.append(c)
@@ -1058,15 +1060,6 @@ public struct SPARQLLexer : IteratorProtocol {
     }
 }
 
-
-/**
- PARSER:
-- (id<SPKTree>) parseSPARQLOperation: (NSString*) opString withBaseURI: (NSString*) base settingPrefixes:(NSMutableDictionary*)prefixes error: (NSError*__autoreleasing*) error;
- - (id<SPKTree>) parseSPARQLQueryFromLexer: (SPKSPARQLLexer*) lexer withBaseURI: (NSString*) base checkEOF: (BOOL) checkEOF error: (NSError*__autoreleasing*) error;
- - (id<SPKTree>) parseSPARQLUpdateFromLexer: (SPKSPARQLLexer*) lexer withBaseURI: (NSString*) base checkEOF: (BOOL) checkEOF error: (NSError*__autoreleasing*) error;
- **/
-
-
 private func joinReduction(lhs : Algebra, rhs : Algebra) -> Algebra {
     if case .identity = lhs {
         return rhs
@@ -1221,8 +1214,6 @@ public struct SPARQLParser {
     }
         
     public mutating func parse() throws -> Algebra {
-        // TODO: unescape input string
-        
         try parsePrologue()
         
         let t = try peekExpectedToken()
@@ -1306,16 +1297,12 @@ public struct SPARQLParser {
             }
         }
         
-        let dataset = try parseDatasetClauses()
+        let dataset = try parseDatasetClauses() // TODO
         try attempt(token: .keyword("WHERE"))
         var algebra = try parseGroupGraphPattern()
         
         let values = try parseValuesClause()
         algebra = try parseSolutionModifier(algebra: algebra, distinct: distinct, projection: projection, projectExpressions: projectExpressions, aggregation: aggregationExpressions, valuesBlock: values)
-        
-        if let dataset = dataset {
-            // algebra = try wrap(algebra: algebra, with: dataset)
-        }
         
         if star {
             // TODO: verify that the query does not perform aggregation
@@ -1343,7 +1330,7 @@ public struct SPARQLParser {
             case .bgp(let triples):
                 pattern = triples
             default:
-                fatalError()
+                throw parseError("Unexpected construct template: \(algebra)")
             }
         }
         
@@ -1394,7 +1381,6 @@ public struct SPARQLParser {
     private mutating func parseConstructTemplate() throws -> [TriplePattern] {
         try expect(token: .lbrace)
         if try attempt(token: .rbrace) {
-            // TODO: this should be parsing more triple patterns (ConstructTriples?)
             return []
         } else {
             let tmpl = try parseTriplesBlock()
@@ -1635,16 +1621,12 @@ public struct SPARQLParser {
             }
         }
         
-        // TODO: handle GROUP BY
-        
         if let projection = projection {
             // TODO: verify that we're not projecting a non-grouped variable when using aggregation
             // TODO: verify that we're not projecting a variable more than once
             // TODO: add projection for aggregate variables
             algebra = .project(algebra, projection)
         }
-        
-        // TODO: handle HAVING
         
         if sortConditions.count > 0 {
             algebra = .order(algebra, sortConditions)
@@ -1738,8 +1720,8 @@ public struct SPARQLParser {
         return nil
     }
     
-    private mutating func parseQuads() throws -> [QuadPattern] { fatalError("implement") }
-    private mutating func triplesByParsingTriplesTemplate() throws -> [TriplePattern] { fatalError("implement") }
+//    private mutating func parseQuads() throws -> [QuadPattern] { fatalError() }
+//    private mutating func triplesByParsingTriplesTemplate() throws -> [TriplePattern] { fatalError() }
 
     private mutating func parseGroupGraphPatternSub() throws -> Algebra {
         var args = [Algebra]()
@@ -1762,7 +1744,6 @@ public struct SPARQLParser {
                     }
                     let algebra = try triplesByParsingTriplesBlock()
                     allowTriplesBlock = false
-                    // TODO: reduceTriplePaths(algebra)
                     args.append(contentsOf: algebra)
                 case .lbrace, .keyword(_):
                     guard let unfinished = try treeByParsingGraphPatternNotTriples() else {
@@ -1907,10 +1888,14 @@ public struct SPARQLParser {
         let algebras = try parsePropertyListPathNotEmpty(for: subject)
         var triples = [TriplePattern]()
         for algebra in algebras {
-            guard case .triple(let tp) = simplifyPath(algebra) else {
+            switch simplifyPath(algebra) {
+            case .triple(let tp):
+                triples.append(tp)
+            case .bgp(let tps):
+                triples.append(contentsOf: tps)
+            default:
                 throw parseError("Expected triple pattern but found \(algebra)")
             }
-            triples.append(tp)
         }
         return triples
     }
@@ -1950,10 +1935,6 @@ public struct SPARQLParser {
         }
     }
     
-//    private mutating func parseVerb() throws -> Node { fatalError("implement") }
-    private mutating func parseObjectListAsNodes() throws -> ([Node], [Algebra]) { fatalError("implement") }
-    private mutating func parseObjectAsNode() throws -> (Node, [Algebra]) { fatalError("implement") }
-
     private mutating func parsePropertyListPath(for subject: Node) throws -> [Algebra] {
         let t = try peekExpectedToken()
         guard t.isVerb else { return [] }
@@ -2160,8 +2141,30 @@ public struct SPARQLParser {
     private mutating func parseObjectPathAsNode() throws -> (Node, [Algebra]) {
         return try parseGraphNodePathAsNode()
     }
-    private mutating func parseTriplesNodeAsNode() throws -> (Node, [TriplePattern]) { fatalError("implement") }
-    private mutating func parseBlankNodePropertyListAsNode() throws -> (Node, [TriplePattern]) { fatalError("implement") }
+
+    private mutating func parseTriplesNodeAsNode() throws -> (Node, [TriplePattern]) {
+        if try peek(token: .lparen) {
+            return try triplesByParsingCollectionAsNode()
+        } else {
+            return try parseBlankNodePropertyListAsNode()
+        }
+    }
+
+    private mutating func parseBlankNodePropertyListAsNode() throws -> (Node, [TriplePattern]) {
+        let (node, patterns) = try parseBlankNodePropertyListPathAsNode()
+        var triples = [TriplePattern]()
+        for p in patterns {
+            switch simplifyPath(p) {
+            case .triple(let t):
+                triples.append(t)
+            case .bgp(let ts):
+                triples.append(contentsOf: ts)
+            default:
+                throw parseError("Unexpected template triple: \(p)")
+            }
+        }
+        return (node, triples)
+    }
     
     private mutating func parseTriplesNodePathAsNode() throws -> (Node, [Algebra]) {
         if try peek(token: .lparen) {
@@ -2179,7 +2182,21 @@ public struct SPARQLParser {
         return (node, path)
     }
     
-    private mutating func triplesByParsingCollectionAsNode() throws -> (Node, [Algebra]) { fatalError("implement") }
+    private mutating func triplesByParsingCollectionAsNode() throws -> (Node, [TriplePattern]) {
+        let (node, patterns) = try triplesByParsingCollectionPathAsNode()
+        var triples = [TriplePattern]()
+        for p in patterns {
+            switch p {
+            case .triple(let t):
+                triples.append(t)
+            case .bgp(let ts):
+                triples.append(contentsOf: ts)
+            default:
+                throw parseError("Unexpected template triple: \(p)")
+            }
+        }
+        return (node, triples)
+    }
     
     private mutating func triplesByParsingCollectionPathAsNode() throws -> (Node, [Algebra]) {
         try expect(token: .lparen)
@@ -2223,7 +2240,7 @@ public struct SPARQLParser {
         return (.bound(bnode), triples)
     }
 
-    private mutating func parseGraphNodeAsNode() throws -> (Node, [Algebra]) { fatalError("implement") }
+//    private mutating func parseGraphNodeAsNode() throws -> (Node, [Algebra]) { fatalError() }
 
     private mutating func parseGraphNodePathAsNode() throws -> (Node, [Algebra]) {
         let t = try peekExpectedToken()
@@ -2568,8 +2585,9 @@ public struct SPARQLParser {
             try expect(token: .lparen)
             let distinct = try attempt(token: .keyword("DISTINCT"))
             let expr = try parseNonAggregatingExpression()
+            let agg : Aggregation = .sample(expr)
             try expect(token: .rparen)
-            fatalError("implement SAMPLE aggregate \(expr)")
+            return agg
         case "GROUP_CONCAT":
             try expect(token: .lparen)
             let distinct = try attempt(token: .keyword("DISTINCT"))
@@ -2681,8 +2699,7 @@ public struct SPARQLParser {
             let silent = try attempt(token: .keyword("SILENT"))
             let node = try parseVarOrIRI()
             let ggp = try parseGroupGraphPattern()
-            fatalError("implement SERVICE \(node) \(ggp) \(silent)")
-//            return .finished(.service(node, ggp, silent))
+            return .finished(.service(node, ggp, silent))
         } else if case .keyword("FILTER") = t {
             try expect(token: t)
             let expression = try parseConstraint()
@@ -2714,13 +2731,25 @@ public struct SPARQLParser {
         case ._var(let name):
             return .variable(name, binding: true)
         case .iri(let value):
-            let iri = value // TODO: resolve against base IRI
+            var iri = value
+            if let base = base {
+                guard let b = URL(string: base), let i = URL(string: value, relativeTo: b) else {
+                    throw parseError("Failed to resolve IRI against base IRI")
+                }
+                iri = i.absoluteString
+            }
             return .bound(Term(value: iri, type: .iri))
         case .prefixname(let pn, let ln):
-            guard let base = self.prefixes[pn] else {
+            guard let ns = self.prefixes[pn] else {
                 throw parseError("Use of undeclared prefix '\(pn)'")
             }
-            let iri = base + ln // TODO: resolve against base IRI
+            var iri = ns + ln
+            if let base = base {
+                guard let b = URL(string: base), let i = URL(string: iri, relativeTo: b) else {
+                    throw parseError("Failed to resolve prefixed name against base IRI")
+                }
+                iri = i.absoluteString
+            }
             return .bound(Term(value: iri, type: .iri))
         case .anon:
             return .bound(bnode())

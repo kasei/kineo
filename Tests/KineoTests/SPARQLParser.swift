@@ -429,4 +429,90 @@ class SPARQLParserTest: XCTestCase {
             XCTFail("\(e)")
         }
     }
+    
+    func testConstructCollection1() {
+        guard var p = SPARQLParser(string: "PREFIX : <http://www.example.org> CONSTRUCT { ?s :p (1 2) } WHERE { ?s ?p ?o }") else { XCTFail(); return }
+        do {
+            let a = try p.parse()
+            guard case .construct(.triple(_), let template) = a else {
+                XCTFail("Unexpected algebra: \(a.serialize())")
+                return
+            }
+            
+            XCTAssertEqual(template.count, 5)
+        } catch let e {
+            XCTFail("\(e)")
+        }
+    }
+    
+    func testConstructCollection2() {
+        guard var p = SPARQLParser(string: "PREFIX : <http://www.example.org> CONSTRUCT { (1 2) :p ?o } WHERE { ?s ?p ?o }") else { XCTFail(); return }
+        do {
+            let a = try p.parse()
+            guard case .construct(.triple(_), let template) = a else {
+                XCTFail("Unexpected algebra: \(a.serialize())")
+                return
+            }
+            
+            XCTAssertEqual(template.count, 5)
+        } catch let e {
+            XCTFail("\(e)")
+        }
+    }
+    
+    func testConstructBlank() {
+        guard var p = SPARQLParser(string: "PREFIX : <http://www.example.org> CONSTRUCT { [ :p ?o ] } WHERE { ?s ?p ?o }") else { XCTFail(); return }
+        do {
+            let a = try p.parse()
+            guard case .construct(.triple(_), let template) = a else {
+                XCTFail("Unexpected algebra: \(a.serialize())")
+                return
+            }
+            
+            XCTAssertEqual(template.count, 1)
+        } catch let e {
+            XCTFail("\(e)")
+        }
+    }
+    
+    func testI18N() {
+        guard var p = SPARQLParser(string: "PREFIX foaf: <http://xmlns.com/foaf/0.1/> PREFIX 食: <http://www.w3.org/2001/sw/DataAccess/tests/data/i18n/kanji.ttl#> SELECT ?name ?food WHERE { [ foaf:name ?name ; 食:食べる ?food ] . }") else { XCTFail(); return }
+        do {
+            let a = try p.parse()
+            print("\(a.serialize())")
+            guard case .project(.innerJoin(.triple(let ta), .triple(let tb)), let variables) = a else {
+                XCTFail("Unexpected algebra: \(a.serialize())")
+                return
+            }
+            
+            XCTAssertEqual(ta.subject, tb.subject)
+            XCTAssertEqual(ta.predicate, .bound(Term(value: "http://xmlns.com/foaf/0.1/name", type: .iri)))
+            XCTAssertEqual(ta.object, .variable("name", binding: true))
+            
+            XCTAssertEqual(tb.predicate, .bound(Term(value: "http://www.w3.org/2001/sw/DataAccess/tests/data/i18n/kanji.ttl#食べる", type: .iri)))
+            XCTAssertEqual(tb.object, .variable("food", binding: true))
+            
+            XCTAssertEqual(variables, ["name", "food"])
+        } catch let e {
+            XCTFail("\(e)")
+        }
+    }
+    
+    func testIRIResolution() {
+        guard var p = SPARQLParser(string: "BASE <http://example.org/foo/> SELECT * WHERE { ?s <p> <../bar> }") else { XCTFail(); return }
+        do {
+            let a = try p.parse()
+            print("\(a.serialize())")
+            guard case .triple(let triple) = a else {
+                XCTFail("Unexpected algebra: \(a.serialize())")
+                return
+            }
+            
+            XCTAssertEqual(triple.subject, .variable("s", binding: true))
+            XCTAssertEqual(triple.predicate, .bound(Term(value: "http://example.org/foo/p", type: .iri)))
+            XCTAssertEqual(triple.object, .bound(Term(value: "http://example.org/bar", type: .iri)))
+        } catch let e {
+            XCTFail("\(e)")
+        }
+    }
 }

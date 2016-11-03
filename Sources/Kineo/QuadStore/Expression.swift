@@ -33,6 +33,7 @@ public enum Aggregation {
     case avg(Expression, Bool)
     case min(Expression)
     case max(Expression)
+    case sample(Expression)
     case groupConcat(Expression, String, Bool)
 }
 
@@ -50,6 +51,8 @@ extension Aggregation : Equatable {
         case (.min(let l), .min(let r)) where l == r:
             return true
         case (.max(let l), .max(let r)) where l == r:
+            return true
+        case (.sample(let l), .sample(let r)) where l == r:
             return true
         case (.groupConcat(let l), .groupConcat(let r)) where l == r:
             return true
@@ -82,6 +85,8 @@ extension Aggregation : CustomStringConvertible {
             return "MIN(\(expr.description))"
         case .max(let expr):
             return "MAX(\(expr.description))"
+        case .sample(let expr):
+            return "SAMPLE(\(expr.description))"
         case .groupConcat(let expr, let sep, let distinct):
             let e = distinct ? "DISTINCT \(expr.description)" : expr.description
             if sep == " " {

@@ -47,6 +47,7 @@ public indirect enum Algebra {
     case minus(Algebra, Algebra)
     case project(Algebra, [String])
     case distinct(Algebra)
+    case service(Node, Algebra, Bool)
     case slice(Algebra, Int?, Int?)
     case order(Algebra, [SortComparator])
     case path(Node, PropertyPath, Node)
@@ -112,7 +113,7 @@ public indirect enum Algebra {
             var variables = child.inscope
             variables.insert(v)
             return variables
-        case .filter(let child, _), .minus(let child, _), .distinct(let child), .slice(let child, _, _), .namedGraph(let child, .bound(_)), .order(let child, _):
+        case .filter(let child, _), .minus(let child, _), .distinct(let child), .slice(let child, _, _), .namedGraph(let child, .bound(_)), .order(let child, _), .service(_, let child, _):
             return child.inscope
         case .namedGraph(let child, .variable(let v, let bind)):
             var variables = child.inscope
@@ -191,6 +192,11 @@ public indirect enum Algebra {
             return d
         case .namedGraph(let child, let graph):
             var d = "\(indent)NamedGraph \(graph)\n"
+            d += child.serialize(depth: depth+1)
+            return d
+        case .service(let endpoint, let child, let silent):
+            let modifier = silent ? " (Silent)" : ""
+            var d = "\(indent)Service\(modifier) \(endpoint)\n"
             d += child.serialize(depth: depth+1)
             return d
         case .extend(let child, let expr, let name):
@@ -1122,7 +1128,7 @@ open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
             if aggs.count == 1 {
                 let (agg, name) = aggs[0]
                 switch agg {
-                case .sum(_), .count(_), .countAll, .avg(_), .min(_), .max(_), .groupConcat(_):
+                case .sum(_), .count(_), .countAll, .avg(_), .min(_), .max(_), .groupConcat(_), .sample(_):
                     return try evaluateSinglePipelinedAggregation(algebra: child, groups: groups, aggregation: agg, variable: name, activeGraph: activeGraph)
                 }
             }
@@ -1154,7 +1160,7 @@ open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
                     return result
                 } while true
             }
-        case .bgp(_), .minus(_, _), .describe(_), .ask(_), .construct(_):
+        case .bgp(_), .minus(_, _), .describe(_), .ask(_), .construct(_), .service(_):
             fatalError("Unimplemented: \(algebra)")
         }
     }
@@ -1214,6 +1220,8 @@ open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
                 mtime = max(mtime, triplemtime)
             }
             return mtime
+        case .service(_):
+            return nil
         }
     }
     
