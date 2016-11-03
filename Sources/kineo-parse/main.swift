@@ -9,29 +9,32 @@
 import Foundation
 import Kineo
 
-func parseAlgebra(_ qfile : String, verbose : Bool = false) throws {
+func parseAlgebra(_ qfile : String, silent : Bool = false) throws {
     let url = URL(fileURLWithPath: qfile)
     let sparql = try Data(contentsOf: url)
     guard var p = SPARQLParser(data: sparql) else { fatalError("Failed to construct SPARQL parser") }
     let algebra = try p.parse()
     let s = algebra.serialize()
-    if verbose {
+    if !silent {
         print(s)
     }
 }
 
-func parseTokens(_ qfile : String, verbose : Bool = false) throws {
+func parseTokens(_ qfile : String, silent : Bool = false) throws {
     let url = URL(fileURLWithPath: qfile)
     let sparql = try Data(contentsOf: url)
     let stream = InputStream(data: sparql)
     stream.open()
     var lexer = SPARQLLexer(source: stream)
     while let t = lexer.next() {
-        print("\(t)")
+        if !silent {
+            print("\(t)")
+        }
     }
 }
 
 var verbose = false
+var silent = false
 var printTokens = false
 let _args = CommandLine.arguments
 let argscount = _args.count
@@ -47,7 +50,9 @@ guard argscount >= 2 else {
 
 if let next = args.peek(), next.hasPrefix("-") {
     _ = args.next()
-    if next == "-v" {
+    if next == "-s" {
+        silent = true
+    } else if next == "-v" {
         verbose = true
     } else if next == "-t" {
         printTokens = true
@@ -61,9 +66,9 @@ guard let qfile = args.next() else { fatalError("No query file given") }
 do {
     warn("\(qfile)")
     if printTokens {
-        try parseTokens(qfile, verbose: verbose)
+        try parseTokens(qfile, silent: silent)
     } else {
-        try parseAlgebra(qfile, verbose: verbose)
+        try parseAlgebra(qfile, silent: silent)
     }
     //print("ok")
 } catch SPARQLParsingError.parsingError(let message) {
