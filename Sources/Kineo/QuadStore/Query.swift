@@ -53,7 +53,6 @@ public indirect enum Algebra {
     case path(Node, PropertyPath, Node)
     case aggregate(Algebra, [Expression], [(Aggregation, String)])
     case window(Algebra, [Expression], [(WindowFunction, [SortComparator], String)])
-
     case construct(Algebra, [TriplePattern])
     case describe(Algebra, [Node])
     case ask(Algebra)
@@ -279,6 +278,108 @@ public indirect enum Algebra {
     }
 }
 
+public extension Algebra {
+    func replace(_ map : (Expression) -> Expression?) -> Algebra {
+        switch self {
+        case .identity, .triple(_), .quad(_), .path(_), .bgp(_), .table(_):
+            return self
+        case .distinct(let a):
+            return .distinct(a.replace(map))
+        case .ask(let a):
+            return .ask(a.replace(map))
+        case .describe(let a, let nodes):
+            return .describe(a.replace(map), nodes)
+        case .construct(let a, let triples):
+            return .construct(a.replace(map), triples)
+        case .project(let a, let p):
+            return .project(a.replace(map), p)
+        case .minus(let a, let b):
+            return .minus(a.replace(map), b.replace(map))
+        case .union(let a, let b):
+            return .union(a.replace(map), b.replace(map))
+        case .innerJoin(let a, let b):
+            return .innerJoin(a.replace(map), b.replace(map))
+        case .namedGraph(let a, let node):
+            return .namedGraph(a.replace(map), node)
+        case .slice(let a, let offset, let limit):
+            return .slice(a.replace(map), offset, limit)
+        case .service(let endpoint, let a, let silent):
+            return .service(endpoint, a.replace(map), silent)
+        case .filter(let a, let expr):
+            return .filter(a.replace(map), expr.replace(map))
+        case .leftOuterJoin(let a, let b, let expr):
+            return .leftOuterJoin(a.replace(map), b.replace(map), expr.replace(map))
+        case .extend(let a, let expr, let v):
+            return .extend(a.replace(map), expr.replace(map), v)
+        case .order(let a, let cmps):
+            return .order(a.replace(map), cmps.map { (asc, expr) in (asc, expr.replace(map)) })
+        case .aggregate(let a, let exprs, let aggs):
+            // case aggregate(Algebra, [Expression], [(Aggregation, String)])
+            let exprs = exprs.map { (expr) in
+                return expr.replace(map)
+            }
+            let aggs = aggs.map { (agg, name) in
+                return (agg.replace(map), name)
+            }
+            return .aggregate(a.replace(map), exprs, aggs)
+        case .window(let a, let exprs, let funcs):
+            //     case window(Algebra, [Expression], [(WindowFunction, [SortComparator], String)])
+            let exprs = exprs.map { (expr) in
+                return expr.replace(map)
+            }
+            let funcs = funcs.map { (f, cmps, name) -> (WindowFunction, [SortComparator], String) in
+                let e = cmps.map { (asc, expr) in (asc, expr.replace(map)) }
+                return (f, e, name)
+            }
+            return .window(a.replace(map), exprs, funcs)
+        }
+    }
+    
+    func replace(_ map : (Algebra) -> Algebra?) -> Algebra {
+        if let r = map(self) {
+            return r
+        } else {
+            switch self {
+            case .identity, .triple(_), .quad(_), .path(_), .bgp(_), .table(_):
+                return self
+            case .distinct(let a):
+                return .distinct(a.replace(map))
+            case .ask(let a):
+                return .ask(a.replace(map))
+            case .describe(let a, let nodes):
+                return .describe(a.replace(map), nodes)
+            case .construct(let a, let triples):
+                return .construct(a.replace(map), triples)
+            case .project(let a, let p):
+                return .project(a.replace(map), p)
+            case .order(let a, let cmps):
+                return .order(a.replace(map), cmps)
+            case .minus(let a, let b):
+                return .minus(a.replace(map), b.replace(map))
+            case .union(let a, let b):
+                return .union(a.replace(map), b.replace(map))
+            case .innerJoin(let a, let b):
+                return .innerJoin(a.replace(map), b.replace(map))
+            case .leftOuterJoin(let a, let b, let expr):
+                return .leftOuterJoin(a.replace(map), b.replace(map), expr)
+            case .extend(let a, let expr, let v):
+                return .extend(a.replace(map), expr, v)
+            case .filter(let a, let expr):
+                return .filter(a.replace(map), expr)
+            case .namedGraph(let a, let node):
+                return .namedGraph(a.replace(map), node)
+            case .slice(let a, let offset, let limit):
+                return .slice(a.replace(map), offset, limit)
+            case .service(let endpoint, let a, let silent):
+                return .service(endpoint, a.replace(map), silent)
+            case .aggregate(let a, let exprs, let aggs):
+                return .aggregate(a.replace(map), exprs, aggs)
+            case .window(let a, let exprs, let funcs):
+                return .window(a.replace(map), exprs, funcs)
+            }
+        }
+    }
+}
 open class QueryParser<T : LineReadable> {
     let reader : T
     var stack : [Algebra]

@@ -1,0 +1,138 @@
+import XCTest
+import Foundation
+import Kineo
+
+class AlgebraTest: XCTestCase {
+    
+    override func setUp() {
+        super.setUp()
+        // Put setup code here. This method is called before the invocation of each test method in the class.
+    }
+    
+    override func tearDown() {
+        // Put teardown code here. This method is called after the invocation of each test method in the class.
+        super.tearDown()
+    }
+    
+    func testReplacement1() {
+        let subj : Node = .bound(Term(value: "b", type: .blank))
+        let pred : Node = .bound(Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type", type: .iri))
+        let obj : Node = .variable("o", binding: true)
+        let t = TriplePattern(subject: subj, predicate: pred, object: obj)
+        let algebra : Algebra = .bgp([t])
+        
+        let rewrite = algebra.replace { (algebra : Algebra) in
+            switch algebra {
+            case .bgp(_):
+                return .identity
+            default:
+                print("**** \(algebra.serialize())")
+                return nil
+            }
+        }
+        
+        guard case .identity = rewrite else {
+            XCTFail("Unexpected rewritten algebra: \(rewrite.serialize())")
+            return
+        }
+        
+        XCTAssert(true)
+    }
+    
+    func testReplacement2() {
+        let subj : Node = .bound(Term(value: "b", type: .blank))
+        let type : Node = .bound(Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type", type: .iri))
+        let name : Node = .bound(Term(value: "http://xmlns.com/foaf/0.1/name", type: .iri))
+        let vtype : Node = .variable("type", binding: true)
+        let vname : Node = .variable("name", binding: true)
+        let t1 = TriplePattern(subject: subj, predicate: type, object: vtype)
+        let t2 = TriplePattern(subject: subj, predicate: name, object: vname)
+        let algebra : Algebra = .innerJoin(.bgp([t1]), .triple(t2))
+        
+        let rewrite = algebra.replace { (algebra : Algebra) in
+            switch algebra {
+            case .bgp(_):
+                return .identity
+            default:
+                print("**** \(algebra.serialize())")
+                return nil
+            }
+        }
+        
+        guard case .innerJoin(.identity, .triple(_)) = rewrite else {
+            XCTFail("Unexpected rewritten algebra: \(rewrite.serialize())")
+            return
+        }
+        
+        XCTAssert(true)
+    }
+    
+    func testJoinIdentityReplacement() {
+        let subj : Node = .bound(Term(value: "b", type: .blank))
+        let name : Node = .bound(Term(value: "http://xmlns.com/foaf/0.1/name", type: .iri))
+        let vname : Node = .variable("name", binding: true)
+        let t = TriplePattern(subject: subj, predicate: name, object: vname)
+        let algebra : Algebra = .innerJoin(.identity, .triple(t))
+        let rewrite = algebra.replace { (algebra : Algebra) in
+            switch algebra {
+            case .innerJoin(.identity, let a), .innerJoin(let a, .identity):
+                return a
+            default:
+                return nil
+            }
+        }
+        
+        guard case .triple(_) = rewrite else {
+            XCTFail("Unexpected rewritten algebra: \(rewrite.serialize())")
+            return
+        }
+        
+        XCTAssert(true)
+    }
+    
+    func testFilterExpressionReplacement() {
+        let subj : Node = .bound(Term(value: "b", type: .blank))
+        let name : Node = .bound(Term(value: "http://xmlns.com/foaf/0.1/name", type: .iri))
+        let greg : Node = .bound(Term(value: "Gregory", type: .language("en")))
+        let vname : Node = .variable("name", binding: true)
+        let expr : Expression = .eq(.node(vname), .node(greg))
+        
+        let t = TriplePattern(subject: subj, predicate: name, object: vname)
+        let algebra : Algebra = .filter(.triple(t), expr)
+        
+        let rewrite = algebra.replace { (expr : Expression) in
+            switch expr {
+            case .eq(let a, let b):
+                return .ne(a, b)
+            default:
+                return nil
+            }
+        }
+        
+        guard case .filter(.triple(_), .ne(_, _)) = rewrite else {
+            XCTFail("Unexpected rewritten algebra: \(rewrite.serialize())")
+            return
+        }
+        
+        XCTAssert(true)
+    }
+
+    func testExpressionReplacement() {
+        let greg : Node = .bound(Term(value: "Gregory", type: .language("en")))
+        let vname : Node = .variable("name", binding: true)
+        let expr : Expression = .eq(.node(vname), .node(greg))
+        
+        let rewrite = expr.replace { (expr : Expression) in
+            switch expr {
+            case .eq(let a, let b):
+                return .ne(a, b)
+            default:
+                return nil
+            }
+        }
+        
+        XCTAssertEqual(expr.description, "(?name == \"Gregory\"@en)")
+        XCTAssertEqual(rewrite.description, "(?name != \"Gregory\"@en)")
+    }
+}
+

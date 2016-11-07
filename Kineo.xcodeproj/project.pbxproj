@@ -13,6 +13,7 @@
 		372C15571D501024005AD596 /* libKineo.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 379C05631D219B9A00ACE54D /* libKineo.dylib */; };
 		37559FB01DC941CB00B103DD /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37559FAF1DC941CB00B103DD /* main.swift */; };
 		37559FB11DC941EE00B103DD /* libKineo.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 379C05631D219B9A00ACE54D /* libKineo.dylib */; };
+		376417B31DCCF35600C5E367 /* Algebra.swift in Sources */ = {isa = PBXBuildFile; fileRef = 376417B21DCCF35600C5E367 /* Algebra.swift */; };
 		379BD8141D63F308009EACC2 /* Trees.swift in Sources */ = {isa = PBXBuildFile; fileRef = 379BD8131D63F308009EACC2 /* Trees.swift */; };
 		379C05651D219C8B00ACE54D /* libKineo.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 379C05631D219B9A00ACE54D /* libKineo.dylib */; };
 		37B839B71D1E06B500BE718B /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37B839A31D1E06B500BE718B /* main.swift */; };
@@ -51,6 +52,7 @@
 		37559FAF1DC941CB00B103DD /* main.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		375BE53C1D9459D500E7E919 /* Plan.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Plan.swift; sourceTree = "<group>"; };
 		37620ED41D4F0FA100AEC10F /* Expression.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Expression.swift; sourceTree = "<group>"; };
+		376417B21DCCF35600C5E367 /* Algebra.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Algebra.swift; sourceTree = "<group>"; };
 		377C49F41D3061EF006222B6 /* Query.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Query.swift; sourceTree = "<group>"; };
 		379BD8131D63F308009EACC2 /* Trees.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Trees.swift; sourceTree = "<group>"; };
 		379C05631D219B9A00ACE54D /* libKineo.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libKineo.dylib; path = .build/debug/libKineo.dylib; sourceTree = "<group>"; };
@@ -105,6 +107,7 @@
 				372AE7701D582D9F001D72DF /* QueryParser.swift */,
 				379BD8131D63F308009EACC2 /* Trees.swift */,
 				37C3B71D1DB6B6C300CF5E81 /* SPARQLParser.swift */,
+				376417B21DCCF35600C5E367 /* Algebra.swift */,
 			);
 			path = KineoTests;
 			sourceTree = "<group>";
@@ -393,6 +396,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				376417B31DCCF35600C5E367 /* Algebra.swift in Sources */,
 				37C3B71F1DB6B77600CF5E81 /* SPARQLParser.swift in Sources */,
 				372AE7731D582D9F001D72DF /* QueryEvaluation.swift in Sources */,
 				379BD8141D63F308009EACC2 /* Trees.swift in Sources */,
@@ -630,6 +634,7 @@
 				37559FAC1DC9417600B103DD /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 		37B839461D1DA34100BE718B /* Build configuration list for PBXProject "Kineo" */ = {
 			isa = XCConfigurationList;
