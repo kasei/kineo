@@ -24,14 +24,14 @@ class AlgebraTest: XCTestCase {
         let rewrite = algebra.replace { (algebra : Algebra) in
             switch algebra {
             case .bgp(_):
-                return .identity
+                return .joinIdentity
             default:
                 print("**** \(algebra.serialize())")
                 return nil
             }
         }
         
-        guard case .identity = rewrite else {
+        guard case .joinIdentity = rewrite else {
             XCTFail("Unexpected rewritten algebra: \(rewrite.serialize())")
             return
         }
@@ -52,14 +52,14 @@ class AlgebraTest: XCTestCase {
         let rewrite = algebra.replace { (algebra : Algebra) in
             switch algebra {
             case .bgp(_):
-                return .identity
+                return .joinIdentity
             default:
                 print("**** \(algebra.serialize())")
                 return nil
             }
         }
         
-        guard case .innerJoin(.identity, .triple(_)) = rewrite else {
+        guard case .innerJoin(.joinIdentity, .triple(_)) = rewrite else {
             XCTFail("Unexpected rewritten algebra: \(rewrite.serialize())")
             return
         }
@@ -72,10 +72,10 @@ class AlgebraTest: XCTestCase {
         let name : Node = .bound(Term(value: "http://xmlns.com/foaf/0.1/name", type: .iri))
         let vname : Node = .variable("name", binding: true)
         let t = TriplePattern(subject: subj, predicate: name, object: vname)
-        let algebra : Algebra = .innerJoin(.identity, .triple(t))
+        let algebra : Algebra = .innerJoin(.joinIdentity, .triple(t))
         let rewrite = algebra.replace { (algebra : Algebra) in
             switch algebra {
-            case .innerJoin(.identity, let a), .innerJoin(let a, .identity):
+            case .innerJoin(.joinIdentity, let a), .innerJoin(let a, .joinIdentity):
                 return a
             default:
                 return nil
@@ -133,6 +133,44 @@ class AlgebraTest: XCTestCase {
         
         XCTAssertEqual(expr.description, "(?name == \"Gregory\"@en)")
         XCTAssertEqual(rewrite.description, "(?name != \"Gregory\"@en)")
+    }
+
+    func testNodeBinding() {
+        let subj : Node = .bound(Term(value: "b", type: .blank))
+        let type : Node = .bound(Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type", type: .iri))
+        let name : Node = .bound(Term(value: "http://xmlns.com/foaf/0.1/name", type: .iri))
+        let vtype : Node = .variable("type", binding: true)
+        let vname : Node = .variable("name", binding: true)
+        let t1 = TriplePattern(subject: subj, predicate: type, object: vtype)
+        let t2 = TriplePattern(subject: subj, predicate: name, object: vname)
+        let algebra : Algebra = .project(.innerJoin(.triple(t1), .triple(t2)), ["name", "type"])
+        
+        let rewrite = algebra.bind("type", to: .bound(Term(value: "http://xmlns.com/foaf/0.1/Person", type: .iri)))
+        guard case .project(.innerJoin(_, _), let projection) = rewrite else {
+            XCTFail("Unexpected rewritten algebra: \(rewrite.serialize())")
+            return
+        }
+        XCTAssertEqual(projection, ["name"])
+    }
+
+    func testNodeBindingWithProjection() {
+        let subj : Node = .bound(Term(value: "b", type: .blank))
+        let type : Node = .bound(Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type", type: .iri))
+        let name : Node = .bound(Term(value: "http://xmlns.com/foaf/0.1/name", type: .iri))
+        let vtype : Node = .variable("type", binding: true)
+        let vname : Node = .variable("name", binding: true)
+        let t1 = TriplePattern(subject: subj, predicate: type, object: vtype)
+        let t2 = TriplePattern(subject: subj, predicate: name, object: vname)
+        let algebra : Algebra = .project(.innerJoin(.triple(t1), .triple(t2)), ["name", "type"])
+        
+        let person : Node = .bound(Term(value: "http://xmlns.com/foaf/0.1/Person", type: .iri))
+        let rewrite = algebra.bind("type", to: person, preservingProjection: true)
+        print(rewrite.serialize())
+        guard case .project(.extend(.innerJoin(_, _), .node(person), "type"), let projection) = rewrite else {
+            XCTFail("Unexpected rewritten algebra: \(rewrite.serialize())")
+            return
+        }
+        XCTAssertEqual(projection, ["name", "type"])
     }
 }
 

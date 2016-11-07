@@ -33,7 +33,7 @@ public indirect enum PropertyPath {
 public indirect enum Algebra {
     public typealias SortComparator = (Bool, Expression)
 
-    case identity
+    case joinIdentity
     case table([Node], [TermResult])
     case quad(QuadPattern)
     case triple(TriplePattern)
@@ -73,7 +73,7 @@ public indirect enum Algebra {
     public var inscope : Set<String> {
         var variables = Set<String>()
         switch self {
-        case .identity:
+        case .joinIdentity:
             return Set()
         case .project(_, let vars):
             return Set(vars)
@@ -160,7 +160,7 @@ public indirect enum Algebra {
         let indent = String(repeating: " ", count: (depth*2))
             
         switch self {
-        case .identity:
+        case .joinIdentity:
             return "\(indent)Identity\n"
         case .quad(let q):
             return "\(indent)Quad(\(q))\n"
@@ -281,7 +281,7 @@ public indirect enum Algebra {
 public extension Algebra {
     func replace(_ map : (Expression) -> Expression?) -> Algebra {
         switch self {
-        case .identity, .triple(_), .quad(_), .path(_), .bgp(_), .table(_):
+        case .joinIdentity, .triple(_), .quad(_), .path(_), .bgp(_), .table(_):
             return self
         case .distinct(let a):
             return .distinct(a.replace(map))
@@ -340,7 +340,7 @@ public extension Algebra {
             return r
         } else {
             switch self {
-            case .identity, .triple(_), .quad(_), .path(_), .bgp(_), .table(_):
+            case .joinIdentity, .triple(_), .quad(_), .path(_), .bgp(_), .table(_):
                 return self
             case .distinct(let a):
                 return .distinct(a.replace(map))
@@ -379,7 +379,58 @@ public extension Algebra {
             }
         }
     }
+    
+    func bind(_ variable : String, to replacement : Node, preservingProjection : Bool = false) -> Algebra {
+        var r = self
+        r = r.replace { (expr : Expression) in
+            if case .node(.variable(let name, _)) = expr {
+                if name == variable {
+                    return .node(replacement)
+                }
+            }
+            return nil
+        }
+        
+        r = r.replace { (algebra : Algebra) in
+            switch algebra {
+            case .triple(let t):
+                return .triple(t.bind(variable, to: replacement))
+            case .quad(let q):
+                return .quad(q.bind(variable, to: replacement))
+            case .path(let subj, let pp, let obj):
+                let subj = subj.bind(variable, to: replacement)
+                let obj = obj.bind(variable, to: replacement)
+                return .path(subj, pp, obj)
+            case .bgp(let triples):
+                return .bgp(triples.map { $0.bind(variable, to: replacement) })
+            case .table(_):
+                fatalError("implement")
+            case .describe(let a, let nodes):
+                return .describe(a, nodes.map { $0.bind(variable, to: replacement) })
+            case .construct(let a, let triples):
+                return .construct(a, triples.map { $0.bind(variable, to: replacement) })
+            case .project(let a, let p):
+                let child = a.bind(variable, to: replacement)
+                if preservingProjection {
+                    let extend : Algebra = .extend(child, .node(replacement), variable)
+                    return .project(extend, p)
+                } else {
+                    return .project(child, p.filter { $0 != variable })
+                }
+            case .namedGraph(let a, let node):
+                return .namedGraph(
+                    a.bind(variable, to: replacement),
+                    node.bind(variable, to: replacement)
+                )
+            default:
+                break
+            }
+            return nil
+        }
+        return r
+    }
 }
+
 open class QueryParser<T : LineReadable> {
     let reader : T
     var stack : [Algebra]
@@ -1140,7 +1191,7 @@ open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
 
     public func evaluate(algebra : Algebra, activeGraph : Term) throws -> AnyIterator<TermResult> {
         switch algebra {
-        case .identity:
+        case .joinIdentity:
             let results = [TermResult(bindings: [:])]
             return AnyIterator(results.makeIterator())
         case .table(_, let results):
@@ -1268,7 +1319,7 @@ open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
 
     public func effectiveVersion(matching algebra: Algebra, activeGraph : Term) throws -> Version? {
         switch algebra {
-        case .identity:
+        case .joinIdentity:
             return 0
         case .table(_, _):
             return 0

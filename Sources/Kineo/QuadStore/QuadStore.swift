@@ -501,8 +501,16 @@ public struct TriplePattern : CustomStringConvertible {
         self.predicate = predicate
         self.object = object
     }
+    
     public var description : String {
         return "\(subject) \(predicate) \(object) ."
+    }
+
+    func bind(_ variable : String, to replacement : Node) -> TriplePattern {
+        let subject = self.subject.bind(variable, to: replacement)
+        let predicate = self.predicate.bind(variable, to: replacement)
+        let object = self.object.bind(variable, to: replacement)
+        return TriplePattern(subject: subject, predicate: predicate, object: object)
     }
 }
 
@@ -540,6 +548,14 @@ public struct QuadPattern : CustomStringConvertible {
             }
         }
         return TermResult(bindings: bindings)
+    }
+
+    func bind(_ variable : String, to replacement : Node) -> QuadPattern {
+        let subject = self.subject.bind(variable, to: replacement)
+        let predicate = self.predicate.bind(variable, to: replacement)
+        let object = self.object.bind(variable, to: replacement)
+        let graph = self.graph.bind(variable, to: replacement)
+        return QuadPattern(subject: subject, predicate: predicate, object: object, graph: graph)
     }
 }
 

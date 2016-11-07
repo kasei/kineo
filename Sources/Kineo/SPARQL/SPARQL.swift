@@ -1061,7 +1061,7 @@ public struct SPARQLLexer : IteratorProtocol {
 }
 
 private func joinReduction(lhs : Algebra, rhs : Algebra) -> Algebra {
-    if case .identity = lhs {
+    if case .joinIdentity = lhs {
         return rhs
     } else {
         return .innerJoin(lhs, rhs)
@@ -1078,24 +1078,24 @@ private enum UnfinishedAlgebra {
     func finish(_ args : inout [Algebra]) -> Algebra {
         switch self {
         case .bind(let e, let name):
-            let algebra : Algebra = args.reduce(.identity, joinReduction)
+            let algebra : Algebra = args.reduce(.joinIdentity, joinReduction)
             args = []
             return .extend(algebra, e, name)
         case .filter(let e):
-            let algebra : Algebra = args.reduce(.identity, joinReduction)
+            let algebra : Algebra = args.reduce(.joinIdentity, joinReduction)
             args = []
             return .filter(algebra, e)
         case .minus(let a):
-            let algebra : Algebra = args.reduce(.identity, joinReduction)
+            let algebra : Algebra = args.reduce(.joinIdentity, joinReduction)
             args = []
             return .minus(algebra, a)
         case .optional(.filter(let a, let e)):
-            let algebra : Algebra = args.reduce(.identity, joinReduction)
+            let algebra : Algebra = args.reduce(.joinIdentity, joinReduction)
             args = []
             return .leftOuterJoin(algebra, a, e)
         case .optional(let a):
             let e : Expression = .node(.bound(Term.trueValue))
-            let algebra : Algebra = args.reduce(.identity, joinReduction)
+            let algebra : Algebra = args.reduce(.joinIdentity, joinReduction)
             args = []
             return .leftOuterJoin(algebra, a, e)
         case .finished(let a):
@@ -1365,7 +1365,7 @@ public struct SPARQLParser {
         if try peek(token: .lbrace) {
             ggp = try parseGroupGraphPattern()
         } else {
-            ggp = .identity
+            ggp = .joinIdentity
         }
         
         if star {
@@ -1765,7 +1765,7 @@ public struct SPARQLParser {
         // TODO: try checkForSharedBlanksInPatterns(reordered)
         // TODO: the algebra should allow n-ary groups, not just binary joins
         
-        return reordered.reduce(.identity, joinReduction)
+        return reordered.reduce(.joinIdentity, joinReduction)
     }
     
     private mutating func parseBind() throws -> UnfinishedAlgebra {

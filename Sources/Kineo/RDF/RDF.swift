@@ -604,6 +604,15 @@ extension Quad : Sequence {
 public enum Node {
     case bound(Term)
     case variable(String, binding: Bool)
+
+    func bind(_ variable : String, to replacement : Node) -> Node {
+        switch self {
+        case .variable(variable, _):
+            return replacement
+        default:
+            return self
+        }
+    }
 }
 
 extension Node : Equatable {

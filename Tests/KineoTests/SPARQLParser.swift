@@ -312,7 +312,7 @@ class SPARQLParserTest: XCTestCase {
         guard var p = SPARQLParser(string: "SELECT * WHERE {\n\n}\nVALUES (?x ?y) { (UNDEF 7) (2 UNDEF) }\n") else { XCTFail(); return }
         do {
             let a = try p.parse()
-            guard case .innerJoin(.identity, let table) = a else {
+            guard case .innerJoin(.joinIdentity, let table) = a else {
                 XCTFail("Unexpected algebra: \(a.serialize())")
                 return
             }
@@ -389,7 +389,7 @@ class SPARQLParserTest: XCTestCase {
         guard var p = SPARQLParser(string: "DESCRIBE <u>") else { XCTFail(); return }
         do {
             let a = try p.parse()
-            guard case .describe(.identity, let nodes) = a else {
+            guard case .describe(.joinIdentity, let nodes) = a else {
                 XCTFail("Unexpected algebra: \(a.serialize())")
                 return
             }
