@@ -623,7 +623,7 @@ public extension Expression {
             return e
         } else {
             switch self {
-            case .node(let node):
+            case .node(_):
                 return self
             case .aggregate(let a):
                 return .aggregate(a.replace(map))

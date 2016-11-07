@@ -1348,7 +1348,7 @@ public struct SPARQLParser {
             let node = try parseVarOrIRI()
             describe.append(node)
             
-            while let t = try peekToken() {
+            while let t = peekToken() {
                 if t.isTerm {
                     describe.append(try parseVarOrIRI())
                 } else if case ._var(_) = t {
@@ -1520,7 +1520,7 @@ public struct SPARQLParser {
             try expect(token: .rparen)
             return node
         } else {
-            guard let t = try peekToken() else { return nil }
+            guard let t = peekToken() else { return nil }
             if case ._var(_) = t {
                 node = try parseVar()
                 guard case .variable(_) = node else {
@@ -2583,7 +2583,7 @@ public struct SPARQLParser {
             return agg
         case "SAMPLE":
             try expect(token: .lparen)
-            let distinct = try attempt(token: .keyword("DISTINCT"))
+            try attempt(token: .keyword("DISTINCT"))
             let expr = try parseNonAggregatingExpression()
             let agg : Aggregation = .sample(expr)
             try expect(token: .rparen)

@@ -627,6 +627,7 @@ extension Node : Equatable {
         }
     }
 }
+
 extension Node : CustomStringConvertible {
     public var description : String {
         switch self {

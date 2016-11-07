@@ -33,6 +33,7 @@ public indirect enum PropertyPath {
 public indirect enum Algebra {
     public typealias SortComparator = (Bool, Expression)
 
+    case unionIdentity
     case joinIdentity
     case table([Node], [TermResult])
     case quad(QuadPattern)
@@ -73,7 +74,7 @@ public indirect enum Algebra {
     public var inscope : Set<String> {
         var variables = Set<String>()
         switch self {
-        case .joinIdentity:
+        case .joinIdentity, .unionIdentity:
             return Set()
         case .project(_, let vars):
             return Set(vars)
@@ -160,8 +161,10 @@ public indirect enum Algebra {
         let indent = String(repeating: " ", count: (depth*2))
             
         switch self {
+        case .unionIdentity:
+            return "\(indent)Empty\n"
         case .joinIdentity:
-            return "\(indent)Identity\n"
+            return "\(indent)Join Identity\n"
         case .quad(let q):
             return "\(indent)Quad(\(q))\n"
         case .triple(let t):
@@ -281,7 +284,7 @@ public indirect enum Algebra {
 public extension Algebra {
     func replace(_ map : (Expression) -> Expression?) -> Algebra {
         switch self {
-        case .joinIdentity, .triple(_), .quad(_), .path(_), .bgp(_), .table(_):
+        case .unionIdentity, .joinIdentity, .triple(_), .quad(_), .path(_), .bgp(_), .table(_):
             return self
         case .distinct(let a):
             return .distinct(a.replace(map))
@@ -340,7 +343,7 @@ public extension Algebra {
             return r
         } else {
             switch self {
-            case .joinIdentity, .triple(_), .quad(_), .path(_), .bgp(_), .table(_):
+            case .unionIdentity, .joinIdentity, .triple(_), .quad(_), .path(_), .bgp(_), .table(_):
                 return self
             case .distinct(let a):
                 return .distinct(a.replace(map))
@@ -1066,7 +1069,7 @@ open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
             default:
                 fatalError()
             }
-        case .zeroOrOne(let pp):
+        case .zeroOrOne(_):
             fatalError("TODO: ZeroOrOne paths are not implemented yet")
         }
     }
@@ -1191,6 +1194,9 @@ open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
 
     public func evaluate(algebra : Algebra, activeGraph : Term) throws -> AnyIterator<TermResult> {
         switch algebra {
+        case .unionIdentity:
+            let results = [TermResult]()
+            return AnyIterator(results.makeIterator())
         case .joinIdentity:
             let results = [TermResult(bindings: [:])]
             return AnyIterator(results.makeIterator())
@@ -1319,7 +1325,7 @@ open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
 
     public func effectiveVersion(matching algebra: Algebra, activeGraph : Term) throws -> Version? {
         switch algebra {
-        case .joinIdentity:
+        case .joinIdentity, .unionIdentity:
             return 0
         case .table(_, _):
             return 0
