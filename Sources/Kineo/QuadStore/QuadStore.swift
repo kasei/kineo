@@ -314,7 +314,7 @@ open class QuadStore : Sequence, QuadStoreProtocol {
             mapping[index] = i
         }
         
-        guard let si = mapping[0], let pi = mapping[1], let oi = mapping[2], let gi = mapping[3] else { fatalError() }
+        guard let si = mapping[0], let pi = mapping[1], let oi = mapping[2], let gi = mapping[3] else { fatalError("Failed to obtain quad pattern mapping for index \(index)") }
         return { (quad) in
             return IDQuad(quad[si], quad[pi], quad[oi], quad[gi])
         }
@@ -324,11 +324,11 @@ open class QuadStore : Sequence, QuadStoreProtocol {
         let QUAD_POSTIONS = ["s": 0, "p": 1, "o": 2, "g": 3]
         var mapping = [Int:Int]()
         for (i,c) in index.characters.enumerated() {
-            guard let index = QUAD_POSTIONS[String(c)] else { fatalError() }
-            mapping[i] = index
+            guard let pos = QUAD_POSTIONS[String(c)] else { fatalError("Failed to obtain quad pattern mapping for index \(index)") }
+            mapping[i] = pos
         }
         
-        guard let si = mapping[0], let pi = mapping[1], let oi = mapping[2], let gi = mapping[3] else { fatalError() }
+        guard let si = mapping[0], let pi = mapping[1], let oi = mapping[2], let gi = mapping[3] else { fatalError("Failed to obtain quad pattern mapping for index \(index)") }
         return { (quad) in
             return IDQuad(quad[si], quad[pi], quad[oi], quad[gi])
         }

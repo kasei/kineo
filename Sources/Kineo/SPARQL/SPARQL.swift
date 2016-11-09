@@ -196,17 +196,17 @@ public struct SPARQLLexer : IteratorProtocol {
     private static let r_INTEGER    = "[0-9]+"
 
     private static let _variableNameRegex : NSRegularExpression = {
-        guard let r = try? NSRegularExpression(pattern: "((([_]|([A-Z]|[a-z]|[\\x{00C0}-\\x{00D6}]|[\\x{00D8}-\\x{00F6}]|[\\x{00F8}-\\x{02FF}]|[\\x{0370}-\\x{037D}]|[\\x{037F}-\\x{1FFF}]|[\\x{200C}-\\x{200D}]|[\\x{2070}-\\x{218F}]|[\\x{2C00}-\\x{2FEF}]|[\\x{3001}-\\x{D7FF}]|[\\x{F900}-\\x{FDCF}]|[\\x{FDF0}-\\x{FFFD}]|[\\x{10000}-\\x{EFFFF}]))|[0-9])(([_]|([A-Z]|[a-z]|[\\x{00C0}-\\x{00D6}]|[\\x{00D8}-\\x{00F6}]|[\\x{00F8}-\\x{02FF}]|[\\x{0370}-\\x{037D}]|[\\x{037F}-\\x{1FFF}]|[\\x{200C}-\\x{200D}]|[\\x{2070}-\\x{218F}]|[\\x{2C00}-\\x{2FEF}]|[\\x{3001}-\\x{D7FF}]|[\\x{F900}-\\x{FDCF}]|[\\x{FDF0}-\\x{FFFD}]|[\\x{10000}-\\x{EFFFF}]))|[0-9]|\\x{00B7}|[\\x{0300}-\\x{036F}]|[\\x{203F}-\\x{2040}])*)", options: .anchorsMatchLines) else { fatalError() }
+        guard let r = try? NSRegularExpression(pattern: "((([_]|([A-Z]|[a-z]|[\\x{00C0}-\\x{00D6}]|[\\x{00D8}-\\x{00F6}]|[\\x{00F8}-\\x{02FF}]|[\\x{0370}-\\x{037D}]|[\\x{037F}-\\x{1FFF}]|[\\x{200C}-\\x{200D}]|[\\x{2070}-\\x{218F}]|[\\x{2C00}-\\x{2FEF}]|[\\x{3001}-\\x{D7FF}]|[\\x{F900}-\\x{FDCF}]|[\\x{FDF0}-\\x{FFFD}]|[\\x{10000}-\\x{EFFFF}]))|[0-9])(([_]|([A-Z]|[a-z]|[\\x{00C0}-\\x{00D6}]|[\\x{00D8}-\\x{00F6}]|[\\x{00F8}-\\x{02FF}]|[\\x{0370}-\\x{037D}]|[\\x{037F}-\\x{1FFF}]|[\\x{200C}-\\x{200D}]|[\\x{2070}-\\x{218F}]|[\\x{2C00}-\\x{2FEF}]|[\\x{3001}-\\x{D7FF}]|[\\x{F900}-\\x{FDCF}]|[\\x{FDF0}-\\x{FFFD}]|[\\x{10000}-\\x{EFFFF}]))|[0-9]|\\x{00B7}|[\\x{0300}-\\x{036F}]|[\\x{203F}-\\x{2040}])*)", options: .anchorsMatchLines) else { fatalError("Failed to compile built-in regular expression") }
         return r
     }()
     
     private static let _bnodeNameRegex : NSRegularExpression = {
-        guard let r = try? NSRegularExpression(pattern: "^([0-9A-Za-z_\\x{00C0}-\\x{00D6}\\x{00D8}-\\x{00F6}\\x{00F8}-\\x{02FF}\\x{0370}-\\x{037D}\\x{037F}-\\x{1FFF}\\x{200C}-\\x{200D}\\x{2070}-\\x{218F}\\x{2C00}-\\x{2FEF}\\x{3001}-\\x{D7FF}\\x{F900}-\\x{FDCF}\\x{FDF0}-\\x{FFFD}\\x{10000}-\\x{EFFFF}])(([A-Za-z_\\x{00C0}-\\x{00D6}\\x{00D8}-\\x{00F6}\\x{00F8}-\\x{02FF}\\x{0370}-\\x{037D}\\x{037F}-\\x{1FFF}\\x{200C}-\\x{200D}\\x{2070}-\\x{218F}\\x{2C00}-\\x{2FEF}\\x{3001}-\\x{D7FF}\\x{F900}-\\x{FDCF}\\x{FDF0}-\\x{FFFD}\\x{10000}-\\x{EFFFF}])|([-0-9\\x{00B7}\\x{0300}-\\x{036F}\\x{203F}-\\x{2040}]))*", options: .anchorsMatchLines) else { fatalError() }
+        guard let r = try? NSRegularExpression(pattern: "^([0-9A-Za-z_\\x{00C0}-\\x{00D6}\\x{00D8}-\\x{00F6}\\x{00F8}-\\x{02FF}\\x{0370}-\\x{037D}\\x{037F}-\\x{1FFF}\\x{200C}-\\x{200D}\\x{2070}-\\x{218F}\\x{2C00}-\\x{2FEF}\\x{3001}-\\x{D7FF}\\x{F900}-\\x{FDCF}\\x{FDF0}-\\x{FFFD}\\x{10000}-\\x{EFFFF}])(([A-Za-z_\\x{00C0}-\\x{00D6}\\x{00D8}-\\x{00F6}\\x{00F8}-\\x{02FF}\\x{0370}-\\x{037D}\\x{037F}-\\x{1FFF}\\x{200C}-\\x{200D}\\x{2070}-\\x{218F}\\x{2C00}-\\x{2FEF}\\x{3001}-\\x{D7FF}\\x{F900}-\\x{FDCF}\\x{FDF0}-\\x{FFFD}\\x{10000}-\\x{EFFFF}])|([-0-9\\x{00B7}\\x{0300}-\\x{036F}\\x{203F}-\\x{2040}]))*", options: .anchorsMatchLines) else { fatalError("Failed to compile built-in regular expression") }
         return r
     }()
     
     private static let _keywordRegex : NSRegularExpression = {
-        guard let r = try? NSRegularExpression(pattern: "(ABS|ADD|ALL|ASC|ASK|AS|AVG|BASE|BIND|BNODE|BOUND|BY|CEIL|CLEAR|COALESCE|CONCAT|CONSTRUCT|CONTAINS|COPY|COUNT|CREATE|DATATYPE|DAY|DEFAULT|DELETE|DELETE WHERE|DESCRIBE|DESC|DISTINCT|DISTINCT|DROP|ENCODE_FOR_URI|EXISTS|FILTER|FLOOR|FROM|GRAPH|GROUP_CONCAT|GROUP|HAVING|HOURS|IF|INSERT|INSERT|DATA|INTO|IN|IRI|ISBLANK|ISIRI|ISLITERAL|ISNUMERIC|ISURI|LANGMATCHES|LANG|LCASE|LIMIT|LOAD|MAX|MD5|MINUS|MINUTES|MIN|MONTH|MOVE|NAMED|NOT|NOW|OFFSET|OPTIONAL|ORDER|PREFIX|RAND|REDUCED|REGEX|REPLACE|ROUND|SAMETERM|SAMPLE|SECONDS|SELECT|SEPARATOR|SERVICE|SHA1|SHA256|SHA384|SHA512|SILENT|STRAFTER|STRBEFORE|STRDT|STRENDS|STRLANG|STRLEN|STRSTARTS|STRUUID|STR|SUBSTR|SUM|TIMEZONE|TO|TZ|UCASE|UNDEF|UNION|URI|USING|UUID|VALUES|WHERE|WITH|YEAR)\\b", options: [.anchorsMatchLines, .caseInsensitive]) else { fatalError() }
+        guard let r = try? NSRegularExpression(pattern: "(ABS|ADD|ALL|ASC|ASK|AS|AVG|BASE|BIND|BNODE|BOUND|BY|CEIL|CLEAR|COALESCE|CONCAT|CONSTRUCT|CONTAINS|COPY|COUNT|CREATE|DATATYPE|DAY|DEFAULT|DELETE|DELETE WHERE|DESCRIBE|DESC|DISTINCT|DISTINCT|DROP|ENCODE_FOR_URI|EXISTS|FILTER|FLOOR|FROM|GRAPH|GROUP_CONCAT|GROUP|HAVING|HOURS|IF|INSERT|INSERT|DATA|INTO|IN|IRI|ISBLANK|ISIRI|ISLITERAL|ISNUMERIC|ISURI|LANGMATCHES|LANG|LCASE|LIMIT|LOAD|MAX|MD5|MINUS|MINUTES|MIN|MONTH|MOVE|NAMED|NOT|NOW|OFFSET|OPTIONAL|ORDER|PREFIX|RAND|REDUCED|REGEX|REPLACE|ROUND|SAMETERM|SAMPLE|SECONDS|SELECT|SEPARATOR|SERVICE|SHA1|SHA256|SHA384|SHA512|SILENT|STRAFTER|STRBEFORE|STRDT|STRENDS|STRLANG|STRLEN|STRSTARTS|STRUUID|STR|SUBSTR|SUM|TIMEZONE|TO|TZ|UCASE|UNDEF|UNION|URI|USING|UUID|VALUES|WHERE|WITH|YEAR)\\b", options: [.anchorsMatchLines, .caseInsensitive]) else { fatalError("Failed to compile built-in regular expression") }
         return r
     }()
     
@@ -221,83 +221,83 @@ public struct SPARQLLexer : IteratorProtocol {
     }()
     
     private static let _aRegex : NSRegularExpression = {
-        guard let r = try? NSRegularExpression(pattern: "a\\b", options: .anchorsMatchLines) else { fatalError() }
+        guard let r = try? NSRegularExpression(pattern: "a\\b", options: .anchorsMatchLines) else { fatalError("Failed to compile built-in regular expression") }
         return r
     }()
     
     private static let _booleanRegex : NSRegularExpression = {
-        guard let r = try? NSRegularExpression(pattern: "(true|false)\\b", options: [.anchorsMatchLines, .caseInsensitive]) else { fatalError() }
+        guard let r = try? NSRegularExpression(pattern: "(true|false)\\b", options: [.anchorsMatchLines, .caseInsensitive]) else { fatalError("Failed to compile built-in regular expression") }
         return r
     }()
     
     private static let _multiLineAnonRegex : NSRegularExpression = {
-        guard let r = try? NSRegularExpression(pattern: "(\\[|\\()[\\t\\r\\n ]*$", options: .anchorsMatchLines) else { fatalError() }
+        guard let r = try? NSRegularExpression(pattern: "(\\[|\\()[\\t\\r\\n ]*$", options: .anchorsMatchLines) else { fatalError("Failed to compile built-in regular expression") }
         return r
     }()
     
     private static let _pNameLNre : NSRegularExpression = {
-        guard let r = try? NSRegularExpression(pattern: r_PNAME_LN, options: []) else { fatalError() }
+        guard let r = try? NSRegularExpression(pattern: r_PNAME_LN, options: []) else { fatalError("Failed to compile built-in regular expression") }
         return r
     }()
     
     private static let _pNameNSre : NSRegularExpression = {
-        guard let r = try? NSRegularExpression(pattern: r_PNAME_NS, options: []) else { fatalError() }
+        guard let r = try? NSRegularExpression(pattern: r_PNAME_NS, options: []) else { fatalError("Failed to compile built-in regular expression") }
         return r
     }()
     
     private static let _escapedCharRegex : NSRegularExpression = {
-        guard let r = try? NSRegularExpression(pattern: "\\\\(.)", options: []) else { fatalError() }
+        guard let r = try? NSRegularExpression(pattern: "\\\\(.)", options: []) else { fatalError("Failed to compile built-in regular expression") }
         return r
     }()
     
 
     private static let _alphanumRegex : NSRegularExpression = {
-        guard let r = try? NSRegularExpression(pattern: "[0-9A-Fa-f]+", options: []) else { fatalError() }
+        guard let r = try? NSRegularExpression(pattern: "[0-9A-Fa-f]+", options: []) else { fatalError("Failed to compile built-in regular expression") }
         return r
     }()
     
     private static let _iriRegex : NSRegularExpression = {
-        guard let r = try? NSRegularExpression(pattern: "<([^<>\"{}|^`\\x{00}-\\x{20}])*>", options: []) else { fatalError() }
+        guard let r = try? NSRegularExpression(pattern: "<([^<>\"{}|^`\\x{00}-\\x{20}])*>", options: []) else { fatalError("Failed to compile built-in regular expression") }
         return r
     }()
     
     private static let _unescapedIRIRegex : NSRegularExpression = {
-        guard let r = try? NSRegularExpression(pattern: "[^>\\\\]+", options: []) else { fatalError() }
+        guard let r = try? NSRegularExpression(pattern: "[^>\\\\]+", options: []) else { fatalError("Failed to compile built-in regular expression") }
         return r
     }()
     
     private static let _nilRegex : NSRegularExpression = {
-        guard let r = try? NSRegularExpression(pattern: "[(][ \r\n\t]*[)]", options: []) else { fatalError() }
+        guard let r = try? NSRegularExpression(pattern: "[(][ \r\n\t]*[)]", options: []) else { fatalError("Failed to compile built-in regular expression") }
         return r
     }()
     
     private static let _doubleRegex : NSRegularExpression = {
-        guard let r = try? NSRegularExpression(pattern: r_DOUBLE, options: []) else { fatalError() }
+        guard let r = try? NSRegularExpression(pattern: r_DOUBLE, options: []) else { fatalError("Failed to compile built-in regular expression") }
         return r
     }()
     
     private static let _decimalRegex : NSRegularExpression = {
-        guard let r = try? NSRegularExpression(pattern: r_DECIMAL, options: []) else { fatalError() }
+        guard let r = try? NSRegularExpression(pattern: r_DECIMAL, options: []) else { fatalError("Failed to compile built-in regular expression") }
         return r
     }()
     
     private static let _integerRegex : NSRegularExpression = {
-        guard let r = try? NSRegularExpression(pattern: r_INTEGER, options: []) else { fatalError() }
+        guard let r = try? NSRegularExpression(pattern: r_INTEGER, options: []) else { fatalError("Failed to compile built-in regular expression") }
         return r
     }()
     
     private static let _anonRegex : NSRegularExpression = {
-        guard let r = try? NSRegularExpression(pattern: "\\[[ \u{0a}\u{0d}\u{09}]*\\]", options: []) else { fatalError() }
+        guard let r = try? NSRegularExpression(pattern: "\\[[ \u{0a}\u{0d}\u{09}]*\\]", options: []) else { fatalError("Failed to compile built-in regular expression") }
         return r
     }()
     
     private static let _prefixOrBaseRegex : NSRegularExpression = {
-        guard let r = try? NSRegularExpression(pattern: "(prefix|base)\\b", options: []) else { fatalError() }
+        guard let r = try? NSRegularExpression(pattern: "(prefix|base)\\b", options: []) else { fatalError("Failed to compile built-in regular expression") }
         return r
     }()
     
     private static let _langRegex : NSRegularExpression = {
-        guard let r = try? NSRegularExpression(pattern: "[a-zA-Z]+(-[a-zA-Z0-9]+)*\\b", options: []) else { fatalError() }
+        guard let r = try? NSRegularExpression(pattern: "[a-zA-Z]+(-[a-zA-Z0-9]+)*\\b", options: []) else { fatalError("Failed to compile built-in regular expression") }
         return r
     }()
     
@@ -308,7 +308,7 @@ public struct SPARQLLexer : IteratorProtocol {
 
         // This is working around a bug in the swift compiler that causes a crash when U+D7FF is inserted into a CharacterSet as part of a ClosedRange.
         // Instead, we insert it directly as a single UnicodeScalar.
-        guard let scalar = UnicodeScalar(0xD7FF) else { fatalError() }
+        guard let scalar = UnicodeScalar(0xD7FF) else { fatalError("Failed to construct built-in CharacterSet") }
         pn.insert(scalar)
 
         let ranges : [(Int, Int)] = [
@@ -326,8 +326,8 @@ public struct SPARQLLexer : IteratorProtocol {
             (0x10000, 0xEFFFF),
         ]
         for bounds in ranges {
-            guard let mn = UnicodeScalar(bounds.0) else { fatalError() }
-            guard let mx = UnicodeScalar(bounds.1) else { fatalError() }
+            guard let mn = UnicodeScalar(bounds.0) else { fatalError("Failed to construct built-in CharacterSet") }
+            guard let mx = UnicodeScalar(bounds.1) else { fatalError("Failed to construct built-in CharacterSet") }
             let range = mn...mx
             pn.insert(charactersIn: range)
         }
@@ -1720,8 +1720,8 @@ public struct SPARQLParser {
         return nil
     }
     
-//    private mutating func parseQuads() throws -> [QuadPattern] { fatalError() }
-//    private mutating func triplesByParsingTriplesTemplate() throws -> [TriplePattern] { fatalError() }
+//    private mutating func parseQuads() throws -> [QuadPattern] { fatalError }
+//    private mutating func triplesByParsingTriplesTemplate() throws -> [TriplePattern] { fatalError }
 
     private mutating func parseGroupGraphPatternSub() throws -> Algebra {
         var args = [Algebra]()
@@ -2240,7 +2240,7 @@ public struct SPARQLParser {
         return (.bound(bnode), triples)
     }
 
-//    private mutating func parseGraphNodeAsNode() throws -> (Node, [Algebra]) { fatalError() }
+//    private mutating func parseGraphNodeAsNode() throws -> (Node, [Algebra]) { fatalError }
 
     private mutating func parseGraphNodePathAsNode() throws -> (Node, [Algebra]) {
         let t = try peekExpectedToken()

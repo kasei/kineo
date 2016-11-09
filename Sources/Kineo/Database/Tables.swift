@@ -85,7 +85,7 @@ public struct TablePage<T : BufferSerializable & Comparable, U : BufferSerializa
         let countPtr = UnsafeMutableRawPointer(ptr)
         try UInt32(0).serialize(to: &ptr)
         let size = ptr - rawMemory
-        guard size == 24 else { fatalError() }
+        guard size == 24 else { fatalError("Unexpected serialization size") }
         
         var bytesRemaining = pageSize - 24
         var payloadPtr = UnsafeMutableRawPointer(rawMemory+24)

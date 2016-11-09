@@ -63,7 +63,7 @@ func parseQuery(_ database : FilePageDatabase, filename : String) throws -> Alge
 }
 
 func planQuery(_ database : FilePageDatabase, algebra : Algebra, graph : Term? = nil) throws -> ResultPlan {
-    fatalError()
+    fatalError("implement")
 }
 
 func query2(_ database : FilePageDatabase, algebra: Algebra, graph: Term? = nil, verbose : Bool) throws -> Int {
@@ -247,7 +247,7 @@ var verbose = false
 let _args = CommandLine.arguments
 let argscount = _args.count
 var args = PeekableIterator(generator: _args.makeIterator())
-guard let pname = args.next() else { fatalError() }
+guard let pname = args.next() else { fatalError("Missing command name") }
 var pageSize = 8192
 guard argscount >= 2 else {
     print("Usage: \(pname) [-v] database.db COMMAND [ARGUMENTS]")
@@ -270,7 +270,7 @@ if let next = args.peek(), next == "-v" {
     verbose = true
 }
 
-guard let filename = args.next() else { fatalError() }
+guard let filename = args.next() else { fatalError("Missing filename") }
 guard let database = FilePageDatabase(filename, size: pageSize) else { warn("Failed to open \(filename)"); exit(1) }
 let startTime = getCurrentTime()
 let startSecond = getCurrentDateSeconds()

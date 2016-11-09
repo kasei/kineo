@@ -29,7 +29,7 @@ internal struct TreePath<T : BufferSerializable & Comparable, U : BufferSerializ
             let (node, _) : (TreeNode<T,U>, PageStatus) = try mediator.readPage(pid)
             current = node
         }
-        guard case .leafNode(let currentLeaf) = current else { fatalError() }
+        guard case .leafNode(let currentLeaf) = current else { fatalError("Unexpected tree node found in traversal") }
         return TreePath(internalPath: path, leaf: currentLeaf, mediator: mediator)
     }
     
@@ -44,7 +44,7 @@ internal struct TreePath<T : BufferSerializable & Comparable, U : BufferSerializ
             let (node, _) : (TreeNode<T,U>, PageStatus) = try mediator.readPage(pid)
             current = node
         }
-        guard case .leafNode(let currentLeaf) = current else { fatalError() }
+        guard case .leafNode(let currentLeaf) = current else { fatalError("Unexpected tree node found in traversal") }
         return TreePath(internalPath: path, leaf: currentLeaf, mediator: mediator)
     }
 
@@ -84,7 +84,7 @@ internal struct TreePath<T : BufferSerializable & Comparable, U : BufferSerializ
             path = []
             return TreePath(internalPath: path, leaf: nil, mediator: mediator)
         }
-        guard case .leafNode(let currentLeaf) = current else { fatalError() }
+        guard case .leafNode(let currentLeaf) = current else { fatalError("Unexpected tree node found in traversal") }
         return TreePath(internalPath: path, leaf: currentLeaf, mediator: mediator)
     }
     
@@ -96,7 +96,7 @@ internal struct TreePath<T : BufferSerializable & Comparable, U : BufferSerializ
         
         do {
             while let (current, currentIndex) = internalPath.popLast() {
-                guard case .internalNode(let i) = current else { fatalError() }
+                guard case .internalNode(let i) = current else { fatalError("Unexpected tree node found in traversal") }
                 if currentIndex < (i.pairs.count-1) {
                     // can go back down here
                     let index = currentIndex + 1
@@ -111,7 +111,7 @@ internal struct TreePath<T : BufferSerializable & Comparable, U : BufferSerializ
                         let (node, _) : (TreeNode<T,U>, PageStatus) = try mediator.readPage(pid)
                         current = node
                     }
-                    guard case .leafNode(let currentLeaf) = current else { fatalError() }
+                    guard case .leafNode(let currentLeaf) = current else { fatalError("Unexpected tree node found in traversal") }
                     leaf = currentLeaf
                     return true
                 }
@@ -1100,7 +1100,7 @@ extension RMediator {
     private func printTreeDOT(page pid : PageId) -> [PageId]? {
         do {
             guard let fm = self as? FilePageRMediator else { fatalError("Cannot serialize trees to DOT with this database mediator") }
-            guard let (_, date, _) = fm._pageInfo(page: pid) else { fatalError() }
+            guard let (_, date, _) = fm._pageInfo(page: pid) else { fatalError("Failed to get info for page \(pid)") }
             let (node, _) : (TreeNode<Empty,Empty>, PageStatus) = try self.readPage(pid)
             let nodeName = "p\(pid)"
             var attributes = [String]()

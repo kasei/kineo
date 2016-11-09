@@ -39,7 +39,7 @@ var printTokens = false
 let _args = CommandLine.arguments
 let argscount = _args.count
 var args = PeekableIterator(generator: _args.makeIterator())
-guard let pname = args.next() else { fatalError() }
+guard let pname = args.next() else { fatalError("Missing command name") }
 var pageSize = 8192
 guard argscount >= 2 else {
     print("Usage: \(pname) [-v] query.rq")

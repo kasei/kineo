@@ -888,7 +888,7 @@ open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
             let (groupKey, v) = pair
             var value = v
             if case .avg(_) = agg {
-                guard let count = groupCount[groupKey] else { fatalError() }
+                guard let count = groupCount[groupKey] else { fatalError("Failed to find expected group data during aggregation") }
                 value = v / Numeric.double(Double(count))
             }
             
@@ -986,7 +986,8 @@ open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
             
         case .seq(let lhs, let rhs):
             let jvar = freshVariable()
-            guard case .variable(let jvarname, _) = jvar else { fatalError() }
+            guard case .variable(let jvarname, _) = jvar else { fatalError(
+                ) }
             let i = try evaluatePath(subject: subject, object: jvar, graph: graph, path: lhs)
             let j = try evaluatePath(subject: jvar, object: object, graph: graph, path: rhs)
             return pipelinedHashJoin(joinVariables: [jvarname], lhs: i, rhs: j)
@@ -1021,7 +1022,7 @@ open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
                 }
                 return AnyIterator(results.makeIterator())
             default:
-                fatalError()
+                fatalError("Unexpected case found for * property path")
             }
         case .plus(let pp):
             switch (subject, object) {
@@ -1067,7 +1068,7 @@ open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
                 }
                 return AnyIterator(results.makeIterator())
             default:
-                fatalError()
+                fatalError("Unexpected case found for + property path")
             }
         case .zeroOrOne(_):
             fatalError("TODO: ZeroOrOne paths are not implemented yet")
@@ -1223,7 +1224,7 @@ open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
             if case .bound(let g) = graph {
                 return try evaluate(algebra: child, activeGraph: g)
             } else {
-                guard case .variable(let gv, let bind) = graph else { fatalError() }
+                guard case .variable(let gv, let bind) = graph else { fatalError("Unexpected node found where variable required") }
                 var iters = try store.graphs().filter { $0 != defaultGraph }.map { ($0, try evaluate(algebra: child, activeGraph: $0)) }
                 return AnyIterator {
                     repeat {

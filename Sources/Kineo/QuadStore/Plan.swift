@@ -190,7 +190,7 @@ public class QuadStorePlanner {
             for n in nodes {
                 switch n {
                 case .bound(let t):
-                    guard let id = store.id.id(for: t) else { fatalError() }
+                    guard let id = store.id.id(for: t) else { fatalError("Failed to retrieve ID for RDF Term during query planning") }
                     idnodes.append(.bound(id))
                 case .variable(let name, binding: _):
                     idnodes.append(.variable(self.variableNumber(name)))
@@ -204,7 +204,7 @@ public class QuadStorePlanner {
             for n in nodes {
                 switch n {
                 case .bound(let t):
-                    guard let id = store.id.id(for: t) else { fatalError() }
+                    guard let id = store.id.id(for: t) else { fatalError("Failed to retrieve ID for RDF Term during query planning") }
                     idnodes.append(.bound(id))
                 case .variable(let name, binding: _):
                     idnodes.append(.variable(self.variableNumber(name)))

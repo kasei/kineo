@@ -520,7 +520,7 @@ extension Term : Comparable {
              .datatype("http://www.w3.org/2001/XMLSchema#double"):
             return Double(value) ?? 0.0
         default:
-            fatalError()
+            fatalError("Cannot compute a numeric value for term of type \(type)")
         }
     }
     
