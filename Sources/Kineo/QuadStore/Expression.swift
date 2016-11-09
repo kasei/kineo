@@ -27,7 +27,7 @@ extension Term {
 }
 
 public enum Aggregation {
-    case countAll(Bool)
+    case countAll
     case count(Expression, Bool)
     case sum(Expression, Bool)
     case avg(Expression, Bool)
@@ -40,7 +40,7 @@ public enum Aggregation {
 extension Aggregation : Equatable {
     public static func ==(lhs: Aggregation, rhs: Aggregation) -> Bool {
         switch (lhs, rhs) {
-        case (.countAll(let l), .countAll(let r)) where l == r:
+        case (.countAll, .countAll):
             return true
         case (.count(let l), .count(let r)) where l == r:
             return true
@@ -65,10 +65,8 @@ extension Aggregation : Equatable {
 extension Aggregation : CustomStringConvertible {
     public var description : String {
         switch self {
-        case .countAll(false):
+        case .countAll:
             return "COUNT(*)"
-        case .countAll(true):
-            return "COUNT(DISTINCT *)"
         case .count(let expr, false):
             return "COUNT(\(expr.description))"
         case .count(let expr, true):
@@ -689,7 +687,7 @@ public extension Expression {
 public extension Aggregation {
     func replace(_ map : (Expression) -> Expression?) -> Aggregation {
         switch self {
-        case .countAll(_):
+        case .countAll:
             return self
         case .count(let expr, let distinct):
             return .count(expr.replace(map), distinct)

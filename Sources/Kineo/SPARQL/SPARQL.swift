@@ -2546,7 +2546,7 @@ public struct SPARQLParser {
             let distinct = try attempt(token: .keyword("DISTINCT"))
             let agg : Aggregation
             if try attempt(token: .star) {
-                agg = .countAll(distinct)
+                agg = .countAll
             } else {
                 let expr = try parseNonAggregatingExpression()
                 agg = .count(expr, distinct)

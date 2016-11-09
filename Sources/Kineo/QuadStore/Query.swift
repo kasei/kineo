@@ -407,7 +407,7 @@ public extension Algebra {
             case .bgp(let triples):
                 return .bgp(triples.map { $0.bind(variable, to: replacement) })
             case .table(_):
-                fatalError("implement")
+                fatalError("TODO: semantics of binding a variable for a values table are unclear")
             case .describe(let a, let nodes):
                 return .describe(a, nodes.map { $0.bind(variable, to: replacement) })
             case .construct(let a, let triples):
@@ -521,7 +521,7 @@ open class QueryParser<T : LineReadable> {
                 case "count":
                     agg = .count(expr, false)
                 case "countall":
-                    agg = .countAll(false)
+                    agg = .countAll
                 default:
                     throw QueryError.parseError("Unexpected aggregation operation: \(op)")
                 }
@@ -594,7 +594,7 @@ open class QueryParser<T : LineReadable> {
             let name = parts[1]
             let groups = parts.suffix(from: 2).map { (name) -> Expression in .node(.variable(name, binding: true)) }
             guard let child = stack.popLast() else { return nil }
-            return .aggregate(child, groups, [(.countAll(false), name)])
+            return .aggregate(child, groups, [(.countAll, name)])
         } else if op == "limit" {
             guard let count = Int(rest) else { return nil }
             guard let child = stack.popLast() else { throw QueryError.parseError("Not enough operands for \(op)") }
@@ -776,14 +776,20 @@ open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
         }
     }
     
-    func evaluateCount<S : Sequence>(results : S, expression keyExpr : Expression) -> Term? where S.Iterator.Element == TermResult {
-        var count = 0
-        for result in results {
-            if let _ = try? keyExpr.evaluate(result: result) {
-                count += 1
+    func evaluateCount<S : Sequence>(results : S, expression keyExpr : Expression, distinct : Bool) -> Term? where S.Iterator.Element == TermResult {
+        if distinct {
+            let terms = results.map { try? keyExpr.evaluate(result: $0) }.flatMap { $0 }
+            let unique = Set(terms)
+            return Term(integer: unique.count)
+        } else {
+            var count = 0
+            for result in results {
+                if let _ = try? keyExpr.evaluate(result: result) {
+                    count += 1
+                }
             }
+            return Term(integer: count)
         }
-        return Term(integer: count)
     }
     
     func evaluateCountAll<S : Sequence>(results : S) -> Term? where S.Iterator.Element == TermResult {
@@ -794,80 +800,185 @@ open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
         return Term(integer: count)
     }
     
-    func evaluateSum<S : Sequence>(results : S, expression keyExpr : Expression) -> Term? where S.Iterator.Element == TermResult {
-        var runningSum : Numeric = .integer(0)
+    func evaluateAvg<S : Sequence>(results : S, expression keyExpr : Expression, distinct : Bool) -> Term? where S.Iterator.Element == TermResult {
+        var doubleSum : Double = 0.0
+        let integer = TermType.datatype("http://www.w3.org/2001/XMLSchema#integer")
+        var resultingType : TermType? = integer
         var count = 0
-        for result in results {
-            if let term = try? keyExpr.evaluate(result: result) {
+        
+        var terms = results.map { try? keyExpr.evaluate(result: $0) }.flatMap { $0 }
+        if distinct {
+            terms = Array(Set(terms))
+        }
+        
+        for term in terms {
+            if term.isNumeric {
                 count += 1
+                resultingType = resultingType?.resultType(op: "+", operandType: term.type)
+                doubleSum += term.numericValue
+            }
+        }
+        
+        doubleSum /= Double(count)
+        resultingType = resultingType?.resultType(op: "/", operandType: integer)
+        if let type = resultingType {
+            if let n = Term(numeric: doubleSum, type: type) {
+                return n
+            } else {
+                // cannot create a numeric term with this combination of value and type
+            }
+        } else {
+            warn("*** Cannot determine resulting numeric datatype for AVG operation")
+        }
+        return nil
+    }
+
+    func evaluateSum<S : Sequence>(results : S, expression keyExpr : Expression, distinct : Bool) -> Term? where S.Iterator.Element == TermResult {
+        var runningSum : Numeric = .integer(0)
+        if distinct {
+            let terms = results.map { try? keyExpr.evaluate(result: $0) }.flatMap { $0 }.sorted()
+            let unique = Set(terms)
+            if unique.count == 0 {
+                return nil
+            }
+            for term in unique {
                 if let numeric = term.numeric {
                     runningSum = runningSum + numeric
                 }
             }
+            return runningSum.term
+        } else {
+            var count = 0
+            for result in results {
+                if let term = try? keyExpr.evaluate(result: result) {
+                    count += 1
+                    if let numeric = term.numeric {
+                        runningSum = runningSum + numeric
+                    }
+                }
+            }
+            if count == 0 {
+                return nil
+            }
+            return runningSum.term
         }
-        
-        if count == 0 {
-            return nil
-        }
-        return runningSum.term
     }
     
-    //
+    func evaluateGroupConcat<S : Sequence>(results : S, expression keyExpr : Expression, separator: String, distinct : Bool) -> Term? where S.Iterator.Element == TermResult {
+        var terms = results.map { try? keyExpr.evaluate(result: $0) }.flatMap { $0 }
+        if distinct {
+            terms = Array(Set(terms))
+        }
+        
+        if terms.count == 0 {
+            return nil
+        }
+        
+        let values = terms.map { $0.value }
+        let type = terms.first!.type
+        let c = values.joined(separator: separator)
+        return Term(value: c, type: type)
+    }
+    
     func evaluateSinglePipelinedAggregation(algebra child: Algebra, groups: [Expression], aggregation agg: Aggregation, variable name: String, activeGraph : Term) throws -> AnyIterator<TermResult> {
         let i = try self.evaluate(algebra: child, activeGraph: activeGraph)
-        var groupValue = [String:Numeric]()
+        var numericGroups = [String:Numeric]()
+        var termGroups = [String:Term]()
         var groupCount = [String:Int]()
         var groupBindings = [String:[String:Term]]()
         for result in i {
             let group = groups.map { (expr) -> Term? in return try? expr.evaluate(result: result) }
             let groupKey = "\(group)"
-            if let value = groupValue[groupKey] {
+            if let value = termGroups[groupKey] {
                 switch agg {
-                case .countAll(false):
-                    groupValue[groupKey] = value + .integer(1)
+                case .min(let keyExpr):
+                    if let term = try? keyExpr.evaluate(result: result) {
+                        termGroups[groupKey] = min(value, term)
+                    }
+                case .max(let keyExpr):
+                    if let term = try? keyExpr.evaluate(result: result) {
+                        termGroups[groupKey] = max(value, term)
+                    }
+                case .sample(_):
+                    break
+                case .groupConcat(let keyExpr, let sep, false):
+                    guard case .datatype(_) = value.type else { fatalError("Unexpected term in generating GROUP_CONCAT value") }
+                    let string = value.value
+                    if let term = try? keyExpr.evaluate(result: result) {
+                        let updated = string + sep + term.value
+                        termGroups[groupKey] = Term(value: updated, type: value.type)
+                    }
+                default:
+                    fatalError("unexpected pipelined evaluation for \(agg)")
+                }
+            } else if let value = numericGroups[groupKey] {
+                switch agg {
+                case .countAll:
+                    numericGroups[groupKey] = value + .integer(1)
                 case .avg(let keyExpr, false):
                     if let term = try? keyExpr.evaluate(result: result), let c = groupCount[groupKey] {
                         if let n = term.numeric {
-                            groupValue[groupKey] = value + n
+                            numericGroups[groupKey] = value + n
                             groupCount[groupKey] = c + 1
                         }
                     }
                 case .count(let keyExpr, false):
                     if let _ = try? keyExpr.evaluate(result: result) {
-                        groupValue[groupKey] = value + .integer(1)
+                        numericGroups[groupKey] = value + .integer(1)
                     }
                 case .sum(let keyExpr, false):
                     if let term = try? keyExpr.evaluate(result: result) {
                         if let n = term.numeric {
-                            groupValue[groupKey] = value + n
+                            numericGroups[groupKey] = value + n
                         }
                     }
                 default:
-                    fatalError("implement evaluation for \(agg)")
+                    fatalError("unexpected pipelined evaluation for \(agg)")
                 }
             } else {
                 switch agg {
-                case .countAll(false):
-                    groupValue[groupKey] = .integer(1)
+                case .countAll:
+                    numericGroups[groupKey] = .integer(1)
                 case .avg(let keyExpr, false):
                     if let term = try? keyExpr.evaluate(result: result) {
                         if term.isNumeric {
-                            groupValue[groupKey] = term.numeric
+                            numericGroups[groupKey] = term.numeric
                             groupCount[groupKey] = 1
                         }
                     }
                 case .count(let keyExpr, false):
                     if let _ = try? keyExpr.evaluate(result: result) {
-                        groupValue[groupKey] = .integer(1)
+                        numericGroups[groupKey] = .integer(1)
                     }
                 case .sum(let keyExpr, false):
                     if let term = try? keyExpr.evaluate(result: result) {
                         if term.isNumeric {
-                            groupValue[groupKey] = term.numeric
+                            numericGroups[groupKey] = term.numeric
+                        }
+                    }
+                case .min(let keyExpr):
+                    if let term = try? keyExpr.evaluate(result: result) {
+                        termGroups[groupKey] = term
+                    }
+                case .max(let keyExpr):
+                    if let term = try? keyExpr.evaluate(result: result) {
+                        termGroups[groupKey] = term
+                    }
+                case .sample(let keyExpr):
+                    if let term = try? keyExpr.evaluate(result: result) {
+                        termGroups[groupKey] = term
+                    }
+                case .groupConcat(let keyExpr, _, false):
+                    if let term = try? keyExpr.evaluate(result: result) {
+                        switch term.type {
+                        case .datatype(_):
+                            termGroups[groupKey] = term
+                        default:
+                            termGroups[groupKey] = Term(value: term.value, type: .datatype("http://www.w3.org/2001/XMLSchema#string"))
                         }
                     }
                 default:
-                    fatalError("implement evaluation for \(agg)")
+                    fatalError("unexpected pipelined evaluation for \(agg)")
                 }
                 var bindings = [String:Term]()
                 for (g, term) in zip(groups, group) {
@@ -882,7 +993,7 @@ open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
         }
         // TODO: handle special case where there are no groups (no input rows led to no groups being created);
         //       in this case, counts should return a single result with { $name=0 }
-        var a = groupValue.makeIterator()
+        var a = numericGroups.makeIterator()
         return AnyIterator {
             guard let pair = a.next() else { return nil }
             let (groupKey, v) = pair
@@ -1128,46 +1239,43 @@ open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
             guard var bindings = groupBindings[groupKey] else { fatalError("Unexpected missing aggregation group template") }
             for (agg, name) in aggs {
                 switch agg {
-                case .countAll(false):
+                case .countAll:
                     if let n = self.evaluateCountAll(results: results) {
                         bindings[name] = n
                     }
-                case .count(let keyExpr, false):
-                    if let n = self.evaluateCount(results: results, expression: keyExpr) {
+                case .count(let keyExpr, let distinct):
+                    if let n = self.evaluateCount(results: results, expression: keyExpr, distinct: distinct) {
                         bindings[name] = n
                     }
-                case .sum(let keyExpr, false):
-                    if let n = self.evaluateSum(results: results, expression: keyExpr) {
+                case .sum(let keyExpr, let distinct):
+                    if let n = self.evaluateSum(results: results, expression: keyExpr, distinct: distinct) {
                         bindings[name] = n
                     }
-                case .avg(let keyExpr, false):
-                    var doubleSum : Double = 0.0
-                    let integer = TermType.datatype("http://www.w3.org/2001/XMLSchema#integer")
-                    var resultingType : TermType? = integer
-                    var count = 0
-                    for result in results {
-                        if let term = try? keyExpr.evaluate(result: result) {
-                            if term.isNumeric {
-                                count += 1
-                                resultingType = resultingType?.resultType(op: "+", operandType: term.type)
-                                doubleSum += term.numericValue
-                            }
-                        }
+                case .avg(let keyExpr, let distinct):
+                    if let n = self.evaluateAvg(results: results, expression: keyExpr, distinct: distinct) {
+                        bindings[name] = n
                     }
-                    
-                    doubleSum /= Double(count)
-                    resultingType = resultingType?.resultType(op: "/", operandType: integer)
-                    if let type = resultingType {
-                        if let n = Term(numeric: doubleSum, type: type) {
-                            bindings[name] = n
-                        } else {
-                            // cannot create a numeric term with this combination of value and type
-                        }
-                    } else {
-                        warn("*** Cannot determine resulting numeric datatype for AVG operation")
+                case .min(let keyExpr):
+                    let terms = results.map { try? keyExpr.evaluate(result: $0) }.flatMap { $0 }
+                    if terms.count > 0 {
+                        let n = terms.reduce(terms.first!) { min($0, $1) }
+                        bindings[name] = n
                     }
-                default:
-                    fatalError("implement evaluation for \(agg)")
+                case .max(let keyExpr):
+                    let terms = results.map { try? keyExpr.evaluate(result: $0) }.flatMap { $0 }
+                    if terms.count > 0 {
+                        let n = terms.reduce(terms.first!) { max($0, $1) }
+                        bindings[name] = n
+                    }
+                case .sample(let keyExpr):
+                    let terms = results.map { try? keyExpr.evaluate(result: $0) }.flatMap { $0 }
+                    if let n = terms.first {
+                        bindings[name] = n
+                    }
+                case .groupConcat(let keyExpr, let sep, let distinct):
+                    if let n = self.evaluateGroupConcat(results: results, expression: keyExpr, separator: sep, distinct: distinct) {
+                        bindings[name] = n
+                    }
                 }
             }
             return TermResult(bindings: bindings)
@@ -1287,8 +1395,10 @@ open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
             if aggs.count == 1 {
                 let (agg, name) = aggs[0]
                 switch agg {
-                case .sum(_), .count(_), .countAll, .avg(_), .min(_), .max(_), .groupConcat(_), .sample(_):
+                case .sum(_, false), .count(_, false), .countAll, .avg(_, false), .min(_), .max(_), .groupConcat(_, _, false), .sample(_):
                     return try evaluateSinglePipelinedAggregation(algebra: child, groups: groups, aggregation: agg, variable: name, activeGraph: activeGraph)
+                default:
+                    break
                 }
             }
             return try evaluateAggregation(algebra: child, groups: groups, aggregations: aggs, activeGraph: activeGraph)
