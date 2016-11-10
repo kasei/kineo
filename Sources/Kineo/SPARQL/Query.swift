@@ -14,6 +14,73 @@ enum QueryError : Error {
     case parseError(String)
 }
 
+public struct TriplePattern : CustomStringConvertible {
+    public var subject : Node
+    public var predicate : Node
+    public var object : Node
+    public init(subject: Node, predicate: Node, object: Node) {
+        self.subject = subject
+        self.predicate = predicate
+        self.object = object
+    }
+    
+    public var description : String {
+        return "\(subject) \(predicate) \(object) ."
+    }
+    
+    func bind(_ variable : String, to replacement : Node) -> TriplePattern {
+        let subject = self.subject.bind(variable, to: replacement)
+        let predicate = self.predicate.bind(variable, to: replacement)
+        let object = self.object.bind(variable, to: replacement)
+        return TriplePattern(subject: subject, predicate: predicate, object: object)
+    }
+}
+
+public struct QuadPattern : CustomStringConvertible {
+    public var subject : Node
+    public var predicate : Node
+    public var object : Node
+    public var graph : Node
+    public init(subject: Node, predicate: Node, object: Node, graph: Node) {
+        self.subject = subject
+        self.predicate = predicate
+        self.object = object
+        self.graph = graph
+    }
+    public var description : String {
+        return "\(subject) \(predicate) \(object) \(graph)."
+    }
+    
+    public func matches(quad : Quad) -> TermResult? {
+        let terms = [quad.subject, quad.predicate, quad.object, quad.graph]
+        let nodes = [subject, predicate, object, graph]
+        var bindings = [String:Term]()
+        for i in 0..<4 {
+            let term = terms[i]
+            let node = nodes[i]
+            switch node {
+            case .bound(let t):
+                if t != term {
+                    return nil
+                }
+            case .variable(let name, binding: let b):
+                if b {
+                    bindings[name] = term
+                }
+            }
+        }
+        return TermResult(bindings: bindings)
+    }
+    
+    func bind(_ variable : String, to replacement : Node) -> QuadPattern {
+        let subject = self.subject.bind(variable, to: replacement)
+        let predicate = self.predicate.bind(variable, to: replacement)
+        let object = self.object.bind(variable, to: replacement)
+        let graph = self.graph.bind(variable, to: replacement)
+        return QuadPattern(subject: subject, predicate: predicate, object: object, graph: graph)
+    }
+}
+
 public enum WindowFunction {
     case rowNumber
     case rank
@@ -695,3 +762,354 @@ open class QueryParser<T : LineReadable> {
         return stack.popLast()
     }
 }
+
+extension TriplePattern {
+    public var sparqlTokens : AnySequence<SPARQLToken> {
+        var tokens = [SPARQLToken]()
+        tokens.append(contentsOf: self.subject.sparqlTokens)
+        
+        if self.predicate == .bound(Term.rdf("type")) {
+            tokens.append(.keyword("A"))
+        } else {
+            tokens.append(contentsOf: self.predicate.sparqlTokens)
+        }
+        tokens.append(contentsOf: self.object.sparqlTokens)
+        tokens.append(.dot)
+        return AnySequence(tokens)
+    }
+}
+
+extension QuadPattern {
+    public var sparqlTokens : AnySequence<SPARQLToken> {
+        var tokens = [SPARQLToken]()
+        tokens.append(.keyword("GRAPH"))
+        tokens.append(contentsOf: self.graph.sparqlTokens)
+        tokens.append(.lbrace)
+        tokens.append(contentsOf: self.subject.sparqlTokens)
+        if self.predicate == .bound(Term.xsd("type")) {
+            tokens.append(.keyword("A"))
+        } else {
+            tokens.append(contentsOf: self.predicate.sparqlTokens)
+        }
+        tokens.append(contentsOf: self.object.sparqlTokens)
+        tokens.append(.dot)
+        tokens.append(.rbrace)
+        return AnySequence(tokens)
+    }
+}
+
+extension Algebra {
+    var serializableEquivalent : Algebra {
+        switch self {
+        case .project(let lhs, let names):
+            return .project(lhs.serializableEquivalent, names)
+        case .aggregate(let lhs, let groups, let aggs):
+            switch lhs {
+            case .project(_):
+                return .aggregate(lhs.serializableEquivalent, groups, aggs)
+            default:
+                fatalError()
+            }
+        case .order(let lhs, let cmps):
+            switch lhs {
+            case .aggregate(_), .project(_):
+                return .order(lhs.serializableEquivalent, cmps)
+            default:
+                return .order(.project(lhs.serializableEquivalent, lhs.inscope.sorted()), cmps)
+            }
+        case .slice(let lhs, let offset, let limit):
+            switch lhs {
+            case .order(_), .aggregate(_), .project(_):
+                return .slice(lhs.serializableEquivalent, offset, limit)
+            default:
+                return .slice(.project(lhs.serializableEquivalent, lhs.inscope.sorted()), offset, limit)
+            }
+        case .distinct(let lhs):
+            switch lhs {
+            case .slice(_), .order(_), .aggregate(_), .project(_):
+                return .distinct(lhs.serializableEquivalent)
+            default:
+                return .distinct(.project(lhs.serializableEquivalent, lhs.inscope.sorted()))
+            }
+
+        case .unionIdentity:
+            fatalError("cannot serialize the union identity in SPARQL")
+        case .joinIdentity:
+            return self
+        case .quad(_), .triple(_), .table(_), .bgp(_):
+            return self
+        case .innerJoin(let lhs, let rhs):
+            return .innerJoin(lhs.serializableEquivalent, rhs.serializableEquivalent)
+        case .leftOuterJoin(let lhs, let rhs, let expr):
+            return .leftOuterJoin(lhs.serializableEquivalent, rhs.serializableEquivalent, expr)
+        case .minus(let lhs, let rhs):
+            return .minus(lhs.serializableEquivalent, rhs.serializableEquivalent)
+        case .union(let lhs, let rhs):
+            return .union(lhs.serializableEquivalent, rhs.serializableEquivalent)
+        case .filter(let lhs, let expr):
+            return .filter(lhs.serializableEquivalent, expr)
+        case .namedGraph(let lhs, let graph):
+            return .namedGraph(lhs.serializableEquivalent, graph)
+        case .service(let endpoint, let lhs, let silent):
+            return .service(endpoint, lhs.serializableEquivalent, silent)
+        
+            
+            /**
+    case .path(Node, PropertyPath, Node)
+    case .aggregate(Algebra, [Expression], [(Aggregation, String)])
+    case .window(Algebra, [Expression], [(WindowFunction, [SortComparator], String)])
+    case .construct(Algebra, [TriplePattern])
+    case .describe(Algebra, [Node])
+    case .ask(Algebra)
+**/
+        default:
+            fatalError("Implement Algebra.sparqlTokens for \(self)")
+        }
+    }
+    
+    public func sparqlQueryTokens() -> AnySequence<SPARQLToken> {
+        var a = self.serializableEquivalent
+        
+        print("\(a.serialize())")
+        
+        switch a {
+        case .project(_), .aggregate(_), .order(.project(_), _), .slice(.project(_), _, _), .slice(.order(.project(_), _), _, _), .distinct(_):
+            print("\(a.serialize())")
+            return a.sparqlTokens(depth: 0)
+        default:
+            let wrapped : Algebra = .project(a, a.inscope.sorted())
+            return wrapped.sparqlTokens(depth: 0)
+        }
+    }
+    
+    public func sparqlTokens(depth : Int) -> AnySequence<SPARQLToken> {
+        switch self {
+        case .unionIdentity:
+            fatalError("cannot serialize the union identity as a SPARQL token sequence")
+        case .joinIdentity:
+            return AnySequence([.lbrace, .rbrace])
+        case .quad(let q):
+            return q.sparqlTokens
+        case .triple(let t):
+            return t.sparqlTokens
+        case .bgp(let triples):
+            let tokens = triples.map { $0.sparqlTokens }.flatMap { $0 }
+            return AnySequence(tokens)
+        case .innerJoin(let rhs, let lhs):
+            let tokens = [rhs, lhs].map { $0.sparqlTokens(depth: depth) }.flatMap { $0 }
+            return AnySequence(tokens)
+        case .leftOuterJoin(let lhs, let rhs, let expr):
+            var tokens = [SPARQLToken]()
+            tokens.append(.lbrace)
+            tokens.append(contentsOf: lhs.sparqlTokens(depth: depth+1))
+            tokens.append(.rbrace)
+            tokens.append(.keyword("OPTIONAL"))
+            tokens.append(.lbrace)
+            tokens.append(contentsOf: rhs.sparqlTokens(depth: depth+1))
+            if expr != .node(.bound(Term.trueValue)) {
+                tokens.append(.keyword("FILTER"))
+                tokens.append(contentsOf: expr.sparqlTokens())
+            }
+            tokens.append(.rbrace)
+            return AnySequence(tokens)
+        case .minus(let lhs, let rhs):
+            var tokens = [SPARQLToken]()
+            tokens.append(.lbrace)
+            tokens.append(contentsOf: lhs.sparqlTokens(depth: depth+1))
+            tokens.append(.rbrace)
+            tokens.append(.keyword("MINUS"))
+            tokens.append(.lbrace)
+            tokens.append(contentsOf: rhs.sparqlTokens(depth: depth+1))
+            tokens.append(.rbrace)
+            return AnySequence(tokens)
+        case .filter(let lhs, let expr):
+            var tokens = [SPARQLToken]()
+            tokens.append(contentsOf: lhs.sparqlTokens(depth: depth))
+            tokens.append(.keyword("FILTER"))
+            tokens.append(contentsOf: expr.sparqlTokens())
+            return AnySequence(tokens)
+        case .union(let lhs, let rhs):
+            var tokens = [SPARQLToken]()
+            tokens.append(.lbrace)
+            tokens.append(contentsOf: lhs.sparqlTokens(depth: depth+1))
+            tokens.append(.rbrace)
+            tokens.append(.keyword("UNION"))
+            tokens.append(.lbrace)
+            tokens.append(contentsOf: rhs.sparqlTokens(depth: depth+1))
+            tokens.append(.rbrace)
+            return AnySequence(tokens)
+        case .namedGraph(let lhs, let graph):
+            var tokens = [SPARQLToken]()
+            tokens.append(.keyword("GRAPH"))
+            tokens.append(contentsOf: graph.sparqlTokens)
+            tokens.append(.lbrace)
+            tokens.append(contentsOf: lhs.sparqlTokens(depth: depth+1))
+            tokens.append(.rbrace)
+            return AnySequence(tokens)
+        case .service(let endpoint, let lhs, let silent):
+            var tokens = [SPARQLToken]()
+            tokens.append(.keyword("SERVICE"))
+            if silent {
+                tokens.append(.keyword("SILENT"))
+            }
+            tokens.append(contentsOf: endpoint.sparqlTokens)
+            tokens.append(.lbrace)
+            tokens.append(contentsOf: lhs.sparqlTokens(depth: depth+1))
+            tokens.append(.rbrace)
+            return AnySequence(tokens)
+        case .extend(let lhs, let expr, let name):
+            var tokens = [SPARQLToken]()
+            tokens.append(contentsOf: lhs.sparqlTokens(depth: depth))
+            tokens.append(.keyword("BIND"))
+            tokens.append(.lparen)
+            tokens.append(contentsOf: expr.sparqlTokens())
+            tokens.append(.keyword("AS"))
+            tokens.append(._var(name))
+            tokens.append(.rparen)
+            return AnySequence(tokens)
+        case .slice(let lhs, let offset, let limit):
+            var tokens = [SPARQLToken]()
+            tokens.append(contentsOf: lhs.sparqlTokens(depth: depth))
+            var append = [SPARQLToken]()
+            if depth > 0 {
+                if let t = tokens.popLast() {
+                    guard case .rbrace = t else { fatalError("Expected closing brace but found \(t)") }
+                    append.append(t)
+                }
+            }
+            if let offset = offset {
+                tokens.append(.keyword("OFFSET"))
+                tokens.append(.integer("\(offset)"))
+            }
+            if let limit = limit {
+                tokens.append(.keyword("LIMIT"))
+                tokens.append(.integer("\(limit)"))
+            }
+            tokens.append(contentsOf: append)
+            return AnySequence(tokens)
+        case .table(let nodes, let results):
+            var tokens = [SPARQLToken]()
+            tokens.append(.keyword("VALUES"))
+            tokens.append(.lparen)
+            var names = [String]()
+            for n in nodes {
+                guard case .variable(let name, _) = n else { fatalError() }
+                tokens.append(contentsOf: n.sparqlTokens)
+                names.append(name)
+            }
+            tokens.append(contentsOf: nodes.map { $0.sparqlTokens }.flatMap { $0 })
+            tokens.append(.rparen)
+            tokens.append(.lbrace)
+            for result in results {
+                tokens.append(.lparen)
+                for n in names {
+                    if let term = result[n] {
+                        tokens.append(contentsOf: term.sparqlTokens)
+                    } else {
+                        tokens.append(.keyword("UNDEF"))
+                    }
+                }
+                tokens.append(.rparen)
+            }
+            tokens.append(.rbrace)
+            return AnySequence(tokens)
+        case .project(let lhs, let names):
+            var tokens = [SPARQLToken]()
+            print("projection depth ---> \(depth)")
+            if depth > 0 {
+                tokens.append(.lbrace)
+            }
+            tokens.append(.keyword("SELECT"))
+            /**
+            if Set(names) == lhs.inscope {
+                tokens.append(.star)
+            } else {
+                tokens.append(contentsOf: names.map { ._var($0) })
+            }
+             **/
+            tokens.append(contentsOf: names.map { ._var($0) })
+            tokens.append(.keyword("WHERE"))
+            tokens.append(.lbrace)
+            tokens.append(contentsOf: lhs.sparqlTokens(depth: depth+1))
+            tokens.append(.rbrace)
+            if depth > 0 {
+                tokens.append(.rbrace)
+            }
+            return AnySequence(tokens)
+        case .distinct(.project(let lhs, let names)):
+            var tokens = [SPARQLToken]()
+            if depth > 0 {
+                tokens.append(.lbrace)
+            }
+            tokens.append(.keyword("SELECT"))
+            tokens.append(.keyword("DISTINCT"))
+            tokens.append(contentsOf: names.map { ._var($0) })
+            tokens.append(.keyword("WHERE"))
+            tokens.append(.lbrace)
+            tokens.append(contentsOf: lhs.sparqlTokens(depth: depth+1))
+            tokens.append(.rbrace)
+            if depth > 0 {
+                tokens.append(.rbrace)
+            }
+            return AnySequence(tokens)
+        case .distinct(let lhs):
+            var tokens = [SPARQLToken]()
+            if depth > 0 {
+                tokens.append(.lbrace)
+            }
+            tokens.append(.keyword("SELECT"))
+            tokens.append(.keyword("DISTINCT"))
+            tokens.append(.star)
+            tokens.append(.keyword("WHERE"))
+            tokens.append(.lbrace)
+            tokens.append(contentsOf: lhs.sparqlTokens(depth: depth+1))
+            tokens.append(.rbrace)
+            if depth > 0 {
+                tokens.append(.rbrace)
+            }
+            return AnySequence(tokens)
+        case .order(let lhs, let cmps):
+            //(Bool, Expression)
+            var tokens = Array(lhs.sparqlTokens(depth: depth))
+            var append = [SPARQLToken]()
+            if depth > 0 {
+                if let t = tokens.popLast() {
+                    guard case .rbrace = t else { fatalError("Expected closing brace but found \(t)") }
+                    append.append(t)
+                }
+            }
+            tokens.append(.keyword("ORDER"))
+            tokens.append(.keyword("BY"))
+            for (asc, expr) in cmps {
+                if asc {
+                    tokens.append(contentsOf: expr.sparqlTokens())
+                } else {
+                    tokens.append(.keyword("DESC"))
+                    tokens.append(.lparen)
+                    tokens.append(contentsOf: expr.sparqlTokens())
+                    tokens.append(.rparen)
+                }
+            }
+            for q in tokens {
+                print("---> \(q)")
+            }
+            tokens.append(contentsOf: append)
+            return AnySequence(tokens)
+        case .aggregate(let lhs, let groups, let aggs):
+            fatalError()
+            
+            /**
+    case .path(Node, PropertyPath, Node)
+    case .aggregate(Algebra, [Expression], [(Aggregation, String)])
+    case .window(Algebra, [Expression], [(WindowFunction, [SortComparator], String)])
+    case .construct(Algebra, [TriplePattern])
+    case .describe(Algebra, [Node])
+    case .ask(Algebra)
+**/
+        default:
+            fatalError("Implement Algebra.sparqlTokens for \(self)")
+        }
+    }
+}
+
+

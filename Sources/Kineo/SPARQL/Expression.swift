@@ -836,3 +836,14 @@ class ExpressionParser {
         return stack.popLast()
     }
 }
+
+extension Expression {
+    public func sparqlTokens() -> AnySequence<SPARQLToken> {
+        switch self {
+        case .node(let n):
+            return n.sparqlTokens
+        default:
+            fatalError("implement")
+        }
+    }
+}

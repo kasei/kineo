@@ -375,6 +375,14 @@ public struct Term : CustomStringConvertible {
     public var value : String
     public var type : TermType
 
+    static func rdf(_ local : String) -> Term {
+        return Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#\(local)", type: .iri)
+    }
+    
+    static func xsd(_ local : String) -> Term {
+        return Term(value: "http://www.w3.org/2001/XMLSchema#\(local)", type: .iri)
+    }
+    
     public init(value : String, type : TermType) {
         self.value  = value
         self.type   = type
@@ -635,6 +643,34 @@ extension Node : CustomStringConvertible {
             return t.description
         case .variable(let name, _):
             return "?\(name)"
+        }
+    }
+}
+
+extension Term {
+    public var sparqlTokens : AnySequence<SPARQLToken> {
+        switch self.type {
+        case .blank:
+            return AnySequence([.bnode(self.value)])
+        case .iri:
+            return AnySequence([.iri(self.value)])
+        case .datatype("http://www.w3.org/2001/XMLSchema#string"):
+            return AnySequence<SPARQLToken>([.string1d(self.value)])
+        case .datatype(let d):
+            return AnySequence<SPARQLToken>([.string1d(self.value), .hathat, .iri(d)])
+        case .language(let l):
+            return AnySequence<SPARQLToken>([.string1d(self.value), .lang(l)])
+        }
+    }
+}
+
+extension Node {
+    public var sparqlTokens : AnySequence<SPARQLToken> {
+        switch self {
+        case .variable(let name, _):
+            return AnySequence([._var(name)])
+        case .bound(let term):
+            return term.sparqlTokens
         }
     }
 }
