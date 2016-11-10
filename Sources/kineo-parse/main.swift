@@ -9,15 +9,29 @@
 import Foundation
 import Kineo
 
-func parseAlgebra(_ qfile : String, silent : Bool = false) throws {
+func prettyPrint(_ qfile : String, silent : Bool = false, includeComments : Bool = false) throws {
     let url = URL(fileURLWithPath: qfile)
     let sparql = try Data(contentsOf: url)
-    guard var p = SPARQLParser(data: sparql) else { fatalError("Failed to construct SPARQL parser") }
+    let stream = InputStream(data: sparql)
+    stream.open()
+    var lexer = SPARQLLexer(source: stream, includeComments: includeComments)
+    let s = SPARQLSerializer()
+    let tokens : UnfoldSequence<SPARQLToken, Int> = sequence(state: 0) { (_) in return lexer.next() }
+    let pretty = s.serializePretty(tokens)
+    print(pretty)
+}
+
+@discardableResult
+func parseAlgebra(_ qfile : String, silent : Bool = false, includeComments : Bool = false) throws -> Algebra {
+    let url = URL(fileURLWithPath: qfile)
+    let sparql = try Data(contentsOf: url)
+    guard var p = SPARQLParser(data: sparql, includeComments: includeComments) else { fatalError("Failed to construct SPARQL parser") }
     let algebra = try p.parse()
     let s = algebra.serialize()
     if !silent {
         print(s)
     }
+    return algebra
 }
 
 func parseTokens(_ qfile : String, silent : Bool = false) throws {
@@ -33,6 +47,7 @@ func parseTokens(_ qfile : String, silent : Bool = false) throws {
     }
 }
 
+var pretty = false
 var verbose = false
 var silent = false
 var printTokens = false
@@ -56,6 +71,8 @@ if let next = args.peek(), next.hasPrefix("-") {
         verbose = true
     } else if next == "-t" {
         printTokens = true
+    } else if next == "-p" {
+        pretty = true
     }
 }
 
@@ -64,8 +81,10 @@ let startSecond = getCurrentDateSeconds()
 
 guard let qfile = args.next() else { fatalError("No query file given") }
 do {
-    warn("\(qfile)")
-    if printTokens {
+    warn("# \(qfile)")
+    if pretty {
+        try prettyPrint(qfile, includeComments: true)
+    } else if printTokens {
         try parseTokens(qfile, silent: silent)
     } else {
         try parseAlgebra(qfile, silent: silent)

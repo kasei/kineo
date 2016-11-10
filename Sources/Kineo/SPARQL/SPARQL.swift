@@ -262,6 +262,7 @@ extension SPARQLToken {
 }
 
 public struct SPARQLLexer : IteratorProtocol {
+    var includeComments : Bool
     var source : InputStream
     var lookaheadBuffer : [UInt8]
     var errorBuffer : String
@@ -428,8 +429,9 @@ public struct SPARQLLexer : IteratorProtocol {
         return pn
     }()
    
-    public init(source : InputStream) {
+    public init(source : InputStream, includeComments : Bool = false) {
         self.source = source
+        self.includeComments = includeComments
         self.lookaheadBuffer = []
         self.errorBuffer = ""
         self.string = ""
@@ -548,15 +550,27 @@ public struct SPARQLLexer : IteratorProtocol {
                 }
                 continue
             } else if c == "#" {
+                var chars = [Character]()
                 while c != "\n" && c != "\r" {
-                    getChar()
                     if let cc = try peekChar() {
+                        getChar()
                         c = cc
+                        chars.append(cc)
                     } else {
-                        return nil
+                        if includeComments {
+                            let c = String(chars).trimmingCharacters(in: CharacterSet(charactersIn: "#\n\r"))
+                            return .comment(c)
+                        } else {
+                            return nil
+                        }
                     }
                 }
-                continue
+                if includeComments {
+                    let c = String(chars).trimmingCharacters(in: CharacterSet(charactersIn: "#\n\r"))
+                    return .comment(c)
+                } else {
+                    continue
+                }
             }
             
             let bufferLength = NSMakeRange(0, buffer.characters.count)
@@ -1219,18 +1233,18 @@ public struct SPARQLParser {
         self.bnodes = [:]
     }
     
-    public init?(string : String, prefixes : [String:String] = [:], base : String? = nil) {
+    public init?(string : String, prefixes : [String:String] = [:], base : String? = nil, includeComments : Bool = false) {
         guard let data = string.data(using: .utf8) else { return nil }
         let stream = InputStream(data: data)
         stream.open()
-        let lexer = SPARQLLexer(source: stream)
+        let lexer = SPARQLLexer(source: stream, includeComments: includeComments)
         self.init(lexer: lexer, prefixes: prefixes, base: base)
     }
     
-    public init?(data : Data, prefixes : [String:String] = [:], base : String? = nil) {
+    public init?(data : Data, prefixes : [String:String] = [:], base : String? = nil, includeComments : Bool = false) {
         let stream = InputStream(data: data)
         stream.open()
-        let lexer = SPARQLLexer(source: stream)
+        let lexer = SPARQLLexer(source: stream, includeComments: includeComments)
         self.init(lexer: lexer, prefixes: prefixes, base: base)
     }
     
@@ -2912,6 +2926,10 @@ public struct SPARQLSerializer {
         
     }
     
+    public func serialize<S : Sequence>(_ algebra: Algebra) -> String where S.Iterator.Element == SPARQLToken {
+        return self.serialize(algebra.sparqlQueryTokens())
+    }
+    
     public func serialize<S : Sequence>(_ tokens: S) -> String where S.Iterator.Element == SPARQLToken {
         var s = ""
         self.serialize(tokens, to: &s)
@@ -2926,4 +2944,250 @@ public struct SPARQLSerializer {
             print("\(token.sparql)", terminator: "", to: &output)
         }
     }
+
+    struct ParseState {
+        struct NestingCallback {
+            let level : [Int]
+            let code : (ParseState) -> ()
+        }
+        
+        var indentLevel : Int   = 0
+        var inSemicolon : Bool  = false
+        var openParens : Int    = 0 {
+            didSet { checkCallbacks() }
+        }
+        var openBraces : Int    = 0 {
+            didSet { checkCallbacks() }
+        }
+        var openBrackets : Int  = 0 {
+            didSet { checkCallbacks() }
+        }
+        var callbackStack : [NestingCallback] = []
+        mutating func checkCallbacks() {
+            let currentLevel = [openBraces, openBrackets, openParens]
+            //        println("current level: \(currentLevel)")
+            if let top = callbackStack.last {
+                //            println("-----> callback set for level: \(top.level)")
+                if top.level == currentLevel {
+                    //                println("*** MATCHED")
+                    top.code(self)
+                    callbackStack.removeLast()
+                }
+            }
+        }
+        
+        mutating func registerForClose(_ callback : @escaping (ParseState) -> ()) {
+            let currentLevel = [openBraces, openBrackets, openParens]
+            //        println("registering callback at level: \(currentLevel)")
+            let cb = NestingCallback(level: currentLevel, code: callback)
+            callbackStack.append(cb)
+        }
+    }
+    
+    struct SerializerState {
+        var spaceSeparator = " "
+        var indent = "\t"
+    }
+    
+    enum SerializerOutput {
+        case newline(Int)
+        case spaceSeparator
+        case tokenString(String)
+        
+        var description : String {
+            switch (self) {
+            case .newline(_):
+                return "␤"
+            case .spaceSeparator:
+                return "␠"
+            case .tokenString(let s):
+                return "\"\(s)\""
+            }
+        }
+    }
+
+    public func serializePretty<S : Sequence>(_ tokenSequence: S) -> String where S.Iterator.Element == SPARQLToken {
+        var s = ""
+        self.serializePretty(tokenSequence, to: &s)
+        return s
+    }
+    
+    public func serializePretty<S : Sequence, Target : TextOutputStream>(_ tokenSequence: S, to output: inout Target) where S.Iterator.Element == SPARQLToken {
+        var tokens = Array(tokenSequence)
+        tokens.append(.ws)
+        var pretty = ""
+        var outputArray : [(SPARQLToken, SerializerOutput)] = []
+        var pstate = ParseState()
+        //        var sstate_stack = [SerializerState()]
+        for i in 0..<(tokens.count-1) {
+            let t = tokens[i]
+            let u = tokens[i+1]
+                //        println("handling token: \(t.sparqlStringWithDefinedPrefixes([:]))")
+            
+            if case .rbrace = t {
+                    pstate.openBraces -= 1
+                    pstate.indentLevel -= 1
+                    pstate.inSemicolon  = false
+                }
+                
+                //                let value = t.value() as! String
+                let state = (pstate.openBraces, t, u)
+                
+                switch state {
+                case (_, .keyword("FILTER"), .lparen), (_, .keyword("BIND"), .lparen), (_, .keyword("HAVING"), .lparen):
+                    pstate.registerForClose {
+                        s in
+                        outputArray.append((t, .newline(pstate.indentLevel)))
+                    }
+                default:
+                    break
+                }
+                
+                switch state {
+                case (_, .lbrace, _):
+                    // 				'{' $			-> '{' NEWLINE_INDENT
+                    outputArray.append((t, .tokenString("\(t.sparql)")))
+                    outputArray.append((t, .newline(1+pstate.indentLevel)))
+                case (0, _, .lbrace):
+                    // {openBraces=0}	$ '{'			-> $
+                    outputArray.append((t, .tokenString("\(t.sparql)")))
+                    outputArray.append((t, .spaceSeparator))
+                case (_, .rbrace, _):
+                    // a right brace should be on a line by itself
+                    // 				'}' $			-> NEWLINE_INDENT '}' NEWLINE_INDENT
+                    outputArray.append((t, .newline(pstate.indentLevel)))
+                    outputArray.append((t, .tokenString("\(t.sparql)")))
+                    outputArray.append((t, .newline(pstate.indentLevel)))
+                case (_, .keyword("EXISTS"), .lbrace), (_, .keyword("OPTIONAL"), .lbrace), (_, .keyword("UNION"), .lbrace):
+                    // 				EXISTS '{'		-> EXISTS SPACE_SEP
+                    // 				OPTIONAL '{'	-> OPTIONAL SPACE_SEP
+                    // 				UNION '{'		-> UNION SPACE_SEP
+                    outputArray.append((t, .tokenString("\(t.sparql)")))
+                    outputArray.append((t, .spaceSeparator))
+                case (_, .comment(let c), _):
+                    if c.characters.count > 0 {
+                        outputArray.append((t, .tokenString("\(t.sparql)")))
+                        outputArray.append((t, .newline(pstate.indentLevel)))
+                    }
+                case(_, .bang, _):
+                    outputArray.append((t, .tokenString("\(t.sparql)")))
+                case (_, _, .lbrace):
+                    // {openBraces=_}	$ '{'			-> $ NEWLINE_INDENT
+                    outputArray.append((t, .tokenString("\(t.sparql)")))
+                    outputArray.append((t, .newline(pstate.indentLevel)))
+                case (_, _, .keyword("PREFIX")), (_, _, .keyword("SELECT")), (_, _, .keyword("ASK")), (_, _, .keyword("CONSTRUCT")), (_, _, .keyword("DESCRIBE")):
+                    // newline before these keywords
+                    outputArray.append((t, .tokenString("\(t.sparql)")))
+                    outputArray.append((t, .newline(pstate.indentLevel)))
+                case (_, .keyword("GROUP"), _), (_, .keyword("HAVING"), _), (_, .keyword("ORDER"), _), (_, .keyword("LIMIT"), _), (_, .keyword("OFFSET"), _):
+                    // newline before, and a space after these keywords
+                    outputArray.append((t, .newline(pstate.indentLevel)))
+                    outputArray.append((t, .tokenString("\(t.sparql)")))
+                    outputArray.append((t, .spaceSeparator))
+                case (_, .dot, _):
+                    // newline after all DOTs
+                    outputArray.append((t, .tokenString("\(t.sparql)")))
+                    outputArray.append((t, .newline(pstate.indentLevel)))
+                case (_, .semicolon, _):
+                    // newline after all SEMICOLONs
+                    outputArray.append((t, .tokenString("\(t.sparql)")))
+                    outputArray.append((t, .newline(pstate.indentLevel+1)))
+                case (_, .keyword("FILTER"), _), (_, .keyword("BIND"), _):
+                    // newline before these keywords
+                    // 				'FILTER' $		-> NEWLINE_INDENT 'FILTER'				{ set no SPACE_SEP }
+                    // 				'BIND' '('		-> NEWLINE_INDENT 'BIND'				{ set no SPACE_SEP }
+                    outputArray.append((t, .newline(pstate.indentLevel)))
+                    outputArray.append((t, .tokenString("\(t.sparql)")))
+                case (_, .hathat, _):
+                    // no trailing whitespace after ^^ (it's probably followed by an IRI or PrefixName
+                    outputArray.append((t, .tokenString("\(t.sparql)")))
+                case (_, .keyword("ASC"), _), (_, .keyword("DESC"), _):
+                    // no trailing whitespace after these keywords (they're probably followed by a LPAREN
+                    outputArray.append((t, .tokenString("\(t.sparql)")))
+                case (_, _, .rparen):
+                    // no space between any token and a following rparen
+                    outputArray.append((t, .tokenString("\(t.sparql)")))
+                case (_, .lparen, _):
+                    // no space between a lparen and any following token
+                    outputArray.append((t, .tokenString("\(t.sparql)")))
+                case (_, .keyword(let kw), .lparen) where SPARQLLexer._functions.contains(kw):
+                    // 				KEYWORD '('		-> KEYWORD								{ set no SPACE_SEP }
+                    outputArray.append((t, .tokenString("\(t.sparql)")))
+                case (_, .prefixname, .lparen):
+                    // function call; supress space between function IRI and opening paren
+                    outputArray.append((t, .tokenString("\(t.sparql)")))
+                case (_, _, .hathat):
+                    // no space in between any token and a ^^
+                    outputArray.append((t, .tokenString("\(t.sparql)")))
+                default:
+                    // 				$ $				-> $ ' '
+                    outputArray.append((t, .tokenString("\(t.sparql)")))
+                    outputArray.append((t, .spaceSeparator))
+                }
+                
+                switch t {
+                case .dot:
+                    pstate.inSemicolon  = false
+                case .lbrace:
+                    pstate.indentLevel += 1
+                    pstate.openBraces += 1
+                case .lbracket:
+                    pstate.openBrackets += 1
+                case .rbracket:
+                    pstate.openBrackets -= 1
+                case .lparen:
+                    pstate.openParens += 1
+                case .rparen:
+                    pstate.openParens -= 1
+                default:
+                    break
+                }
+        }
+        
+        var tempArray : [SerializerOutput] = []
+        FILTER: for i in 0..<(outputArray.count-1) {
+            let (_, s1) = outputArray[i]
+            let (_, s2) = outputArray[i+1]
+            switch (s1, s2) {
+            case (.spaceSeparator, .newline(_)), (.newline(_), .newline(_)):
+                continue FILTER
+            case (.newline(_), .spaceSeparator):
+                outputArray[i+1] = outputArray[i]
+                continue FILTER
+            default:
+                tempArray.append(s1)
+            }
+        }
+        LOOP: while tempArray.count > 0 {
+            if let l = tempArray.last {
+                switch l {
+                case .tokenString(_):
+                    break LOOP
+                default:
+                    tempArray.removeLast()
+                }
+            } else {
+                break
+            }
+        }
+        
+        for s in tempArray {
+            switch s {
+            case .newline(let indent):
+                pretty += "\n"
+                if indent > 0 {
+                    for _ in 0..<indent {
+                        pretty += "\t"
+                    }
+                }
+            case .spaceSeparator:
+                pretty += " "
+            case .tokenString(let string):
+                pretty += string
+            }
+        }
+        
+        print(pretty, to: &output)
+    }
+
 }
