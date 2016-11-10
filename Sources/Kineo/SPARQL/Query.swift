@@ -868,13 +868,10 @@ extension Algebra {
     }
     
     public func sparqlQueryTokens() -> AnySequence<SPARQLToken> {
-        var a = self.serializableEquivalent
-        
-        print("\(a.serialize())")
+        let a = self.serializableEquivalent
         
         switch a {
         case .project(_), .aggregate(_), .order(.project(_), _), .slice(.project(_), _, _), .slice(.order(.project(_), _), _, _), .distinct(_):
-            print("\(a.serialize())")
             return a.sparqlTokens(depth: 0)
         default:
             let wrapped : Algebra = .project(a, a.inscope.sorted())
@@ -1015,7 +1012,6 @@ extension Algebra {
             return AnySequence(tokens)
         case .project(let lhs, let names):
             var tokens = [SPARQLToken]()
-            print("projection depth ---> \(depth)")
             if depth > 0 {
                 tokens.append(.lbrace)
             }
@@ -1090,13 +1086,10 @@ extension Algebra {
                     tokens.append(.rparen)
                 }
             }
-            for q in tokens {
-                print("---> \(q)")
-            }
             tokens.append(contentsOf: append)
             return AnySequence(tokens)
         case .aggregate(let lhs, let groups, let aggs):
-            fatalError()
+            fatalError("implement")
             
             /**
     case .path(Node, PropertyPath, Node)
@@ -1107,7 +1100,7 @@ extension Algebra {
     case .ask(Algebra)
 **/
         default:
-            fatalError("Implement Algebra.sparqlTokens for \(self)")
+            fatalError("implement Algebra.sparqlTokens for \(self)")
         }
     }
 }

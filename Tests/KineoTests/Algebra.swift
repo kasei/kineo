@@ -26,7 +26,6 @@ class AlgebraTest: XCTestCase {
             case .bgp(_):
                 return .joinIdentity
             default:
-                print("**** \(algebra.serialize())")
                 return nil
             }
         }
@@ -54,7 +53,6 @@ class AlgebraTest: XCTestCase {
             case .bgp(_):
                 return .joinIdentity
             default:
-                print("**** \(algebra.serialize())")
                 return nil
             }
         }
@@ -165,7 +163,6 @@ class AlgebraTest: XCTestCase {
         
         let person : Node = .bound(Term(value: "http://xmlns.com/foaf/0.1/Person", type: .iri))
         let rewrite = algebra.bind("type", to: person, preservingProjection: true)
-        print(rewrite.serialize())
         guard case .project(.extend(.innerJoin(_, _), .node(person), "type"), let projection) = rewrite else {
             XCTFail("Unexpected rewritten algebra: \(rewrite.serialize())")
             return
@@ -242,7 +239,7 @@ class AlgebraTest: XCTestCase {
             ])
     }
     
-    func testQueryModifiedSPARQLTokens1() {
+    func testQueryModifiedSPARQLSerialization1() {
         let subj : Node = .bound(Term(value: "b", type: .blank))
         let type : Node = .bound(Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type", type: .iri))
         let name : Node = .bound(Term(value: "http://xmlns.com/foaf/0.1/name", type: .iri))
@@ -277,10 +274,16 @@ class AlgebraTest: XCTestCase {
             .keyword("LIMIT"),
             .integer("5")
             ])
+        
+        let s = SPARQLSerializer()
+        let sparql = s.serialize(algebra.sparqlQueryTokens())
+        let expected = "SELECT ?name ?type WHERE { _:b a ?type . _:b <http://xmlns.com/foaf/0.1/name> ?name . } ORDER BY DESC ( ?name ) LIMIT 5"
+        
+        XCTAssertEqual(sparql, expected)
     }
 
     
-    func testQueryModifiedSPARQLTokens2() {
+    func testQueryModifiedSPARQLSerialization2() {
         let subj : Node = .bound(Term(value: "b", type: .blank))
         let name : Node = .bound(Term(value: "http://xmlns.com/foaf/0.1/name", type: .iri))
         let vname : Node = .variable("name", binding: true)

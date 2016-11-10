@@ -479,7 +479,6 @@ class SPARQLParserTest: XCTestCase {
         guard var p = SPARQLParser(string: "PREFIX foaf: <http://xmlns.com/foaf/0.1/> PREFIX 食: <http://www.w3.org/2001/sw/DataAccess/tests/data/i18n/kanji.ttl#> SELECT ?name ?food WHERE { [ foaf:name ?name ; 食:食べる ?food ] . }") else { XCTFail(); return }
         do {
             let a = try p.parse()
-            print("\(a.serialize())")
             guard case .project(.innerJoin(.triple(let ta), .triple(let tb)), let variables) = a else {
                 XCTFail("Unexpected algebra: \(a.serialize())")
                 return
@@ -502,7 +501,6 @@ class SPARQLParserTest: XCTestCase {
         guard var p = SPARQLParser(string: "BASE <http://example.org/foo/> SELECT * WHERE { ?s <p> <../bar> }") else { XCTFail(); return }
         do {
             let a = try p.parse()
-            print("\(a.serialize())")
             guard case .triple(let triple) = a else {
                 XCTFail("Unexpected algebra: \(a.serialize())")
                 return

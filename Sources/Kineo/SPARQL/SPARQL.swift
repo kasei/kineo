@@ -167,6 +167,100 @@ extension SPARQLToken : Equatable {
     }
 }
 
+extension SPARQLToken {
+    var sparql : String {
+        switch self {
+        case .ws:
+            return " "
+        case .comment(let value):
+            return "# \(value)"
+        case ._nil:
+            return "()"
+        case .anon:
+            return "[]"
+        case .double(let value), .decimal(let value), .integer(let value):
+            return value
+        case .hathat:
+            return "^^"
+        case .lang(let value):
+            return "@\(value)"
+        case .lparen:
+            return "("
+        case .rparen:
+            return ")"
+        case .lbrace:
+            return "{"
+        case .rbrace:
+            return "}"
+        case .lbracket:
+            return "["
+        case .rbracket:
+            return "]"
+        case .equals:
+            return "=="
+        case .notequals:
+            return "!="
+        case .bang:
+            return "!"
+        case .le:
+            return "<="
+        case .ge:
+            return ">="
+        case .lt:
+            return "<"
+        case .gt:
+            return ">"
+        case .andand:
+            return "&&"
+        case .oror:
+            return "||"
+        case .semicolon:
+            return ";"
+        case .dot:
+            return "."
+        case .comma:
+            return ","
+        case .plus:
+            return "+"
+        case .minus:
+            return "-"
+        case .star:
+            return "*"
+        case .slash:
+            return "/"
+        case .hat:
+            return "^"
+        case ._var(let value):
+            return "?\(value)"
+        case .question:
+            return "?"
+        case .or:
+            return "|"
+        case .bnode(let value):
+            return "_:\(value)"
+        case .string3d(let value):
+            return "\"\"\"\(value)\"\"\"" // TODO: escape value
+        case .string3s(let value):
+            return "'''\(value)'''" // TODO: escape value
+        case .string1d(let value):
+            return "\"\(value)\"" // TODO: escape value
+        case .string1s(let value):
+            return "'\(value)'" // TODO: escape value
+        case .prefixname(let ns, let local):
+            return "\(ns):\(local)" // TODO: escape local
+        case .boolean(let value):
+            return value
+        case .keyword(let value):
+            if value == "A" {
+                return "a"
+            }
+            return value
+        case .iri(let value):
+            return "<\(value)>" // TODO: escape value
+        }
+    }
+}
+
 public struct SPARQLLexer : IteratorProtocol {
     var source : InputStream
     var lookaheadBuffer : [UInt8]
@@ -2810,5 +2904,26 @@ public struct SPARQLParser {
             throw parseError("Failed to parse integer value from \(term)")
         }
         return limit
+    }
+}
+
+public struct SPARQLSerializer {
+    public init() {
+        
+    }
+    
+    public func serialize<S : Sequence>(_ tokens: S) -> String where S.Iterator.Element == SPARQLToken {
+        var s = ""
+        self.serialize(tokens, to: &s)
+        return s
+    }
+    
+    public func serialize<S : Sequence, Target : TextOutputStream>(_ tokens: S, to output: inout Target) where S.Iterator.Element == SPARQLToken {
+        for (i, token) in tokens.enumerated() {
+            if i > 0 {
+                print(" ", terminator: "", to: &output)
+            }
+            print("\(token.sparql)", terminator: "", to: &output)
+        }
     }
 }
