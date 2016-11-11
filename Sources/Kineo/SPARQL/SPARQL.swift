@@ -239,15 +239,15 @@ extension SPARQLToken {
         case .bnode(let value):
             return "_:\(value)"
         case .string3d(let value):
-            return "\"\"\"\(value)\"\"\"" // TODO: escape value
+            return "\"\"\"\(value.escape(for: .literal3d))\"\"\""
         case .string3s(let value):
-            return "'''\(value)'''" // TODO: escape value
+            return "'''\(value.escape(for: .literal3s))'''"
         case .string1d(let value):
-            return "\"\(value)\"" // TODO: escape value
+            return "\"\(value.escape(for: .literal1d))\""
         case .string1s(let value):
-            return "'\(value)'" // TODO: escape value
+            return "'\(value.escape(for: .literal1s))'"
         case .prefixname(let ns, let local):
-            return "\(ns):\(local)" // TODO: escape local
+            return "\(ns):\(local.escape(for: .prefixedLocalName))"
         case .boolean(let value):
             return value
         case .keyword(let value):
@@ -256,7 +256,7 @@ extension SPARQLToken {
             }
             return value
         case .iri(let value):
-            return "<\(value)>" // TODO: escape value
+            return "<\(value.escape(for: .iri))>"
         }
     }
 }
@@ -3190,4 +3190,45 @@ public struct SPARQLSerializer {
         print(pretty, to: &output)
     }
 
+}
+
+enum SPARQLEscapingType {
+    case literal1d
+    case literal1s
+    case literal3d
+    case literal3s
+    case iri
+    case prefixedLocalName
+}
+
+extension String {
+    private var commonStringEscaped : String {
+        var v = self
+        v = v.replacingOccurrences(of: "\\", with: "\\\\")
+        v = v.replacingOccurrences(of: "\t", with: "\\r")
+        v = v.replacingOccurrences(of: "\n", with: "\\r")
+        v = v.replacingOccurrences(of: "\r", with: "\\r")
+        v = v.replacingOccurrences(of: "\u{08}", with: "\\b")
+        v = v.replacingOccurrences(of: "\u{0c}", with: "\\f")
+        return v
+    }
+    
+    func escape(for type: SPARQLEscapingType) -> String {
+        switch type {
+        case .literal1d:
+            var v = self.commonStringEscaped
+            v = v.replacingOccurrences(of: "\"", with: "\\\"")
+            return v
+        case .literal1s:
+            var v = self.commonStringEscaped
+            v = v.replacingOccurrences(of: "'", with: "\\'")
+            return v
+        case .iri:
+            return self // TODO
+        case .prefixedLocalName:
+            return self // TODO
+        default:
+            fatalError("implement escaping for \(type)")
+        }
+    }
 }
