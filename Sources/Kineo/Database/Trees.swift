@@ -541,6 +541,8 @@ public final class TreeLeaf<T: BufferSerializable & Comparable, U: BufferSeriali
             remainingBytes -= serializedSize
             next    = iter.peek()
         }
+        
+        // swiftlint:disable force_try
         try! self.init(version: version, pageSize: pageSize, typeCode: serializationCode(T.self, U.self), pairs: pairs)
     }
 
@@ -670,6 +672,8 @@ public final class TreeInternal<T: BufferSerializable & Comparable> {
             remainingBytes -= serializedSize
             next    = iter.peek()
         }
+
+        // swiftlint:disable force_try
         try! self.init(version: version, pageSize: pageSize, totalCount: totalCount, typeCode: serializationCode(T.self, PageId.self), pairs: pairs)
     }
 

@@ -777,12 +777,12 @@ extension PersistentTermIdentityMap {
         return nil
     }
 
-    private func unpack(integer v: UInt64) -> Element? {
-        return Term(value: "\(v)", type: .datatype("http://www.w3.org/2001/XMLSchema#integer"))
+    private func unpack(integer value: UInt64) -> Element? {
+        return Term(value: "\(value)", type: .datatype("http://www.w3.org/2001/XMLSchema#integer"))
     }
 
-    private func unpack(int v: UInt64) -> Element? {
-        return Term(value: "\(v)", type: .datatype("http://www.w3.org/2001/XMLSchema#int"))
+    private func unpack(int value: UInt64) -> Element? {
+        return Term(value: "\(value)", type: .datatype("http://www.w3.org/2001/XMLSchema#int"))
     }
 
     private func unpack(decimal: UInt64) -> Element? {
@@ -820,8 +820,8 @@ extension PersistentTermIdentityMap {
         return Term(value: date, type: .datatype("http://www.w3.org/2001/XMLSchema#date"))
     }
 
-    private func pack(decimal s: String) -> Result? {
-        let c = s.components(separatedBy: ".")
+    private func pack(decimal stringValue: String) -> Result? {
+        let c = stringValue.components(separatedBy: ".")
         guard c.count == 2 else { return nil }
         if c[0].hasPrefix("-") {
             print("TODO:")
@@ -837,22 +837,22 @@ extension PersistentTermIdentityMap {
         }
     }
 
-    private func pack(integer s: String) -> Result? {
-        guard let i = UInt64(s) else { return nil }
+    private func pack(integer stringValue: String) -> Result? {
+        guard let i = UInt64(stringValue) else { return nil }
         guard i < 0x00ffffffffffffff else { return nil }
         let value: UInt64 = 0x18 << 56
         return value + i
     }
 
-    private func pack(int s: String) -> Result? {
-        guard let i = UInt64(s) else { return nil }
+    private func pack(int stringValue: String) -> Result? {
+        guard let i = UInt64(stringValue) else { return nil }
         guard i <= 2147483647 else { return nil }
         let value: UInt64 = 0x19 << 56
         return value + i
     }
 
-    private func pack(date s: String) -> Result? {
-        let values = s.components(separatedBy: "-").map { Int($0) }
+    private func pack(date stringValue: String) -> Result? {
+        let values = stringValue.components(separatedBy: "-").map { Int($0) }
         guard values.count == 3 else { return nil }
         if let y = values[0], let m = values[1], let d = values[2] {
             guard y <= 5000 else { return nil }
@@ -914,17 +914,17 @@ extension PersistentTermIdentityMap {
             return mask + 8
         case "http://www.w3.org/2000/01/rdf-schema#isDefinedBy":
             return mask + 9
-        default:
-            if iri.hasPrefix("http://www.w3.org/1999/02/22-rdf-syntax-ns#_") {
-                let c = iri.components(separatedBy: "_")
-                guard c.count == 2 else { return nil }
-                guard let value = UInt64(c[1]) else { return nil }
-                if value >= 0 && value < 256 {
-                    return mask + 0x100 + value
-                }
+        case _ where iri.hasPrefix("http://www.w3.org/1999/02/22-rdf-syntax-ns#_"):
+            let c = iri.components(separatedBy: "_")
+            guard c.count == 2 else { return nil }
+            guard let value = UInt64(c[1]) else { return nil }
+            if value >= 0 && value < 256 {
+                return mask + 0x100 + value
             }
-            return nil
+        default:
+            break
         }
+        return nil
     }
 }
 
@@ -946,22 +946,22 @@ public struct IDQuad<T: DefinedTestable & Equatable & Comparable & BufferSeriali
     }
 
     public var values: [T]
-    public init(_ v0: T, _ v1: T, _ v2: T, _ v3: T) {
-        self.values = [v0,v1,v2,v3]
+    public init(_ value0: T, _ value1: T, _ value2: T, _ value3: T) {
+        self.values = [value0,value1,value2,value3]
     }
 
-    public subscript(i: Int) -> T {
+    public subscript(index: Int) -> T {
         get {
-            return self.values[i]
+            return self.values[index]
         }
 
         set(newValue) {
-            self.values[i] = newValue
+            self.values[index] = newValue
         }
     }
 
     public func matches(_ rhs: IDQuad) -> Bool {
-        for (l,r) in zip(values, rhs.values) {
+        for (l, r) in zip(values, rhs.values) {
             if l.isDefined && r.isDefined && l != r {
                 return false
             }

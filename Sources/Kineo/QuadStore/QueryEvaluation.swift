@@ -8,6 +8,7 @@
 
 import Foundation
 
+// swiftlint:disable type_body_length
 open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
     var store: Q
     var defaultGraph: Term
@@ -372,13 +373,13 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
         return AnyIterator(v.makeIterator())
     }
 
-    private func alp(term x: Term, path: PropertyPath, seen v: inout Set<Term>, graph: Node) throws {
-        guard !v.contains(x) else { return }
-        v.insert(x)
+    private func alp(term: Term, path: PropertyPath, seen: inout Set<Term>, graph: Node) throws {
+        guard !seen.contains(term) else { return }
+        seen.insert(term)
         let pvar = freshVariable()
-        for result in try evaluatePath(subject: .bound(x), object: pvar, graph: graph, path: path) {
+        for result in try evaluatePath(subject: .bound(term), object: pvar, graph: graph, path: path) {
             if let n = result[pvar] {
-                try alp(term: n, path: path, seen: &v, graph: graph)
+                try alp(term: n, path: path, seen: &seen, graph: graph)
             }
         }
     }
@@ -395,7 +396,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
         case .alt(let lhs, let rhs):
             let i = try evaluatePath(subject: subject, object: object, graph: graph, path: lhs)
             let j = try evaluatePath(subject: subject, object: object, graph: graph, path: rhs)
-            var iters = [i,j]
+            var iters = [i, j]
             return AnyIterator {
                 repeat {
                     if iters.count == 0 {

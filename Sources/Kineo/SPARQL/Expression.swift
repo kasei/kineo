@@ -96,6 +96,7 @@ extension Aggregation: CustomStringConvertible {
     }
 }
 
+// swiftlint:disable type_body_length
 public indirect enum Expression: CustomStringConvertible {
     case node(Node)
     case aggregate(Aggregation)

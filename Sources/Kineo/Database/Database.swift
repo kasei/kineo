@@ -23,7 +23,7 @@ public enum DatabaseError: Error {
 
 public protocol PageMarshalled {
     static func deserialize(from: UnsafeRawPointer, status: PageStatus, mediator: RMediator) throws -> Self
-    func serialize(to: UnsafeMutableRawPointer, status: PageStatus, mediator: RWMediator) throws
+    func serialize(to buffer: UnsafeMutableRawPointer, status: PageStatus, mediator: RWMediator) throws
 }
 
 public typealias PageId = Int
@@ -56,7 +56,7 @@ public protocol Database {
     associatedtype UpdateMediator
     var pageSize: Int { get }
     var pageCount: Int { get }
-    func read(cb: (ReadMediator) -> ()) throws
+    func read(cb callback: (ReadMediator) -> ()) throws
     func update(version: Version, cb: (UpdateMediator) throws -> ()) throws
 }
 

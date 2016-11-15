@@ -9,7 +9,7 @@
 import Foundation
 import CoreFoundation
 
-public func _sizeof<T>(_ x: T.Type) -> Int {
+public func _sizeof<T>(_ value: T.Type) -> Int {
     return MemoryLayout<T>.size
 }
 
@@ -101,9 +101,9 @@ public struct PeekableIterator<T: IteratorProtocol> : IteratorProtocol {
     public typealias Element = T.Element
     private var generator: T
     private var bufferedElement: Element?
-    public  init(generator _generator: T) {
-        generator = _generator
-        bufferedElement = generator.next()
+    public  init(generator: T) {
+        self.generator = generator
+        bufferedElement = self.generator.next()
     }
 
     public mutating func next() -> Element? {

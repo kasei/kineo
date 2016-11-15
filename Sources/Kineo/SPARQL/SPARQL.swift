@@ -261,6 +261,7 @@ extension SPARQLToken {
     }
 }
 
+// swiftlint:disable type_body_length
 public struct SPARQLLexer: IteratorProtocol {
     var includeComments: Bool
     var source: InputStream
@@ -276,7 +277,7 @@ public struct SPARQLLexer: IteratorProtocol {
     var startLine: Int
     var startCharacter: UInt
     var comments: Bool
-    var _lookahead: SPARQLToken?
+    var lookahead: SPARQLToken?
 
     private mutating func lexError(_ message: String) -> SPARQLParsingError {
         try? fillBuffer()
@@ -284,11 +285,11 @@ public struct SPARQLLexer: IteratorProtocol {
         return SPARQLParsingError.lexicalError("\(message) at \(line):\(column) near '\(rest)...'")
     }
 
-    private static let r_PNAME_LN	= "((((([A-Z]|[a-z]|[\\x{00C0}-\\x{00D6}]|[\\x{00D8}-\\x{00F6}]|[\\x{00F8}-\\x{02FF}]|[\\x{0370}-\\x{037D}]|[\\x{037F}-\\x{1FFF}]|[\\x{200C}-\\x{200D}]|[\\x{2070}-\\x{218F}]|[\\x{2C00}-\\x{2FEF}]|[\\x{3001}-\\x{D7FF}]|[\\x{F900}-\\x{FDCF}]|[\\x{FDF0}-\\x{FFFD}]|[\\x{10000}-\\x{EFFFF}])(((([_]|([A-Z]|[a-z]|[\\x{00C0}-\\x{00D6}]|[\\x{00D8}-\\x{00F6}]|[\\x{00F8}-\\x{02FF}]|[\\x{0370}-\\x{037D}]|[\\x{037F}-\\x{1FFF}]|[\\x{200C}-\\x{200D}]|[\\x{2070}-\\x{218F}]|[\\x{2C00}-\\x{2FEF}]|[\\x{3001}-\\x{D7FF}]|[\\x{F900}-\\x{FDCF}]|[\\x{FDF0}-\\x{FFFD}]|[\\x{10000}-\\x{EFFFF}]))|-|[0-9]|\\x{00B7}|[\\x{0300}-\\x{036F}]|[\\x{203F}-\\x{2040}])|[.])*(([_]|([A-Z]|[a-z]|[\\x{00C0}-\\x{00D6}]|[\\x{00D8}-\\x{00F6}]|[\\x{00F8}-\\x{02FF}]|[\\x{0370}-\\x{037D}]|[\\x{037F}-\\x{1FFF}]|[\\x{200C}-\\x{200D}]|[\\x{2070}-\\x{218F}]|[\\x{2C00}-\\x{2FEF}]|[\\x{3001}-\\x{D7FF}]|[\\x{F900}-\\x{FDCF}]|[\\x{FDF0}-\\x{FFFD}]|[\\x{10000}-\\x{EFFFF}]))|-|[0-9]|\\x{00B7}|[\\x{0300}-\\x{036F}]|[\\x{203F}-\\x{2040}]))?))?:)((([_]|([A-Z]|[a-z]|[\\x{00C0}-\\x{00D6}]|[\\x{00D8}-\\x{00F6}]|[\\x{00F8}-\\x{02FF}]|[\\x{0370}-\\x{037D}]|[\\x{037F}-\\x{1FFF}]|[\\x{200C}-\\x{200D}]|[\\x{2070}-\\x{218F}]|[\\x{2C00}-\\x{2FEF}]|[\\x{3001}-\\x{D7FF}]|[\\x{F900}-\\x{FDCF}]|[\\x{FDF0}-\\x{FFFD}]|[\\x{10000}-\\x{EFFFF}]))|[:0-9]|((?:\\\\([-~.!&'()*+,;=/?#@%_\\$]))|%[0-9A-Fa-f]{2}))(((([_]|([A-Z]|[a-z]|[\\x{00C0}-\\x{00D6}]|[\\x{00D8}-\\x{00F6}]|[\\x{00F8}-\\x{02FF}]|[\\x{0370}-\\x{037D}]|[\\x{037F}-\\x{1FFF}]|[\\x{200C}-\\x{200D}]|[\\x{2070}-\\x{218F}]|[\\x{2C00}-\\x{2FEF}]|[\\x{3001}-\\x{D7FF}]|[\\x{F900}-\\x{FDCF}]|[\\x{FDF0}-\\x{FFFD}]|[\\x{10000}-\\x{EFFFF}]))|-|[0-9]|\\x{00B7}|[\\x{0300}-\\x{036F}]|[\\x{203F}-\\x{2040}])|((?:\\\\([-~.!&'()*+,;=/?#@%_\\$]))|%[0-9A-Fa-f]{2})|[:.])*((([_]|([A-Z]|[a-z]|[\\x{00C0}-\\x{00D6}]|[\\x{00D8}-\\x{00F6}]|[\\x{00F8}-\\x{02FF}]|[\\x{0370}-\\x{037D}]|[\\x{037F}-\\x{1FFF}]|[\\x{200C}-\\x{200D}]|[\\x{2070}-\\x{218F}]|[\\x{2C00}-\\x{2FEF}]|[\\x{3001}-\\x{D7FF}]|[\\x{F900}-\\x{FDCF}]|[\\x{FDF0}-\\x{FFFD}]|[\\x{10000}-\\x{EFFFF}]))|-|[0-9]|\\x{00B7}|[\\x{0300}-\\x{036F}]|[\\x{203F}-\\x{2040}])|[:]|((?:\\\\([-~.!&'()*+,;=/?#@%_\\$]))|%[0-9A-Fa-f]{2})))?))"
-    private static let r_PNAME_NS	= "(((([A-Z]|[a-z]|[\\x{00C0}-\\x{00D6}]|[\\x{00D8}-\\x{00F6}]|[\\x{00F8}-\\x{02FF}]|[\\x{0370}-\\x{037D}]|[\\x{037F}-\\x{1FFF}]|[\\x{200C}-\\x{200D}]|[\\x{2070}-\\x{218F}]|[\\x{2C00}-\\x{2FEF}]|[\\x{3001}-\\x{D7FF}]|[\\x{F900}-\\x{FDCF}]|[\\x{FDF0}-\\x{FFFD}]|[\\x{10000}-\\x{EFFFF}])(((([_]|([A-Z]|[a-z]|[\\x{00C0}-\\x{00D6}]|[\\x{00D8}-\\x{00F6}]|[\\x{00F8}-\\x{02FF}]|[\\x{0370}-\\x{037D}]|[\\x{037F}-\\x{1FFF}]|[\\x{200C}-\\x{200D}]|[\\x{2070}-\\x{218F}]|[\\x{2C00}-\\x{2FEF}]|[\\x{3001}-\\x{D7FF}]|[\\x{F900}-\\x{FDCF}]|[\\x{FDF0}-\\x{FFFD}]|[\\x{10000}-\\x{EFFFF}]))|-|[0-9]|\\x{00B7}|[\\x{0300}-\\x{036F}]|[\\x{203F}-\\x{2040}])|[.])*(([_]|([A-Z]|[a-z]|[\\x{00C0}-\\x{00D6}]|[\\x{00D8}-\\x{00F6}]|[\\x{00F8}-\\x{02FF}]|[\\x{0370}-\\x{037D}]|[\\x{037F}-\\x{1FFF}]|[\\x{200C}-\\x{200D}]|[\\x{2070}-\\x{218F}]|[\\x{2C00}-\\x{2FEF}]|[\\x{3001}-\\x{D7FF}]|[\\x{F900}-\\x{FDCF}]|[\\x{FDF0}-\\x{FFFD}]|[\\x{10000}-\\x{EFFFF}]))|-|[0-9]|\\x{00B7}|[\\x{0300}-\\x{036F}]|[\\x{203F}-\\x{2040}]))?))?:)"
-    private static let r_DOUBLE     = "(([0-9]+[.][0-9]*[eE][+-]?[0-9]+)|([.][0-9]+[eE][+-]?[0-9]+)|([0-9]+[eE][+-]?[0-9]+))"
-    private static let r_DECIMAL    = "[0-9]*[.][0-9]+"
-    private static let r_INTEGER    = "[0-9]+"
+    private static let rPNameLn	= "((((([A-Z]|[a-z]|[\\x{00C0}-\\x{00D6}]|[\\x{00D8}-\\x{00F6}]|[\\x{00F8}-\\x{02FF}]|[\\x{0370}-\\x{037D}]|[\\x{037F}-\\x{1FFF}]|[\\x{200C}-\\x{200D}]|[\\x{2070}-\\x{218F}]|[\\x{2C00}-\\x{2FEF}]|[\\x{3001}-\\x{D7FF}]|[\\x{F900}-\\x{FDCF}]|[\\x{FDF0}-\\x{FFFD}]|[\\x{10000}-\\x{EFFFF}])(((([_]|([A-Z]|[a-z]|[\\x{00C0}-\\x{00D6}]|[\\x{00D8}-\\x{00F6}]|[\\x{00F8}-\\x{02FF}]|[\\x{0370}-\\x{037D}]|[\\x{037F}-\\x{1FFF}]|[\\x{200C}-\\x{200D}]|[\\x{2070}-\\x{218F}]|[\\x{2C00}-\\x{2FEF}]|[\\x{3001}-\\x{D7FF}]|[\\x{F900}-\\x{FDCF}]|[\\x{FDF0}-\\x{FFFD}]|[\\x{10000}-\\x{EFFFF}]))|-|[0-9]|\\x{00B7}|[\\x{0300}-\\x{036F}]|[\\x{203F}-\\x{2040}])|[.])*(([_]|([A-Z]|[a-z]|[\\x{00C0}-\\x{00D6}]|[\\x{00D8}-\\x{00F6}]|[\\x{00F8}-\\x{02FF}]|[\\x{0370}-\\x{037D}]|[\\x{037F}-\\x{1FFF}]|[\\x{200C}-\\x{200D}]|[\\x{2070}-\\x{218F}]|[\\x{2C00}-\\x{2FEF}]|[\\x{3001}-\\x{D7FF}]|[\\x{F900}-\\x{FDCF}]|[\\x{FDF0}-\\x{FFFD}]|[\\x{10000}-\\x{EFFFF}]))|-|[0-9]|\\x{00B7}|[\\x{0300}-\\x{036F}]|[\\x{203F}-\\x{2040}]))?))?:)((([_]|([A-Z]|[a-z]|[\\x{00C0}-\\x{00D6}]|[\\x{00D8}-\\x{00F6}]|[\\x{00F8}-\\x{02FF}]|[\\x{0370}-\\x{037D}]|[\\x{037F}-\\x{1FFF}]|[\\x{200C}-\\x{200D}]|[\\x{2070}-\\x{218F}]|[\\x{2C00}-\\x{2FEF}]|[\\x{3001}-\\x{D7FF}]|[\\x{F900}-\\x{FDCF}]|[\\x{FDF0}-\\x{FFFD}]|[\\x{10000}-\\x{EFFFF}]))|[:0-9]|((?:\\\\([-~.!&'()*+,;=/?#@%_\\$]))|%[0-9A-Fa-f]{2}))(((([_]|([A-Z]|[a-z]|[\\x{00C0}-\\x{00D6}]|[\\x{00D8}-\\x{00F6}]|[\\x{00F8}-\\x{02FF}]|[\\x{0370}-\\x{037D}]|[\\x{037F}-\\x{1FFF}]|[\\x{200C}-\\x{200D}]|[\\x{2070}-\\x{218F}]|[\\x{2C00}-\\x{2FEF}]|[\\x{3001}-\\x{D7FF}]|[\\x{F900}-\\x{FDCF}]|[\\x{FDF0}-\\x{FFFD}]|[\\x{10000}-\\x{EFFFF}]))|-|[0-9]|\\x{00B7}|[\\x{0300}-\\x{036F}]|[\\x{203F}-\\x{2040}])|((?:\\\\([-~.!&'()*+,;=/?#@%_\\$]))|%[0-9A-Fa-f]{2})|[:.])*((([_]|([A-Z]|[a-z]|[\\x{00C0}-\\x{00D6}]|[\\x{00D8}-\\x{00F6}]|[\\x{00F8}-\\x{02FF}]|[\\x{0370}-\\x{037D}]|[\\x{037F}-\\x{1FFF}]|[\\x{200C}-\\x{200D}]|[\\x{2070}-\\x{218F}]|[\\x{2C00}-\\x{2FEF}]|[\\x{3001}-\\x{D7FF}]|[\\x{F900}-\\x{FDCF}]|[\\x{FDF0}-\\x{FFFD}]|[\\x{10000}-\\x{EFFFF}]))|-|[0-9]|\\x{00B7}|[\\x{0300}-\\x{036F}]|[\\x{203F}-\\x{2040}])|[:]|((?:\\\\([-~.!&'()*+,;=/?#@%_\\$]))|%[0-9A-Fa-f]{2})))?))"
+    private static let rPNameNS	= "(((([A-Z]|[a-z]|[\\x{00C0}-\\x{00D6}]|[\\x{00D8}-\\x{00F6}]|[\\x{00F8}-\\x{02FF}]|[\\x{0370}-\\x{037D}]|[\\x{037F}-\\x{1FFF}]|[\\x{200C}-\\x{200D}]|[\\x{2070}-\\x{218F}]|[\\x{2C00}-\\x{2FEF}]|[\\x{3001}-\\x{D7FF}]|[\\x{F900}-\\x{FDCF}]|[\\x{FDF0}-\\x{FFFD}]|[\\x{10000}-\\x{EFFFF}])(((([_]|([A-Z]|[a-z]|[\\x{00C0}-\\x{00D6}]|[\\x{00D8}-\\x{00F6}]|[\\x{00F8}-\\x{02FF}]|[\\x{0370}-\\x{037D}]|[\\x{037F}-\\x{1FFF}]|[\\x{200C}-\\x{200D}]|[\\x{2070}-\\x{218F}]|[\\x{2C00}-\\x{2FEF}]|[\\x{3001}-\\x{D7FF}]|[\\x{F900}-\\x{FDCF}]|[\\x{FDF0}-\\x{FFFD}]|[\\x{10000}-\\x{EFFFF}]))|-|[0-9]|\\x{00B7}|[\\x{0300}-\\x{036F}]|[\\x{203F}-\\x{2040}])|[.])*(([_]|([A-Z]|[a-z]|[\\x{00C0}-\\x{00D6}]|[\\x{00D8}-\\x{00F6}]|[\\x{00F8}-\\x{02FF}]|[\\x{0370}-\\x{037D}]|[\\x{037F}-\\x{1FFF}]|[\\x{200C}-\\x{200D}]|[\\x{2070}-\\x{218F}]|[\\x{2C00}-\\x{2FEF}]|[\\x{3001}-\\x{D7FF}]|[\\x{F900}-\\x{FDCF}]|[\\x{FDF0}-\\x{FFFD}]|[\\x{10000}-\\x{EFFFF}]))|-|[0-9]|\\x{00B7}|[\\x{0300}-\\x{036F}]|[\\x{203F}-\\x{2040}]))?))?:)"
+    private static let rDouble     = "(([0-9]+[.][0-9]*[eE][+-]?[0-9]+)|([.][0-9]+[eE][+-]?[0-9]+)|([0-9]+[eE][+-]?[0-9]+))"
+    private static let rDecimal    = "[0-9]*[.][0-9]+"
+    private static let rInteger    = "[0-9]+"
 
     private static let _variableNameRegex: NSRegularExpression = {
         guard let r = try? NSRegularExpression(pattern: "((([_]|([A-Z]|[a-z]|[\\x{00C0}-\\x{00D6}]|[\\x{00D8}-\\x{00F6}]|[\\x{00F8}-\\x{02FF}]|[\\x{0370}-\\x{037D}]|[\\x{037F}-\\x{1FFF}]|[\\x{200C}-\\x{200D}]|[\\x{2070}-\\x{218F}]|[\\x{2C00}-\\x{2FEF}]|[\\x{3001}-\\x{D7FF}]|[\\x{F900}-\\x{FDCF}]|[\\x{FDF0}-\\x{FFFD}]|[\\x{10000}-\\x{EFFFF}]))|[0-9])(([_]|([A-Z]|[a-z]|[\\x{00C0}-\\x{00D6}]|[\\x{00D8}-\\x{00F6}]|[\\x{00F8}-\\x{02FF}]|[\\x{0370}-\\x{037D}]|[\\x{037F}-\\x{1FFF}]|[\\x{200C}-\\x{200D}]|[\\x{2070}-\\x{218F}]|[\\x{2C00}-\\x{2FEF}]|[\\x{3001}-\\x{D7FF}]|[\\x{F900}-\\x{FDCF}]|[\\x{FDF0}-\\x{FFFD}]|[\\x{10000}-\\x{EFFFF}]))|[0-9]|\\x{00B7}|[\\x{0300}-\\x{036F}]|[\\x{203F}-\\x{2040}])*)", options: .anchorsMatchLines) else { fatalError("Failed to compile built-in regular expression") }
@@ -305,12 +306,12 @@ public struct SPARQLLexer: IteratorProtocol {
         return r
     }()
 
-    fileprivate static let _functions: Set<String> = {
+    fileprivate static let validFunctionNames: Set<String> = {
         let funcs = Set(["STR", "LANG", "LANGMATCHES", "DATATYPE", "BOUND", "IRI", "URI", "BNODE", "RAND", "ABS", "CEIL", "FLOOR", "ROUND", "CONCAT", "STRLEN", "UCASE", "LCASE", "ENCODE_FOR_URI", "CONTAINS", "STRSTARTS", "STRENDS", "STRBEFORE", "STRAFTER", "YEAR", "MONTH", "DAY", "HOURS", "MINUTES", "SECONDS", "TIMEZONE", "TZ", "NOW", "UUID", "STRUUID", "MD5", "SHA1", "SHA256", "SHA384", "SHA512", "COALESCE", "IF", "STRLANG", "STRDT", "SAMETERM", "SUBSTR", "REPLACE", "ISIRI", "ISURI", "ISBLANK", "ISLITERAL", "ISNUMERIC", "REGEX"])
         return funcs
     }()
 
-    fileprivate static let _aggregates: Set<String> = {
+    fileprivate static let validAggregations: Set<String> = {
         let aggs = Set(["COUNT", "SUM", "MIN", "MAX", "AVG", "SAMPLE", "GROUP_CONCAT"])
         return aggs
     }()
@@ -331,12 +332,12 @@ public struct SPARQLLexer: IteratorProtocol {
     }()
 
     private static let _pNameLNre: NSRegularExpression = {
-        guard let r = try? NSRegularExpression(pattern: r_PNAME_LN, options: []) else { fatalError("Failed to compile built-in regular expression") }
+        guard let r = try? NSRegularExpression(pattern: rPNameLn, options: []) else { fatalError("Failed to compile built-in regular expression") }
         return r
     }()
 
     private static let _pNameNSre: NSRegularExpression = {
-        guard let r = try? NSRegularExpression(pattern: r_PNAME_NS, options: []) else { fatalError("Failed to compile built-in regular expression") }
+        guard let r = try? NSRegularExpression(pattern: rPNameNS, options: []) else { fatalError("Failed to compile built-in regular expression") }
         return r
     }()
 
@@ -367,17 +368,17 @@ public struct SPARQLLexer: IteratorProtocol {
     }()
 
     private static let _doubleRegex: NSRegularExpression = {
-        guard let r = try? NSRegularExpression(pattern: r_DOUBLE, options: []) else { fatalError("Failed to compile built-in regular expression") }
+        guard let r = try? NSRegularExpression(pattern: rDouble, options: []) else { fatalError("Failed to compile built-in regular expression") }
         return r
     }()
 
     private static let _decimalRegex: NSRegularExpression = {
-        guard let r = try? NSRegularExpression(pattern: r_DECIMAL, options: []) else { fatalError("Failed to compile built-in regular expression") }
+        guard let r = try? NSRegularExpression(pattern: rDecimal, options: []) else { fatalError("Failed to compile built-in regular expression") }
         return r
     }()
 
     private static let _integerRegex: NSRegularExpression = {
-        guard let r = try? NSRegularExpression(pattern: r_INTEGER, options: []) else { fatalError("Failed to compile built-in regular expression") }
+        guard let r = try? NSRegularExpression(pattern: rInteger, options: []) else { fatalError("Failed to compile built-in regular expression") }
         return r
     }()
 
@@ -444,7 +445,7 @@ public struct SPARQLLexer: IteratorProtocol {
         self.startLine = -1
         self.startCharacter = 0
         self.comments = true
-        self._lookahead = nil
+        self.lookahead = nil
     }
 
     mutating func readUnicodeEscape(length: Int) throws -> [UInt8] {
@@ -513,17 +514,17 @@ public struct SPARQLLexer: IteratorProtocol {
     }
 
     mutating func peekToken() throws -> SPARQLToken? {
-        if let t = _lookahead {
+        if let t = lookahead {
             return t
         } else {
-            _lookahead = try _getToken()
-            return _lookahead
+            lookahead = try _getToken()
+            return lookahead
         }
     }
 
     mutating func getToken() throws -> SPARQLToken? {
-        if let t = _lookahead {
-            _lookahead = nil
+        if let t = lookahead {
+            lookahead = nil
             return t
         } else {
             return try _getToken()
@@ -1212,6 +1213,7 @@ private enum UnfinishedAlgebra {
     }
 }
 
+// swiftlint:disable type_body_length
 public struct SPARQLParser {
     var lexer: SPARQLLexer
     var prefixes: [String:String]
@@ -1695,8 +1697,8 @@ public struct SPARQLParser {
         return expr
     }
 
-    private mutating func parseSolutionModifier(algebra a: Algebra, distinct: Bool, projection: [String]?, projectExpressions: [(Expression, String)], aggregation: [String:Aggregation], valuesBlock: Algebra?) throws -> Algebra {
-        var algebra = a
+    private mutating func parseSolutionModifier(algebra: Algebra, distinct: Bool, projection: [String]?, projectExpressions: [(Expression, String)], aggregation: [String:Aggregation], valuesBlock: Algebra?) throws -> Algebra {
+        var algebra = algebra
         let aggregations = aggregation.map { ($0.1, $0.0) }
         if try attempt(token: .keyword("GROUP")) {
             try expect(token: .keyword("BY"))
@@ -2611,7 +2613,7 @@ public struct SPARQLParser {
     private mutating func parseBuiltInCall() throws -> Expression {
         let t = try peekExpectedToken()
         switch t {
-        case .keyword(let kw) where SPARQLLexer._aggregates.contains(kw):
+        case .keyword(let kw) where SPARQLLexer.validAggregations.contains(kw):
             let agg = try parseAggregate()
             return .aggregate(agg)
         case .keyword("NOT"):
@@ -2623,7 +2625,7 @@ public struct SPARQLParser {
             try expect(token: t)
             let ggp = try parseGroupGraphPattern()
             fatalError("implement EXISTS \(ggp)")
-        case .keyword(let kw) where SPARQLLexer._functions.contains(kw):
+        case .keyword(let kw) where SPARQLLexer.validFunctionNames.contains(kw):
             try expect(token: t)
             var args = [Expression]()
             if try !attempt(token: ._nil) {
@@ -2832,8 +2834,8 @@ public struct SPARQLParser {
         }
     }
 
-    private mutating func tokenAsTerm(_ t: SPARQLToken) throws -> Node {
-        switch t {
+    private mutating func tokenAsTerm(_ token: SPARQLToken) throws -> Node {
+        switch token {
         case ._nil:
             return .bound(Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#nil", type: .iri))
         case ._var(let name):
@@ -2904,7 +2906,7 @@ public struct SPARQLParser {
             let neg = .integer(0) - value
             return .bound(neg.term)
         default:
-            throw parseError("Expecting term but got \(t)")
+            throw parseError("Expecting term but got \(token)")
         }
     }
 
@@ -3110,7 +3112,7 @@ public struct SPARQLSerializer {
                 case (_, .lparen, _):
                     // no space between a lparen and any following token
                     outputArray.append((t, .tokenString("\(t.sparql)")))
-                case (_, .keyword(let kw), .lparen) where SPARQLLexer._functions.contains(kw):
+                case (_, .keyword(let kw), .lparen) where SPARQLLexer.validFunctionNames.contains(kw):
                     // 				KEYWORD '('		-> KEYWORD								{ set no SPACE_SEP }
                     outputArray.append((t, .tokenString("\(t.sparql)")))
                 case (_, .prefixname, .lparen):

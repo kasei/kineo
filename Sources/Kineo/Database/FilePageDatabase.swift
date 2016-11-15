@@ -98,7 +98,7 @@ public final class FilePageDatabase: Database {
     internal let fd: CInt
     var nextPageId: Int
 
-    public init?(_ filename: String, size _pageSize: Int = 4096) {
+    public init?(_ filename: String, size preferredPageSize: Int = 4096) {
         var st: stat = stat()
         fd = open(filename, O_RDWR|O_CREAT, 0o666)
         nextPageId = -1
@@ -107,7 +107,7 @@ public final class FilePageDatabase: Database {
         var size = Int(st.st_size)
         if size == 0 {
             let version: Version = 0
-            pageSize = _pageSize
+            pageSize = preferredPageSize
             let b = UnsafeMutableRawPointer.allocate(bytes: pageSize, alignedTo: 0)
             do {
                 let header = DatabaseHeaderPage(version: version, roots: [("sys",0)])
@@ -127,9 +127,9 @@ public final class FilePageDatabase: Database {
             let sr = pread(fd, b, 16, off_t(0))
             guard sr == 16 else { return nil }
             do {
-                let (cookie, _, _pageSize) = try DatabaseHeaderPage.deserializeHeaderMetadata(from: b, status: .clean(0))
+                let (cookie, _, preferredPageSize) = try DatabaseHeaderPage.deserializeHeaderMetadata(from: b, status: .clean(0))
                 guard cookie == DatabaseInfo.Cookie.databaseHeader.rawValue else { return nil }
-                pageSize = _pageSize
+                pageSize = preferredPageSize
                 guard size % pageSize == 0 else { return nil }
                 pageCount = (size / pageSize)
             } catch {
@@ -191,10 +191,10 @@ open class FilePageRMediator: RMediator {
     public var pageCount: Int { return database.pageCount }
     internal var pageObjects: [PageId:PageMarshalled]
     internal var readBuffer: UnsafeMutableRawPointer
-    init(database d: FilePageDatabase) {
-        database = d
+    init(database: FilePageDatabase) {
+        self.database = database
         pageObjects = [:]
-        readBuffer = UnsafeMutableRawPointer.allocate(bytes: d.pageSize, alignedTo: 0)
+        readBuffer = UnsafeMutableRawPointer.allocate(bytes: database.pageSize, alignedTo: 0)
     }
 
     deinit {
@@ -292,12 +292,12 @@ open class FilePageRWMediator: FilePageRMediator, RWMediator {
     private var newPages: Set<PageId>
     public let version: Version
 
-    init(database d: FilePageDatabase, version v: Version) {
+    init(database: FilePageDatabase, version: Version) {
         roots = [:]
         dirty = [:]
         newPages = Set()
-        version = v
-        super.init(database: d)
+        self.version = version
+        super.init(database: database)
     }
 
     internal func commit() throws {

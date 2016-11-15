@@ -227,8 +227,8 @@ func match(_ database: FilePageDatabase) throws -> Int {
     return count
 }
 
-func printPageInfo(mediator m: FilePageRMediator, name: String, page: PageId) {
-    if let (type, date, previous) = m._pageInfo(page: page) {
+func printPageInfo(mediator: FilePageRMediator, name: String, page: PageId) {
+    if let (type, date, previous) = mediator._pageInfo(page: page) {
         var prev: String
         switch previous {
         case .none, .some(0):
@@ -244,9 +244,8 @@ func printPageInfo(mediator m: FilePageRMediator, name: String, page: PageId) {
 }
 
 var verbose = false
-let _args = CommandLine.arguments
-let argscount = _args.count
-var args = PeekableIterator(generator: _args.makeIterator())
+let argscount = CommandLine.arguments.count
+var args = PeekableIterator(generator: CommandLine.arguments.makeIterator())
 guard let pname = args.next() else { fatalError("Missing command name") }
 var pageSize = 8192
 guard argscount >= 2 else {
