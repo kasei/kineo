@@ -127,13 +127,13 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
         for term in terms {
             if term.isNumeric {
                 count += 1
-                resultingType = resultingType?.resultType(op: "+", operandType: term.type)
+                resultingType = resultingType?.resultType(for: "+", withOperandType: term.type)
                 doubleSum += term.numericValue
             }
         }
 
         doubleSum /= Double(count)
-        resultingType = resultingType?.resultType(op: "/", operandType: integer)
+        resultingType = resultingType?.resultType(for: "/", withOperandType: integer)
         if let type = resultingType {
             if let n = Term(numeric: doubleSum, type: type) {
                 return n

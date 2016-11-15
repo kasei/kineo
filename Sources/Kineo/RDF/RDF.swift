@@ -319,7 +319,7 @@ private func divResultingNumeric(_ value: Double, _ lhs: Numeric, _ rhs: Numeric
 
 extension TermType {
     // swiftlint:disable:next variable_name
-    func resultType(op: String, operandType rhs: TermType) -> TermType? {
+    func resultType(for op: String, withOperandType rhs: TermType) -> TermType? {
         let integer = TermType.datatype("http://www.w3.org/2001/XMLSchema#integer")
         let decimal = TermType.datatype("http://www.w3.org/2001/XMLSchema#decimal")
         let float   = TermType.datatype("http://www.w3.org/2001/XMLSchema#float")

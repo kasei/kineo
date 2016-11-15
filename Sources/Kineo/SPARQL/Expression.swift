@@ -295,7 +295,7 @@ public indirect enum Expression: CustomStringConvertible {
                 guard lval.isNumeric else { throw QueryError.typeError("Value \(lval) is not numeric") }
                 guard rval.isNumeric else { throw QueryError.typeError("Value \(lval) is not numeric") }
                 let value = lval.numericValue + rval.numericValue
-                guard let type = lval.type.resultType(op: "+", operandType: rval.type) else { throw QueryError.typeError("Cannot determine resulting type for adding \(lval) and \(rval)") }
+                guard let type = lval.type.resultType(for: "+", withOperandType: rval.type) else { throw QueryError.typeError("Cannot determine resulting type for adding \(lval) and \(rval)") }
                 guard let term = Term(numeric: value, type: type) else { throw QueryError.typeError("Cannot add \(lval) and \(rval) and produce a valid numeric term") }
                 return term
             }
@@ -304,7 +304,7 @@ public indirect enum Expression: CustomStringConvertible {
                 guard lval.isNumeric else { throw QueryError.typeError("Value \(lval) is not numeric") }
                 guard rval.isNumeric else { throw QueryError.typeError("Value \(lval) is not numeric") }
                 let value = lval.numericValue - rval.numericValue
-                guard let type = lval.type.resultType(op: "-", operandType: rval.type) else { throw QueryError.typeError("Cannot determine resulting type for subtracting \(lval) and \(rval)") }
+                guard let type = lval.type.resultType(for: "-", withOperandType: rval.type) else { throw QueryError.typeError("Cannot determine resulting type for subtracting \(lval) and \(rval)") }
                 guard let term = Term(numeric: value, type: type) else { throw QueryError.typeError("Cannot subtract \(lval) and \(rval) and produce a valid numeric term") }
                 return term
             }
@@ -313,7 +313,7 @@ public indirect enum Expression: CustomStringConvertible {
                 guard lval.isNumeric else { throw QueryError.typeError("Value \(lval) is not numeric") }
                 guard rval.isNumeric else { throw QueryError.typeError("Value \(lval) is not numeric") }
                 let value = lval.numericValue * rval.numericValue
-                guard let type = lval.type.resultType(op: "*", operandType: rval.type) else { throw QueryError.typeError("Cannot determine resulting type for multiplying \(lval) and \(rval)") }
+                guard let type = lval.type.resultType(for: "*", withOperandType: rval.type) else { throw QueryError.typeError("Cannot determine resulting type for multiplying \(lval) and \(rval)") }
                 guard let term = Term(numeric: value, type: type) else { throw QueryError.typeError("Cannot multiply \(lval) and \(rval) and produce a valid numeric term") }
                 return term
             }
@@ -322,7 +322,7 @@ public indirect enum Expression: CustomStringConvertible {
                 guard lval.isNumeric else { throw QueryError.typeError("Value \(lval) is not numeric") }
                 guard rval.isNumeric else { throw QueryError.typeError("Value \(lval) is not numeric") }
                 let value = lval.numericValue / rval.numericValue
-                guard let type = lval.type.resultType(op: "/", operandType: rval.type) else { throw QueryError.typeError("Cannot determine resulting type for dividing \(lval) and \(rval)") }
+                guard let type = lval.type.resultType(for: "/", withOperandType: rval.type) else { throw QueryError.typeError("Cannot determine resulting type for dividing \(lval) and \(rval)") }
                 guard let term = Term(numeric: value, type: type) else { throw QueryError.typeError("Cannot divide \(lval) and \(rval) and produce a valid numeric term") }
                 return term
             }
