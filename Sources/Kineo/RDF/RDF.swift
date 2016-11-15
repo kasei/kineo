@@ -13,11 +13,11 @@ public enum TermType : BufferSerializable {
     case iri
     case language(String)
     case datatype(String)
-    
+
     /**
-     
+
      Term type encodings (most specific wins):
-     
+
      1      IRI
      2      Blank
      3      Langauge literal
@@ -28,7 +28,7 @@ public enum TermType : BufferSerializable {
      8      xsd:decimal
      9      xsd:integer
      10     xsd:float
-     
+
      // top languages used in DBPedia:
      200    de
      201    en
@@ -38,12 +38,12 @@ public enum TermType : BufferSerializable {
      205    nl
      206    pt
      207    ru
-     
+
      255    en-US
-     
-     
+
+
      **/
-    
+
     public var serializedSize : Int {
         switch (self) {
         case .datatype("http://www.w3.org/2001/XMLSchema#float"),
@@ -139,7 +139,7 @@ public enum TermType : BufferSerializable {
     public static func deserialize(from buffer : inout UnsafeRawPointer, mediator : RMediator?=nil) throws -> TermType {
         let type = buffer.assumingMemoryBound(to: UInt8.self).pointee
         buffer += 1
-        
+
         switch type {
         case 255:
             return .language("en-US")
@@ -192,7 +192,7 @@ public enum Numeric : CustomStringConvertible {
     case decimal(Double)
     case float(Double)
     case double(Double)
-    
+
     var value : Double {
         switch self {
         case .integer(let value):
@@ -201,7 +201,7 @@ public enum Numeric : CustomStringConvertible {
             return value
         }
     }
-    
+
     var term : Term {
         switch self {
         case .integer(let value):
@@ -214,7 +214,7 @@ public enum Numeric : CustomStringConvertible {
             return Term(double: value)
         }
     }
-    
+
     public var description : String {
         switch self {
         case .integer(let i):
@@ -232,22 +232,22 @@ public enum Numeric : CustomStringConvertible {
         let value = lhs.value + rhs.value
         return nonDivResultingNumeric(value, lhs, rhs)
     }
-    
+
     public static func -(lhs : Numeric, rhs: Numeric) -> Numeric {
         let value = lhs.value - rhs.value
         return nonDivResultingNumeric(value, lhs, rhs)
     }
-    
+
     public static func *(lhs : Numeric, rhs: Numeric) -> Numeric {
         let value = lhs.value * rhs.value
         return nonDivResultingNumeric(value, lhs, rhs)
     }
-    
+
     public static func /(lhs : Numeric, rhs: Numeric) -> Numeric {
         let value = lhs.value / rhs.value
         return divResultingNumeric(value, lhs, rhs)
     }
-    
+
     public static prefix func -(num : Numeric) -> Numeric {
         switch num {
         case .integer(let value):
@@ -378,38 +378,38 @@ public struct Term : CustomStringConvertible {
     static func rdf(_ local : String) -> Term {
         return Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#\(local)", type: .iri)
     }
-    
+
     static func xsd(_ local : String) -> Term {
         return Term(value: "http://www.w3.org/2001/XMLSchema#\(local)", type: .iri)
     }
-    
+
     public init(value : String, type : TermType) {
         self.value  = value
         self.type   = type
     }
-    
+
     public init(integer value: Int) {
         self.value = "\(value)"
         self.type = .datatype("http://www.w3.org/2001/XMLSchema#integer")
     }
-    
+
     public init(float value: Double) {
         self.value = "\(value)"
         // TODO: fix the lexical form for xsd:float
         self.type = .datatype("http://www.w3.org/2001/XMLSchema#float")
     }
-    
+
     public init(double value: Double) {
         self.value = "\(value)"
         // TODO: fix the lexical form for xsd:double
         self.type = .datatype("http://www.w3.org/2001/XMLSchema#double")
     }
-    
+
     public init(decimal value: Double) {
         self.value = String(format: "%f", value)
         self.type = .datatype("http://www.w3.org/2001/XMLSchema#decimal")
     }
-    
+
     public init?(numeric value : Double, type : TermType) {
         self.type = type
         switch type {
@@ -425,7 +425,7 @@ public struct Term : CustomStringConvertible {
             return nil
         }
     }
-    
+
     public var description : String {
         switch type {
 //        case .iri where value == "http://www.w3.org/1999/02/22-rdf-syntax-ns#type":
@@ -454,7 +454,7 @@ public struct Term : CustomStringConvertible {
             return "\"\(escaped)\"^^<\(dt)>"
         }
     }
-    
+
     static let trueValue = Term(value: "true", type: .datatype("http://www.w3.org/2001/XMLSchema#boolean"))
     static let falseValue = Term(value: "false", type: .datatype("http://www.w3.org/2001/XMLSchema#boolean"))
 }
@@ -468,7 +468,7 @@ extension Term : BufferSerializable {
         try type.serialize(to: &buffer)
         try value.serialize(to: &buffer)
     }
-    
+
     public static func deserialize(from buffer : inout UnsafeRawPointer, mediator : RMediator?=nil) throws -> Term {
         do {
             let type    = try TermType.deserialize(from: &buffer)
@@ -499,7 +499,7 @@ extension Term : Comparable {
             return false
         }
     }
-    
+
     public var numeric : Numeric? {
         switch type {
         case .datatype("http://www.w3.org/2001/XMLSchema#integer"):
@@ -517,7 +517,7 @@ extension Term : Comparable {
         default:
             return nil
         }
-        
+
     }
     public var numericValue : Double {
         switch type {
@@ -531,7 +531,7 @@ extension Term : Comparable {
             fatalError("Cannot compute a numeric value for term of type \(type)")
         }
     }
-    
+
     public static func <(lhs: Term, rhs: Term) -> Bool {
         if lhs.isNumeric && rhs.isNumeric {
             return lhs.numericValue < rhs.numericValue

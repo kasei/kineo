@@ -32,7 +32,7 @@ func parse(_ database : FilePageDatabase, files : [String], startTime : UInt64, 
                     let path = NSURL(fileURLWithPath: filename).absoluteString
                 #endif
                 let graph   = defaultGraphTerm ?? Term(value: path, type: .iri)
-                
+
                 let reader  = FileReader(filename: filename)
                 let parser  = NTriplesParser(reader: reader)
                 let quads = AnySequence { () -> AnyIterator<Quad> in
@@ -44,7 +44,7 @@ func parse(_ database : FilePageDatabase, files : [String], startTime : UInt64, 
                     }
                     //    warn("\r\(quads.count) triples parsed")
                 }
-                
+
                 let store = try QuadStore.create(mediator: m)
                 try store.load(quads: quads)
             }
@@ -86,7 +86,7 @@ func query2(_ database : FilePageDatabase, algebra: Algebra, graph: Term? = nil,
 //                    print("# Last-Modified: \(date)")
 //                }
 //            }
-            
+
             let planner     = QuadStorePlanner(store: store, defaultGraph: defaultGraph)
             let plan        = try planner.plan(algebra)
             let e           = ResultPlanEvaluator(store: store)
@@ -108,7 +108,7 @@ func query(_ database : FilePageDatabase, algebra query: Algebra, graph: Term? =
         do {
             let store       = try LanguageQuadStore(mediator: m, acceptLanguages: [("en", 1.0), ("", 0.5)])
 //            let store       = try QuadStore(mediator: m)
-            
+
             var defaultGraph : Term
             if let g = graph {
                 defaultGraph = g
@@ -124,7 +124,7 @@ func query(_ database : FilePageDatabase, algebra query: Algebra, graph: Term? =
                     print("# Last-Modified: \(date)")
                 }
             }
-            
+
             for result in try e.evaluate(algebra: query, activeGraph: defaultGraph) {
                 count += 1
                 print("\(count)\t\(result.description)")
@@ -236,7 +236,7 @@ func printPageInfo(mediator m : FilePageRMediator, name : String, page : PageId)
         case .some(let value):
             prev = "Previous page: \(value)"
         }
-        
+
         let name_padded = name.padding(toLength: 16, withPad: " ", startingAt: 0)
         let type_padded = type.padding(toLength: 24, withPad: " ", startingAt: 0)
         print("  \(page)\t\(date)\t\(name_padded)\t\(type_padded)\t\t\(prev)")
@@ -285,7 +285,7 @@ if let op = args.next() {
             guard let iri = args.next() else { fatalError("No IRI value given after -g") }
             graph = Term(value: iri, type: .iri)
         }
-        
+
         count = try parse(database, files: args.elements(), startTime: startSecond, graph: graph)
     } else if op == "graphs" {
         count = try graphs(database)
@@ -369,7 +369,7 @@ if let op = args.next() {
                     roots[Int(i)] = name
                 }
             }
-            
+
             var pages = Array(args.elements().flatMap { Int($0) })
             if pages.count == 0 {
                 pages = Array(0..<m.pageCount)

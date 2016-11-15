@@ -23,11 +23,11 @@ public struct TriplePattern : CustomStringConvertible {
         self.predicate = predicate
         self.object = object
     }
-    
+
     public var description : String {
         return "\(subject) \(predicate) \(object) ."
     }
-    
+
     func bind(_ variable : String, to replacement : Node) -> TriplePattern {
         let subject = self.subject.bind(variable, to: replacement)
         let predicate = self.predicate.bind(variable, to: replacement)
@@ -50,7 +50,7 @@ public struct QuadPattern : CustomStringConvertible {
     public var description : String {
         return "\(subject) \(predicate) \(object) \(graph)."
     }
-    
+
     public func matches(quad : Quad) -> TermResult? {
         let terms = [quad.subject, quad.predicate, quad.object, quad.graph]
         let nodes = [subject, predicate, object, graph]
@@ -71,7 +71,7 @@ public struct QuadPattern : CustomStringConvertible {
         }
         return TermResult(bindings: bindings)
     }
-    
+
     func bind(_ variable : String, to replacement : Node) -> QuadPattern {
         let subject = self.subject.bind(variable, to: replacement)
         let predicate = self.predicate.bind(variable, to: replacement)
@@ -99,7 +99,7 @@ public indirect enum PropertyPath {
 
 public indirect enum Algebra {
     public typealias SortComparator = (Bool, Expression)
-    
+
     case unionIdentity
     case joinIdentity
     case table([Node], [TermResult])
@@ -124,7 +124,7 @@ public indirect enum Algebra {
     case construct(Algebra, [TriplePattern])
     case describe(Algebra, [Node])
     case ask(Algebra)
-    
+
     private func inscopeUnion(children : [Algebra]) -> Set<String> {
         if children.count == 0 {
             return Set()
@@ -137,7 +137,7 @@ public indirect enum Algebra {
         }
         return vars.popLast()!
     }
-    
+
     public var inscope : Set<String> {
         var variables = Set<String>()
         switch self {
@@ -223,10 +223,10 @@ public indirect enum Algebra {
             return variables
         }
     }
-    
+
     public func serialize(depth : Int=0) -> String {
         let indent = String(repeating: " ", count: (depth*2))
-        
+
         switch self {
         case .unionIdentity:
             return "\(indent)Empty\n"
@@ -404,7 +404,7 @@ public extension Algebra {
             return .window(a.replace(map), exprs, funcs)
         }
     }
-    
+
     func replace(_ map : (Algebra) -> Algebra?) -> Algebra {
         if let r = map(self) {
             return r
@@ -449,7 +449,7 @@ public extension Algebra {
             }
         }
     }
-    
+
     func bind(_ variable : String, to replacement : Node, preservingProjection : Bool = false) -> Algebra {
         var r = self
         r = r.replace { (expr : Expression) in
@@ -460,7 +460,7 @@ public extension Algebra {
             }
             return nil
         }
-        
+
         r = r.replace { (algebra : Algebra) in
             switch algebra {
             case .triple(let t):
@@ -508,7 +508,7 @@ open class QueryParser<T : LineReadable> {
         self.reader = reader
         self.stack = []
     }
-    
+
     func parse(line : String) throws -> Algebra? {
         var parts = line.components(separatedBy: " ").filter { $0 != "" && !$0.hasPrefix("\t") }
         guard parts.count > 0 else { return nil }
@@ -567,7 +567,7 @@ open class QueryParser<T : LineReadable> {
             let aggs = pair[0].split(separator: ",")
             guard aggs.count > 0 else { throw QueryError.parseError("Bad syntax for agg operation") }
             let groupby = pair.count == 2 ? pair[1].split(separator: ",") : []
-            
+
             var aggregates = [(Aggregation, String)]()
             for a in aggs {
                 let strings = Array(a)
@@ -594,12 +594,12 @@ open class QueryParser<T : LineReadable> {
                 }
                 aggregates.append((agg, name))
             }
-            
+
             let groups = try groupby.map { (gstrings) -> Expression in
                 guard let e = try ExpressionParser.parseExpression(Array(gstrings)) else { throw QueryError.parseError("Failed to parse aggregate expression") }
                 return e
             }
-            
+
             guard let child = stack.popLast() else { return nil }
             return .aggregate(child, groups, aggregates)
         } else if op == "window" { // window row rowresult , rank rankresult ; ?x , ?y , ?z"
@@ -608,7 +608,7 @@ open class QueryParser<T : LineReadable> {
             let w = pair[0].split(separator: ",")
             guard w.count > 0 else { throw QueryError.parseError("Bad syntax for window operation") }
             let groupby = pair.count == 2 ? pair[1].split(separator: ",") : []
-            
+
             var windows : [(WindowFunction, [Algebra.SortComparator], String)] = []
             for a in w {
                 let strings = Array(a)
@@ -627,12 +627,12 @@ open class QueryParser<T : LineReadable> {
                 }
                 windows.append((f, [], name))
             }
-            
+
             let groups = try groupby.map { (gstrings) -> Expression in
                 guard let e = try ExpressionParser.parseExpression(Array(gstrings)) else { throw QueryError.parseError("Failed to parse aggregate expression") }
                 return e
             }
-            
+
             guard let child = stack.popLast() else { return nil }
             return .window(child, groups, windows)
         } else if op == "avg" { // (AVG(?key) AS ?name) ... GROUP BY ?x ?y ?z --> "avg key name x y z"
@@ -704,7 +704,7 @@ open class QueryParser<T : LineReadable> {
         warn("Cannot parse query line: \(line)")
         return nil
     }
-    
+
     func parsePropertyPath(_ parts : [String]) throws -> PropertyPath? {
         var stack = [PropertyPath]()
         var i = parts.makeIterator()
@@ -752,7 +752,7 @@ open class QueryParser<T : LineReadable> {
         }
         return stack.popLast()
     }
-    
+
     public func parse() throws -> Algebra? {
         let lines = self.reader.lines()
         for line in lines {
@@ -767,7 +767,7 @@ extension TriplePattern {
     public var sparqlTokens : AnySequence<SPARQLToken> {
         var tokens = [SPARQLToken]()
         tokens.append(contentsOf: self.subject.sparqlTokens)
-        
+
         if self.predicate == .bound(Term.rdf("type")) {
             tokens.append(.keyword("A"))
         } else {
@@ -852,8 +852,8 @@ extension Algebra {
             return .namedGraph(lhs.serializableEquivalent, graph)
         case .service(let endpoint, let lhs, let silent):
             return .service(endpoint, lhs.serializableEquivalent, silent)
-        
-            
+
+
             /**
     case .path(Node, PropertyPath, Node)
     case .aggregate(Algebra, [Expression], [(Aggregation, String)])
@@ -866,10 +866,10 @@ extension Algebra {
             fatalError("Implement Algebra.sparqlTokens for \(self)")
         }
     }
-    
+
     public func sparqlQueryTokens() -> AnySequence<SPARQLToken> {
         let a = self.serializableEquivalent
-        
+
         switch a {
         case .project(_), .aggregate(_), .order(.project(_), _), .slice(.project(_), _, _), .slice(.order(.project(_), _), _, _), .distinct(_):
             return a.sparqlTokens(depth: 0)
@@ -878,7 +878,7 @@ extension Algebra {
             return wrapped.sparqlTokens(depth: 0)
         }
     }
-    
+
     public func sparqlTokens(depth : Int) -> AnySequence<SPARQLToken> {
         switch self {
         case .unionIdentity:
@@ -1090,7 +1090,7 @@ extension Algebra {
             return AnySequence(tokens)
         case .aggregate(let lhs, let groups, let aggs):
             fatalError("implement")
-            
+
             /**
     case .path(Node, PropertyPath, Node)
     case .aggregate(Algebra, [Expression], [(Aggregation, String)])

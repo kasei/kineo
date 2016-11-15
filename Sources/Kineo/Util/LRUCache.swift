@@ -25,13 +25,13 @@ class LinkedList<K : Equatable & Hashable, V> : Sequence {
     var head : LinkedListNode<K,V>?
     weak var tail : LinkedListNode<K,V>?
     var count : Int
-    
+
     init() {
         count = 0
         head = nil
         tail = nil
     }
-    
+
     func append(key : K, value : V) -> LinkedListNode<K,V> {
         count += 1
         switch (head, tail) {
@@ -45,7 +45,7 @@ class LinkedList<K : Equatable & Hashable, V> : Sequence {
         }
         return tail!
     }
-    
+
     func prepend(node : LinkedListNode<K,V>) {
         count += 1
         switch (head, tail) {
@@ -61,7 +61,7 @@ class LinkedList<K : Equatable & Hashable, V> : Sequence {
             head = node
         }
     }
-    
+
     func prepend(key : K, value : V) -> LinkedListNode<K,V> {
         count += 1
         switch (head, tail) {
@@ -75,7 +75,7 @@ class LinkedList<K : Equatable & Hashable, V> : Sequence {
         }
         return head!
     }
-    
+
     func removeLast() -> LinkedListNode<K,V>? {
         switch tail {
         case .none:
@@ -92,7 +92,7 @@ class LinkedList<K : Equatable & Hashable, V> : Sequence {
             return node
         }
     }
-    
+
     func remove(node : LinkedListNode<K,V>) {
         count -= 1
         if node === head && node === tail {
@@ -114,7 +114,7 @@ class LinkedList<K : Equatable & Hashable, V> : Sequence {
             n.previous = p
         }
     }
-    
+
     func makeIterator() -> AnyIterator<LinkedListNode<K,V>> {
         var current = head
         return AnyIterator {
@@ -131,17 +131,17 @@ open class LRUCache<K : Equatable & Hashable, V> : Sequence {
     var dict : [K:LinkedListNode<K,V>]
     public var capacity : Int
     var list = LinkedList<K,V>()
-    
+
     var hit : Int
     var miss : Int
-    
+
     public init(capacity : Int) {
         self.capacity = capacity
         self.dict = [K:LinkedListNode<K,V>]()
         self.hit = 0
         self.miss = 0
     }
-    
+
 //    deinit {
 //        let total = Double(hit + miss)
 //        if total > 0 {
@@ -151,7 +151,7 @@ open class LRUCache<K : Equatable & Hashable, V> : Sequence {
 //            print(String(format: "LRUCache miss: %d (%.1f%%)", miss, mr))
 //        }
 //    }
-    
+
     public func removeValue(forKey key: K) -> V? {
         if let node = dict[key] {
             list.remove(node: node)
@@ -161,7 +161,7 @@ open class LRUCache<K : Equatable & Hashable, V> : Sequence {
             return nil
         }
     }
-    
+
     public subscript(key : K) -> V? {
         get {
             if let node = dict[key] {
@@ -174,7 +174,7 @@ open class LRUCache<K : Equatable & Hashable, V> : Sequence {
                 return nil
             }
         }
-        
+
         set(newValue) {
             if let node = dict[key] {
                 list.remove(node: node)
@@ -192,7 +192,7 @@ open class LRUCache<K : Equatable & Hashable, V> : Sequence {
             }
         }
     }
-    
+
     public func makeIterator() -> AnyIterator<(K,V)> {
         let i = list.makeIterator()
         return AnyIterator {

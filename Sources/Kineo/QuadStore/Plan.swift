@@ -86,7 +86,7 @@ public class ResultPlanEvaluator {
         self.ide = IDPlanEvaluator(store: store)
         self.store = store
     }
-    
+
     public func evaluate(_ plan : ResultPlan) throws -> AnyIterator<TermResult> {
         switch plan {
         case .idListPlan(let idplan, let variables):
@@ -114,7 +114,7 @@ public class IDPlanEvaluator {
     public init(store : QuadStore) {
         self.store = store
     }
-    
+
     public func evaluate(_ plan : IDListPlan, width : Int) throws -> AnyIterator<IDListResult> {
         switch plan {
         case .graphNames(let pos):
@@ -166,11 +166,11 @@ public class QuadStorePlanner {
         variables = []
         variableNumbers = [:]
     }
-    
+
     public func plan(_ algebra : Algebra) throws -> ResultPlan {
         return try plan(algebra, activeGraph: defaultGraph)
     }
-    
+
     private func variableNumber(_ name : String) -> Int {
         if let n = variableNumbers[name] {
             return n
@@ -181,7 +181,7 @@ public class QuadStorePlanner {
             return n
         }
     }
-    
+
     private func plan(_ algebra : Algebra, activeGraph : Term) throws -> ResultPlan {
         switch algebra {
         case .triple(let t):

@@ -36,7 +36,7 @@ public struct FileReader : LineReadable {
     public init(filename: String) {
         self.filename = filename
     }
-    
+
     public func makeIterator() -> AnyIterator<CChar> {
         let fd = open(filename, O_RDONLY)
         let blockSize = 256
@@ -63,7 +63,7 @@ public struct FileReader : LineReadable {
             return buffer[i]
         }
     }
-    
+
     public func lines() -> AnyIterator<String> {
         let chargen = makeIterator()
         var chars = [CChar]()
@@ -105,13 +105,13 @@ public struct PeekableIterator<T : IteratorProtocol> : IteratorProtocol {
         generator = _generator
         bufferedElement = generator.next()
     }
-    
+
     public mutating func next() -> Element? {
         let r = bufferedElement
         bufferedElement = generator.next()
         return r
     }
-    
+
     public func peek() -> Element? {
         return bufferedElement
     }
@@ -124,7 +124,7 @@ public struct PeekableIterator<T : IteratorProtocol> : IteratorProtocol {
             _ = next()
         }
     }
-    
+
     mutating public func elements() -> [Element] {
         var elements = [Element]()
         while let e = next() {
@@ -154,11 +154,11 @@ extension UInt64 {
         var bytes = [UInt8](repeating: 0, count: 9)
         var offset = 8
         var length = 0
-        
+
         if self == 0 {
             return [0]
         }
-        
+
         var v = self
         if v > 0x00ffffffffffffff {
             // 9-byte
@@ -167,7 +167,7 @@ extension UInt64 {
             v >>= 8
             length += 1
         }
-        
+
         while v > 0 {
             var b : UInt8 = UInt8(v & 0x7f)
             v	>>= 7
@@ -178,11 +178,11 @@ extension UInt64 {
             offset -= 1
             length += 1
         }
-        
+
         let x = bytes.suffix(length)
         return Array(x)
     }
-    
+
     init(varintBytes bytes: [UInt8]) {
         var value : UInt64  = 0
         var b : UInt8       = 0
@@ -240,7 +240,7 @@ extension Int : BufferSerializable {
         buffer.assumingMemoryBound(to: Int64.self).pointee = Int64(self).bigEndian
         buffer += serializedSize
     }
-    
+
     public static func deserialize(from buffer : inout UnsafeRawPointer, mediator : RMediator?=nil) throws -> Int {
         let i = Int(Int64(bigEndian: buffer.assumingMemoryBound(to: Int64.self).pointee))
         buffer += _sizeof(Int64.self)
@@ -255,7 +255,7 @@ extension UInt64 : BufferSerializable {
         buffer.assumingMemoryBound(to: UInt64.self).pointee = self.bigEndian
         buffer += serializedSize
     }
-    
+
     public static func deserialize(from buffer : inout UnsafeRawPointer, mediator : RMediator?=nil) throws -> UInt64 {
         let u = UInt64(bigEndian: buffer.assumingMemoryBound(to: UInt64.self).pointee)
         buffer += _sizeof(UInt64.self)
@@ -270,7 +270,7 @@ extension UInt32 : BufferSerializable {
         buffer.assumingMemoryBound(to: UInt32.self).pointee = self.bigEndian
         buffer += serializedSize
     }
-    
+
     public static func deserialize(from buffer : inout UnsafeRawPointer, mediator : RMediator?=nil) throws -> UInt32 {
         let u = UInt32(bigEndian: buffer.assumingMemoryBound(to: UInt32.self).pointee)
         buffer += _sizeof(UInt32.self)
@@ -285,7 +285,7 @@ extension UInt16 : BufferSerializable {
         buffer.assumingMemoryBound(to: UInt16.self).pointee = self.bigEndian
         buffer += serializedSize
     }
-    
+
     public static func deserialize(from buffer : inout UnsafeRawPointer, mediator : RMediator?=nil) throws -> UInt16 {
         let u = UInt16(bigEndian: buffer.assumingMemoryBound(to: UInt16.self).pointee)
         buffer += _sizeof(UInt16.self)
@@ -300,7 +300,7 @@ extension UInt8 : BufferSerializable {
         buffer.assumingMemoryBound(to: UInt8.self).pointee = self
         buffer += serializedSize
     }
-    
+
     public static func deserialize(from buffer : inout UnsafeRawPointer, mediator : RMediator?=nil) throws -> UInt8 {
         let u = buffer.assumingMemoryBound(to: UInt8.self).pointee
         buffer += _sizeof(UInt8.self)
@@ -311,7 +311,7 @@ extension UInt8 : BufferSerializable {
 public enum StringBuffer : BufferSerializable {
     case inline(String)
     case large(String, PageId)
-    
+
     public var serializedSize : Int {
         switch (self) {
         case .inline(let s):
@@ -334,7 +334,7 @@ public enum StringBuffer : BufferSerializable {
             let utf8 = s.utf8
             let length = UInt32(utf8.count + 1)
             try length.serialize(to: &buffer)
-            
+
             // pack string into buffer
             let chars = utf8.map { UInt8($0) }
             for c in chars {
@@ -350,7 +350,7 @@ public enum StringBuffer : BufferSerializable {
             let utf8 = s.utf8
             let length = UInt32(utf8.count + 1)
             try length.serialize(to: &buffer)
-            
+
             // pack string into buffer
             let chars = utf8.map { UInt8($0) }
             for c in chars {
@@ -361,11 +361,11 @@ public enum StringBuffer : BufferSerializable {
             buffer += _sizeof(UInt8.self)
         }
     }
-    
+
     public static func deserialize(from buffer : inout UnsafeRawPointer, mediator : RMediator?=nil) throws -> StringBuffer {
         let type = buffer.assumingMemoryBound(to: UInt8.self).pointee
         buffer += 1
-        
+
         switch type {
         case 1:
             let length = try UInt32.deserialize(from: &buffer)
@@ -399,7 +399,7 @@ extension String : BufferSerializable {
         let b = StringBuffer.inline(self)
         return b.serializedSize
     }
-    
+
     public func serialize(to buffer: inout UnsafeMutableRawPointer, mediator: RWMediator?, maximumSize: Int) throws {
         let b = StringBuffer.inline(self)
         if b.serializedSize < maximumSize {
@@ -410,7 +410,7 @@ extension String : BufferSerializable {
 //            let pos = bytes.startIndex.advanceBy(maximumSize-1)
 //            let head = bytes.prefix(through: pos)
 //            let tail = bytes.suffix(from: pos)
-            
+
 //            guard let mediator = mediator else { throw DatabaseError.OverflowError("Cannot serialize String in available space") }
             fatalError("*** Unimplemented: page-spilling for strings")
         }

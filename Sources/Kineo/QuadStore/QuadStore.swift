@@ -37,7 +37,7 @@ open class QuadStore : Sequence, QuadStoreProtocol {
         self.readonly = readonly
         self.id = try PersistentTermIdentityMap(mediator: mediator, readonly: readonly)
     }
-    
+
     public static func create(mediator : RWMediator) throws -> QuadStore {
         do {
             _ = try PersistentTermIdentityMap(mediator: mediator)
@@ -58,7 +58,7 @@ open class QuadStore : Sequence, QuadStoreProtocol {
             }
         }
     }
-    
+
     private func generateIDQuadsAddingTerms<S : Sequence>(quads : S) throws -> AnyIterator<IDQuad<IDType>> where S.Iterator.Element == Quad {
         var idquads = [IDQuad<IDType>]()
         for quad in quads {
@@ -78,19 +78,19 @@ open class QuadStore : Sequence, QuadStoreProtocol {
         do {
 //            print("Adding RDF terms to database...")
             let idquads = try generateIDQuadsAddingTerms(quads: quads)
-            
+
 //            print("Adding RDF triples to database...")
             let empty = Empty()
-            
+
             let toIndex = quadMapping(toOrder: defaultIndex)
             guard let defaultQuadsIndex : Tree<IDQuad<UInt64>,Empty> = m.tree(name: defaultIndex) else { throw DatabaseError.DataError("Missing default index \(defaultIndex)") }
-            
+
             let spog = idquads.sorted().filter { (quadOrder) -> Bool in
                 // do not insert quads more than once
                 let indexOrder = toIndex(quadOrder)
                 return !defaultQuadsIndex.contains(key: indexOrder)
             }
-            
+
             for spogquad in spog {
                 let indexOrder = toIndex(spogquad)
                 let pair = (indexOrder, empty)
@@ -117,20 +117,20 @@ open class QuadStore : Sequence, QuadStoreProtocol {
         guard let m = self.mediator as? RWMediator else { throw DatabaseError.PermissionError("Cannot create a quad index in a read-only quadstore") }
         guard String(index.characters.sorted()) == "gops" else { throw DatabaseError.KeyError("Not a valid quad index name: '\(index)'") }
         guard let defaultQuadsIndex : Tree<IDQuad<UInt64>,Empty> = m.tree(name: defaultIndex) else { throw DatabaseError.DataError("Missing default index \(defaultIndex)") }
-        
+
         let toSpog  = try quadMapping(fromOrder: defaultIndex)
         let toIndex = quadMapping(toOrder: index)
-        
+
         let empty = Empty()
         let pairs = defaultQuadsIndex.map { $0.0 }.map { (idquad) -> IDQuad<UInt64> in
             let spog = toSpog(idquad)
             let indexOrder = toIndex(spog)
             return indexOrder
             }.sorted().map { ($0, empty) }
-        
+
         _ = try m.create(tree: index, pairs: pairs)
     }
-    
+
     public func graphIDs() -> AnyIterator<IDType> {
         guard let mapping = try? quadMapping(fromOrder: QuadStore.defaultIndex) else {
             warn("Failed to compute mapping for quad index order \(QuadStore.defaultIndex)")
@@ -140,7 +140,7 @@ open class QuadStore : Sequence, QuadStoreProtocol {
             warn("Failed to load default index \(QuadStore.defaultIndex)")
             return AnyIterator { return nil }
         }
-        
+
         var seen = Set<UInt64>()
         let graphs = quadsTree.lazy.map {
             mapping($0.0)
@@ -151,17 +151,17 @@ open class QuadStore : Sequence, QuadStoreProtocol {
                 seen.insert(gid)
                 return !s
             }.flatMap { $0 }
-        
+
         return AnyIterator(graphs.makeIterator())
     }
-    
+
     public func graphs() -> AnyIterator<Term> {
         let idmap = self.id
         let ids = self.graphIDs()
         let graphs = ids.map { (gid) -> Term? in
             return idmap.term(for: gid)
         }.flatMap { $0 }
-        
+
         return AnyIterator(graphs.makeIterator())
     }
 
@@ -174,7 +174,7 @@ open class QuadStore : Sequence, QuadStoreProtocol {
             warn("Failed to load default index \(QuadStore.defaultIndex)")
             return AnyIterator { return nil }
         }
-        
+
         var seen = Set<UInt64>()
         let nodes = quadsTree.lazy.map {
                 mapping($0.0)
@@ -185,20 +185,20 @@ open class QuadStore : Sequence, QuadStoreProtocol {
                 seen.insert(gid)
                 return !s
             }
-        
+
         return AnyIterator(nodes.makeIterator())
     }
-    
+
     public func graphNodeTerms() -> AnyIterator<Term> {
         let idmap = self.id
         let ids = graphNodeIDs()
         let nodes = ids.map { (gid) -> Term? in
                 return idmap.term(for: gid)
             }.flatMap { $0 }
-        
+
         return AnyIterator(nodes.makeIterator())
     }
-    
+
     public func quad(from idquad : IDQuad<UInt64>) -> Quad? {
         let idmap = self.id
         if let s = idmap.term(for: idquad[0]), let p = idmap.term(for: idquad[1]), let o = idmap.term(for: idquad[2]), let g = idmap.term(for: idquad[3]) {
@@ -206,7 +206,7 @@ open class QuadStore : Sequence, QuadStoreProtocol {
         }
         return nil
     }
-    
+
     public func iterator(usingIndex treeName : String) throws -> AnyIterator<Quad> {
         let mapping = try quadMapping(fromOrder: treeName)
         let idmap = self.id
@@ -226,7 +226,7 @@ open class QuadStore : Sequence, QuadStoreProtocol {
             throw DatabaseError.KeyError("No such index: \(treeName)")
         }
     }
-    
+
     public func makeIterator() -> AnyIterator<Quad> {
         let treeName = QuadStore.defaultIndex
         do {
@@ -262,14 +262,14 @@ open class QuadStore : Sequence, QuadStoreProtocol {
                 bestCount = count
             }
         }
-        
+
         if let index_name = indexCoverage[bestCount] {
             return (index_name, bestCount)
         } else {
             return (available[0], 0)
         }
     }
-    
+
     private func bestIndex(for pattern : QuadPattern) -> (String, Int) {
         let QUAD_POSTIONS = ["s": 0, "p": 1, "o": 2, "g": 3]
         let s = pattern.subject
@@ -277,7 +277,7 @@ open class QuadStore : Sequence, QuadStoreProtocol {
         let o = pattern.object
         let g = pattern.graph
         let nodes = [s,p,o,g]
-        
+
         var bestCount = 0
         let available = availableQuadIndexes
         var indexCoverage = [0: available[0]]
@@ -298,14 +298,14 @@ open class QuadStore : Sequence, QuadStoreProtocol {
                 bestCount = count
             }
         }
-        
+
         if let index_name = indexCoverage[bestCount] {
             return (index_name, bestCount)
         } else {
             return (available[0], 0)
         }
     }
-    
+
     private func quadMapping(fromOrder index : String) throws -> (IDQuad<UInt64>) -> (IDQuad<UInt64>) {
         let QUAD_POSTIONS = ["s": 0, "p": 1, "o": 2, "g": 3]
         var mapping = [Int:Int]()
@@ -313,13 +313,13 @@ open class QuadStore : Sequence, QuadStoreProtocol {
             guard let index = QUAD_POSTIONS[String(c)] else { throw DatabaseError.DataError("Bad quad position character \(c) found while attempting to map a quad from index order") }
             mapping[index] = i
         }
-        
+
         guard let si = mapping[0], let pi = mapping[1], let oi = mapping[2], let gi = mapping[3] else { fatalError("Failed to obtain quad pattern mapping for index \(index)") }
         return { (quad) in
             return IDQuad(quad[si], quad[pi], quad[oi], quad[gi])
         }
     }
-    
+
     private func quadMapping(toOrder index : String) -> (IDQuad<UInt64>) -> (IDQuad<UInt64>) {
         let QUAD_POSTIONS = ["s": 0, "p": 1, "o": 2, "g": 3]
         var mapping = [Int:Int]()
@@ -327,13 +327,13 @@ open class QuadStore : Sequence, QuadStoreProtocol {
             guard let pos = QUAD_POSTIONS[String(c)] else { fatalError("Failed to obtain quad pattern mapping for index \(index)") }
             mapping[i] = pos
         }
-        
+
         guard let si = mapping[0], let pi = mapping[1], let oi = mapping[2], let gi = mapping[3] else { fatalError("Failed to obtain quad pattern mapping for index \(index)") }
         return { (quad) in
             return IDQuad(quad[si], quad[pi], quad[oi], quad[gi])
         }
     }
- 
+
     public func results(matching pattern: QuadPattern) throws -> AnyIterator<TermResult> {
         let idmap = self.id
         var variables   = [Int:String]()
@@ -352,7 +352,7 @@ open class QuadStore : Sequence, QuadStoreProtocol {
                 verify[i] = id
             }
         }
-        
+
         let idquads = try self.idquads(matching: pattern).makeIterator()
         return AnyIterator {
             OUTER: repeat {
@@ -361,7 +361,7 @@ open class QuadStore : Sequence, QuadStoreProtocol {
                 for (i, term) in verify {
                     guard term == quadIDs[i] else { continue OUTER }
                 }
-                
+
                 var idbindings = [String:IDType]()
                 var bindings = [String:Term]()
                 for (i, id) in [idquad[0], idquad[1], idquad[2], idquad[3]].enumerated() {
@@ -379,15 +379,15 @@ open class QuadStore : Sequence, QuadStoreProtocol {
             } while true
         }
     }
-    
+
     public func effectiveVersion(matching pattern: QuadPattern) throws -> Version? {
         let umin = UInt64.min
         let umax = UInt64.max
         let idmap = self.id
-        
+
         let (index_name, count) = bestIndex(for: pattern)
         //        print("Index '\(index_name)' is best match with \(count) prefix terms")
-        
+
         let nodes = [pattern.subject, pattern.predicate, pattern.object, pattern.graph]
         var patternIds = [UInt64]()
         for i in 0..<4 {
@@ -403,7 +403,7 @@ open class QuadStore : Sequence, QuadStoreProtocol {
                 patternIds.append(id)
             }
         }
-        
+
         let toIndexOrder        = quadMapping(toOrder: index_name)
         let spogOrdered         = IDQuad(patternIds[0], patternIds[1], patternIds[2], patternIds[3])
         var indexOrderedMin     = toIndexOrder(spogOrdered)
@@ -412,7 +412,7 @@ open class QuadStore : Sequence, QuadStoreProtocol {
             indexOrderedMin[i]      = umin
             indexOrderedMax[i]      = umax
         }
-        
+
         if let node : Tree<IDQuad<UInt64>,Empty> = mediator.tree(name: index_name) {
             let min = indexOrderedMin
             let max = indexOrderedMax
@@ -421,7 +421,7 @@ open class QuadStore : Sequence, QuadStoreProtocol {
             throw DatabaseError.DataError("No index named '\(index_name) found")
         }
     }
-    
+
     internal func idquads(matching pattern: QuadPattern) throws -> AnyIterator<IDQuad<IDType>> {
         let idmap = self.id
         let nodes = [pattern.subject, pattern.predicate, pattern.object, pattern.graph]
@@ -441,7 +441,7 @@ open class QuadStore : Sequence, QuadStoreProtocol {
         }
         return try idquads(matching: patternIds)
     }
-    
+
     internal func idquads(matching patternIds: [IDType]) throws -> AnyIterator<IDQuad<IDType>> {
         let umin = IDType.min
         let umax = IDType.max
@@ -459,7 +459,7 @@ open class QuadStore : Sequence, QuadStoreProtocol {
             indexOrderedMin[i]      = umin
             indexOrderedMax[i]      = umax
         }
-        
+
         if let node : Tree<IDQuad<UInt64>,Empty> = mediator.tree(name: index_name) {
             let min = indexOrderedMin
             let max = indexOrderedMax
@@ -477,7 +477,7 @@ open class QuadStore : Sequence, QuadStoreProtocol {
             throw DatabaseError.DataError("No index named '\(index_name) found")
         }
     }
-    
+
     public func quads(matching pattern: QuadPattern) throws -> AnyIterator<Quad> {
         let idmap = self.id
         let idquads = try self.idquads(matching: pattern)
@@ -501,9 +501,9 @@ public protocol IdentityMap {
 
 public class PersistentTermIdentityMap : IdentityMap, Sequence {
     /**
-     
+
      Term ID type byte:
-     
+
      01	0000 0001	Blank
      02	0000 0010	IRI
      03	0000 0011		common IRIs
@@ -516,7 +516,7 @@ public class PersistentTermIdentityMap : IdentityMap, Sequence {
      24	0001 1000		xsd:integer
      25	0001 1001		xsd:int
      26	0001 1010		xsd:decimal
-     
+
      Prefixes:
 
      0000 0001  blank
@@ -524,7 +524,7 @@ public class PersistentTermIdentityMap : IdentityMap, Sequence {
      0001		literal
      0001 001	date (with optional time)
      0001 1	 	numeric
- 
+
      **/
     static let blankTypeByte : UInt8       = 0x01
     static let iriTypeByte : UInt8         = 0x02
@@ -562,7 +562,7 @@ public class PersistentTermIdentityMap : IdentityMap, Sequence {
             _ = try m.create(tree: i2tMapTreeName, pairs: i2tpairs)
             i2t = mediator.tree(name: i2tMapTreeName)
         }
-        
+
         if readonly {
             next.iri = 0
             next.blank = 0
@@ -579,33 +579,33 @@ public class PersistentTermIdentityMap : IdentityMap, Sequence {
         self.i2tcache = LRUCache(capacity: 64)
         self.t2icache = LRUCache(capacity: 64)
     }
-    
+
     internal class func isIRI(id: Result) -> Bool {
         let typebyte = UInt8(UInt64(id) >> 56)
         return typebyte == iriTypeByte
     }
-    
+
     internal class func isBlank(id: Result) -> Bool {
         let typebyte = UInt8(UInt64(id) >> 56)
         return typebyte == blankTypeByte
     }
-    
+
     internal class func isLanguageLiteral(id: Result) -> Bool {
         let typebyte = UInt8(UInt64(id) >> 56)
         return typebyte == languageTypeByte
     }
-    
+
     internal class func isDatatypeLiteral(id: Result) -> Bool {
         let typebyte = UInt8(UInt64(id) >> 56)
         return typebyte == datatypeTypeByte
     }
-    
+
     private static func idRange(for type: UInt8) -> Range<Result> {
         let min = (UInt64(type) << 56)
         let max = (UInt64(type+1) << 56)
         return min..<max
     }
-    
+
     private static func loadMaxIDs(from tree : Tree<Result,Element>, mediator : RMediator) -> (UInt64, UInt64, UInt64, UInt64) {
         let mask        = UInt64(0x00ffffffffffffff)
         let blankMax    = (tree.maxKey(in: idRange(for: blankTypeByte)) ?? 0) & mask
@@ -615,7 +615,7 @@ public class PersistentTermIdentityMap : IdentityMap, Sequence {
 //        print("# Max term IDs: \(blankMax) \(iriMax) \(languageMax) \(datatypeMax)")
         return (iri: iriMax+1, blank: blankMax+1, datatype: datatypeMax+1, langauge: languageMax+1)
     }
-    
+
     public func term(for id: Result) -> Term? {
         if let term = self.i2tcache[id] {
             return term
@@ -634,7 +634,7 @@ public class PersistentTermIdentityMap : IdentityMap, Sequence {
         }
         return nil
     }
-    
+
     public func id(for value: Element) -> Result? {
         if let id = self.t2icache[value] {
             return id
@@ -656,7 +656,7 @@ public class PersistentTermIdentityMap : IdentityMap, Sequence {
             return AnyIterator { return nil }
         }
     }
-    
+
     public func getOrSetID(for term: Element) throws -> UInt64 {
         if let id = id(for: term) {
             return id
@@ -681,17 +681,17 @@ public class PersistentTermIdentityMap : IdentityMap, Sequence {
                 value = next.datatype
                 next.datatype += 1
             }
-            
+
             guard value < UInt64(0x00ffffffffffffff) else { throw DatabaseError.DataError("Term ID overflows the 56 bits available") }
             let id = (UInt64(type) << 56) + value
-            
+
             guard let m = mediator as? RWMediator else { throw DatabaseError.PermissionError("Cannot create new term IDs in a read-only transaction") }
             guard let i2t : Tree<Result, Element> = m.tree(name: i2tMapTreeName) else { throw DatabaseError.DataError("Failed to get the ID to term tree") }
             guard let t2i : Tree<Element, Result> = m.tree(name: t2iMapTreeName) else { throw DatabaseError.DataError("Failed to get the term to ID tree") }
 
             try i2t.add(pair: (id, term))
             try t2i.add(pair: (term, id))
-            
+
             return id
         }
     }
@@ -720,7 +720,7 @@ extension PersistentTermIdentityMap {
             return nil
         }
     }
-    
+
     fileprivate func pack(value: Element) -> Result? {
         switch (value.type, value.value) {
         // TODO: pack xsd:dateTime
@@ -752,7 +752,7 @@ extension PersistentTermIdentityMap {
         }
         return id
     }
-    
+
     private func unpack(string value: UInt64) -> Element? {
         var buffer = value.bigEndian
         var string : String? = nil
@@ -770,21 +770,21 @@ extension PersistentTermIdentityMap {
                 }
             }
         }
-        
+
         if let string = string {
             return Term(value: string, type: .datatype("http://www.w3.org/2001/XMLSchema#string"))
         }
         return nil
     }
-    
+
     private func unpack(integer v: UInt64) -> Element? {
         return Term(value: "\(v)", type: .datatype("http://www.w3.org/2001/XMLSchema#integer"))
     }
-    
+
     private func unpack(int v: UInt64) -> Element? {
         return Term(value: "\(v)", type: .datatype("http://www.w3.org/2001/XMLSchema#int"))
     }
-    
+
     private func unpack(decimal: UInt64) -> Element? {
         let scale = Int((decimal & 0x00ff000000000000) >> 48)
         let value = decimal & 0x0000ffffffffffff
@@ -810,7 +810,7 @@ extension PersistentTermIdentityMap {
             return Term(value: string, type: .datatype("http://www.w3.org/2001/XMLSchema#decimal"))
         }
     }
-    
+
     private func unpack(date value: UInt64) -> Element? {
         let day     = value & 0x000000000000001f
         let months  = (value & 0x00000000001fffe0) >> 5
@@ -819,7 +819,7 @@ extension PersistentTermIdentityMap {
         let date    = String(format: "%04d-%02d-%02d", year, month, day)
         return Term(value: date, type: .datatype("http://www.w3.org/2001/XMLSchema#date"))
     }
-    
+
     private func pack(decimal s: String) -> Result? {
         let c = s.components(separatedBy: ".")
         guard c.count == 2 else { return nil }
@@ -836,21 +836,21 @@ extension PersistentTermIdentityMap {
             return id
         }
     }
-    
+
     private func pack(integer s: String) -> Result? {
         guard let i = UInt64(s) else { return nil }
         guard i < 0x00ffffffffffffff else { return nil }
         let value : UInt64 = 0x18 << 56
         return value + i
     }
-    
+
     private func pack(int s: String) -> Result? {
         guard let i = UInt64(s) else { return nil }
         guard i <= 2147483647 else { return nil }
         let value : UInt64 = 0x19 << 56
         return value + i
     }
-    
+
     private func pack(date s: String) -> Result? {
         let values = s.components(separatedBy: "-").map { Int($0) }
         guard values.count == 3 else { return nil }
@@ -865,7 +865,7 @@ extension PersistentTermIdentityMap {
             return nil
         }
     }
-    
+
     private func unpack(iri value: UInt64) -> Element? {
         switch value {
         case 1:
@@ -892,7 +892,7 @@ extension PersistentTermIdentityMap {
             return nil
         }
     }
-    
+
     private func pack(iri: String) -> Result? {
         let mask    = UInt64(0x03) << 56
         switch iri {
@@ -944,22 +944,22 @@ public struct IDQuad<T : DefinedTestable & Equatable & Comparable & BufferSerial
     public func index(after: Int) -> Int {
         return after+1
     }
-    
+
     public var values : [T]
     public init(_ v0 : T, _ v1 : T, _ v2 : T, _ v3 : T) {
         self.values = [v0,v1,v2,v3]
     }
-    
+
     public subscript(i : Int) -> T {
         get {
             return self.values[i]
         }
-        
+
         set(newValue) {
             self.values[i] = newValue
         }
     }
-    
+
     public func matches(_ rhs : IDQuad) -> Bool {
         for (l,r) in zip(values, rhs.values) {
             if l.isDefined && r.isDefined && l != r {
@@ -968,7 +968,7 @@ public struct IDQuad<T : DefinedTestable & Equatable & Comparable & BufferSerial
         }
         return true
     }
-    
+
     public var serializedSize : Int { return 4 * _sizeof(T.self) }
     public func serialize(to buffer : inout UnsafeMutableRawPointer, mediator: RWMediator?, maximumSize: Int) throws {
         if serializedSize > maximumSize { throw DatabaseError.OverflowError("Cannot serialize IDQuad in available space") }
@@ -978,7 +978,7 @@ public struct IDQuad<T : DefinedTestable & Equatable & Comparable & BufferSerial
         try self[2].serialize(to: &buffer)
         try self[3].serialize(to: &buffer)
     }
-    
+
     public static func deserialize(from buffer : inout UnsafeRawPointer, mediator : RMediator?=nil) throws -> IDQuad {
         let v0      = try T.deserialize(from: &buffer, mediator: mediator)
         let v1      = try T.deserialize(from: &buffer, mediator: mediator)
@@ -1007,7 +1007,7 @@ public struct IDQuad<T : DefinedTestable & Equatable & Comparable & BufferSerial
         }
         return false
     }
-    
+
     public func makeIterator() -> IndexingIterator<Array<T>> {
         return values.makeIterator()
     }
@@ -1037,11 +1037,11 @@ public struct TermResult : CustomStringConvertible, ResultProtocol {
     public typealias Element = Term
     private var bindings : [String:Element]
     public var keys : [String] { return Array(bindings.keys) }
-    
+
     public init(bindings: [String:Element]) {
         self.bindings = bindings
     }
-    
+
     public func join(_ rhs : TermResult) -> TermResult? {
         let lvars = Set(bindings.keys)
         let rvars = Set(rhs.bindings.keys)
@@ -1053,12 +1053,12 @@ public struct TermResult : CustomStringConvertible, ResultProtocol {
         for (k,v) in rhs.bindings {
             b[k] = v
         }
-        
+
         let result = TermResult(bindings: b)
 //        print("]]]] \(self) |><| \(rhs) ==> \(result)")
         return result
     }
-    
+
     public func projected(variables : [String]) -> TermResult {
         var bindings = [String:Element]()
         for name in variables {
@@ -1068,7 +1068,7 @@ public struct TermResult : CustomStringConvertible, ResultProtocol {
         }
         return TermResult(bindings: bindings)
     }
-    
+
     public subscript(key : Node) -> Element? {
         get {
             switch key {
@@ -1078,32 +1078,32 @@ public struct TermResult : CustomStringConvertible, ResultProtocol {
                 return nil
             }
         }
-        
+
         set(value) {
             if case .variable(let name, _) = key {
                 bindings[name] = value
             }
         }
     }
-    
+
     public subscript(key : String) -> Element? {
         get {
             return bindings[key]
         }
-        
+
         set(value) {
             bindings[key] = value
         }
     }
-    
+
     public var description : String {
         return "Result\(bindings.description)"
     }
-    
+
     public mutating func extend(variable : String, value : Element) {
         self.bindings[variable] = value
     }
-    
+
     public func extended(variable : String, value : Element) -> TermResult {
         var b = bindings
         b[variable] = value
@@ -1141,7 +1141,7 @@ public struct IDResult : CustomStringConvertible, ResultProtocol {
         }
         return IDResult(bindings: b)
     }
-    
+
     public func projected(variables : [String]) -> IDResult {
         var bindings = [String:Element]()
         for name in variables {
@@ -1151,19 +1151,19 @@ public struct IDResult : CustomStringConvertible, ResultProtocol {
         }
         return IDResult(bindings: bindings)
     }
-    
+
     public subscript(key : String) -> Element? {
         return bindings[key]
     }
-    
+
     public var description : String {
         return "Result\(bindings.description)"
     }
-    
+
     public mutating func extend(variable : String, value : Element) {
         self.bindings[variable] = value
     }
-    
+
     public func extended(variable : String, value : Element) -> IDResult {
         var b = bindings
         b[variable] = value
@@ -1189,7 +1189,7 @@ open class LanguageQuadStore : QuadStore {
         self.acceptLanguages = acceptLanguages
         try super.init(mediator: mediator, mutable: mutable)
     }
-    
+
     override internal func idquads(matching pattern: QuadPattern) throws -> AnyIterator<IDQuad<IDType>> {
         let i = try super.idquads(matching: pattern)
         return AnyIterator {
@@ -1222,7 +1222,7 @@ open class LanguageQuadStore : QuadStore {
         }
     }
     **/
-    
+
     internal func qValue(_ language : String, qualityValues : [(String,Double)]) -> Double {
         for (lang, value) in qualityValues {
             if language.hasPrefix(lang) {
@@ -1231,7 +1231,7 @@ open class LanguageQuadStore : QuadStore {
         }
         return 0.0
     }
-    
+
     func siteLanguageQuality(language : String) -> Double {
         // Site-defined quality for specific languages.
         return 1.0
@@ -1254,19 +1254,19 @@ open class LanguageQuadStore : QuadStore {
                 let value = self.qValue(lang, qualityValues: languages) * siteLanguageQuality(language: lang)
                 return (lang, value)
             }
-            
+
             guard var (_, maxvalue) = pairs.first else { return true }
             for (_, value) in pairs {
                 if value > maxvalue {
                     maxvalue = value
                 }
             }
-            
+
             let acceptable = Set(pairs.filter { $0.1 == maxvalue }.map { $0.0 })
             return acceptable.contains(l)
         default:
             return true
         }
     }
-    
+
 }

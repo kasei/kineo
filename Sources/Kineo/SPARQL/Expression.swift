@@ -229,9 +229,9 @@ public indirect enum Expression : CustomStringConvertible {
             return false
         }
     }
-    
-    
-    
+
+
+
     public func evaluate(result : TermResult) throws -> Term {
         switch self {
         case .aggregate(_):
@@ -419,7 +419,7 @@ public indirect enum Expression : CustomStringConvertible {
         }
         throw QueryError.evaluationError("Failed to evaluate \(self) with result \(result)")
     }
-    
+
     public func numericEvaluate(result : TermResult) throws -> Numeric {
         //        print("numericEvaluate over result: \(result)")
         //        print("numericEvaluate expression: \(self)")
@@ -480,7 +480,7 @@ public indirect enum Expression : CustomStringConvertible {
             throw QueryError.evaluationError("Failed to numerically evaluate \(self) with result \(result)")
         }
     }
-    
+
     public var description : String {
         switch self {
         case .aggregate(let a):
