@@ -2,6 +2,7 @@ import XCTest
 import Foundation
 import Kineo
 
+// swiftlint:disable type_body_length
 class SPARQLParserTest: XCTestCase {
 
     override func setUp() {
@@ -129,7 +130,7 @@ class SPARQLParserTest: XCTestCase {
 
             XCTAssertEqual(variables, ["x"])
             guard case .project(_, let subvariables) = algebra else {
-                XCTFail("Unexpected algebra: \(algebra.serialize())");
+                XCTFail("Unexpected algebra: \(algebra.serialize())")
                 return
             }
 
@@ -149,7 +150,7 @@ class SPARQLParserTest: XCTestCase {
                 return
             }
 
-            let expected : Expression = .call("ISNUMERIC", [.node(.variable("x", binding: true))])
+            let expected: Expression = .call("ISNUMERIC", [.node(.variable("x", binding: true))])
             XCTAssertEqual(expr, expected)
         } catch let e {
             XCTFail("\(e)")
@@ -165,7 +166,7 @@ class SPARQLParserTest: XCTestCase {
                 return
             }
 
-            let expected : Expression = .call("http://example.org/function", [.node(.variable("x", binding: true))])
+            let expected: Expression = .call("http://example.org/function", [.node(.variable("x", binding: true))])
             XCTAssertEqual(expr, expected)
         } catch let e {
             XCTFail("\(e)")
@@ -197,7 +198,7 @@ class SPARQLParserTest: XCTestCase {
                 XCTFail("Unexpected aggregation: \(aggs[0])")
                 return
             }
-            let expected : [Expression] = [.node(.variable("x", binding: true))]
+            let expected: [Expression] = [.node(.variable("x", binding: true))]
             XCTAssertEqual(groups, expected)
         } catch let e {
             XCTFail("\(e)")
@@ -238,7 +239,7 @@ class SPARQLParserTest: XCTestCase {
                 XCTFail("Unexpected aggregation: \(aggs[1])")
                 return
             }
-            let expected : [Expression] = [.node(.variable("x", binding: true))]
+            let expected: [Expression] = [.node(.variable("x", binding: true))]
             XCTAssertEqual(groups, expected)
         } catch let e {
             XCTFail("\(e)")
@@ -256,7 +257,7 @@ class SPARQLParserTest: XCTestCase {
 
             XCTAssertEqual(aggs.count, 0)
             XCTAssertEqual(projection, ["x"])
-            let expected : [Expression] = [.node(.variable("x", binding: true))]
+            let expected: [Expression] = [.node(.variable("x", binding: true))]
             XCTAssertEqual(groups, expected)
         } catch let e {
             XCTFail("\(e)")
@@ -274,7 +275,7 @@ class SPARQLParserTest: XCTestCase {
 
             XCTAssertEqual(aggs.count, 0)
             XCTAssertEqual(projection, ["x"])
-            let expected : [Expression] = [.node(.variable("x", binding: true))]
+            let expected: [Expression] = [.node(.variable("x", binding: true))]
             XCTAssertEqual(groups, expected)
         } catch let e {
             XCTFail("\(e)")
@@ -295,7 +296,7 @@ class SPARQLParserTest: XCTestCase {
                 return
             }
 
-            let expectedInScope : [Node] = [.variable("x", binding: true)]
+            let expectedInScope: [Node] = [.variable("x", binding: true)]
             XCTAssertEqual(nodes, expectedInScope)
 
             let terms = Array(seq)
@@ -322,7 +323,7 @@ class SPARQLParserTest: XCTestCase {
                 return
             }
 
-            let expectedInScope : [Node] = [.variable("x", binding: true), .variable("y", binding: true)]
+            let expectedInScope: [Node] = [.variable("x", binding: true), .variable("y", binding: true)]
             XCTAssertEqual(nodes, expectedInScope)
 
             let terms = Array(seq)

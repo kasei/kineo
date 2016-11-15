@@ -2,6 +2,7 @@ import XCTest
 import Foundation
 import Kineo
 
+// swiftlint:disable type_body_length
 class AlgebraTest: XCTestCase {
 
     override func setUp() {
@@ -282,7 +283,6 @@ class AlgebraTest: XCTestCase {
         XCTAssertEqual(sparql, expected)
     }
 
-
     func testQueryModifiedSPARQLSerialization2() {
         let subj: Node = .bound(Term(value: "b", type: .blank))
         let name: Node = .bound(Term(value: "http://xmlns.com/foaf/0.1/name", type: .iri))
@@ -320,4 +320,3 @@ class AlgebraTest: XCTestCase {
             ])
     }
 }
-
