@@ -989,7 +989,7 @@ public struct IDQuad<T: DefinedTestable & Equatable & Comparable & BufferSeriali
         return q
     }
 
-    public static func ==<T>(lhs: IDQuad<T>, rhs: IDQuad<T>) -> Bool {
+    public static func == <T>(lhs: IDQuad<T>, rhs: IDQuad<T>) -> Bool {
         if lhs[0] == rhs[0] && lhs[1] == rhs[1] && lhs[2] == rhs[2] && lhs[3] == rhs[3] {
             return true
         } else {
@@ -1110,7 +1110,7 @@ public struct TermResult: CustomStringConvertible, ResultProtocol {
         return TermResult(bindings: b)
     }
 
-    public static func ==(lhs: TermResult, rhs: TermResult) -> Bool {
+    public static func == (lhs: TermResult, rhs: TermResult) -> Bool {
         let lkeys = Array(lhs.keys).sorted()
         let rkeys = Array(rhs.keys).sorted()
         guard lkeys == rkeys else { return false }
@@ -1170,7 +1170,7 @@ public struct IDResult: CustomStringConvertible, ResultProtocol {
         return IDResult(bindings: b)
     }
 
-    public static func ==(lhs: IDResult, rhs: IDResult) -> Bool {
+    public static func == (lhs: IDResult, rhs: IDResult) -> Bool {
         let lkeys = Array(lhs.keys).sorted()
         let rkeys = Array(rhs.keys).sorted()
         guard lkeys == rkeys else { return false }

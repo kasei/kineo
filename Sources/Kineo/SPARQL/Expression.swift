@@ -38,7 +38,7 @@ public enum Aggregation {
 }
 
 extension Aggregation: Equatable {
-    public static func ==(lhs: Aggregation, rhs: Aggregation) -> Bool {
+    public static func == (lhs: Aggregation, rhs: Aggregation) -> Bool {
         switch (lhs, rhs) {
         case (.countAll, .countAll):
             return true
@@ -551,7 +551,7 @@ public indirect enum Expression: CustomStringConvertible {
 }
 
 extension Expression: Equatable {
-    public static func ==(lhs: Expression, rhs: Expression) -> Bool {
+    public static func == (lhs: Expression, rhs: Expression) -> Bool {
         switch (lhs, rhs) {
         case (.aggregate(let l), .aggregate(let r)) where l == r:
             return true

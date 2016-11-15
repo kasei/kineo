@@ -127,7 +127,7 @@ public enum SPARQLToken {
 }
 
 extension SPARQLToken: Equatable {
-    public static func ==(lhs: SPARQLToken, rhs: SPARQLToken) -> Bool {
+    public static func == (lhs: SPARQLToken, rhs: SPARQLToken) -> Bool {
         switch (lhs, rhs) {
         case (.comment(let a), .comment(let b)) where a == b:
             return true

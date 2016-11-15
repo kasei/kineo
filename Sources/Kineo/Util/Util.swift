@@ -217,7 +217,7 @@ public struct Empty {
     public init() {}
 }
 extension Empty: Comparable {}
-public func <(lhs: Empty, rhs: Empty) -> Bool { return false }
+public func < (lhs: Empty, rhs: Empty) -> Bool { return false }
 
 extension Empty: CustomStringConvertible {
     public var description: String { return "()" }
@@ -229,7 +229,7 @@ extension Empty: BufferSerializable {
         return Empty()
     }
 
-    public static func ==(lhs: Empty, rhs: Empty) -> Bool { return true }
+    public static func == (lhs: Empty, rhs: Empty) -> Bool { return true }
 }
 
 

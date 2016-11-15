@@ -228,27 +228,27 @@ public enum Numeric: CustomStringConvertible {
         }
     }
 
-    public static func +(lhs: Numeric, rhs: Numeric) -> Numeric {
+    public static func + (lhs: Numeric, rhs: Numeric) -> Numeric {
         let value = lhs.value + rhs.value
         return nonDivResultingNumeric(value, lhs, rhs)
     }
 
-    public static func -(lhs: Numeric, rhs: Numeric) -> Numeric {
+    public static func - (lhs: Numeric, rhs: Numeric) -> Numeric {
         let value = lhs.value - rhs.value
         return nonDivResultingNumeric(value, lhs, rhs)
     }
 
-    public static func *(lhs: Numeric, rhs: Numeric) -> Numeric {
+    public static func * (lhs: Numeric, rhs: Numeric) -> Numeric {
         let value = lhs.value * rhs.value
         return nonDivResultingNumeric(value, lhs, rhs)
     }
 
-    public static func /(lhs: Numeric, rhs: Numeric) -> Numeric {
+    public static func / (lhs: Numeric, rhs: Numeric) -> Numeric {
         let value = lhs.value / rhs.value
         return divResultingNumeric(value, lhs, rhs)
     }
 
-    public static prefix func -(num: Numeric) -> Numeric {
+    public static prefix func - (num: Numeric) -> Numeric {
         switch num {
         case .integer(let value):
             return .integer(-value)
@@ -263,7 +263,7 @@ public enum Numeric: CustomStringConvertible {
 }
 
 public extension Numeric {
-    public static func ===(lhs: Numeric, rhs: Numeric) -> Bool {
+    public static func === (lhs: Numeric, rhs: Numeric) -> Bool {
         switch (lhs, rhs) {
         case (.integer(let l), .integer(let r)) where l == r:
             return true
@@ -357,7 +357,7 @@ extension TermType: Hashable {
         }
     }
 
-    public static func ==(lhs: TermType, rhs: TermType) -> Bool {
+    public static func == (lhs: TermType, rhs: TermType) -> Bool {
         switch (lhs, rhs) {
         case (.iri, .iri), (.blank, .blank):
             return true
@@ -532,7 +532,7 @@ extension Term: Comparable {
         }
     }
 
-    public static func <(lhs: Term, rhs: Term) -> Bool {
+    public static func < (lhs: Term, rhs: Term) -> Bool {
         if lhs.isNumeric && rhs.isNumeric {
             return lhs.numericValue < rhs.numericValue
         }
@@ -555,7 +555,7 @@ extension Term: Comparable {
 }
 
 extension Term: Equatable {
-    public static func ==(lhs: Term, rhs: Term) -> Bool {
+    public static func == (lhs: Term, rhs: Term) -> Bool {
         if lhs.isNumeric && rhs.isNumeric {
             return lhs.numericValue == rhs.numericValue
         }
@@ -624,7 +624,7 @@ public enum Node {
 }
 
 extension Node: Equatable {
-    public static func ==(lhs: Node, rhs: Node) -> Bool {
+    public static func == (lhs: Node, rhs: Node) -> Bool {
         switch (lhs, rhs) {
         case (.bound(let l), .bound(let r)) where l == r:
             return true
