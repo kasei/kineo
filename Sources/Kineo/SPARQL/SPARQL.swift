@@ -3202,7 +3202,7 @@ enum SPARQLEscapingType {
 }
 
 extension String {
-    private var commonStringEscaped : String {
+    private var commonString1Escaped : String {
         var v = self
         v = v.replacingOccurrences(of: "\\", with: "\\\\")
         v = v.replacingOccurrences(of: "\t", with: "\\r")
@@ -3213,22 +3213,99 @@ extension String {
         return v
     }
     
+    private var commonString3Escaped : String {
+        var v = self
+        v = v.replacingOccurrences(of: "\\", with: "\\\\")
+        v = v.replacingOccurrences(of: "\t", with: "\\r")
+        v = v.replacingOccurrences(of: "\u{08}", with: "\\b")
+        v = v.replacingOccurrences(of: "\u{0c}", with: "\\f")
+        return v
+    }
+    
     func escape(for type: SPARQLEscapingType) -> String {
         switch type {
         case .literal1d:
-            var v = self.commonStringEscaped
+            var v = self.commonString1Escaped
             v = v.replacingOccurrences(of: "\"", with: "\\\"")
             return v
         case .literal1s:
-            var v = self.commonStringEscaped
+            var v = self.commonString1Escaped
             v = v.replacingOccurrences(of: "'", with: "\\'")
             return v
+        case .literal3d:
+            var v = self.commonString3Escaped
+            v = v.replacingOccurrences(of: "\"\"\"", with: "\\\"\"\"")
+            return v
+        case .literal3s:
+            var v = self.commonString3Escaped
+            v = v.replacingOccurrences(of: "'''", with: "\\'''")
+            return v
         case .iri:
-            return self // TODO
+            let bad = CharacterSet(charactersIn: "<>\"{}|^`\\")
+            let control = CharacterSet(charactersIn: UnicodeScalar(0)...UnicodeScalar(0x20))
+            if let v = self.addingPercentEncoding(withAllowedCharacters: bad.union(control).inverted) {
+                return v
+            } else {
+                print("*** failed to escape IRI <\(self)>")
+                return self
+            }
         case .prefixedLocalName:
+            let begin = String.pnCharsU.union(CharacterSet(charactersIn: "0123456789:"))
+            let rest = String.pnChars.union(CharacterSet(charactersIn: ".:"))
+            let last = String.pnChars.union(CharacterSet(charactersIn: ":"))
+            
+            
+            
             return self // TODO
-        default:
-            fatalError("implement escaping for \(type)")
         }
     }
+
+    private static let pnChars : CharacterSet = {
+        var pn = pnCharsU
+        pn.insert(charactersIn: "0123456789-")
+        pn.insert(UnicodeScalar(0xB7))
+        
+        // [#x0300-#x036F] | [#x203F-#x2040]
+        let ranges : [(Int, Int)] = [
+            (0x300, 0x36F),
+            (0x203F, 0x2040),
+            ]
+        for bounds in ranges {
+            guard let mn = UnicodeScalar(bounds.0) else { fatalError("Failed to construct built-in CharacterSet") }
+            guard let mx = UnicodeScalar(bounds.1) else { fatalError("Failed to construct built-in CharacterSet") }
+            let range = mn...mx
+            pn.insert(charactersIn: range)
+        }
+        
+        return pn
+    }()
+    
+    private static let pnCharsU : CharacterSet = {
+        var pn = CharacterSet(charactersIn: "_")
+        pn.insert(charactersIn: "a"..."z")
+        pn.insert(charactersIn: "A"..."Z")
+        
+        let ranges : [(Int, Int)] = [
+            (0xF8, 0xD6),
+            (0xD8, 0xF6),
+            (0xF8, 0x2FF),
+            (0x370, 0x37D),
+            (0x37F, 0x1FFF),
+            (0x200C, 0x200D),
+            (0x2070, 0x218F),
+            (0x2C00, 0x2FEF),
+            (0x3001, 0xD7FF),
+            (0xF900, 0xFDCF),
+            (0xFDF0, 0xFFFD),
+            (0x10000, 0xEFFFF),
+            ]
+        for bounds in ranges {
+            guard let mn = UnicodeScalar(bounds.0) else { fatalError("Failed to construct built-in CharacterSet") }
+            guard let mx = UnicodeScalar(bounds.1) else { fatalError("Failed to construct built-in CharacterSet") }
+            let range = mn...mx
+            pn.insert(charactersIn: range)
+        }
+        return pn
+    }()
+    
 }
