@@ -1694,6 +1694,7 @@ public struct SPARQLParser {
         return expr
     }
 
+    // swiftlint:disable:next function_parameter_count
     private mutating func parseSolutionModifier(algebra: Algebra, distinct: Bool, projection: [String]?, projectExpressions: [(Expression, String)], aggregation: [String:Aggregation], valuesBlock: Algebra?) throws -> Algebra {
         var algebra = algebra
         let aggregations = aggregation.map { ($0.1, $0.0) }

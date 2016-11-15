@@ -996,6 +996,7 @@ private extension UnsafeRawPointer {
 }
 
 private extension UnsafePointer {
+    // swiftlint:disable:next function_parameter_count
     func deserialize<T: BufferSerializable & Comparable, U: BufferSerializable>(mediator: RMediator, type: DatabaseInfo.Cookie, status: PageStatus, pageSize: Int, keyType: T.Type, valueType: U.Type) throws -> TreeNode<T, U> {
         var ptr = UnsafeRawPointer(self)
         guard let cookie = DatabaseInfo.Cookie(rawValue: try UInt32.deserialize(from: &ptr)) else { throw DatabaseError.DataError("Bad tree node cookie") }
@@ -1036,6 +1037,7 @@ private extension UnsafePointer {
 }
 
 extension UnsafeMutableRawPointer {
+    // swiftlint:disable:next function_parameter_count
     @inline(__always) internal func writeTreeHeader(type: DatabaseInfo.Cookie, version: Version, config1: UInt32, config2: UInt32, totalCount: UInt64, count: UInt32) throws -> Int {
         let buffer = UnsafeMutableRawPointer(self)
         var ptr = buffer

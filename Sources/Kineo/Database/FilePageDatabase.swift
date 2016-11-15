@@ -95,7 +95,7 @@ public final class FilePageDatabase: Database {
 
     public let pageSize: Int
     public var pageCount: Int
-    internal let fd: CInt // swiftlint:disable:this variable_name
+    internal let fd: CInt
     var nextPageId: Int
 
     public init?(_ filename: String, size preferredPageSize: Int = 4096) {

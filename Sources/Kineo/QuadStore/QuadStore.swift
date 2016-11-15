@@ -26,7 +26,7 @@ open class QuadStore: Sequence, QuadStoreProtocol {
     static public let defaultIndex = "pogs"
     internal var mediator: RMediator
     public let readonly: Bool
-    public var id: PersistentTermIdentityMap // swiftlint:disable:this variable_name
+    public var id: PersistentTermIdentityMap
     public init(mediator: RMediator, mutable: Bool = false) throws {
         self.mediator = mediator
         var readonly = !mutable
@@ -581,25 +581,21 @@ public class PersistentTermIdentityMap: IdentityMap, Sequence {
         self.t2icache = LRUCache(capacity: 64)
     }
 
-    // swiftlint:disable:next variable_name
     internal class func isIRI(id: Result) -> Bool {
         let typebyte = UInt8(UInt64(id) >> 56)
         return typebyte == iriTypeByte
     }
 
-    // swiftlint:disable:next variable_name
     internal class func isBlank(id: Result) -> Bool {
         let typebyte = UInt8(UInt64(id) >> 56)
         return typebyte == blankTypeByte
     }
 
-    // swiftlint:disable:next variable_name
     internal class func isLanguageLiteral(id: Result) -> Bool {
         let typebyte = UInt8(UInt64(id) >> 56)
         return typebyte == languageTypeByte
     }
 
-    // swiftlint:disable:next variable_name
     internal class func isDatatypeLiteral(id: Result) -> Bool {
         let typebyte = UInt8(UInt64(id) >> 56)
         return typebyte == datatypeTypeByte
@@ -621,7 +617,6 @@ public class PersistentTermIdentityMap: IdentityMap, Sequence {
         return (iri: iriMax+1, blank: blankMax+1, datatype: datatypeMax+1, langauge: languageMax+1)
     }
 
-    // swiftlint:disable:next variable_name
     public func term(for id: Result) -> Term? {
         if let term = self.i2tcache[id] {
             return term
@@ -704,7 +699,6 @@ public class PersistentTermIdentityMap: IdentityMap, Sequence {
 }
 
 extension PersistentTermIdentityMap {
-    // swiftlint:disable:next variable_name
     fileprivate func unpack(id: Result) -> Element? {
         let byte = id >> 56
         let value = id & 0x00ffffffffffffff

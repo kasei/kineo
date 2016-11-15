@@ -124,106 +124,9 @@ public indirect enum Algebra {
     case construct(Algebra, [TriplePattern])
     case describe(Algebra, [Node])
     case ask(Algebra)
+}
 
-    private func inscopeUnion(children: [Algebra]) -> Set<String> {
-        if children.count == 0 {
-            return Set()
-        }
-        var vars = children.map { $0.inscope }
-        while vars.count > 1 {
-            let l = vars.popLast()!
-            let r = vars.popLast()!
-            vars.append(l.union(r))
-        }
-        return vars.popLast()!
-    }
-
-    public var inscope: Set<String> {
-        var variables = Set<String>()
-        switch self {
-        case .joinIdentity, .unionIdentity:
-            return Set()
-        case .project(_, let vars):
-            return Set(vars)
-        case .innerJoin(let lhs, let rhs), .union(let lhs, let rhs):
-            return inscopeUnion(children: [lhs, rhs])
-        case .triple(let t):
-            for node in [t.subject, t.predicate, t.object] {
-                if case .variable(let name, true) = node {
-                    variables.insert(name)
-                }
-            }
-            return variables
-        case .quad(let q):
-            for node in [q.subject, q.predicate, q.object, q.graph] {
-                if case .variable(let name, true) = node {
-                    variables.insert(name)
-                }
-            }
-            return variables
-        case .bgp(let triples), .construct(_, let triples):
-            if triples.count == 0 {
-                return Set()
-            }
-            var variables = Set<String>()
-            for t in triples {
-                for node in [t.subject, t.predicate, t.object] {
-                    if case .variable(let name, true) = node {
-                        variables.insert(name)
-                    }
-                }
-            }
-            return variables
-        case .leftOuterJoin(let lhs, let rhs, _):
-            return inscopeUnion(children: [lhs, rhs])
-        case .extend(let child, _, let v):
-            var variables = child.inscope
-            variables.insert(v)
-            return variables
-        case .filter(let child, _), .minus(let child, _), .distinct(let child), .slice(let child, _, _), .namedGraph(let child, .bound(_)), .order(let child, _), .service(_, let child, _):
-            return child.inscope
-        case .namedGraph(let child, .variable(let v, let bind)):
-            var variables = child.inscope
-            if bind {
-                variables.insert(v)
-            }
-            return variables
-        case .path(let subject, _, let object):
-            var variables = Set<String>()
-            for node in [subject, object] {
-                if case .variable(let name, true) = node {
-                    variables.insert(name)
-                }
-            }
-            return variables
-        case .aggregate(_, let groups, let aggs):
-            for g in groups {
-                if case .node(.variable(let name, true)) = g {
-                    variables.insert(name)
-                }
-            }
-            for (_, name) in aggs {
-                variables.insert(name)
-            }
-            return variables
-        case .window(let child, _, let funcs):
-            var variables = child.inscope
-            for (_, _, name) in funcs {
-                variables.insert(name)
-            }
-            return variables
-        case .table(let nodes, _):
-            for node in nodes {
-                if case .variable(let name, _) = node {
-                    variables.insert(name)
-                }
-            }
-            return variables
-        case .describe(_), .ask(_):
-            return variables
-        }
-    }
-
+public extension Algebra {
     public func serialize(depth: Int=0) -> String {
         let indent = String(repeating: " ", count: (depth*2))
 
@@ -344,6 +247,107 @@ public indirect enum Algebra {
             var d = "\(indent)Ask\n"
             d += child.serialize(depth: depth+1)
             return d
+        }
+    }
+}
+
+public extension Algebra {
+    private func inscopeUnion(children: [Algebra]) -> Set<String> {
+        if children.count == 0 {
+            return Set()
+        }
+        var vars = children.map { $0.inscope }
+        while vars.count > 1 {
+            let l = vars.popLast()!
+            let r = vars.popLast()!
+            vars.append(l.union(r))
+        }
+        return vars.popLast()!
+    }
+
+    public var inscope: Set<String> {
+        var variables = Set<String>()
+        switch self {
+        case .joinIdentity, .unionIdentity:
+            return Set()
+        case .project(_, let vars):
+            return Set(vars)
+        case .innerJoin(let lhs, let rhs), .union(let lhs, let rhs):
+            return inscopeUnion(children: [lhs, rhs])
+        case .triple(let t):
+            for node in [t.subject, t.predicate, t.object] {
+                if case .variable(let name, true) = node {
+                    variables.insert(name)
+                }
+            }
+            return variables
+        case .quad(let q):
+            for node in [q.subject, q.predicate, q.object, q.graph] {
+                if case .variable(let name, true) = node {
+                    variables.insert(name)
+                }
+            }
+            return variables
+        case .bgp(let triples), .construct(_, let triples):
+            if triples.count == 0 {
+                return Set()
+            }
+            var variables = Set<String>()
+            for t in triples {
+                for node in [t.subject, t.predicate, t.object] {
+                    if case .variable(let name, true) = node {
+                        variables.insert(name)
+                    }
+                }
+            }
+            return variables
+        case .leftOuterJoin(let lhs, let rhs, _):
+            return inscopeUnion(children: [lhs, rhs])
+        case .extend(let child, _, let v):
+            var variables = child.inscope
+            variables.insert(v)
+            return variables
+        case .filter(let child, _), .minus(let child, _), .distinct(let child), .slice(let child, _, _), .namedGraph(let child, .bound(_)), .order(let child, _), .service(_, let child, _):
+            return child.inscope
+        case .namedGraph(let child, .variable(let v, let bind)):
+            var variables = child.inscope
+            if bind {
+                variables.insert(v)
+            }
+            return variables
+        case .path(let subject, _, let object):
+            var variables = Set<String>()
+            for node in [subject, object] {
+                if case .variable(let name, true) = node {
+                    variables.insert(name)
+                }
+            }
+            return variables
+        case .aggregate(_, let groups, let aggs):
+            for g in groups {
+                if case .node(.variable(let name, true)) = g {
+                    variables.insert(name)
+                }
+            }
+            for (_, name) in aggs {
+                variables.insert(name)
+            }
+            return variables
+        case .window(let child, _, let funcs):
+            var variables = child.inscope
+            for (_, _, name) in funcs {
+                variables.insert(name)
+            }
+            return variables
+        case .table(let nodes, _):
+            for node in nodes {
+                if case .variable(let name, _) = node {
+                    variables.insert(name)
+                }
+            }
+            return variables
+        case .describe(_), .ask(_):
+            return variables
         }
     }
 }
@@ -501,6 +505,7 @@ public extension Algebra {
     }
 }
 
+// swiftlint:disable:next type_body_length
 open class QueryParser<T: LineReadable> {
     let reader: T
     var stack: [Algebra]
