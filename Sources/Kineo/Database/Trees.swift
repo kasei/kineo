@@ -132,6 +132,7 @@ internal struct TreePath<T: BufferSerializable & Comparable, U: BufferSerializab
     }
 }
 
+// swiftlint:disable cyclomatic_complexity
 // swiftlint:disable:next type_body_length
 public class Tree<T: BufferSerializable & Comparable, U: BufferSerializable> : Sequence {
     var root: PageId

@@ -127,6 +127,7 @@ public indirect enum Algebra {
 }
 
 public extension Algebra {
+    // swiftlint:disable:next cyclomatic_complexity
     public func serialize(depth: Int=0) -> String {
         let indent = String(repeating: " ", count: (depth*2))
 
@@ -514,6 +515,7 @@ open class QueryParser<T: LineReadable> {
         self.stack = []
     }
 
+    // swiftlint:disable:next cyclomatic_complexity
     func parse(line: String) throws -> Algebra? {
         var parts = line.components(separatedBy: " ").filter { $0 != "" && !$0.hasPrefix("\t") }
         guard parts.count > 0 else { return nil }
@@ -883,6 +885,7 @@ extension Algebra {
         }
     }
 
+    // swiftlint:disable:next cyclomatic_complexity
     public func sparqlTokens(depth: Int) -> AnySequence<SPARQLToken> {
         switch self {
         case .unionIdentity:

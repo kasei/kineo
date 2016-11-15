@@ -8,6 +8,7 @@
 
 import Foundation
 
+// swiftlint:disable cyclomatic_complexity
 // swiftlint:disable:next type_body_length
 open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
     var store: Q

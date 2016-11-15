@@ -530,6 +530,7 @@ public struct SPARQLLexer: IteratorProtocol {
         }
     }
 
+    // swiftlint:disable:next cyclomatic_complexity
     mutating func _getToken() throws -> SPARQLToken? {
         while true {
             try fillBuffer()
@@ -725,6 +726,7 @@ public struct SPARQLLexer: IteratorProtocol {
 
         throw lexError("Expecting keyword")
     }
+
     mutating func getVariable() throws -> SPARQLToken? {
         getChar()
         let bufferLength = NSMakeRange(0, buffer.characters.count)
@@ -736,6 +738,8 @@ public struct SPARQLLexer: IteratorProtocol {
             throw lexError("Expecting variable name")
         }
     }
+
+    // swiftlint:disable:next cyclomatic_complexity
     mutating func getSingleLiteral() throws -> SPARQLToken? {
         var chars = [Character]()
         if buffer.hasPrefix("''") {
@@ -960,6 +964,7 @@ public struct SPARQLLexer: IteratorProtocol {
         }
     }
 
+    // swiftlint:disable:next cyclomatic_complexity
     mutating func getDoubleLiteral() throws -> SPARQLToken? {
         var chars = [Character]()
         if buffer.hasPrefix("\"\"\"") {
@@ -1757,66 +1762,6 @@ public struct SPARQLParser {
                 algebra = .slice(algebra, offset, nil)
             }
         }
-
-        /**
-
-    t   = [self peekNextNonCommentToken];
-    if (t && t.type == KEYWORD) {
-        id<GTWTerm> limit, offset;
-        if ([t.value isEqualToString: @"LIMIT"]) {
-            [self parseExpectedTokenOfType:KEYWORD withValue:@"LIMIT" withErrors:errors];
-            ASSERT_EMPTY(errors);
-
-            t   = [self parseExpectedTokenOfType:INTEGER withErrors:errors];
-            ASSERT_EMPTY(errors);
-            limit    = (GTWLiteral*) [self tokenAsTerm:t withErrors:errors];
-
-            t   = [self parseOptionalTokenOfType:KEYWORD withValue:@"OFFSET"];
-            if (t) {
-                t   = [self parseExpectedTokenOfType:INTEGER withErrors:errors];
-                ASSERT_EMPTY(errors);
-                offset    = (GTWLiteral*) [self tokenAsTerm:t withErrors:errors];
-            }
-        } else if ([t.value isEqualToString: @"OFFSET"]) {
-            [self parseExpectedTokenOfType:KEYWORD withValue:@"OFFSET" withErrors:errors];
-            ASSERT_EMPTY(errors);
-
-            t   = [self parseExpectedTokenOfType:INTEGER withErrors:errors];
-            ASSERT_EMPTY(errors);
-            offset    = (GTWLiteral*) [self tokenAsTerm:t withErrors:errors];
-
-            t   = [self parseOptionalTokenOfType:KEYWORD withValue:@"LIMIT"];
-            if (t) {
-                t   = [self parseExpectedTokenOfType:INTEGER withErrors:errors];
-                ASSERT_EMPTY(errors);
-                limit    = (GTWLiteral*) [self tokenAsTerm:t withErrors:errors];
-            }
-        }
-
-        if (distinct) {
-            algebra = [[SPKTree alloc] initWithType:kAlgebraDistinct arguments:@[algebra]];
-        }
-
-        if (limit || offset) {
-            if (!limit)
-                limit   = [[GTWLiteral alloc] initWithValue:@"-1" datatype:@"http://www.w3.org/2001/XMLSchema#integer"];
-            if (!offset)
-                offset   = [[GTWLiteral alloc] initWithValue:@"0" datatype:@"http://www.w3.org/2001/XMLSchema#integer"];
-            algebra   = [[SPKTree alloc] initWithType:kAlgebraSlice arguments:@[
-                          algebra,
-                          [[SPKTree alloc] initLeafWithType:kTreeNode value: offset],
-                          [[SPKTree alloc] initLeafWithType:kTreeNode value: limit],
-                      ]];
-        }
-    } else {
-        if (distinct) {
-            algebra = [[SPKTree alloc] initWithType:kAlgebraDistinct arguments:@[algebra]];
-        }
-    }
-
-    return algebra;
-
- **/
         return algebra
     }
 
@@ -2829,6 +2774,37 @@ public struct SPARQLParser {
         }
     }
 
+    private mutating func literalAsTerm(_ value: String) throws -> Node {
+        if try attempt(token: .hathat) {
+            let t = try nextExpectedToken()
+            let dt = try tokenAsTerm(t)
+            guard case .bound(let dtterm) = dt else {
+                throw parseError("Expecting datatype but found '\(dt)'")
+            }
+            guard case .iri = dtterm.type else {
+                throw parseError("Expecting datatype IRI but found '\(dtterm)'")
+            }
+            return .bound(Term(value: value, type: .datatype(dtterm.value)))
+        } else {
+            let t = try peekExpectedToken()
+            if case .lang(let lang) = t {
+                return .bound(Term(value: value, type: .language(lang)))
+            }
+        }
+        return .bound(Term(value: value, type: .datatype("http://www.w3.org/2001/XMLSchema#string")))
+    }
+
+    private mutating func resolveIRI(value: String) throws -> Node {
+        var iri = value
+        if let base = base {
+            guard let b = URL(string: base), let i = URL(string: value, relativeTo: b) else {
+                throw parseError("Failed to resolve IRI against base IRI")
+            }
+            iri = i.absoluteString
+        }
+        return .bound(Term(value: iri, type: .iri))
+    }
+
     private mutating func tokenAsTerm(_ token: SPARQLToken) throws -> Node {
         switch token {
         case ._nil:
@@ -2836,26 +2812,12 @@ public struct SPARQLParser {
         case ._var(let name):
             return .variable(name, binding: true)
         case .iri(let value):
-            var iri = value
-            if let base = base {
-                guard let b = URL(string: base), let i = URL(string: value, relativeTo: b) else {
-                    throw parseError("Failed to resolve IRI against base IRI")
-                }
-                iri = i.absoluteString
-            }
-            return .bound(Term(value: iri, type: .iri))
+            return try resolveIRI(value: value)
         case .prefixname(let pn, let ln):
             guard let ns = self.prefixes[pn] else {
                 throw parseError("Use of undeclared prefix '\(pn)'")
             }
-            var iri = ns + ln
-            if let base = base {
-                guard let b = URL(string: base), let i = URL(string: iri, relativeTo: b) else {
-                    throw parseError("Failed to resolve prefixed name against base IRI")
-                }
-                iri = i.absoluteString
-            }
-            return .bound(Term(value: iri, type: .iri))
+            return try resolveIRI(value: ns + ln)
         case .anon:
             return .bound(bnode())
         case .keyword("A"):
@@ -2872,23 +2834,7 @@ public struct SPARQLParser {
             let term = bnode(named: name)
             return .bound(term)
         case .string1d(let value), .string1s(let value), .string3d(let value), .string3s(let value):
-            if try attempt(token: .hathat) {
-                let t = try nextExpectedToken()
-                let dt = try tokenAsTerm(t)
-                guard case .bound(let dtterm) = dt else {
-                    throw parseError("Expecting datatype but found '\(dt)'")
-                }
-                guard case .iri = dtterm.type else {
-                    throw parseError("Expecting datatype IRI but found '\(dtterm)'")
-                }
-                return .bound(Term(value: value, type: .datatype(dtterm.value)))
-            } else {
-                let t = try peekExpectedToken()
-                if case .lang(let lang) = t {
-                    return .bound(Term(value: value, type: .language(lang)))
-                }
-            }
-            return .bound(Term(value: value, type: .datatype("http://www.w3.org/2001/XMLSchema#string")))
+            return try literalAsTerm(value)
         case .plus:
             let t = try nextExpectedToken()
             return try tokenAsTerm(t)
@@ -3010,6 +2956,7 @@ public struct SPARQLSerializer {
         return s
     }
 
+    // swiftlint:disable:next cyclomatic_complexity
     public func serializePretty<S: Sequence, Target: TextOutputStream>(_ tokenSequence: S, to output: inout Target) where S.Iterator.Element == SPARQLToken {
         var tokens = Array(tokenSequence)
         tokens.append(.ws)

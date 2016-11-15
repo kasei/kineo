@@ -95,6 +95,7 @@ extension Aggregation: CustomStringConvertible {
     }
 }
 
+// swiftlint:disable cyclomatic_complexity
 // swiftlint:disable:next type_body_length
 public indirect enum Expression: CustomStringConvertible {
     case node(Node)
