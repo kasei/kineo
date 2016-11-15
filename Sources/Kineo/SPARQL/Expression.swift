@@ -37,7 +37,7 @@ public enum Aggregation {
     case groupConcat(Expression, String, Bool)
 }
 
-extension Aggregation : Equatable {
+extension Aggregation: Equatable {
     public static func ==(lhs: Aggregation, rhs: Aggregation) -> Bool {
         switch (lhs, rhs) {
         case (.countAll, .countAll):
@@ -62,8 +62,8 @@ extension Aggregation : Equatable {
     }
 }
 
-extension Aggregation : CustomStringConvertible {
-    public var description : String {
+extension Aggregation: CustomStringConvertible {
+    public var description: String {
         switch self {
         case .countAll:
             return "COUNT(*)"
@@ -96,7 +96,7 @@ extension Aggregation : CustomStringConvertible {
     }
 }
 
-public indirect enum Expression : CustomStringConvertible {
+public indirect enum Expression: CustomStringConvertible {
     case node(Node)
     case aggregate(Aggregation)
     case neg(Expression)
@@ -129,7 +129,7 @@ public indirect enum Expression : CustomStringConvertible {
     //    case langmatches(Expression, String)
     // TODO: add other expression functions
 
-    var hasAggregation : Bool {
+    var hasAggregation: Bool {
         switch self {
         case .aggregate(_):
             return true
@@ -148,7 +148,7 @@ public indirect enum Expression : CustomStringConvertible {
         }
     }
 
-    func removeAggregations(_ counter : AnyIterator<Int>, mapping : inout [String:Aggregation]) -> Expression {
+    func removeAggregations(_ counter: AnyIterator<Int>, mapping: inout [String:Aggregation]) -> Expression {
         switch self {
         case .node(_):
             return self
@@ -208,14 +208,14 @@ public indirect enum Expression : CustomStringConvertible {
             guard let c = counter.next() else { fatalError("No fresh variable available") }
             let name = ".agg-\(c)"
             mapping[name] = agg
-            let node : Node = .variable(name, binding: true)
+            let node: Node = .variable(name, binding: true)
             return .node(node)
         case .valuein(let expr, let exprs):
             return .valuein(expr.removeAggregations(counter, mapping: &mapping), exprs.map { $0.removeAggregations(counter, mapping: &mapping) })
         }
     }
 
-    var isNumeric : Bool {
+    var isNumeric: Bool {
         switch self {
         case .node(_):
             return true
@@ -232,7 +232,7 @@ public indirect enum Expression : CustomStringConvertible {
 
 
 
-    public func evaluate(result : TermResult) throws -> Term {
+    public func evaluate(result: TermResult) throws -> Term {
         switch self {
         case .aggregate(_):
             fatalError("cannot evaluate an aggregate expression without a query context")
@@ -266,31 +266,31 @@ public indirect enum Expression : CustomStringConvertible {
             return Term.falseValue
         case .eq(let lhs, let rhs):
             if let lval = try? lhs.evaluate(result: result), let rval = try? rhs.evaluate(result: result) {
-                return (lval == rval) ? Term.trueValue : Term.falseValue
+                return (lval == rval) ? Term.trueValue: Term.falseValue
             }
         case .ne(let lhs, let rhs):
             if let lval = try? lhs.evaluate(result: result), let rval = try? rhs.evaluate(result: result) {
-                return (lval != rval) ? Term.trueValue : Term.falseValue
+                return (lval != rval) ? Term.trueValue: Term.falseValue
             }
         case .gt(let lhs, let rhs):
             if let lval = try? lhs.evaluate(result: result), let rval = try? rhs.evaluate(result: result) {
-                return (lval > rval) ? Term.trueValue : Term.falseValue
+                return (lval > rval) ? Term.trueValue: Term.falseValue
             }
         case .between(let expr, let lower, let upper):
             if let val = try? expr.evaluate(result: result), let lval = try? lower.evaluate(result: result), let uval = try? upper.evaluate(result: result) {
-                return (val <= uval && val >= lval) ? Term.trueValue : Term.falseValue
+                return (val <= uval && val >= lval) ? Term.trueValue: Term.falseValue
             }
         case .lt(let lhs, let rhs):
             if let lval = try? lhs.evaluate(result: result), let rval = try? rhs.evaluate(result: result) {
-                return (lval < rval) ? Term.trueValue : Term.falseValue
+                return (lval < rval) ? Term.trueValue: Term.falseValue
             }
         case .ge(let lhs, let rhs):
             if let lval = try? lhs.evaluate(result: result), let rval = try? rhs.evaluate(result: result) {
-                return (lval >= rval) ? Term.trueValue : Term.falseValue
+                return (lval >= rval) ? Term.trueValue: Term.falseValue
             }
         case .le(let lhs, let rhs):
             if let lval = try? lhs.evaluate(result: result), let rval = try? rhs.evaluate(result: result) {
-                return (lval <= rval) ? Term.trueValue : Term.falseValue
+                return (lval <= rval) ? Term.trueValue: Term.falseValue
             }
         case .add(let lhs, let rhs):
             if let lval = try? lhs.evaluate(result: result), let rval = try? rhs.evaluate(result: result) {
@@ -340,7 +340,7 @@ public indirect enum Expression : CustomStringConvertible {
         case .not(let expr):
             let val = try expr.evaluate(result: result)
             let ebv = try val.ebv()
-            return ebv ? Term.falseValue : Term.trueValue
+            return ebv ? Term.falseValue: Term.trueValue
         case .isiri(let expr):
             let val = try expr.evaluate(result: result)
             if case .iri = val.type {
@@ -415,12 +415,12 @@ public indirect enum Expression : CustomStringConvertible {
             let term = try expr.evaluate(result: result)
             let terms = try exprs.map { try $0.evaluate(result: result) }
             let contains = terms.index(of: term) == terms.startIndex
-            return contains ? Term.trueValue : Term.falseValue
+            return contains ? Term.trueValue: Term.falseValue
         }
         throw QueryError.evaluationError("Failed to evaluate \(self) with result \(result)")
     }
 
-    public func numericEvaluate(result : TermResult) throws -> Numeric {
+    public func numericEvaluate(result: TermResult) throws -> Numeric {
         //        print("numericEvaluate over result: \(result)")
         //        print("numericEvaluate expression: \(self)")
         //        guard self.isNumeric else { throw QueryError.evaluationError("Cannot compile expression as numeric") }
@@ -481,7 +481,7 @@ public indirect enum Expression : CustomStringConvertible {
         }
     }
 
-    public var description : String {
+    public var description: String {
         switch self {
         case .aggregate(let a):
             return a.description
@@ -550,7 +550,7 @@ public indirect enum Expression : CustomStringConvertible {
     }
 }
 
-extension Expression : Equatable {
+extension Expression: Equatable {
     public static func ==(lhs: Expression, rhs: Expression) -> Bool {
         switch (lhs, rhs) {
         case (.aggregate(let l), .aggregate(let r)) where l == r:
@@ -616,7 +616,7 @@ extension Expression : Equatable {
 }
 
 public extension Expression {
-    func replace(_ map : (Expression) -> Expression?) -> Expression {
+    func replace(_ map: (Expression) -> Expression?) -> Expression {
         if let e = map(self) {
             return e
         } else {
@@ -685,7 +685,7 @@ public extension Expression {
 }
 
 public extension Aggregation {
-    func replace(_ map : (Expression) -> Expression?) -> Aggregation {
+    func replace(_ map: (Expression) -> Expression?) -> Aggregation {
         switch self {
         case .countAll:
             return self
@@ -708,7 +708,7 @@ public extension Aggregation {
 }
 
 class ExpressionParser {
-    static func parseExpression(_ parts : [String]) throws -> Expression? {
+    static func parseExpression(_ parts: [String]) throws -> Expression? {
         var stack = [Expression]()
         var i = parts.makeIterator()
         let parser = NTriplesPatternParser(reader: "")

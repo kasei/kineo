@@ -1,14 +1,14 @@
 import XCTest
 import Kineo
 
-struct TestStore : QuadStoreProtocol {
+struct TestStore: QuadStoreProtocol {
     typealias IDType = Term
 
     public func effectiveVersion(matching pattern: QuadPattern) throws -> UInt64? {
         return nil
     }
 
-    var quads : [Quad]
+    var quads: [Quad]
 
     func graphIDs() -> AnyIterator<Term> {
         return graphs()
@@ -56,8 +56,8 @@ struct TestStore : QuadStoreProtocol {
 }
 
 class QueryEvaluationTest: XCTestCase {
-    var store : TestStore!
-    var graph : Term!
+    var store: TestStore!
+    var graph: Term!
 
     override func setUp() {
         super.setUp()
@@ -81,7 +81,7 @@ class QueryEvaluationTest: XCTestCase {
         store = TestStore(quads: quads)
     }
 
-    private func parse(query : String) -> Algebra? {
+    private func parse(query: String) -> Algebra? {
         let qp      = QueryParser(reader: query)
         do {
             let query   = try qp.parse()
@@ -91,12 +91,12 @@ class QueryEvaluationTest: XCTestCase {
         }
     }
 
-    private func eval(algebra : Algebra) throws -> AnyIterator<TermResult> {
+    private func eval(algebra: Algebra) throws -> AnyIterator<TermResult> {
         let e = SimpleQueryEvaluator(store: store, defaultGraph: self.graph)
         return try e.evaluate(algebra: algebra, activeGraph: self.graph)
     }
 
-    private func eval(query : String) throws -> AnyIterator<TermResult> {
+    private func eval(query: String) throws -> AnyIterator<TermResult> {
         guard let algebra = parse(query: query) else { XCTFail(); fatalError() }
         return try eval(algebra: algebra)
     }
@@ -232,13 +232,13 @@ class QueryEvaluationTest: XCTestCase {
     }
 
     func testMultiAggEval() {
-        let quad : Algebra = .quad(QuadPattern(
+        let quad: Algebra = .quad(QuadPattern(
             subject: .variable("s", binding: true),
             predicate: .variable("p", binding: true),
             object: .variable("o", binding: true),
             graph: .bound(Term(value: "http://example.org/numbers", type: .iri))
             ))
-        let agg : Algebra = .aggregate(quad, [], [
+        let agg: Algebra = .aggregate(quad, [], [
             (.sum(.node(.variable("o", binding: false)), false), "sum"),
             (.avg(.node(.variable("o", binding: false)), false), "avg")
             ])
@@ -254,14 +254,14 @@ class QueryEvaluationTest: XCTestCase {
     }
 
     func testSortEval() {
-        let quad : Algebra = .quad(QuadPattern(
+        let quad: Algebra = .quad(QuadPattern(
             subject: .variable("s", binding: true),
             predicate: .bound(Term(value: "http://example.org/value", type: .iri)),
             object: .variable("o", binding: true),
             graph: .bound(Term(value: "http://example.org/numbers", type: .iri))
             ))
 
-        let ascending : Algebra = .order(quad, [(true, .node(.variable("o", binding: false)))])
+        let ascending: Algebra = .order(quad, [(true, .node(.variable("o", binding: false)))])
         guard let ascResults = try? Array(eval(algebra: ascending)) else { XCTFail(); return }
 
         XCTAssertEqual(ascResults.count, 2)
@@ -269,7 +269,7 @@ class QueryEvaluationTest: XCTestCase {
         XCTAssertEqualWithAccuracy(ascValues[0], -118.0, accuracy: 0.1)
         XCTAssertEqualWithAccuracy(ascValues[1], 32.7, accuracy: 0.1)
 
-        let descending : Algebra = .order(quad, [(false, .node(.variable("o", binding: false)))])
+        let descending: Algebra = .order(quad, [(false, .node(.variable("o", binding: false)))])
         guard let descResults = try? Array(eval(algebra: descending)) else { XCTFail(); return }
 
         XCTAssertEqual(descResults.count, 2)
@@ -277,7 +277,7 @@ class QueryEvaluationTest: XCTestCase {
         XCTAssertEqualWithAccuracy(descValues[0], 32.7, accuracy: 0.1)
         XCTAssertEqualWithAccuracy(descValues[1], -118.0, accuracy: 0.1)
 
-        let negated : Algebra = .order(quad, [(false, .neg(.node(.variable("o", binding: false))))])
+        let negated: Algebra = .order(quad, [(false, .neg(.node(.variable("o", binding: false))))])
         guard let negResults = try? Array(eval(algebra: negated)) else { XCTFail(); return }
 
         XCTAssertEqual(negResults.count, 2)

@@ -8,11 +8,11 @@
 
 import Foundation
 
-open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
-    var store : Q
-    var defaultGraph : Term
-    var freshVarNumber : Int
-    public init(store : Q, defaultGraph : Term) {
+open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
+    var store: Q
+    var defaultGraph: Term
+    var freshVarNumber: Int
+    public init(store: Q, defaultGraph: Term) {
         self.store = store
         self.defaultGraph = defaultGraph
         self.freshVarNumber = 1
@@ -23,7 +23,7 @@ open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
         freshVarNumber += 1
         return .variable(".v\(n)", binding: true)
     }
-    func evaluateUnion(_ patterns : [Algebra], activeGraph : Term) throws -> AnyIterator<TermResult> {
+    func evaluateUnion(_ patterns: [Algebra], activeGraph: Term) throws -> AnyIterator<TermResult> {
         var iters = try patterns.map { try self.evaluate(algebra: $0, activeGraph: activeGraph) }
         return AnyIterator {
             repeat {
@@ -37,7 +37,7 @@ open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
         }
     }
 
-    func evaluateJoin(lhs lhsAlgebra: Algebra, rhs rhsAlgebra: Algebra, left : Bool, activeGraph : Term) throws -> AnyIterator<TermResult> {
+    func evaluateJoin(lhs lhsAlgebra: Algebra, rhs rhsAlgebra: Algebra, left: Bool, activeGraph: Term) throws -> AnyIterator<TermResult> {
         var seen = [Set<String>]()
         for pattern in [lhsAlgebra, rhsAlgebra] {
             seen.append(pattern.inscope)
@@ -74,7 +74,7 @@ open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
         return AnyIterator(results.makeIterator())
     }
 
-    func evaluateLeftJoin(lhs : Algebra, rhs : Algebra, expression expr: Expression, activeGraph : Term) throws -> AnyIterator<TermResult> {
+    func evaluateLeftJoin(lhs: Algebra, rhs: Algebra, expression expr: Expression, activeGraph: Term) throws -> AnyIterator<TermResult> {
         let i = try evaluateJoin(lhs: lhs, rhs: rhs, left: true, activeGraph: activeGraph)
         return AnyIterator {
             repeat {
@@ -88,7 +88,7 @@ open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
         }
     }
 
-    func evaluateCount<S : Sequence>(results : S, expression keyExpr : Expression, distinct : Bool) -> Term? where S.Iterator.Element == TermResult {
+    func evaluateCount<S: Sequence>(results: S, expression keyExpr: Expression, distinct: Bool) -> Term? where S.Iterator.Element == TermResult {
         if distinct {
             let terms = results.map { try? keyExpr.evaluate(result: $0) }.flatMap { $0 }
             let unique = Set(terms)
@@ -104,7 +104,7 @@ open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
         }
     }
 
-    func evaluateCountAll<S : Sequence>(results : S) -> Term? where S.Iterator.Element == TermResult {
+    func evaluateCountAll<S: Sequence>(results: S) -> Term? where S.Iterator.Element == TermResult {
         var count = 0
         for _ in results {
             count += 1
@@ -112,10 +112,10 @@ open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
         return Term(integer: count)
     }
 
-    func evaluateAvg<S : Sequence>(results : S, expression keyExpr : Expression, distinct : Bool) -> Term? where S.Iterator.Element == TermResult {
-        var doubleSum : Double = 0.0
+    func evaluateAvg<S: Sequence>(results: S, expression keyExpr: Expression, distinct: Bool) -> Term? where S.Iterator.Element == TermResult {
+        var doubleSum: Double = 0.0
         let integer = TermType.datatype("http://www.w3.org/2001/XMLSchema#integer")
-        var resultingType : TermType? = integer
+        var resultingType: TermType? = integer
         var count = 0
 
         var terms = results.map { try? keyExpr.evaluate(result: $0) }.flatMap { $0 }
@@ -145,8 +145,8 @@ open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
         return nil
     }
 
-    func evaluateSum<S : Sequence>(results : S, expression keyExpr : Expression, distinct : Bool) -> Term? where S.Iterator.Element == TermResult {
-        var runningSum : Numeric = .integer(0)
+    func evaluateSum<S: Sequence>(results: S, expression keyExpr: Expression, distinct: Bool) -> Term? where S.Iterator.Element == TermResult {
+        var runningSum: Numeric = .integer(0)
         if distinct {
             let terms = results.map { try? keyExpr.evaluate(result: $0) }.flatMap { $0 }.sorted()
             let unique = Set(terms)
@@ -176,7 +176,7 @@ open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
         }
     }
 
-    func evaluateGroupConcat<S : Sequence>(results : S, expression keyExpr : Expression, separator: String, distinct : Bool) -> Term? where S.Iterator.Element == TermResult {
+    func evaluateGroupConcat<S: Sequence>(results: S, expression keyExpr: Expression, separator: String, distinct: Bool) -> Term? where S.Iterator.Element == TermResult {
         var terms = results.map { try? keyExpr.evaluate(result: $0) }.flatMap { $0 }
         if distinct {
             terms = Array(Set(terms))
@@ -192,7 +192,7 @@ open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
         return Term(value: c, type: type)
     }
 
-    func evaluateSinglePipelinedAggregation(algebra child: Algebra, groups: [Expression], aggregation agg: Aggregation, variable name: String, activeGraph : Term) throws -> AnyIterator<TermResult> {
+    func evaluateSinglePipelinedAggregation(algebra child: Algebra, groups: [Expression], aggregation agg: Aggregation, variable name: String, activeGraph: Term) throws -> AnyIterator<TermResult> {
         let i = try self.evaluate(algebra: child, activeGraph: activeGraph)
         var numericGroups = [String:Numeric]()
         var termGroups = [String:Term]()
@@ -366,13 +366,13 @@ open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
         return AnyIterator(results.makeIterator())
     }
 
-    private func alp(term : Term, path : PropertyPath, graph: Node) throws -> AnyIterator<Term> {
+    private func alp(term: Term, path: PropertyPath, graph: Node) throws -> AnyIterator<Term> {
         var v = Set<Term>()
         try alp(term: term, path: path, seen: &v, graph: graph)
         return AnyIterator(v.makeIterator())
     }
 
-    private func alp(term x : Term, path : PropertyPath, seen v : inout Set<Term>, graph: Node) throws {
+    private func alp(term x: Term, path: PropertyPath, seen v: inout Set<Term>, graph: Node) throws {
         guard !v.contains(x) else { return }
         v.insert(x)
         let pvar = freshVariable()
@@ -423,7 +423,7 @@ open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
                     return TermResult(bindings: [oname: t])
                 }
             case (.variable(_), .bound(_)):
-                let ipath : PropertyPath = .star(.inv(pp))
+                let ipath: PropertyPath = .star(.inv(pp))
                 return try evaluatePath(subject: object, object: subject, graph: graph, path: ipath)
             case (.bound(let t), .bound(let oterm)):
                 var v = Set<Term>()
@@ -464,7 +464,7 @@ open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
                     return TermResult(bindings: [oname: t])
                 }
             case (.variable(_), .bound(_)):
-                let ipath : PropertyPath = .plus(.inv(pp))
+                let ipath: PropertyPath = .plus(.inv(pp))
                 return try evaluatePath(subject: object, object: subject, graph: graph, path: ipath)
             case (.bound(_), .bound(let oterm)):
                 let pvar = freshVariable()
@@ -522,7 +522,7 @@ open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
         }
     }
 
-    func evaluateAggregation(algebra child: Algebra, groups: [Expression], aggregations aggs: [(Aggregation, String)], activeGraph : Term) throws -> AnyIterator<TermResult> {
+    func evaluateAggregation(algebra child: Algebra, groups: [Expression], aggregations aggs: [(Aggregation, String)], activeGraph: Term) throws -> AnyIterator<TermResult> {
         let i = try self.evaluate(algebra: child, activeGraph: activeGraph)
         var groupBuckets = [String:[TermResult]]()
         var groupBindings = [String:[String:Term]]()
@@ -594,7 +594,7 @@ open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
         }
     }
 
-    private func _sortResults(_ results : [TermResult], comparators: [Algebra.SortComparator]) -> [TermResult] {
+    private func _sortResults(_ results: [TermResult], comparators: [Algebra.SortComparator]) -> [TermResult] {
         let s = results.sorted { (a,b) -> Bool in
             for (ascending, expr) in comparators {
                 guard var lhs = try? expr.evaluate(result: a) else { return true }
@@ -613,7 +613,7 @@ open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
         return s
     }
 
-    public func evaluate(algebra : Algebra, activeGraph : Term) throws -> AnyIterator<TermResult> {
+    public func evaluate(algebra: Algebra, activeGraph: Term) throws -> AnyIterator<TermResult> {
         switch algebra {
         case .unionIdentity:
             let results = [TermResult]()
@@ -746,16 +746,16 @@ open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
         }
     }
 
-    public func effectiveVersion(matching algebra: Algebra, activeGraph : Term) throws -> Version? {
+    public func effectiveVersion(matching algebra: Algebra, activeGraph: Term) throws -> Version? {
         switch algebra {
         case .joinIdentity, .unionIdentity:
             return 0
         case .table(_, _):
             return 0
         case .path(_, _, _):
-            let s : Node = .variable("s", binding: true)
-            let p : Node = .variable("p", binding: true)
-            let o : Node = .variable("o", binding: true)
+            let s: Node = .variable("s", binding: true)
+            let p: Node = .variable("p", binding: true)
+            let o: Node = .variable("o", binding: true)
             let quad = QuadPattern(subject: s, predicate: p, object: o, graph: .bound(activeGraph))
             return try store.effectiveVersion(matching: quad)
         case .triple(let t):
@@ -794,7 +794,7 @@ open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
             return try effectiveVersion(matching: child, activeGraph: activeGraph)
         case .bgp(let children):
             guard children.count > 0 else { return nil }
-            var mtime : Version = 0
+            var mtime: Version = 0
             for t in children {
                 let quad = QuadPattern(subject: t.subject, predicate: t.predicate, object: t.object, graph: .bound(activeGraph))
                 guard let triplemtime = try store.effectiveVersion(matching: quad) else { continue }
@@ -808,7 +808,7 @@ open class SimpleQueryEvaluator<Q : QuadStoreProtocol> {
 
 }
 
-public func pipelinedHashJoin<R : ResultProtocol>(joinVariables : [String], lhs : AnyIterator<R>, rhs : AnyIterator<R>, left : Bool = false) -> AnyIterator<R> {
+public func pipelinedHashJoin<R: ResultProtocol>(joinVariables: [String], lhs: AnyIterator<R>, rhs: AnyIterator<R>, left: Bool = false) -> AnyIterator<R> {
     var table = [R:[R]]()
 //    warn(">>> filling hash table")
     var count = 0
@@ -847,7 +847,7 @@ public func pipelinedHashJoin<R : ResultProtocol>(joinVariables : [String], lhs 
     }
 }
 
-public func nestedLoopJoin<R : ResultProtocol>(_ results : [[R]], left : Bool = false, cb : (R) -> ()) {
+public func nestedLoopJoin<R: ResultProtocol>(_ results: [[R]], left: Bool = false, cb: (R) -> ()) {
     var patternResults = results
     while patternResults.count > 1 {
         let rhs = patternResults.popLast()!

@@ -15,13 +15,13 @@ class AlgebraTest: XCTestCase {
     }
 
     func testReplacement1() {
-        let subj : Node = .bound(Term(value: "b", type: .blank))
-        let pred : Node = .bound(Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type", type: .iri))
-        let obj : Node = .variable("o", binding: true)
+        let subj: Node = .bound(Term(value: "b", type: .blank))
+        let pred: Node = .bound(Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type", type: .iri))
+        let obj: Node = .variable("o", binding: true)
         let t = TriplePattern(subject: subj, predicate: pred, object: obj)
-        let algebra : Algebra = .bgp([t])
+        let algebra: Algebra = .bgp([t])
 
-        let rewrite = algebra.replace { (algebra : Algebra) in
+        let rewrite = algebra.replace { (algebra: Algebra) in
             switch algebra {
             case .bgp(_):
                 return .joinIdentity
@@ -39,16 +39,16 @@ class AlgebraTest: XCTestCase {
     }
 
     func testReplacement2() {
-        let subj : Node = .bound(Term(value: "b", type: .blank))
-        let type : Node = .bound(Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type", type: .iri))
-        let name : Node = .bound(Term(value: "http://xmlns.com/foaf/0.1/name", type: .iri))
-        let vtype : Node = .variable("type", binding: true)
-        let vname : Node = .variable("name", binding: true)
+        let subj: Node = .bound(Term(value: "b", type: .blank))
+        let type: Node = .bound(Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type", type: .iri))
+        let name: Node = .bound(Term(value: "http://xmlns.com/foaf/0.1/name", type: .iri))
+        let vtype: Node = .variable("type", binding: true)
+        let vname: Node = .variable("name", binding: true)
         let t1 = TriplePattern(subject: subj, predicate: type, object: vtype)
         let t2 = TriplePattern(subject: subj, predicate: name, object: vname)
-        let algebra : Algebra = .innerJoin(.bgp([t1]), .triple(t2))
+        let algebra: Algebra = .innerJoin(.bgp([t1]), .triple(t2))
 
-        let rewrite = algebra.replace { (algebra : Algebra) in
+        let rewrite = algebra.replace { (algebra: Algebra) in
             switch algebra {
             case .bgp(_):
                 return .joinIdentity
@@ -66,12 +66,12 @@ class AlgebraTest: XCTestCase {
     }
 
     func testJoinIdentityReplacement() {
-        let subj : Node = .bound(Term(value: "b", type: .blank))
-        let name : Node = .bound(Term(value: "http://xmlns.com/foaf/0.1/name", type: .iri))
-        let vname : Node = .variable("name", binding: true)
+        let subj: Node = .bound(Term(value: "b", type: .blank))
+        let name: Node = .bound(Term(value: "http://xmlns.com/foaf/0.1/name", type: .iri))
+        let vname: Node = .variable("name", binding: true)
         let t = TriplePattern(subject: subj, predicate: name, object: vname)
-        let algebra : Algebra = .innerJoin(.joinIdentity, .triple(t))
-        let rewrite = algebra.replace { (algebra : Algebra) in
+        let algebra: Algebra = .innerJoin(.joinIdentity, .triple(t))
+        let rewrite = algebra.replace { (algebra: Algebra) in
             switch algebra {
             case .innerJoin(.joinIdentity, let a), .innerJoin(let a, .joinIdentity):
                 return a
@@ -89,16 +89,16 @@ class AlgebraTest: XCTestCase {
     }
 
     func testFilterExpressionReplacement() {
-        let subj : Node = .bound(Term(value: "b", type: .blank))
-        let name : Node = .bound(Term(value: "http://xmlns.com/foaf/0.1/name", type: .iri))
-        let greg : Node = .bound(Term(value: "Gregory", type: .language("en")))
-        let vname : Node = .variable("name", binding: true)
-        let expr : Expression = .eq(.node(vname), .node(greg))
+        let subj: Node = .bound(Term(value: "b", type: .blank))
+        let name: Node = .bound(Term(value: "http://xmlns.com/foaf/0.1/name", type: .iri))
+        let greg: Node = .bound(Term(value: "Gregory", type: .language("en")))
+        let vname: Node = .variable("name", binding: true)
+        let expr: Expression = .eq(.node(vname), .node(greg))
 
         let t = TriplePattern(subject: subj, predicate: name, object: vname)
-        let algebra : Algebra = .filter(.triple(t), expr)
+        let algebra: Algebra = .filter(.triple(t), expr)
 
-        let rewrite = algebra.replace { (expr : Expression) in
+        let rewrite = algebra.replace { (expr: Expression) in
             switch expr {
             case .eq(let a, let b):
                 return .ne(a, b)
@@ -116,11 +116,11 @@ class AlgebraTest: XCTestCase {
     }
 
     func testExpressionReplacement() {
-        let greg : Node = .bound(Term(value: "Gregory", type: .language("en")))
-        let vname : Node = .variable("name", binding: true)
-        let expr : Expression = .eq(.node(vname), .node(greg))
+        let greg: Node = .bound(Term(value: "Gregory", type: .language("en")))
+        let vname: Node = .variable("name", binding: true)
+        let expr: Expression = .eq(.node(vname), .node(greg))
 
-        let rewrite = expr.replace { (expr : Expression) in
+        let rewrite = expr.replace { (expr: Expression) in
             switch expr {
             case .eq(let a, let b):
                 return .ne(a, b)
@@ -134,14 +134,14 @@ class AlgebraTest: XCTestCase {
     }
 
     func testNodeBinding() {
-        let subj : Node = .bound(Term(value: "b", type: .blank))
-        let type : Node = .bound(Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type", type: .iri))
-        let name : Node = .bound(Term(value: "http://xmlns.com/foaf/0.1/name", type: .iri))
-        let vtype : Node = .variable("type", binding: true)
-        let vname : Node = .variable("name", binding: true)
+        let subj: Node = .bound(Term(value: "b", type: .blank))
+        let type: Node = .bound(Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type", type: .iri))
+        let name: Node = .bound(Term(value: "http://xmlns.com/foaf/0.1/name", type: .iri))
+        let vtype: Node = .variable("type", binding: true)
+        let vname: Node = .variable("name", binding: true)
         let t1 = TriplePattern(subject: subj, predicate: type, object: vtype)
         let t2 = TriplePattern(subject: subj, predicate: name, object: vname)
-        let algebra : Algebra = .project(.innerJoin(.triple(t1), .triple(t2)), ["name", "type"])
+        let algebra: Algebra = .project(.innerJoin(.triple(t1), .triple(t2)), ["name", "type"])
 
         let rewrite = algebra.bind("type", to: .bound(Term(value: "http://xmlns.com/foaf/0.1/Person", type: .iri)))
         guard case .project(.innerJoin(_, _), let projection) = rewrite else {
@@ -152,16 +152,16 @@ class AlgebraTest: XCTestCase {
     }
 
     func testNodeBindingWithProjection() {
-        let subj : Node = .bound(Term(value: "b", type: .blank))
-        let type : Node = .bound(Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type", type: .iri))
-        let name : Node = .bound(Term(value: "http://xmlns.com/foaf/0.1/name", type: .iri))
-        let vtype : Node = .variable("type", binding: true)
-        let vname : Node = .variable("name", binding: true)
+        let subj: Node = .bound(Term(value: "b", type: .blank))
+        let type: Node = .bound(Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type", type: .iri))
+        let name: Node = .bound(Term(value: "http://xmlns.com/foaf/0.1/name", type: .iri))
+        let vtype: Node = .variable("type", binding: true)
+        let vname: Node = .variable("name", binding: true)
         let t1 = TriplePattern(subject: subj, predicate: type, object: vtype)
         let t2 = TriplePattern(subject: subj, predicate: name, object: vname)
-        let algebra : Algebra = .project(.innerJoin(.triple(t1), .triple(t2)), ["name", "type"])
+        let algebra: Algebra = .project(.innerJoin(.triple(t1), .triple(t2)), ["name", "type"])
 
-        let person : Node = .bound(Term(value: "http://xmlns.com/foaf/0.1/Person", type: .iri))
+        let person: Node = .bound(Term(value: "http://xmlns.com/foaf/0.1/Person", type: .iri))
         let rewrite = algebra.bind("type", to: person, preservingProjection: true)
         guard case .project(.extend(.innerJoin(_, _), .node(person), "type"), let projection) = rewrite else {
             XCTFail("Unexpected rewritten algebra: \(rewrite.serialize())")
@@ -171,14 +171,14 @@ class AlgebraTest: XCTestCase {
     }
 
     func testProjectedSPARQLTokens() {
-        let subj : Node = .bound(Term(value: "b", type: .blank))
-        let type : Node = .bound(Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type", type: .iri))
-        let name : Node = .bound(Term(value: "http://xmlns.com/foaf/0.1/name", type: .iri))
-        let vtype : Node = .variable("type", binding: true)
-        let vname : Node = .variable("name", binding: true)
+        let subj: Node = .bound(Term(value: "b", type: .blank))
+        let type: Node = .bound(Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type", type: .iri))
+        let name: Node = .bound(Term(value: "http://xmlns.com/foaf/0.1/name", type: .iri))
+        let vtype: Node = .variable("type", binding: true)
+        let vname: Node = .variable("name", binding: true)
         let t1 = TriplePattern(subject: subj, predicate: type, object: vtype)
         let t2 = TriplePattern(subject: subj, predicate: name, object: vname)
-        let algebra : Algebra = .project(.innerJoin(.triple(t1), .triple(t2)), ["name", "type"])
+        let algebra: Algebra = .project(.innerJoin(.triple(t1), .triple(t2)), ["name", "type"])
         let tokens = Array(algebra.sparqlTokens(depth: 0))
         XCTAssertEqual(tokens, [
             .keyword("SELECT"),
@@ -199,14 +199,14 @@ class AlgebraTest: XCTestCase {
     }
 
     func testNonProjectedSPARQLTokens() {
-        let subj : Node = .bound(Term(value: "b", type: .blank))
-        let type : Node = .bound(Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type", type: .iri))
-        let name : Node = .bound(Term(value: "http://xmlns.com/foaf/0.1/name", type: .iri))
-        let vtype : Node = .variable("type", binding: true)
-        let vname : Node = .variable("name", binding: true)
+        let subj: Node = .bound(Term(value: "b", type: .blank))
+        let type: Node = .bound(Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type", type: .iri))
+        let name: Node = .bound(Term(value: "http://xmlns.com/foaf/0.1/name", type: .iri))
+        let vtype: Node = .variable("type", binding: true)
+        let vname: Node = .variable("name", binding: true)
         let t1 = TriplePattern(subject: subj, predicate: type, object: vtype)
         let t2 = TriplePattern(subject: subj, predicate: name, object: vname)
-        let algebra : Algebra = .innerJoin(.triple(t1), .triple(t2))
+        let algebra: Algebra = .innerJoin(.triple(t1), .triple(t2))
 
         let tokens = Array(algebra.sparqlTokens(depth: 0))
         XCTAssertEqual(tokens, [
@@ -240,14 +240,14 @@ class AlgebraTest: XCTestCase {
     }
 
     func testQueryModifiedSPARQLSerialization1() {
-        let subj : Node = .bound(Term(value: "b", type: .blank))
-        let type : Node = .bound(Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type", type: .iri))
-        let name : Node = .bound(Term(value: "http://xmlns.com/foaf/0.1/name", type: .iri))
-        let vtype : Node = .variable("type", binding: true)
-        let vname : Node = .variable("name", binding: true)
+        let subj: Node = .bound(Term(value: "b", type: .blank))
+        let type: Node = .bound(Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type", type: .iri))
+        let name: Node = .bound(Term(value: "http://xmlns.com/foaf/0.1/name", type: .iri))
+        let vtype: Node = .variable("type", binding: true)
+        let vname: Node = .variable("name", binding: true)
         let t1 = TriplePattern(subject: subj, predicate: type, object: vtype)
         let t2 = TriplePattern(subject: subj, predicate: name, object: vname)
-        let algebra : Algebra = .slice(.order(.innerJoin(.triple(t1), .triple(t2)), [(false, .node(.variable("name", binding: false)))]), nil, 5)
+        let algebra: Algebra = .slice(.order(.innerJoin(.triple(t1), .triple(t2)), [(false, .node(.variable("name", binding: false)))]), nil, 5)
 
         let qtokens = Array(algebra.sparqlQueryTokens())
         XCTAssertEqual(qtokens, [
@@ -284,11 +284,11 @@ class AlgebraTest: XCTestCase {
 
 
     func testQueryModifiedSPARQLSerialization2() {
-        let subj : Node = .bound(Term(value: "b", type: .blank))
-        let name : Node = .bound(Term(value: "http://xmlns.com/foaf/0.1/name", type: .iri))
-        let vname : Node = .variable("name", binding: true)
+        let subj: Node = .bound(Term(value: "b", type: .blank))
+        let name: Node = .bound(Term(value: "http://xmlns.com/foaf/0.1/name", type: .iri))
+        let vname: Node = .variable("name", binding: true)
         let t = TriplePattern(subject: subj, predicate: name, object: vname)
-        let algebra : Algebra = .order(.slice(.triple(t), nil, 5), [(false, .node(.variable("name", binding: false)))])
+        let algebra: Algebra = .order(.slice(.triple(t), nil, 5), [(false, .node(.variable("name", binding: false)))])
 
         let qtokens = Array(algebra.sparqlQueryTokens())
         // SELECT * WHERE { { SELECT * WHERE { _:b foaf:name ?name . } LIMIT 5 } } ORDER BY DESC(?name)

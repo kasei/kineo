@@ -19,10 +19,10 @@
 
 import Foundation
 
-public struct DatabaseHeaderPage : PageMarshalled {
-    let version : Version
-    var roots : [(String, PageId)]
-    init(version : Version, roots : [(String, PageId)]) {
+public struct DatabaseHeaderPage: PageMarshalled {
+    let version: Version
+    var roots: [(String, PageId)]
+    init(version: Version, roots: [(String, PageId)]) {
         self.version = version
         self.roots = roots
     }
@@ -35,7 +35,7 @@ public struct DatabaseHeaderPage : PageMarshalled {
         return (cookie, version, Int(pageSize))
     }
 
-    public static func deserialize(from buffer: UnsafeRawPointer, status: PageStatus, mediator : RMediator) throws -> DatabaseHeaderPage {
+    public static func deserialize(from buffer: UnsafeRawPointer, status: PageStatus, mediator: RMediator) throws -> DatabaseHeaderPage {
         let (cookie, version, _) = try self.deserializeHeaderMetadata(from: buffer, status: status)
         let rawMemory = buffer.assumingMemoryBound(to: UInt8.self)
         guard cookie == DatabaseInfo.Cookie.databaseHeader.rawValue else { throw DatabaseError.DataError("Table page has bad header cookie") }
@@ -51,7 +51,7 @@ public struct DatabaseHeaderPage : PageMarshalled {
         return DatabaseHeaderPage(version: version, roots: roots)
     }
 
-    public func serialize(to buffer: UnsafeMutableRawPointer, status: PageStatus, mediator : RWMediator) throws {
+    public func serialize(to buffer: UnsafeMutableRawPointer, status: PageStatus, mediator: RWMediator) throws {
         let pageSize = mediator.pageSize
         try self.serialize(to: buffer, status: status, pageSize: pageSize)
     }
@@ -89,24 +89,24 @@ public struct DatabaseHeaderPage : PageMarshalled {
     }
 }
 
-public final class FilePageDatabase : Database {
+public final class FilePageDatabase: Database {
     public typealias ReadMediator = FilePageRMediator
     public typealias UpdateMediator = FilePageRWMediator
 
-    public let pageSize : Int
-    public var pageCount : Int
-    internal let fd : CInt
-    var nextPageId : Int
+    public let pageSize: Int
+    public var pageCount: Int
+    internal let fd: CInt
+    var nextPageId: Int
 
-    public init?(_ filename : String, size _pageSize : Int = 4096) {
-        var st : stat = stat()
+    public init?(_ filename: String, size _pageSize: Int = 4096) {
+        var st: stat = stat()
         fd = open(filename, O_RDWR|O_CREAT, 0o666)
         nextPageId = -1
         let s = fstat(fd, &st)
         guard s == 0 else { return nil }
         var size = Int(st.st_size)
         if size == 0 {
-            let version : Version = 0
+            let version: Version = 0
             pageSize = _pageSize
             let b = UnsafeMutableRawPointer.allocate(bytes: pageSize, alignedTo: 0)
             do {
@@ -140,7 +140,7 @@ public final class FilePageDatabase : Database {
         nextPageId = pageCount
     }
 
-    public func read(cb : (ReadMediator) -> ()) throws {
+    public func read(cb: (ReadMediator) -> ()) throws {
         let r = FilePageRMediator(database: self)
         #if os (OSX)
             autoreleasepool { cb(r) }
@@ -149,7 +149,7 @@ public final class FilePageDatabase : Database {
         #endif
     }
 
-    public func update(version : Version, cb : (UpdateMediator) throws -> ()) throws {
+    public func update(version: Version, cb: (UpdateMediator) throws -> ()) throws {
         let w = FilePageRWMediator(database: self, version: version)
         #if os (OSX)
             let caughtError = autoreleasepool { () -> Error? in
@@ -183,15 +183,15 @@ public final class FilePageDatabase : Database {
     }
 }
 
-open class FilePageRMediator : RMediator {
+open class FilePageRMediator: RMediator {
     public typealias Database = FilePageDatabase
 
-    var database : FilePageDatabase
-    public var pageSize : Int { return database.pageSize }
-    public var pageCount : Int { return database.pageCount }
-    internal var pageObjects : [PageId:PageMarshalled]
-    internal var readBuffer : UnsafeMutableRawPointer
-    init(database d : FilePageDatabase) {
+    var database: FilePageDatabase
+    public var pageSize: Int { return database.pageSize }
+    public var pageCount: Int { return database.pageCount }
+    internal var pageObjects: [PageId:PageMarshalled]
+    internal var readBuffer: UnsafeMutableRawPointer
+    init(database d: FilePageDatabase) {
         database = d
         pageObjects = [:]
         readBuffer = UnsafeMutableRawPointer.allocate(bytes: d.pageSize, alignedTo: 0)
@@ -202,19 +202,19 @@ open class FilePageRMediator : RMediator {
         readBuffer.deallocate(bytes: pageSize, alignedTo: 0)
     }
 
-    public var rootNames : [String] {
+    public var rootNames: [String] {
         let pageSize = self.pageSize
         precondition(pageSize >= 16)
-        guard let page : (DatabaseHeaderPage, PageStatus) = try? readPage(0) else { fatalError("error while finding root pages") }
+        guard let page: (DatabaseHeaderPage, PageStatus) = try? readPage(0) else { fatalError("error while finding root pages") }
         let (header, _) = page
         let names = header.roots.map { $0.0 }
         return names
     }
 
-    public func getRoot(named name : String) throws -> PageId {
+    public func getRoot(named name: String) throws -> PageId {
         let pageSize = self.pageSize
         precondition(pageSize >= 16)
-        guard let page : (DatabaseHeaderPage, PageStatus) = try? readPage(0) else { fatalError("error while finding root pages") }
+        guard let page: (DatabaseHeaderPage, PageStatus) = try? readPage(0) else { fatalError("error while finding root pages") }
         let (header, _) = page
         for (n, pid) in header.roots {
             if name == n {
@@ -224,7 +224,7 @@ open class FilePageRMediator : RMediator {
         throw DatabaseError.DataError("No root found with given name '\(name)'")
     }
 
-    public func readPage<M : PageMarshalled>(_ page : PageId) throws -> (M, PageStatus) {
+    public func readPage<M: PageMarshalled>(_ page: PageId) throws -> (M, PageStatus) {
         if let o = pageObjects[page] as? M {
             //                print("Got cached page object for pid \(page)")
             return (o, .clean(page))
@@ -247,7 +247,7 @@ open class FilePageRMediator : RMediator {
         }
     }
 
-    public func _pageBufferPointer(_ page : PageId, cb : (UnsafeMutableRawPointer) -> ()) throws {
+    public func _pageBufferPointer(_ page: PageId, cb: (UnsafeMutableRawPointer) -> ()) throws {
         let offset = off_t(pageSize * page)
         let sr = pread(database.fd, readBuffer, pageSize, offset)
         if sr == pageSize {
@@ -257,8 +257,8 @@ open class FilePageRMediator : RMediator {
         }
     }
 
-    public func _pageInfo(page : PageId) -> (String, String, PageId?)? {
-        var r : (String, String, PageId?)? = nil
+    public func _pageInfo(page: PageId) -> (String, String, PageId?)? {
+        var r: (String, String, PageId?)? = nil
         _ = try? self._pageBufferPointer(page) { (p) in
             do {
                 var ptr         = UnsafeRawPointer(p)
@@ -267,12 +267,12 @@ open class FilePageRMediator : RMediator {
                 let _           = try UInt32.deserialize(from: &ptr)
                 let config2     = try UInt32.deserialize(from: &ptr)
                 let date = getDateString(seconds: version)
-                var prev : PageId? = nil
+                var prev: PageId? = nil
                 if page > 0 && config2 > 0 {
                     prev = PageId(config2)
                 }
 
-                var type : String
+                var type: String
                 if let c = DatabaseInfo.Cookie(rawValue: cookie) {
                     type = "\(c)"
                 } else {
@@ -285,14 +285,14 @@ open class FilePageRMediator : RMediator {
     }
 }
 
-open class FilePageRWMediator : FilePageRMediator, RWMediator {
+open class FilePageRWMediator: FilePageRMediator, RWMediator {
     public typealias Database = FilePageDatabase
-    private var roots : [String:PageId]
-    private var dirty : [PageId:PageMarshalled]
-    private var newPages : Set<PageId>
+    private var roots: [String:PageId]
+    private var dirty: [PageId:PageMarshalled]
+    private var newPages: Set<PageId>
     public let version: Version
 
-    init(database d : FilePageDatabase, version v : Version) {
+    init(database d: FilePageDatabase, version v: Version) {
         roots = [:]
         dirty = [:]
         newPages = Set()
@@ -336,22 +336,22 @@ open class FilePageRWMediator : FilePageRMediator, RWMediator {
         dirty = [:]
     }
 
-    public func addRoot(name : String, page : PageId) {
+    public func addRoot(name: String, page: PageId) {
         roots[name] = page
     }
 
-    public func updateRoot(name : String, page : PageId) {
+    public func updateRoot(name: String, page: PageId) {
         roots[name] = page
     }
 
-    public func createPage<M : PageMarshalled>(for object : M) throws -> PageId {
+    public func createPage<M: PageMarshalled>(for object: M) throws -> PageId {
         let pid = database.reservePageId()
         dirty[pid] = object
         newPages.insert(pid)
         return pid
     }
 
-    public func update<M : PageMarshalled>(page : PageId, with object : M) throws {
+    public func update<M: PageMarshalled>(page: PageId, with object: M) throws {
         pageObjects.removeValue(forKey: page)
         dirty[page] = object
     }
@@ -364,14 +364,14 @@ open class FilePageRWMediator : FilePageRMediator, RWMediator {
         return a.sorted()
     }
 
-    public override func getRoot(named name : String) throws -> PageId {
+    public override func getRoot(named name: String) throws -> PageId {
         if let pid = roots[name] {
             return pid
         }
         return try super.getRoot(named: name)
     }
 
-    override public func readPage<M : PageMarshalled>(_ page : PageId) throws -> (M, PageStatus) {
+    override public func readPage<M: PageMarshalled>(_ page: PageId) throws -> (M, PageStatus) {
         if let object = dirty[page] {
             if let m = object as? M {
                 return (m, .dirty(page))

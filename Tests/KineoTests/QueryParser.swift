@@ -20,7 +20,7 @@ class QueryParserTest: XCTestCase {
 //        }
 //    }
 
-    private func parse(query : String) -> Algebra? {
+    private func parse(query: String) -> Algebra? {
         let qp      = QueryParser(reader: query)
         do {
             let query   = try qp.parse()

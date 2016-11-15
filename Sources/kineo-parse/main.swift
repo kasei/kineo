@@ -9,20 +9,20 @@
 import Foundation
 import Kineo
 
-func prettyPrint(_ qfile : String, silent : Bool = false, includeComments : Bool = false) throws {
+func prettyPrint(_ qfile: String, silent: Bool = false, includeComments: Bool = false) throws {
     let url = URL(fileURLWithPath: qfile)
     let sparql = try Data(contentsOf: url)
     let stream = InputStream(data: sparql)
     stream.open()
     var lexer = SPARQLLexer(source: stream, includeComments: includeComments)
     let s = SPARQLSerializer()
-    let tokens : UnfoldSequence<SPARQLToken, Int> = sequence(state: 0) { (_) in return lexer.next() }
+    let tokens: UnfoldSequence<SPARQLToken, Int> = sequence(state: 0) { (_) in return lexer.next() }
     let pretty = s.serializePretty(tokens)
     print(pretty)
 }
 
 @discardableResult
-func parseAlgebra(_ qfile : String, silent : Bool = false, includeComments : Bool = false) throws -> Algebra {
+func parseAlgebra(_ qfile: String, silent: Bool = false, includeComments: Bool = false) throws -> Algebra {
     let url = URL(fileURLWithPath: qfile)
     let sparql = try Data(contentsOf: url)
     guard var p = SPARQLParser(data: sparql, includeComments: includeComments) else { fatalError("Failed to construct SPARQL parser") }
@@ -34,7 +34,7 @@ func parseAlgebra(_ qfile : String, silent : Bool = false, includeComments : Boo
     return algebra
 }
 
-func parseTokens(_ qfile : String, silent : Bool = false) throws {
+func parseTokens(_ qfile: String, silent: Bool = false) throws {
     let url = URL(fileURLWithPath: qfile)
     let sparql = try Data(contentsOf: url)
     let stream = InputStream(data: sparql)

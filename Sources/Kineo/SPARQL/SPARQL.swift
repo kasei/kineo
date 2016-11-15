@@ -8,7 +8,7 @@
 
 import Foundation
 
-public enum SPARQLParsingError : Error {
+public enum SPARQLParsingError: Error {
     case lexicalError(String)
     case parsingError(String)
 }
@@ -59,7 +59,7 @@ public enum SPARQLToken {
     case keyword(String)
     case iri(String)
 
-    public var isVerb : Bool {
+    public var isVerb: Bool {
         if isTermOrVar {
             return true
         } else {
@@ -72,7 +72,7 @@ public enum SPARQLToken {
         }
     }
 
-    public var isTerm : Bool {
+    public var isTerm: Bool {
         switch self {
         case .keyword("A"):
             return true
@@ -85,7 +85,7 @@ public enum SPARQLToken {
         }
     }
 
-    public var isTermOrVar : Bool {
+    public var isTermOrVar: Bool {
         if isTerm {
             return true
         }
@@ -98,7 +98,7 @@ public enum SPARQLToken {
         }
     }
 
-    public var isNumber : Bool {
+    public var isNumber: Bool {
         switch self {
         case .integer(_), .decimal(_), .double(_):
             return true
@@ -107,7 +107,7 @@ public enum SPARQLToken {
         }
     }
 
-    public var isString : Bool {
+    public var isString: Bool {
         switch self {
         case .string1d(_), .string1s(_), .string3d(_), .string3s(_):
             return true
@@ -116,7 +116,7 @@ public enum SPARQLToken {
         }
     }
 
-    public var isRelationalOperator : Bool {
+    public var isRelationalOperator: Bool {
         switch self {
         case .lt, .le, .gt, .ge, .equals, .notequals, .andand, .oror:
             return true
@@ -126,7 +126,7 @@ public enum SPARQLToken {
     }
 }
 
-extension SPARQLToken : Equatable {
+extension SPARQLToken: Equatable {
     public static func ==(lhs: SPARQLToken, rhs: SPARQLToken) -> Bool {
         switch (lhs, rhs) {
         case (.comment(let a), .comment(let b)) where a == b:
@@ -168,7 +168,7 @@ extension SPARQLToken : Equatable {
 }
 
 extension SPARQLToken {
-    var sparql : String {
+    var sparql: String {
         switch self {
         case .ws:
             return " "
@@ -261,24 +261,24 @@ extension SPARQLToken {
     }
 }
 
-public struct SPARQLLexer : IteratorProtocol {
-    var includeComments : Bool
-    var source : InputStream
-    var lookaheadBuffer : [UInt8]
-    var errorBuffer : String
-    var string : String
-    var stringPos : UInt
-    var line : Int
-    var column : Int
-    var character : UInt
-    var buffer : String
-    var startColumn : Int
-    var startLine : Int
-    var startCharacter : UInt
-    var comments : Bool
-    var _lookahead : SPARQLToken?
+public struct SPARQLLexer: IteratorProtocol {
+    var includeComments: Bool
+    var source: InputStream
+    var lookaheadBuffer: [UInt8]
+    var errorBuffer: String
+    var string: String
+    var stringPos: UInt
+    var line: Int
+    var column: Int
+    var character: UInt
+    var buffer: String
+    var startColumn: Int
+    var startLine: Int
+    var startCharacter: UInt
+    var comments: Bool
+    var _lookahead: SPARQLToken?
 
-    private mutating func lexError(_ message : String) -> SPARQLParsingError {
+    private mutating func lexError(_ message: String) -> SPARQLParsingError {
         try? fillBuffer()
         let rest = buffer
         return SPARQLParsingError.lexicalError("\(message) at \(line):\(column) near '\(rest)...'")
@@ -290,113 +290,113 @@ public struct SPARQLLexer : IteratorProtocol {
     private static let r_DECIMAL    = "[0-9]*[.][0-9]+"
     private static let r_INTEGER    = "[0-9]+"
 
-    private static let _variableNameRegex : NSRegularExpression = {
+    private static let _variableNameRegex: NSRegularExpression = {
         guard let r = try? NSRegularExpression(pattern: "((([_]|([A-Z]|[a-z]|[\\x{00C0}-\\x{00D6}]|[\\x{00D8}-\\x{00F6}]|[\\x{00F8}-\\x{02FF}]|[\\x{0370}-\\x{037D}]|[\\x{037F}-\\x{1FFF}]|[\\x{200C}-\\x{200D}]|[\\x{2070}-\\x{218F}]|[\\x{2C00}-\\x{2FEF}]|[\\x{3001}-\\x{D7FF}]|[\\x{F900}-\\x{FDCF}]|[\\x{FDF0}-\\x{FFFD}]|[\\x{10000}-\\x{EFFFF}]))|[0-9])(([_]|([A-Z]|[a-z]|[\\x{00C0}-\\x{00D6}]|[\\x{00D8}-\\x{00F6}]|[\\x{00F8}-\\x{02FF}]|[\\x{0370}-\\x{037D}]|[\\x{037F}-\\x{1FFF}]|[\\x{200C}-\\x{200D}]|[\\x{2070}-\\x{218F}]|[\\x{2C00}-\\x{2FEF}]|[\\x{3001}-\\x{D7FF}]|[\\x{F900}-\\x{FDCF}]|[\\x{FDF0}-\\x{FFFD}]|[\\x{10000}-\\x{EFFFF}]))|[0-9]|\\x{00B7}|[\\x{0300}-\\x{036F}]|[\\x{203F}-\\x{2040}])*)", options: .anchorsMatchLines) else { fatalError("Failed to compile built-in regular expression") }
         return r
     }()
 
-    private static let _bnodeNameRegex : NSRegularExpression = {
+    private static let _bnodeNameRegex: NSRegularExpression = {
         guard let r = try? NSRegularExpression(pattern: "^([0-9A-Za-z_\\x{00C0}-\\x{00D6}\\x{00D8}-\\x{00F6}\\x{00F8}-\\x{02FF}\\x{0370}-\\x{037D}\\x{037F}-\\x{1FFF}\\x{200C}-\\x{200D}\\x{2070}-\\x{218F}\\x{2C00}-\\x{2FEF}\\x{3001}-\\x{D7FF}\\x{F900}-\\x{FDCF}\\x{FDF0}-\\x{FFFD}\\x{10000}-\\x{EFFFF}])(([A-Za-z_\\x{00C0}-\\x{00D6}\\x{00D8}-\\x{00F6}\\x{00F8}-\\x{02FF}\\x{0370}-\\x{037D}\\x{037F}-\\x{1FFF}\\x{200C}-\\x{200D}\\x{2070}-\\x{218F}\\x{2C00}-\\x{2FEF}\\x{3001}-\\x{D7FF}\\x{F900}-\\x{FDCF}\\x{FDF0}-\\x{FFFD}\\x{10000}-\\x{EFFFF}])|([-0-9\\x{00B7}\\x{0300}-\\x{036F}\\x{203F}-\\x{2040}]))*", options: .anchorsMatchLines) else { fatalError("Failed to compile built-in regular expression") }
         return r
     }()
 
-    private static let _keywordRegex : NSRegularExpression = {
+    private static let _keywordRegex: NSRegularExpression = {
         guard let r = try? NSRegularExpression(pattern: "(ABS|ADD|ALL|ASC|ASK|AS|AVG|BASE|BIND|BNODE|BOUND|BY|CEIL|CLEAR|COALESCE|CONCAT|CONSTRUCT|CONTAINS|COPY|COUNT|CREATE|DATATYPE|DAY|DEFAULT|DELETE|DELETE WHERE|DESCRIBE|DESC|DISTINCT|DISTINCT|DROP|ENCODE_FOR_URI|EXISTS|FILTER|FLOOR|FROM|GRAPH|GROUP_CONCAT|GROUP|HAVING|HOURS|IF|INSERT|INSERT|DATA|INTO|IN|IRI|ISBLANK|ISIRI|ISLITERAL|ISNUMERIC|ISURI|LANGMATCHES|LANG|LCASE|LIMIT|LOAD|MAX|MD5|MINUS|MINUTES|MIN|MONTH|MOVE|NAMED|NOT|NOW|OFFSET|OPTIONAL|ORDER|PREFIX|RAND|REDUCED|REGEX|REPLACE|ROUND|SAMETERM|SAMPLE|SECONDS|SELECT|SEPARATOR|SERVICE|SHA1|SHA256|SHA384|SHA512|SILENT|STRAFTER|STRBEFORE|STRDT|STRENDS|STRLANG|STRLEN|STRSTARTS|STRUUID|STR|SUBSTR|SUM|TIMEZONE|TO|TZ|UCASE|UNDEF|UNION|URI|USING|UUID|VALUES|WHERE|WITH|YEAR)\\b", options: [.anchorsMatchLines, .caseInsensitive]) else { fatalError("Failed to compile built-in regular expression") }
         return r
     }()
 
-    fileprivate static let _functions : Set<String> = {
+    fileprivate static let _functions: Set<String> = {
         let funcs = Set(["STR", "LANG", "LANGMATCHES", "DATATYPE", "BOUND", "IRI", "URI", "BNODE", "RAND", "ABS", "CEIL", "FLOOR", "ROUND", "CONCAT", "STRLEN", "UCASE", "LCASE", "ENCODE_FOR_URI", "CONTAINS", "STRSTARTS", "STRENDS", "STRBEFORE", "STRAFTER", "YEAR", "MONTH", "DAY", "HOURS", "MINUTES", "SECONDS", "TIMEZONE", "TZ", "NOW", "UUID", "STRUUID", "MD5", "SHA1", "SHA256", "SHA384", "SHA512", "COALESCE", "IF", "STRLANG", "STRDT", "SAMETERM", "SUBSTR", "REPLACE", "ISIRI", "ISURI", "ISBLANK", "ISLITERAL", "ISNUMERIC", "REGEX"])
         return funcs
     }()
 
-    fileprivate static let _aggregates : Set<String> = {
+    fileprivate static let _aggregates: Set<String> = {
         let aggs = Set(["COUNT", "SUM", "MIN", "MAX", "AVG", "SAMPLE", "GROUP_CONCAT"])
         return aggs
     }()
 
-    private static let _aRegex : NSRegularExpression = {
+    private static let _aRegex: NSRegularExpression = {
         guard let r = try? NSRegularExpression(pattern: "a\\b", options: .anchorsMatchLines) else { fatalError("Failed to compile built-in regular expression") }
         return r
     }()
 
-    private static let _booleanRegex : NSRegularExpression = {
+    private static let _booleanRegex: NSRegularExpression = {
         guard let r = try? NSRegularExpression(pattern: "(true|false)\\b", options: [.anchorsMatchLines, .caseInsensitive]) else { fatalError("Failed to compile built-in regular expression") }
         return r
     }()
 
-    private static let _multiLineAnonRegex : NSRegularExpression = {
+    private static let _multiLineAnonRegex: NSRegularExpression = {
         guard let r = try? NSRegularExpression(pattern: "(\\[|\\()[\\t\\r\\n ]*$", options: .anchorsMatchLines) else { fatalError("Failed to compile built-in regular expression") }
         return r
     }()
 
-    private static let _pNameLNre : NSRegularExpression = {
+    private static let _pNameLNre: NSRegularExpression = {
         guard let r = try? NSRegularExpression(pattern: r_PNAME_LN, options: []) else { fatalError("Failed to compile built-in regular expression") }
         return r
     }()
 
-    private static let _pNameNSre : NSRegularExpression = {
+    private static let _pNameNSre: NSRegularExpression = {
         guard let r = try? NSRegularExpression(pattern: r_PNAME_NS, options: []) else { fatalError("Failed to compile built-in regular expression") }
         return r
     }()
 
-    private static let _escapedCharRegex : NSRegularExpression = {
+    private static let _escapedCharRegex: NSRegularExpression = {
         guard let r = try? NSRegularExpression(pattern: "\\\\(.)", options: []) else { fatalError("Failed to compile built-in regular expression") }
         return r
     }()
 
 
-    private static let _alphanumRegex : NSRegularExpression = {
+    private static let _alphanumRegex: NSRegularExpression = {
         guard let r = try? NSRegularExpression(pattern: "[0-9A-Fa-f]+", options: []) else { fatalError("Failed to compile built-in regular expression") }
         return r
     }()
 
-    private static let _iriRegex : NSRegularExpression = {
+    private static let _iriRegex: NSRegularExpression = {
         guard let r = try? NSRegularExpression(pattern: "<([^<>\"{}|^`\\x{00}-\\x{20}])*>", options: []) else { fatalError("Failed to compile built-in regular expression") }
         return r
     }()
 
-    private static let _unescapedIRIRegex : NSRegularExpression = {
+    private static let _unescapedIRIRegex: NSRegularExpression = {
         guard let r = try? NSRegularExpression(pattern: "[^>\\\\]+", options: []) else { fatalError("Failed to compile built-in regular expression") }
         return r
     }()
 
-    private static let _nilRegex : NSRegularExpression = {
+    private static let _nilRegex: NSRegularExpression = {
         guard let r = try? NSRegularExpression(pattern: "[(][ \r\n\t]*[)]", options: []) else { fatalError("Failed to compile built-in regular expression") }
         return r
     }()
 
-    private static let _doubleRegex : NSRegularExpression = {
+    private static let _doubleRegex: NSRegularExpression = {
         guard let r = try? NSRegularExpression(pattern: r_DOUBLE, options: []) else { fatalError("Failed to compile built-in regular expression") }
         return r
     }()
 
-    private static let _decimalRegex : NSRegularExpression = {
+    private static let _decimalRegex: NSRegularExpression = {
         guard let r = try? NSRegularExpression(pattern: r_DECIMAL, options: []) else { fatalError("Failed to compile built-in regular expression") }
         return r
     }()
 
-    private static let _integerRegex : NSRegularExpression = {
+    private static let _integerRegex: NSRegularExpression = {
         guard let r = try? NSRegularExpression(pattern: r_INTEGER, options: []) else { fatalError("Failed to compile built-in regular expression") }
         return r
     }()
 
-    private static let _anonRegex : NSRegularExpression = {
+    private static let _anonRegex: NSRegularExpression = {
         guard let r = try? NSRegularExpression(pattern: "\\[[ \u{0a}\u{0d}\u{09}]*\\]", options: []) else { fatalError("Failed to compile built-in regular expression") }
         return r
     }()
 
-    private static let _prefixOrBaseRegex : NSRegularExpression = {
+    private static let _prefixOrBaseRegex: NSRegularExpression = {
         guard let r = try? NSRegularExpression(pattern: "(prefix|base)\\b", options: []) else { fatalError("Failed to compile built-in regular expression") }
         return r
     }()
 
-    private static let _langRegex : NSRegularExpression = {
+    private static let _langRegex: NSRegularExpression = {
         guard let r = try? NSRegularExpression(pattern: "[a-zA-Z]+(-[a-zA-Z0-9]+)*\\b", options: []) else { fatalError("Failed to compile built-in regular expression") }
         return r
     }()
 
-    private static let pnCharSet : CharacterSet = {
+    private static let pnCharSet: CharacterSet = {
         var pn = CharacterSet()
         pn.insert(charactersIn: "a"..."z")
         pn.insert(charactersIn: "A"..."Z")
@@ -406,7 +406,7 @@ public struct SPARQLLexer : IteratorProtocol {
         guard let scalar = UnicodeScalar(0xD7FF) else { fatalError("Failed to construct built-in CharacterSet") }
         pn.insert(scalar)
 
-        let ranges : [(Int, Int)] = [
+        let ranges: [(Int, Int)] = [
             (0xC0, 0xD6),
             (0xD8, 0xF6),
             (0xF8, 0xFF),
@@ -429,7 +429,7 @@ public struct SPARQLLexer : IteratorProtocol {
         return pn
     }()
 
-    public init(source : InputStream, includeComments : Bool = false) {
+    public init(source: InputStream, includeComments: Bool = false) {
         self.source = source
         self.includeComments = includeComments
         self.lookaheadBuffer = []
@@ -447,7 +447,7 @@ public struct SPARQLLexer : IteratorProtocol {
         self._lookahead = nil
     }
 
-    mutating func readUnicodeEscape(length : Int) throws -> [UInt8] {
+    mutating func readUnicodeEscape(length: Int) throws -> [UInt8] {
         var charbuffer = [UInt8](repeating: 0, count: length)
         let read = source.read(&charbuffer, maxLength: length)
         guard read == length else { throw lexError("Failed to read unicode escape") }
@@ -464,7 +464,7 @@ public struct SPARQLLexer : IteratorProtocol {
         guard source.hasBytesAvailable else { return }
         guard buffer.characters.count == 0 else { return }
         var bytes = [UInt8]()
-        var charbuffer : [UInt8] = [0]
+        var charbuffer: [UInt8] = [0]
         LOOP: while true {
             let read = source.read(&charbuffer, maxLength: 1)
             guard read != -1 else { print("\(source.streamError)"); break }
@@ -1168,7 +1168,7 @@ public struct SPARQLLexer : IteratorProtocol {
     }
 }
 
-private func joinReduction(lhs : Algebra, rhs : Algebra) -> Algebra {
+private func joinReduction(lhs: Algebra, rhs: Algebra) -> Algebra {
     if case .joinIdentity = lhs {
         return rhs
     } else {
@@ -1183,27 +1183,27 @@ private enum UnfinishedAlgebra {
     case bind(Expression, String)
     case finished(Algebra)
 
-    func finish(_ args : inout [Algebra]) -> Algebra {
+    func finish(_ args: inout [Algebra]) -> Algebra {
         switch self {
         case .bind(let e, let name):
-            let algebra : Algebra = args.reduce(.joinIdentity, joinReduction)
+            let algebra: Algebra = args.reduce(.joinIdentity, joinReduction)
             args = []
             return .extend(algebra, e, name)
         case .filter(let e):
-            let algebra : Algebra = args.reduce(.joinIdentity, joinReduction)
+            let algebra: Algebra = args.reduce(.joinIdentity, joinReduction)
             args = []
             return .filter(algebra, e)
         case .minus(let a):
-            let algebra : Algebra = args.reduce(.joinIdentity, joinReduction)
+            let algebra: Algebra = args.reduce(.joinIdentity, joinReduction)
             args = []
             return .minus(algebra, a)
         case .optional(.filter(let a, let e)):
-            let algebra : Algebra = args.reduce(.joinIdentity, joinReduction)
+            let algebra: Algebra = args.reduce(.joinIdentity, joinReduction)
             args = []
             return .leftOuterJoin(algebra, a, e)
         case .optional(let a):
-            let e : Expression = .node(.bound(Term.trueValue))
-            let algebra : Algebra = args.reduce(.joinIdentity, joinReduction)
+            let e: Expression = .node(.bound(Term.trueValue))
+            let algebra: Algebra = args.reduce(.joinIdentity, joinReduction)
             args = []
             return .leftOuterJoin(algebra, a, e)
         case .finished(let a):
@@ -1213,27 +1213,27 @@ private enum UnfinishedAlgebra {
 }
 
 public struct SPARQLParser {
-    var lexer : SPARQLLexer
-    var prefixes : [String:String]
-    var bnodes : [String:Term]
-    var base : String?
-    var tokenLookahead : SPARQLToken?
+    var lexer: SPARQLLexer
+    var prefixes: [String:String]
+    var bnodes: [String:Term]
+    var base: String?
+    var tokenLookahead: SPARQLToken?
     var freshCounter = AnyIterator(sequence(first: 1) { $0 + 1 })
 
-    private mutating func parseError(_ message : String) -> SPARQLParsingError {
+    private mutating func parseError(_ message: String) -> SPARQLParsingError {
         try? lexer.fillBuffer()
         let rest = lexer.buffer
         return SPARQLParsingError.parsingError("\(message) at \(lexer.line):\(lexer.column) near '\(rest)...'")
     }
 
-    public init(lexer : SPARQLLexer, prefixes : [String:String] = [:], base : String? = nil) {
+    public init(lexer: SPARQLLexer, prefixes: [String:String] = [:], base: String? = nil) {
         self.lexer = lexer
         self.prefixes = prefixes
         self.base = base
         self.bnodes = [:]
     }
 
-    public init?(string : String, prefixes : [String:String] = [:], base : String? = nil, includeComments : Bool = false) {
+    public init?(string: String, prefixes: [String:String] = [:], base: String? = nil, includeComments: Bool = false) {
         guard let data = string.data(using: .utf8) else { return nil }
         let stream = InputStream(data: data)
         stream.open()
@@ -1241,14 +1241,14 @@ public struct SPARQLParser {
         self.init(lexer: lexer, prefixes: prefixes, base: base)
     }
 
-    public init?(data : Data, prefixes : [String:String] = [:], base : String? = nil, includeComments : Bool = false) {
+    public init?(data: Data, prefixes: [String:String] = [:], base: String? = nil, includeComments: Bool = false) {
         let stream = InputStream(data: data)
         stream.open()
         let lexer = SPARQLLexer(source: stream, includeComments: includeComments)
         self.init(lexer: lexer, prefixes: prefixes, base: base)
     }
 
-    private mutating func bnode(named name : String? = nil) -> Term {
+    private mutating func bnode(named name: String? = nil) -> Term {
         if let name = name, let term = self.bnodes[name] {
             return term
         } else {
@@ -1327,7 +1327,7 @@ public struct SPARQLParser {
         let t = try peekExpectedToken()
         guard case .keyword(let kw) = t else { throw parseError("Expected query method not found") }
 
-        var algebra : Algebra
+        var algebra: Algebra
         switch kw {
         case "SELECT":
             algebra = try parseSelectQuery()
@@ -1367,7 +1367,7 @@ public struct SPARQLParser {
         try expect(token: .keyword("SELECT"))
         var distinct = false
         var star = false
-        var projection : [String]? = nil
+        var projection: [String]? = nil
         var aggregationExpressions = [String:Aggregation]()
         var projectExpressions = [(Expression, String)]()
 
@@ -1469,7 +1469,7 @@ public struct SPARQLParser {
 
         let dataset = try parseDatasetClauses() // TODO
         try attempt(token: .keyword("WHERE"))
-        let ggp : Algebra
+        let ggp: Algebra
         if try peek(token: .lbrace) {
             ggp = try parseGroupGraphPattern()
         } else {
@@ -1480,7 +1480,7 @@ public struct SPARQLParser {
 
         }
 
-        var algebra : Algebra = .describe(ggp, describe)
+        var algebra: Algebra = .describe(ggp, describe)
         algebra = try parseSolutionModifier(algebra: algebra, distinct: true, projection: nil, projectExpressions: [], aggregation: [:], valuesBlock: nil)
 
         return algebra
@@ -1540,7 +1540,7 @@ public struct SPARQLParser {
 
     private mutating func parseGroupGraphPattern() throws -> Algebra {
         try expect(token: .lbrace)
-        var algebra : Algebra
+        var algebra: Algebra
 
         if try peek(token: .keyword("SELECT")) {
             algebra = try parseSubSelect()
@@ -1557,7 +1557,7 @@ public struct SPARQLParser {
 
         var distinct = false
         var star = false
-        var projection : [String]? = nil
+        var projection: [String]? = nil
         var aggregationExpressions = [String:Aggregation]()
         var projectExpressions = [(Expression, String)]()
 
@@ -1609,8 +1609,8 @@ public struct SPARQLParser {
         return algebra
     }
 
-    private mutating func parseGroupCondition(_ algebra : inout Algebra) throws -> Node? {
-        var node : Node
+    private mutating func parseGroupCondition(_ algebra: inout Algebra) throws -> Node? {
+        var node: Node
         if try attempt(token: .lparen) {
             let expr = try parseExpression()
             if try attempt(token: .keyword("AS")) {
@@ -1656,7 +1656,7 @@ public struct SPARQLParser {
             ascending = false
         }
 
-        var expr : Expression
+        var expr: Expression
         guard let t = peekToken() else { return nil }
         if try forceBrackettedExpression || peek(token: .lparen) {
             expr = try parseBrackettedExpression()
@@ -1695,7 +1695,7 @@ public struct SPARQLParser {
         return expr
     }
 
-    private mutating func parseSolutionModifier(algebra a: Algebra, distinct : Bool, projection : [String]?, projectExpressions: [(Expression, String)], aggregation : [String:Aggregation], valuesBlock : Algebra?) throws -> Algebra {
+    private mutating func parseSolutionModifier(algebra a: Algebra, distinct: Bool, projection: [String]?, projectExpressions: [(Expression, String)], aggregation: [String:Aggregation], valuesBlock: Algebra?) throws -> Algebra {
         var algebra = a
         let aggregations = aggregation.map { ($0.1, $0.0) }
         if try attempt(token: .keyword("GROUP")) {
@@ -1720,7 +1720,7 @@ public struct SPARQLParser {
             algebra = .innerJoin(algebra, values)
         }
 
-        var sortConditions : [Algebra.SortComparator] = []
+        var sortConditions: [Algebra.SortComparator] = []
         if try attempt(token: .keyword("ORDER")) {
             try expect(token: .keyword("BY"))
             while true {
@@ -2051,8 +2051,8 @@ public struct SPARQLParser {
 
     private mutating func parsePropertyListPathNotEmpty(for subject: Node) throws -> [Algebra] {
         var t = try peekExpectedToken()
-        var verb : PropertyPath? = nil
-        var varpred : Node? = nil
+        var verb: PropertyPath? = nil
+        var varpred: Node? = nil
         if case ._var(_) = t {
             varpred = try parseVerbSimple()
         } else {
@@ -2071,8 +2071,8 @@ public struct SPARQLParser {
 
         LOOP: while try attempt(token: .semicolon) {
             t = try peekExpectedToken()
-            var verb : PropertyPath? = nil
-            var varpred : Node? = nil
+            var verb: PropertyPath? = nil
+            var varpred: Node? = nil
             switch t {
             case ._var(_):
                 varpred = try parseVerbSimple()
@@ -2284,7 +2284,7 @@ public struct SPARQLParser {
 
     private mutating func parseBlankNodePropertyListPathAsNode() throws -> (Node, [Algebra]) {
         try expect(token: .lbracket)
-        let node : Node = .bound(bnode())
+        let node: Node = .bound(bnode())
         let path = try parsePropertyListPathNotEmpty(for: node)
         try expect(token: .rbracket)
         return (node, path)
@@ -2652,7 +2652,7 @@ public struct SPARQLParser {
         case "COUNT":
             try expect(token: .lparen)
             let distinct = try attempt(token: .keyword("DISTINCT"))
-            let agg : Aggregation
+            let agg: Aggregation
             if try attempt(token: .star) {
                 agg = .countAll
             } else {
@@ -2665,35 +2665,35 @@ public struct SPARQLParser {
             try expect(token: .lparen)
             let distinct = try attempt(token: .keyword("DISTINCT"))
             let expr = try parseNonAggregatingExpression()
-            let agg : Aggregation = .sum(expr, distinct)
+            let agg: Aggregation = .sum(expr, distinct)
             try expect(token: .rparen)
             return agg
         case "MIN":
             try expect(token: .lparen)
             let _ = try attempt(token: .keyword("DISTINCT"))
             let expr = try parseNonAggregatingExpression()
-            let agg : Aggregation = .min(expr)
+            let agg: Aggregation = .min(expr)
             try expect(token: .rparen)
             return agg
         case "MAX":
             try expect(token: .lparen)
             let _ = try attempt(token: .keyword("DISTINCT"))
             let expr = try parseNonAggregatingExpression()
-            let agg : Aggregation = .max(expr)
+            let agg: Aggregation = .max(expr)
             try expect(token: .rparen)
             return agg
         case "AVG":
             try expect(token: .lparen)
             let distinct = try attempt(token: .keyword("DISTINCT"))
             let expr = try parseNonAggregatingExpression()
-            let agg : Aggregation = .avg(expr, distinct)
+            let agg: Aggregation = .avg(expr, distinct)
             try expect(token: .rparen)
             return agg
         case "SAMPLE":
             try expect(token: .lparen)
             try attempt(token: .keyword("DISTINCT"))
             let expr = try parseNonAggregatingExpression()
-            let agg : Aggregation = .sample(expr)
+            let agg: Aggregation = .sample(expr)
             try expect(token: .rparen)
             return agg
         case "GROUP_CONCAT":
@@ -2712,7 +2712,7 @@ public struct SPARQLParser {
                 }
                 sep = term.value
             }
-            let agg : Aggregation = .groupConcat(expr, sep, distinct)
+            let agg: Aggregation = .groupConcat(expr, sep, distinct)
             try expect(token: .rparen)
             return agg
         default:
@@ -2742,7 +2742,7 @@ public struct SPARQLParser {
 
             separator   = str.value;
         }
-        id<SPKTree> agg     = [[SPKTree alloc] initWithType:kExprGroupConcat value: @[@(d ? YES : NO), separator] arguments:@[expr]];
+        id<SPKTree> agg     = [[SPKTree alloc] initWithType:kExprGroupConcat value: @[@(d ? YES: NO), separator] arguments:@[expr]];
         [self parseExpectedTokenOfType:RPAREN withErrors:errors];
         ASSERT_EMPTY(errors);
         [self addSeenAggregate:agg];
@@ -2780,9 +2780,9 @@ public struct SPARQLParser {
         return Array(sameSubj.map { simplifyPath($0) })
     }
 
-    private func simplifyPath(_ algebra : Algebra) -> Algebra {
+    private func simplifyPath(_ algebra: Algebra) -> Algebra {
         guard case .path(let s, .link(let iri), let o) = algebra else { return algebra }
-        let node : Node = .bound(iri)
+        let node: Node = .bound(iri)
         let triple = TriplePattern(subject: s, predicate: node, object: o)
         return .triple(triple)
     }
@@ -2832,7 +2832,7 @@ public struct SPARQLParser {
         }
     }
 
-    private mutating func tokenAsTerm(_ t : SPARQLToken) throws -> Node {
+    private mutating func tokenAsTerm(_ t: SPARQLToken) throws -> Node {
         switch t {
         case ._nil:
             return .bound(Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#nil", type: .iri))
@@ -2926,17 +2926,17 @@ public struct SPARQLSerializer {
 
     }
 
-    public func serialize<S : Sequence>(_ algebra: Algebra) -> String where S.Iterator.Element == SPARQLToken {
+    public func serialize<S: Sequence>(_ algebra: Algebra) -> String where S.Iterator.Element == SPARQLToken {
         return self.serialize(algebra.sparqlQueryTokens())
     }
 
-    public func serialize<S : Sequence>(_ tokens: S) -> String where S.Iterator.Element == SPARQLToken {
+    public func serialize<S: Sequence>(_ tokens: S) -> String where S.Iterator.Element == SPARQLToken {
         var s = ""
         self.serialize(tokens, to: &s)
         return s
     }
 
-    public func serialize<S : Sequence, Target : TextOutputStream>(_ tokens: S, to output: inout Target) where S.Iterator.Element == SPARQLToken {
+    public func serialize<S: Sequence, Target: TextOutputStream>(_ tokens: S, to output: inout Target) where S.Iterator.Element == SPARQLToken {
         for (i, token) in tokens.enumerated() {
             if i > 0 {
                 print(" ", terminator: "", to: &output)
@@ -2947,22 +2947,22 @@ public struct SPARQLSerializer {
 
     struct ParseState {
         struct NestingCallback {
-            let level : [Int]
-            let code : (ParseState) -> ()
+            let level: [Int]
+            let code: (ParseState) -> ()
         }
 
-        var indentLevel : Int   = 0
-        var inSemicolon : Bool  = false
-        var openParens : Int    = 0 {
+        var indentLevel: Int   = 0
+        var inSemicolon: Bool  = false
+        var openParens: Int    = 0 {
             didSet { checkCallbacks() }
         }
-        var openBraces : Int    = 0 {
+        var openBraces: Int    = 0 {
             didSet { checkCallbacks() }
         }
-        var openBrackets : Int  = 0 {
+        var openBrackets: Int  = 0 {
             didSet { checkCallbacks() }
         }
-        var callbackStack : [NestingCallback] = []
+        var callbackStack: [NestingCallback] = []
         mutating func checkCallbacks() {
             let currentLevel = [openBraces, openBrackets, openParens]
             //        println("current level: \(currentLevel)")
@@ -2976,7 +2976,7 @@ public struct SPARQLSerializer {
             }
         }
 
-        mutating func registerForClose(_ callback : @escaping (ParseState) -> ()) {
+        mutating func registerForClose(_ callback: @escaping (ParseState) -> ()) {
             let currentLevel = [openBraces, openBrackets, openParens]
             //        println("registering callback at level: \(currentLevel)")
             let cb = NestingCallback(level: currentLevel, code: callback)
@@ -2994,7 +2994,7 @@ public struct SPARQLSerializer {
         case spaceSeparator
         case tokenString(String)
 
-        var description : String {
+        var description: String {
             switch (self) {
             case .newline(_):
                 return "␤"
@@ -3006,17 +3006,17 @@ public struct SPARQLSerializer {
         }
     }
 
-    public func serializePretty<S : Sequence>(_ tokenSequence: S) -> String where S.Iterator.Element == SPARQLToken {
+    public func serializePretty<S: Sequence>(_ tokenSequence: S) -> String where S.Iterator.Element == SPARQLToken {
         var s = ""
         self.serializePretty(tokenSequence, to: &s)
         return s
     }
 
-    public func serializePretty<S : Sequence, Target : TextOutputStream>(_ tokenSequence: S, to output: inout Target) where S.Iterator.Element == SPARQLToken {
+    public func serializePretty<S: Sequence, Target: TextOutputStream>(_ tokenSequence: S, to output: inout Target) where S.Iterator.Element == SPARQLToken {
         var tokens = Array(tokenSequence)
         tokens.append(.ws)
         var pretty = ""
-        var outputArray : [(SPARQLToken, SerializerOutput)] = []
+        var outputArray: [(SPARQLToken, SerializerOutput)] = []
         var pstate = ParseState()
         //        var sstate_stack = [SerializerState()]
         for i in 0..<(tokens.count-1) {
@@ -3144,7 +3144,7 @@ public struct SPARQLSerializer {
                 }
         }
 
-        var tempArray : [SerializerOutput] = []
+        var tempArray: [SerializerOutput] = []
         FILTER: for i in 0..<(outputArray.count-1) {
             let (_, s1) = outputArray[i]
             let (_, s2) = outputArray[i+1]
@@ -3202,7 +3202,7 @@ enum SPARQLEscapingType {
 }
 
 extension String {
-    private var commonString1Escaped : String {
+    private var commonString1Escaped: String {
         var v = self
         v = v.replacingOccurrences(of: "\\", with: "\\\\")
         v = v.replacingOccurrences(of: "\t", with: "\\r")
@@ -3213,7 +3213,7 @@ extension String {
         return v
     }
 
-    private var commonString3Escaped : String {
+    private var commonString3Escaped: String {
         var v = self
         v = v.replacingOccurrences(of: "\\", with: "\\\\")
         v = v.replacingOccurrences(of: "\t", with: "\\r")
@@ -3260,13 +3260,13 @@ extension String {
         }
     }
 
-    private static let pnChars : CharacterSet = {
+    private static let pnChars: CharacterSet = {
         var pn = pnCharsU
         pn.insert(charactersIn: "0123456789-")
         pn.insert(UnicodeScalar(0xB7))
 
         // [#x0300-#x036F] | [#x203F-#x2040]
-        let ranges : [(Int, Int)] = [
+        let ranges: [(Int, Int)] = [
             (0x300, 0x36F),
             (0x203F, 0x2040),
             ]
@@ -3280,12 +3280,12 @@ extension String {
         return pn
     }()
 
-    private static let pnCharsU : CharacterSet = {
+    private static let pnCharsU: CharacterSet = {
         var pn = CharacterSet(charactersIn: "_")
         pn.insert(charactersIn: "a"..."z")
         pn.insert(charactersIn: "A"..."Z")
 
-        let ranges : [(Int, Int)] = [
+        let ranges: [(Int, Int)] = [
             (0xF8, 0xD6),
             (0xD8, 0xF6),
             (0xF8, 0x2FF),

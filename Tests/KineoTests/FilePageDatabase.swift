@@ -3,7 +3,7 @@ import XCTest
 import Kineo
 
 class FilePageDatabaseTest: XCTestCase {
-    var tempFilename : String!
+    var tempFilename: String!
 
     func removeFile() {
         let fileManager = FileManager.default
@@ -21,7 +21,7 @@ class FilePageDatabaseTest: XCTestCase {
 
     func testOpen() {
         let pageSize = 1024
-        let database : FilePageDatabase! = FilePageDatabase(self.tempFilename, size: pageSize)
+        let database: FilePageDatabase! = FilePageDatabase(self.tempFilename, size: pageSize)
 
         XCTAssertNotNil(database)
         XCTAssertEqual(database.pageSize, pageSize)
@@ -36,7 +36,7 @@ class FilePageDatabaseTest: XCTestCase {
 
         let treeName = "testvalues"
         try database.update(version: 1) { (m) in
-            let pairs : [(UInt32, String)] = []
+            let pairs: [(UInt32, String)] = []
             _ = try m.create(tree: treeName, pairs: pairs)
         }
 
@@ -47,8 +47,8 @@ class FilePageDatabaseTest: XCTestCase {
         }
 
         try database.update(version: 2) { (m) in
-            guard let t : Tree<UInt32, String> = m.tree(name: treeName) else { fatalError("No such tree") }
-            for key : UInt32 in 0..<14 {
+            guard let t: Tree<UInt32, String> = m.tree(name: treeName) else { fatalError("No such tree") }
+            for key: UInt32 in 0..<14 {
                 let value = "<<\(key)>>"
                 try t.add(pair: (key, value))
             }
@@ -61,7 +61,7 @@ class FilePageDatabaseTest: XCTestCase {
         }
 
         try database.update(version: 3) { (m) in
-            guard let t : Tree<UInt32, String> = m.tree(name: treeName) else { fatalError("No such tree") }
+            guard let t: Tree<UInt32, String> = m.tree(name: treeName) else { fatalError("No such tree") }
             try t.add(pair: (787, "Dreamliner"))
             try t.add(pair: (350, "XWB"))
         }
@@ -84,7 +84,7 @@ class FilePageDatabaseTest: XCTestCase {
             let pages = Array(0..<m.pageCount)
             for pid in pages {
                 let name = roots[pid] ?? "_"
-                printPageInfo(mediator: m, name : name, page : pid)
+                printPageInfo(mediator: m, name: name, page: pid)
             }
         }
         **/
@@ -93,9 +93,9 @@ class FilePageDatabaseTest: XCTestCase {
 }
 
 /**
-private func printPageInfo(mediator m : FilePageRMediator, name : String, page : PageId) {
+private func printPageInfo(mediator m: FilePageRMediator, name: String, page: PageId) {
     if let (type, date, previous) = m._pageInfo(page: page) {
-        var prev : String
+        var prev: String
         switch previous {
         case .none, .some(0):
             prev = ""
