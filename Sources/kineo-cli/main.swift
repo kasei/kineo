@@ -9,7 +9,7 @@
 import Foundation
 import Kineo
 
-func setup(_ database : FilePageDatabase, startTime : UInt64) throws {
+func setup(_ database: FilePageDatabase, startTime: UInt64) throws {
     try database.update(version: Version(startTime)) { (m) in
         do {
             _ = try QuadStore.create(mediator: m)
@@ -20,7 +20,7 @@ func setup(_ database : FilePageDatabase, startTime : UInt64) throws {
     }
 }
 
-func parse(_ database : FilePageDatabase, files : [String], startTime : UInt64, graph defaultGraphTerm: Term? = nil) throws -> Int {
+func parse(_ database: FilePageDatabase, files: [String], startTime: UInt64, graph defaultGraphTerm: Term? = nil) throws -> Int {
     var count   = 0
     let version = Version(startTime)
     try database.update(version: version) { (m) in
@@ -32,7 +32,7 @@ func parse(_ database : FilePageDatabase, files : [String], startTime : UInt64, 
                     let path = NSURL(fileURLWithPath: filename).absoluteString
                 #endif
                 let graph   = defaultGraphTerm ?? Term(value: path, type: .iri)
-                
+
                 let reader  = FileReader(filename: filename)
                 let parser  = NTriplesParser(reader: reader)
                 let quads = AnySequence { () -> AnyIterator<Quad> in
@@ -44,7 +44,7 @@ func parse(_ database : FilePageDatabase, files : [String], startTime : UInt64, 
                     }
                     //    warn("\r\(quads.count) triples parsed")
                 }
-                
+
                 let store = try QuadStore.create(mediator: m)
                 try store.load(quads: quads)
             }
@@ -56,22 +56,22 @@ func parse(_ database : FilePageDatabase, files : [String], startTime : UInt64, 
     return count
 }
 
-func parseQuery(_ database : FilePageDatabase, filename : String) throws -> Algebra? {
+func parseQuery(_ database: FilePageDatabase, filename: String) throws -> Algebra? {
     let reader      = FileReader(filename: filename)
     let qp          = QueryParser(reader: reader)
     return try qp.parse()
 }
 
-func planQuery(_ database : FilePageDatabase, algebra : Algebra, graph : Term? = nil) throws -> ResultPlan {
+func planQuery(_ database: FilePageDatabase, algebra: Algebra, graph: Term? = nil) throws -> ResultPlan {
     fatalError("implement")
 }
 
-func query2(_ database : FilePageDatabase, algebra: Algebra, graph: Term? = nil, verbose : Bool) throws -> Int {
+func query2(_ database: FilePageDatabase, algebra: Algebra, graph: Term? = nil, verbose: Bool) throws -> Int {
     var count       = 0
     try database.read { (m) in
         do {
             let store       = try LanguageQuadStore(mediator: m, acceptLanguages: [("en", 1.0), ("", 0.5)])
-            var defaultGraph : Term
+            var defaultGraph: Term
             if let g = graph {
                 defaultGraph = g
             } else {
@@ -86,7 +86,7 @@ func query2(_ database : FilePageDatabase, algebra: Algebra, graph: Term? = nil,
 //                    print("# Last-Modified: \(date)")
 //                }
 //            }
-            
+
             let planner     = QuadStorePlanner(store: store, defaultGraph: defaultGraph)
             let plan        = try planner.plan(algebra)
             let e           = ResultPlanEvaluator(store: store)
@@ -101,15 +101,15 @@ func query2(_ database : FilePageDatabase, algebra: Algebra, graph: Term? = nil,
     return count
 }
 
-func query(_ database : FilePageDatabase, algebra query: Algebra, graph: Term? = nil, verbose : Bool) throws -> Int {
+func query(_ database: FilePageDatabase, algebra query: Algebra, graph: Term? = nil, verbose: Bool) throws -> Int {
     var count       = 0
     let startTime = getCurrentTime()
     try database.read { (m) in
         do {
             let store       = try LanguageQuadStore(mediator: m, acceptLanguages: [("en", 1.0), ("", 0.5)])
 //            let store       = try QuadStore(mediator: m)
-            
-            var defaultGraph : Term
+
+            var defaultGraph: Term
             if let g = graph {
                 defaultGraph = g
             } else {
@@ -124,7 +124,7 @@ func query(_ database : FilePageDatabase, algebra query: Algebra, graph: Term? =
                     print("# Last-Modified: \(date)")
                 }
             }
-            
+
             for result in try e.evaluate(algebra: query, activeGraph: defaultGraph) {
                 count += 1
                 print("\(count)\t\(result.description)")
@@ -141,7 +141,7 @@ func query(_ database : FilePageDatabase, algebra query: Algebra, graph: Term? =
     return count
 }
 
-private func printQuad(quad : Quad, lastGraph : Term?) {
+private func printQuad(quad: Quad, lastGraph: Term?) {
     let s = quad.subject
     let p = quad.predicate
     let o = quad.object
@@ -151,12 +151,12 @@ private func printQuad(quad : Quad, lastGraph : Term?) {
     print("\(s) \(p) \(o) .")
 }
 
-func serialize(_ database : FilePageDatabase, index : String? = nil) throws -> Int {
+func serialize(_ database: FilePageDatabase, index: String? = nil) throws -> Int {
     var count = 0
     try database.read { (m) in
         do {
             let store = try QuadStore(mediator: m)
-            var lastGraph : Term? = nil
+            var lastGraph: Term? = nil
             if let index = index {
                 let i = try store.iterator(usingIndex: index)
                 for quad in i {
@@ -178,7 +178,7 @@ func serialize(_ database : FilePageDatabase, index : String? = nil) throws -> I
     return count
 }
 
-func graphs(_ database : FilePageDatabase) throws -> Int {
+func graphs(_ database: FilePageDatabase) throws -> Int {
     var count = 0
     try database.read { (m) in
         guard let store = try? QuadStore(mediator: m) else { return }
@@ -190,7 +190,7 @@ func graphs(_ database : FilePageDatabase) throws -> Int {
     return count
 }
 
-func indexes(_ database : FilePageDatabase) throws -> Int {
+func indexes(_ database: FilePageDatabase) throws -> Int {
     var count = 0
     try database.read { (m) in
         guard let store = try? QuadStore(mediator: m) else { return }
@@ -202,17 +202,17 @@ func indexes(_ database : FilePageDatabase) throws -> Int {
     return count
 }
 
-func output(_ database : FilePageDatabase) throws -> Int {
+func output(_ database: FilePageDatabase) throws -> Int {
     try database.read { (m) in
         guard let store = try? QuadStore(mediator: m) else { return }
-        for (k,v) in store.id {
+        for (k, v) in store.id {
             print("\(k) -> \(v)")
         }
     }
     return try serialize(database)
 }
 
-func match(_ database : FilePageDatabase) throws -> Int {
+func match(_ database: FilePageDatabase) throws -> Int {
     var count = 0
     let parser = NTriplesPatternParser(reader: "")
     try database.read { (m) in
@@ -227,16 +227,16 @@ func match(_ database : FilePageDatabase) throws -> Int {
     return count
 }
 
-func printPageInfo(mediator m : FilePageRMediator, name : String, page : PageId) {
-    if let (type, date, previous) = m._pageInfo(page: page) {
-        var prev : String
+func printPageInfo(mediator: FilePageRMediator, name: String, page: PageId) {
+    if let (type, date, previous) = mediator._pageInfo(page: page) {
+        var prev: String
         switch previous {
         case .none, .some(0):
             prev = ""
         case .some(let value):
             prev = "Previous page: \(value)"
         }
-        
+
         let name_padded = name.padding(toLength: 16, withPad: " ", startingAt: 0)
         let type_padded = type.padding(toLength: 24, withPad: " ", startingAt: 0)
         print("  \(page)\t\(date)\t\(name_padded)\t\(type_padded)\t\t\(prev)")
@@ -244,9 +244,8 @@ func printPageInfo(mediator m : FilePageRMediator, name : String, page : PageId)
 }
 
 var verbose = false
-let _args = CommandLine.arguments
-let argscount = _args.count
-var args = PeekableIterator(generator: _args.makeIterator())
+let argscount = CommandLine.arguments.count
+var args = PeekableIterator(generator: CommandLine.arguments.makeIterator())
 guard let pname = args.next() else { fatalError("Missing command name") }
 var pageSize = 8192
 guard argscount >= 2 else {
@@ -279,20 +278,20 @@ var count = 0
 if let op = args.next() {
     try setup(database, startTime: startSecond)
     if op == "load" {
-        var graph : Term? = nil
+        var graph: Term? = nil
         if let next = args.peek(), next == "-g" {
             _ = args.next()
             guard let iri = args.next() else { fatalError("No IRI value given after -g") }
             graph = Term(value: iri, type: .iri)
         }
-        
+
         count = try parse(database, files: args.elements(), startTime: startSecond, graph: graph)
     } else if op == "graphs" {
         count = try graphs(database)
     } else if op == "indexes" {
         count = try indexes(database)
     } else if op == "sparql" {
-        var graph : Term? = nil
+        var graph: Term? = nil
         if let next = args.peek(), next == "-g" {
             _ = args.next()
             guard let iri = args.next() else { fatalError("No IRI value given after -g") }
@@ -305,7 +304,7 @@ if let op = args.next() {
         let algebra = try p.parse()
         count = try query(database, algebra: algebra, graph: graph, verbose: verbose)
     } else if op == "query" {
-        var graph : Term? = nil
+        var graph: Term? = nil
         if let next = args.peek(), next == "-g" {
             _ = args.next()
             guard let iri = args.next() else { fatalError("No IRI value given after -g") }
@@ -315,7 +314,7 @@ if let op = args.next() {
         guard let algebra = try parseQuery(database, filename: qfile) else { fatalError("Failed to parse query") }
         count = try query(database, algebra: algebra, graph: graph, verbose: verbose)
     } else if op == "plan" {
-        var graph : Term? = nil
+        var graph: Term? = nil
         if let next = args.peek(), next == "-g" {
             _ = args.next()
             guard let iri = args.next() else { fatalError("No IRI value given after -g") }
@@ -355,7 +354,7 @@ if let op = args.next() {
                 print("Roots:")
                 for name in roots {
                     if let i = try? m.getRoot(named: name) {
-                        printPageInfo(mediator: m, name : name, page : i)
+                        printPageInfo(mediator: m, name: name, page: i)
                     }
                 }
             }
@@ -369,14 +368,14 @@ if let op = args.next() {
                     roots[Int(i)] = name
                 }
             }
-            
+
             var pages = Array(args.elements().flatMap { Int($0) })
             if pages.count == 0 {
                 pages = Array(0..<m.pageCount)
             }
             for pid in pages {
                 let name = roots[pid] ?? "_"
-                printPageInfo(mediator: m, name : name, page : pid)
+                printPageInfo(mediator: m, name: name, page: pid)
             }
         }
     } else if op == "dot" {
@@ -401,5 +400,3 @@ let tps = Double(count) / elapsed
 if verbose {
     warn("elapsed time: \(elapsed)s (\(tps)/s)")
 }
-
-

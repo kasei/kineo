@@ -9,20 +9,20 @@
 import Foundation
 import Kineo
 
-func prettyPrint(_ qfile : String, silent : Bool = false, includeComments : Bool = false) throws {
+func prettyPrint(_ qfile: String, silent: Bool = false, includeComments: Bool = false) throws {
     let url = URL(fileURLWithPath: qfile)
     let sparql = try Data(contentsOf: url)
     let stream = InputStream(data: sparql)
     stream.open()
     var lexer = SPARQLLexer(source: stream, includeComments: includeComments)
     let s = SPARQLSerializer()
-    let tokens : UnfoldSequence<SPARQLToken, Int> = sequence(state: 0) { (_) in return lexer.next() }
+    let tokens: UnfoldSequence<SPARQLToken, Int> = sequence(state: 0) { (_) in return lexer.next() }
     let pretty = s.serializePretty(tokens)
     print(pretty)
 }
 
 @discardableResult
-func parseAlgebra(_ qfile : String, silent : Bool = false, includeComments : Bool = false) throws -> Algebra {
+func parseAlgebra(_ qfile: String, silent: Bool = false, includeComments: Bool = false) throws -> Algebra {
     let url = URL(fileURLWithPath: qfile)
     let sparql = try Data(contentsOf: url)
     guard var p = SPARQLParser(data: sparql, includeComments: includeComments) else { fatalError("Failed to construct SPARQL parser") }
@@ -34,7 +34,7 @@ func parseAlgebra(_ qfile : String, silent : Bool = false, includeComments : Boo
     return algebra
 }
 
-func parseTokens(_ qfile : String, silent : Bool = false) throws {
+func parseTokens(_ qfile: String, silent: Bool = false) throws {
     let url = URL(fileURLWithPath: qfile)
     let sparql = try Data(contentsOf: url)
     let stream = InputStream(data: sparql)
@@ -51,9 +51,8 @@ var pretty = false
 var verbose = false
 var silent = false
 var printTokens = false
-let _args = CommandLine.arguments
-let argscount = _args.count
-var args = PeekableIterator(generator: _args.makeIterator())
+let argscount = CommandLine.arguments.count
+var args = PeekableIterator(generator: CommandLine.arguments.makeIterator())
 guard let pname = args.next() else { fatalError("Missing command name") }
 var pageSize = 8192
 guard argscount >= 2 else {
@@ -61,7 +60,6 @@ guard argscount >= 2 else {
     print("")
     exit(1)
 }
-
 
 if let next = args.peek(), next.hasPrefix("-") {
     _ = args.next()
@@ -107,5 +105,3 @@ let elapsed = Double(endTime - startTime)
 if verbose {
     warn("elapsed time: \(elapsed)s")
 }
-
-

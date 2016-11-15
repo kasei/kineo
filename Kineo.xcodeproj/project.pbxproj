@@ -243,6 +243,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 372C15531D500FD6005AD596 /* Build configuration list for PBXNativeTarget "kineo-test" */;
 			buildPhases = (
+				37C990381DDBBCC0003CD6E6 /* ShellScript */,
 				372C15581D501051005AD596 /* ShellScript */,
 				372C154A1D500FD6005AD596 /* Sources */,
 				372C154B1D500FD6005AD596 /* Frameworks */,
@@ -390,6 +391,19 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "swift build --chdir \"$SRCROOT\"\n";
+		};
+		37C990381DDBBCC0003CD6E6 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "swiftlint\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

@@ -1,0 +1,13 @@
+disabled_rules: # rule identifiers to exclude from running
+  - file_length
+  - function_body_length
+  - line_length
+  - cyclomatic_complexity
+  - todo
+  - legacy_constructor
+excluded:
+  - Tests
+variable_name:
+  excluded:
+    - id
+    - fd

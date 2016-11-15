@@ -8,16 +8,16 @@
 
 import Foundation
 
-public enum TermType : BufferSerializable {
+public enum TermType: BufferSerializable {
     case blank
     case iri
     case language(String)
     case datatype(String)
-    
+
     /**
-     
+
      Term type encodings (most specific wins):
-     
+
      1      IRI
      2      Blank
      3      Langauge literal
@@ -28,7 +28,7 @@ public enum TermType : BufferSerializable {
      8      xsd:decimal
      9      xsd:integer
      10     xsd:float
-     
+
      // top languages used in DBPedia:
      200    de
      201    en
@@ -38,14 +38,14 @@ public enum TermType : BufferSerializable {
      205    nl
      206    pt
      207    ru
-     
+
      255    en-US
-     
-     
+
+
      **/
-    
-    public var serializedSize : Int {
-        switch (self) {
+
+    public var serializedSize: Int {
+        switch self {
         case .datatype("http://www.w3.org/2001/XMLSchema#float"),
              .datatype("http://www.w3.org/2001/XMLSchema#integer"),
              .datatype("http://www.w3.org/2001/XMLSchema#decimal"),
@@ -71,7 +71,7 @@ public enum TermType : BufferSerializable {
             return 1 + dt.serializedSize
         }
     }
-    public func serialize(to buffer : inout UnsafeMutableRawPointer, mediator: RWMediator?, maximumSize: Int) throws {
+    public func serialize(to buffer: inout UnsafeMutableRawPointer, mediator: RWMediator?, maximumSize: Int) throws {
         if serializedSize > maximumSize { throw DatabaseError.OverflowError("Cannot serialize TermType in available space") }
         switch self {
         case .language("de"):
@@ -136,10 +136,10 @@ public enum TermType : BufferSerializable {
         }
     }
 
-    public static func deserialize(from buffer : inout UnsafeRawPointer, mediator : RMediator?=nil) throws -> TermType {
+    public static func deserialize(from buffer: inout UnsafeRawPointer, mediator: RMediator?=nil) throws -> TermType {
         let type = buffer.assumingMemoryBound(to: UInt8.self).pointee
         buffer += 1
-        
+
         switch type {
         case 255:
             return .language("en-US")
@@ -187,13 +187,13 @@ public enum TermType : BufferSerializable {
     }
 }
 
-public enum Numeric : CustomStringConvertible {
+public enum Numeric: CustomStringConvertible {
     case integer(Int)
     case decimal(Double)
     case float(Double)
     case double(Double)
-    
-    var value : Double {
+
+    var value: Double {
         switch self {
         case .integer(let value):
             return Double(value)
@@ -201,8 +201,8 @@ public enum Numeric : CustomStringConvertible {
             return value
         }
     }
-    
-    var term : Term {
+
+    var term: Term {
         switch self {
         case .integer(let value):
             return Term(integer: value)
@@ -214,8 +214,8 @@ public enum Numeric : CustomStringConvertible {
             return Term(double: value)
         }
     }
-    
-    public var description : String {
+
+    public var description: String {
         switch self {
         case .integer(let i):
             return "\(i)"
@@ -228,27 +228,27 @@ public enum Numeric : CustomStringConvertible {
         }
     }
 
-    public static func +(lhs : Numeric, rhs: Numeric) -> Numeric {
+    public static func + (lhs: Numeric, rhs: Numeric) -> Numeric {
         let value = lhs.value + rhs.value
         return nonDivResultingNumeric(value, lhs, rhs)
     }
-    
-    public static func -(lhs : Numeric, rhs: Numeric) -> Numeric {
+
+    public static func - (lhs: Numeric, rhs: Numeric) -> Numeric {
         let value = lhs.value - rhs.value
         return nonDivResultingNumeric(value, lhs, rhs)
     }
-    
-    public static func *(lhs : Numeric, rhs: Numeric) -> Numeric {
+
+    public static func * (lhs: Numeric, rhs: Numeric) -> Numeric {
         let value = lhs.value * rhs.value
         return nonDivResultingNumeric(value, lhs, rhs)
     }
-    
-    public static func /(lhs : Numeric, rhs: Numeric) -> Numeric {
+
+    public static func / (lhs: Numeric, rhs: Numeric) -> Numeric {
         let value = lhs.value / rhs.value
         return divResultingNumeric(value, lhs, rhs)
     }
-    
-    public static prefix func -(num : Numeric) -> Numeric {
+
+    public static prefix func - (num: Numeric) -> Numeric {
         switch num {
         case .integer(let value):
             return .integer(-value)
@@ -263,7 +263,7 @@ public enum Numeric : CustomStringConvertible {
 }
 
 public extension Numeric {
-    public static func ===(lhs : Numeric, rhs : Numeric) -> Bool {
+    public static func === (lhs: Numeric, rhs: Numeric) -> Bool {
         switch (lhs, rhs) {
         case (.integer(let l), .integer(let r)) where l == r:
             return true
@@ -279,7 +279,7 @@ public extension Numeric {
     }
 }
 
-private func nonDivResultingNumeric(_ value : Double, _ lhs : Numeric, _ rhs: Numeric) -> Numeric {
+private func nonDivResultingNumeric(_ value: Double, _ lhs: Numeric, _ rhs: Numeric) -> Numeric {
     switch (lhs, rhs) {
     case (.integer(_), .integer(_)):
         return .integer(Int(value))
@@ -299,7 +299,7 @@ private func nonDivResultingNumeric(_ value : Double, _ lhs : Numeric, _ rhs: Nu
     }
 }
 
-private func divResultingNumeric(_ value : Double, _ lhs : Numeric, _ rhs: Numeric) -> Numeric {
+private func divResultingNumeric(_ value: Double, _ lhs: Numeric, _ rhs: Numeric) -> Numeric {
     switch (lhs, rhs) {
     case (.integer(_), .integer(_)), (.decimal(_), .decimal(_)):
         return .decimal(value)
@@ -318,6 +318,7 @@ private func divResultingNumeric(_ value : Double, _ lhs : Numeric, _ rhs: Numer
 }
 
 extension TermType {
+    // swiftlint:disable:next variable_name
     func resultType(op: String, operandType rhs: TermType) -> TermType? {
         let integer = TermType.datatype("http://www.w3.org/2001/XMLSchema#integer")
         let decimal = TermType.datatype("http://www.w3.org/2001/XMLSchema#decimal")
@@ -343,9 +344,9 @@ extension TermType {
     }
 }
 
-extension TermType : Hashable {
+extension TermType: Hashable {
     public var hashValue: Int {
-        switch (self) {
+        switch self {
         case .blank:
             return 0
         case .iri:
@@ -357,7 +358,7 @@ extension TermType : Hashable {
         }
     }
 
-    public static func ==(lhs: TermType, rhs: TermType) -> Bool {
+    public static func == (lhs: TermType, rhs: TermType) -> Bool {
         switch (lhs, rhs) {
         case (.iri, .iri), (.blank, .blank):
             return true
@@ -371,46 +372,46 @@ extension TermType : Hashable {
     }
 }
 
-public struct Term : CustomStringConvertible {
-    public var value : String
-    public var type : TermType
+public struct Term: CustomStringConvertible {
+    public var value: String
+    public var type: TermType
 
-    static func rdf(_ local : String) -> Term {
+    static func rdf(_ local: String) -> Term {
         return Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#\(local)", type: .iri)
     }
-    
-    static func xsd(_ local : String) -> Term {
+
+    static func xsd(_ local: String) -> Term {
         return Term(value: "http://www.w3.org/2001/XMLSchema#\(local)", type: .iri)
     }
-    
-    public init(value : String, type : TermType) {
+
+    public init(value: String, type: TermType) {
         self.value  = value
         self.type   = type
     }
-    
+
     public init(integer value: Int) {
         self.value = "\(value)"
         self.type = .datatype("http://www.w3.org/2001/XMLSchema#integer")
     }
-    
+
     public init(float value: Double) {
         self.value = "\(value)"
         // TODO: fix the lexical form for xsd:float
         self.type = .datatype("http://www.w3.org/2001/XMLSchema#float")
     }
-    
+
     public init(double value: Double) {
         self.value = "\(value)"
         // TODO: fix the lexical form for xsd:double
         self.type = .datatype("http://www.w3.org/2001/XMLSchema#double")
     }
-    
+
     public init(decimal value: Double) {
         self.value = String(format: "%f", value)
         self.type = .datatype("http://www.w3.org/2001/XMLSchema#decimal")
     }
-    
-    public init?(numeric value : Double, type : TermType) {
+
+    public init?(numeric value: Double, type: TermType) {
         self.type = type
         switch type {
         case .datatype("http://www.w3.org/2001/XMLSchema#float"),
@@ -425,8 +426,8 @@ public struct Term : CustomStringConvertible {
             return nil
         }
     }
-    
-    public var description : String {
+
+    public var description: String {
         switch type {
 //        case .iri where value == "http://www.w3.org/1999/02/22-rdf-syntax-ns#type":
 //            return "a"
@@ -454,22 +455,22 @@ public struct Term : CustomStringConvertible {
             return "\"\(escaped)\"^^<\(dt)>"
         }
     }
-    
+
     static let trueValue = Term(value: "true", type: .datatype("http://www.w3.org/2001/XMLSchema#boolean"))
     static let falseValue = Term(value: "false", type: .datatype("http://www.w3.org/2001/XMLSchema#boolean"))
 }
 
-extension Term : BufferSerializable {
-    public var serializedSize : Int {
+extension Term: BufferSerializable {
+    public var serializedSize: Int {
         return type.serializedSize + value.serializedSize
     }
-    public func serialize(to buffer : inout UnsafeMutableRawPointer, mediator: RWMediator?, maximumSize: Int) throws {
+    public func serialize(to buffer: inout UnsafeMutableRawPointer, mediator: RWMediator?, maximumSize: Int) throws {
         if serializedSize > maximumSize { throw DatabaseError.OverflowError("Cannot serialize Term in available space") }
         try type.serialize(to: &buffer)
         try value.serialize(to: &buffer)
     }
-    
-    public static func deserialize(from buffer : inout UnsafeRawPointer, mediator : RMediator?=nil) throws -> Term {
+
+    public static func deserialize(from buffer: inout UnsafeRawPointer, mediator: RMediator?=nil) throws -> Term {
         do {
             let type    = try TermType.deserialize(from: &buffer)
             let value   = try String.deserialize(from: &buffer)
@@ -481,14 +482,14 @@ extension Term : BufferSerializable {
     }
 }
 
-extension Term : Hashable {
+extension Term: Hashable {
     public var hashValue: Int {
         return self.value.hashValue
     }
 }
 
-extension Term : Comparable {
-    public var isNumeric : Bool {
+extension Term: Comparable {
+    public var isNumeric: Bool {
         switch type {
         case .datatype("http://www.w3.org/2001/XMLSchema#integer"),
              .datatype("http://www.w3.org/2001/XMLSchema#decimal"),
@@ -499,8 +500,8 @@ extension Term : Comparable {
             return false
         }
     }
-    
-    public var numeric : Numeric? {
+
+    public var numeric: Numeric? {
         switch type {
         case .datatype("http://www.w3.org/2001/XMLSchema#integer"):
             if let i = Int(value) {
@@ -517,9 +518,9 @@ extension Term : Comparable {
         default:
             return nil
         }
-        
+
     }
-    public var numericValue : Double {
+    public var numericValue: Double {
         switch type {
         case .datatype("http://www.w3.org/2001/XMLSchema#integer"):
             return Double(value) ?? 0.0
@@ -531,8 +532,8 @@ extension Term : Comparable {
             fatalError("Cannot compute a numeric value for term of type \(type)")
         }
     }
-    
-    public static func <(lhs: Term, rhs: Term) -> Bool {
+
+    public static func < (lhs: Term, rhs: Term) -> Bool {
         if lhs.isNumeric && rhs.isNumeric {
             return lhs.numericValue < rhs.numericValue
         }
@@ -554,8 +555,8 @@ extension Term : Comparable {
     }
 }
 
-extension Term : Equatable {
-    public static func ==(lhs: Term, rhs: Term) -> Bool {
+extension Term: Equatable {
+    public static func == (lhs: Term, rhs: Term) -> Bool {
         if lhs.isNumeric && rhs.isNumeric {
             return lhs.numericValue == rhs.numericValue
         }
@@ -572,38 +573,38 @@ extension Term : Equatable {
     }
 }
 
-public struct Triple : CustomStringConvertible {
-    public var subject : Term
-    public var predicate : Term
-    public var object : Term
-    public var description : String {
+public struct Triple: CustomStringConvertible {
+    public var subject: Term
+    public var predicate: Term
+    public var object: Term
+    public var description: String {
         return "\(subject) \(predicate) \(object) ."
     }
 }
 
-extension Triple : Sequence {
+extension Triple: Sequence {
     public func makeIterator() -> IndexingIterator<[Term]> {
         return [subject, predicate, object].makeIterator()
     }
 }
 
-public struct Quad : CustomStringConvertible {
-    public var subject : Term
-    public var predicate : Term
-    public var object : Term
-    public var graph : Term
+public struct Quad: CustomStringConvertible {
+    public var subject: Term
+    public var predicate: Term
+    public var object: Term
+    public var graph: Term
     public init(subject: Term, predicate: Term, object: Term, graph: Term) {
         self.subject = subject
         self.predicate = predicate
         self.object = object
         self.graph = graph
     }
-    public var description : String {
+    public var description: String {
         return "\(subject) \(predicate) \(object) \(graph) ."
     }
 }
 
-extension Quad : Sequence {
+extension Quad: Sequence {
     public func makeIterator() -> IndexingIterator<[Term]> {
         return [subject, predicate, object, graph].makeIterator()
     }
@@ -613,7 +614,7 @@ public enum Node {
     case bound(Term)
     case variable(String, binding: Bool)
 
-    func bind(_ variable : String, to replacement : Node) -> Node {
+    func bind(_ variable: String, to replacement: Node) -> Node {
         switch self {
         case .variable(variable, _):
             return replacement
@@ -623,8 +624,8 @@ public enum Node {
     }
 }
 
-extension Node : Equatable {
-    public static func ==(lhs: Node, rhs: Node) -> Bool {
+extension Node: Equatable {
+    public static func == (lhs: Node, rhs: Node) -> Bool {
         switch (lhs, rhs) {
         case (.bound(let l), .bound(let r)) where l == r:
             return true
@@ -636,8 +637,8 @@ extension Node : Equatable {
     }
 }
 
-extension Node : CustomStringConvertible {
-    public var description : String {
+extension Node: CustomStringConvertible {
+    public var description: String {
         switch self {
         case .bound(let t):
             return t.description
@@ -648,7 +649,7 @@ extension Node : CustomStringConvertible {
 }
 
 extension Term {
-    public var sparqlTokens : AnySequence<SPARQLToken> {
+    public var sparqlTokens: AnySequence<SPARQLToken> {
         switch self.type {
         case .blank:
             return AnySequence([.bnode(self.value)])
@@ -665,7 +666,7 @@ extension Term {
 }
 
 extension Node {
-    public var sparqlTokens : AnySequence<SPARQLToken> {
+    public var sparqlTokens: AnySequence<SPARQLToken> {
         switch self {
         case .variable(let name, _):
             return AnySequence([._var(name)])

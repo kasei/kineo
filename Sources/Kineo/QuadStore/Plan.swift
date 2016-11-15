@@ -80,14 +80,14 @@ public indirect enum ResultPlan {
 }
 
 public class ResultPlanEvaluator {
-    var store : QuadStore
-    var ide : IDPlanEvaluator
-    public init(store : QuadStore) {
+    var store: QuadStore
+    var ide: IDPlanEvaluator
+    public init(store: QuadStore) {
         self.ide = IDPlanEvaluator(store: store)
         self.store = store
     }
-    
-    public func evaluate(_ plan : ResultPlan) throws -> AnyIterator<TermResult> {
+
+    public func evaluate(_ plan: ResultPlan) throws -> AnyIterator<TermResult> {
         switch plan {
         case .idListPlan(let idplan, let variables):
             let i = try ide.evaluate(idplan, width: variables.count)
@@ -110,17 +110,17 @@ public class ResultPlanEvaluator {
 }
 
 public class IDPlanEvaluator {
-    var store : QuadStore
-    public init(store : QuadStore) {
+    var store: QuadStore
+    public init(store: QuadStore) {
         self.store = store
     }
-    
-    public func evaluate(_ plan : IDListPlan, width : Int) throws -> AnyIterator<IDListResult> {
+
+    public func evaluate(_ plan: IDListPlan, width: Int) throws -> AnyIterator<IDListResult> {
         switch plan {
         case .graphNames(let pos):
             let ids = store.graphIDs()
             let results = ids.map { (id) -> IDListResult in
-                var r : [IDType] = Array(repeating: 0, count: width)
+                var r: [IDType] = Array(repeating: 0, count: width)
                 r[pos] = id
                 return r
             }
@@ -128,7 +128,7 @@ public class IDPlanEvaluator {
         case .quad(let s, let p, let o, let g):
             var ids = [IDType]()
             var pos = [Int:Int]()
-            for (j, n) in [s,p,o,g].enumerated() {
+            for (j, n) in [s, p, o, g].enumerated() {
                 switch n {
                 case .bound(let i):
                     ids.append(i)
@@ -140,7 +140,7 @@ public class IDPlanEvaluator {
             let idquads = try store.idquads(matching: ids)
             return AnyIterator {
                 guard let idq = idquads.next() else { return nil }
-                var r : [IDType] = Array(repeating: 0, count: width)
+                var r: [IDType] = Array(repeating: 0, count: width)
                 for (i, id) in idq.enumerated() {
                     if let j = pos[i] {
                         r[j] = id
@@ -155,23 +155,23 @@ public class IDPlanEvaluator {
 }
 
 public class QuadStorePlanner {
-    var store : QuadStore
-    var defaultGraph : Term
-    var variables : [String]
-    var variableNumbers : [String:Int]
+    var store: QuadStore
+    var defaultGraph: Term
+    var variables: [String]
+    var variableNumbers: [String:Int]
 
-    public init(store : QuadStore, defaultGraph : Term) {
+    public init(store: QuadStore, defaultGraph: Term) {
         self.store = store
         self.defaultGraph = defaultGraph
         variables = []
         variableNumbers = [:]
     }
-    
-    public func plan(_ algebra : Algebra) throws -> ResultPlan {
+
+    public func plan(_ algebra: Algebra) throws -> ResultPlan {
         return try plan(algebra, activeGraph: defaultGraph)
     }
-    
-    private func variableNumber(_ name : String) -> Int {
+
+    private func variableNumber(_ name: String) -> Int {
         if let n = variableNumbers[name] {
             return n
         } else {
@@ -181,8 +181,8 @@ public class QuadStorePlanner {
             return n
         }
     }
-    
-    private func plan(_ algebra : Algebra, activeGraph : Term) throws -> ResultPlan {
+
+    private func plan(_ algebra: Algebra, activeGraph: Term) throws -> ResultPlan {
         switch algebra {
         case .triple(let t):
             var idnodes = [IDNode]()
@@ -196,7 +196,7 @@ public class QuadStorePlanner {
                     idnodes.append(.variable(self.variableNumber(name)))
                 }
             }
-            let idplan : IDListPlan = .quad(idnodes[0], idnodes[1], idnodes[2], idnodes[3])
+            let idplan: IDListPlan = .quad(idnodes[0], idnodes[1], idnodes[2], idnodes[3])
             return .idListPlan(idplan, self.variables)
         case .quad(let q):
             var idnodes = [IDNode]()
@@ -210,12 +210,12 @@ public class QuadStorePlanner {
                     idnodes.append(.variable(self.variableNumber(name)))
                 }
             }
-            let idplan : IDListPlan = .quad(idnodes[0], idnodes[1], idnodes[2], idnodes[3])
+            let idplan: IDListPlan = .quad(idnodes[0], idnodes[1], idnodes[2], idnodes[3])
             return .idListPlan(idplan, self.variables)
         case .innerJoin(let lhs, let rhs):
             let l = try plan(lhs, activeGraph: activeGraph)
             let r = try plan(rhs, activeGraph: activeGraph)
-            switch (l,r) {
+            switch (l, r) {
             case (.idListPlan(let li, let lv), .idListPlan(let ri, let rv)) where lv == rv:
                 return .idListPlan(.hashJoin(li, ri), self.variables)
             default:

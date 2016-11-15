@@ -8,15 +8,15 @@
 
 import Foundation
 
-open class NTriplesParser<T : LineReadable> : Sequence {
-    var blanks : [String:Term]
-    let reader : T
-    public init(reader : T) {
+open class NTriplesParser<T: LineReadable> : Sequence {
+    var blanks: [String:Term]
+    let reader: T
+    public init(reader: T) {
         self.reader = reader
         self.blanks = [:]
     }
-    
-    func parseBlank<T : IteratorProtocol>(_ generator: inout PeekableIterator<T>) -> Term? where T.Element == UnicodeScalar {
+
+    func parseBlank<T: IteratorProtocol>(_ generator: inout PeekableIterator<T>) -> Term? where T.Element == UnicodeScalar {
         guard generator.next() == .some("_") else { return nil }
         guard generator.next() == .some(":") else { return nil }
         var label = ""
@@ -38,8 +38,8 @@ open class NTriplesParser<T : LineReadable> : Sequence {
             }
         } while true
     }
-    
-    func parseEscape<T : IteratorProtocol>(_ generator: inout PeekableIterator<T>, allowEChars : Bool = true) -> UnicodeScalar? where T.Element == UnicodeScalar {
+
+    func parseEscape<T: IteratorProtocol>(_ generator: inout PeekableIterator<T>, allowEChars: Bool = true) -> UnicodeScalar? where T.Element == UnicodeScalar {
         guard let c = generator.next() else { return nil }
         switch c {
         case "t" where allowEChars:
@@ -60,17 +60,17 @@ open class NTriplesParser<T : LineReadable> : Sequence {
             return nil
         }
     }
-    
-    func parseHex<T : IteratorProtocol>(_ generator: inout PeekableIterator<T>, length : Int) -> UnicodeScalar? where T.Element == UnicodeScalar {
-        var value : UInt32 = 0
+
+    func parseHex<T: IteratorProtocol>(_ generator: inout PeekableIterator<T>, length: Int) -> UnicodeScalar? where T.Element == UnicodeScalar {
+        var value: UInt32 = 0
         var string = ""
         for _ in 0..<length {
             guard let c = generator.next() else { return nil }
             guard let char = String(c).uppercased().unicodeScalars.first else { return nil }
             string.append(String(char))
-            if (char >= "A" && char <= "F") {
+            if char >= "A" && char <= "F" {
                 value = 16 * value + 10 + char.value - 65
-            } else if (char >= "0" && char <= "9") {
+            } else if char >= "0" && char <= "9" {
                 value = 16 * value + char.value - 48
             } else {
                 return nil
@@ -78,8 +78,8 @@ open class NTriplesParser<T : LineReadable> : Sequence {
         }
         return UnicodeScalar(value)
     }
-    
-    func parseIRI<T : IteratorProtocol>(_ generator: inout PeekableIterator<T>) -> Term? where T.Element == UnicodeScalar {
+
+    func parseIRI<T: IteratorProtocol>(_ generator: inout PeekableIterator<T>) -> Term? where T.Element == UnicodeScalar {
         guard generator.next() == .some("<") else { warn("***"); return nil }
         var label = ""
         repeat {
@@ -100,8 +100,8 @@ open class NTriplesParser<T : LineReadable> : Sequence {
             }
         } while true
     }
-    
-    func parseLang<T : IteratorProtocol>(_ generator: inout PeekableIterator<T>) -> TermType? where T.Element == UnicodeScalar {
+
+    func parseLang<T: IteratorProtocol>(_ generator: inout PeekableIterator<T>) -> TermType? where T.Element == UnicodeScalar {
         guard generator.next() == .some("@") else { return nil }
         var label = ""
         repeat {
@@ -115,8 +115,8 @@ open class NTriplesParser<T : LineReadable> : Sequence {
             }
         } while true
     }
-    
-    func parseLiteral<T : IteratorProtocol>(_ generator: inout PeekableIterator<T>) -> Term? where T.Element == UnicodeScalar {
+
+    func parseLiteral<T: IteratorProtocol>(_ generator: inout PeekableIterator<T>) -> Term? where T.Element == UnicodeScalar {
         guard generator.next() == .some("\"") else { warn("***"); return nil }
         var label = ""
         repeat {
@@ -147,8 +147,8 @@ open class NTriplesParser<T : LineReadable> : Sequence {
             }
         } while true
     }
-    
-    func parseTerm<T : IteratorProtocol>(_ chars: inout PeekableIterator<T>) -> Term? where T.Element == UnicodeScalar {
+
+    func parseTerm<T: IteratorProtocol>(_ chars: inout PeekableIterator<T>) -> Term? where T.Element == UnicodeScalar {
         repeat {
             if let c = chars.peek() {
                 switch c {
@@ -173,23 +173,23 @@ open class NTriplesParser<T : LineReadable> : Sequence {
         } while true
     }
 
-    public func parseQuad(line : String, graph : Term) -> Quad? {
+    public func parseQuad(line: String, graph: Term) -> Quad? {
         guard let t = parseTriple(line: line) else { return nil }
         return Quad(subject: t.subject, predicate: t.predicate, object: t.object, graph: graph)
     }
 
-    public func parseTriple(line : String) -> Triple? {
+    public func parseTriple(line: String) -> Triple? {
         var chars = PeekableIterator(generator: line.unicodeScalars.makeIterator())
         chars.dropWhile { $0 == " " || $0 == "\t" }
         if chars.peek() == "#" { return nil }
-        var terms : [Term] = []
+        var terms: [Term] = []
         repeat {
             guard let t = parseTerm(&chars) else { return nil }
             terms.append(t)
         } while terms.count != 3
         return Triple(subject: terms[0], predicate: terms[1], object: terms[2])
     }
-    
+
     public func makeIterator() -> AnyIterator<Triple> {
         let fr = self.reader
         let lines = fr.lines()
@@ -204,11 +204,11 @@ open class NTriplesParser<T : LineReadable> : Sequence {
     }
 }
 
-open class NTriplesPatternParser<T : LineReadable> : NTriplesParser<T> {
-    public override init(reader : T) {
+open class NTriplesPatternParser<T: LineReadable> : NTriplesParser<T> {
+    public override init(reader: T) {
         super.init(reader: reader)
     }
-    func parseVariable<T : IteratorProtocol>(_ generator: inout PeekableIterator<T>) -> String? where T.Element == UnicodeScalar {
+    func parseVariable<T: IteratorProtocol>(_ generator: inout PeekableIterator<T>) -> String? where T.Element == UnicodeScalar {
         guard generator.next() == .some("?") else { return nil }
         var label = ""
         repeat {
@@ -222,7 +222,7 @@ open class NTriplesPatternParser<T : LineReadable> : NTriplesParser<T> {
             }
         } while true
     }
-    
+
     public func patternIterator() -> AnyIterator<QuadPattern> {
         let fr = self.reader
         let lines = fr.lines()
@@ -232,7 +232,7 @@ open class NTriplesPatternParser<T : LineReadable> : NTriplesParser<T> {
                 var chars = PeekableIterator(generator: line.unicodeScalars.makeIterator())
                 chars.dropWhile { $0 == " " || $0 == "\t" }
                 if chars.peek() == "#" { continue LINE }
-                var nodes : [Node] = []
+                var nodes: [Node] = []
                 repeat {
                     if let t = self.parseTerm(&chars) {
                         nodes.append(.bound(t))
@@ -246,8 +246,8 @@ open class NTriplesPatternParser<T : LineReadable> : NTriplesParser<T> {
             } while true
         }
     }
-    
-    public func parseNodes(chars : inout PeekableIterator<AnyIterator<UnicodeScalar>>, count : Int) -> [Node]? {
+
+    public func parseNodes(chars: inout PeekableIterator<AnyIterator<UnicodeScalar>>, count: Int) -> [Node]? {
         var nodes = [Node]()
         repeat {
             chars.dropWhile { $0 == " " || $0 == "\t" }
@@ -262,20 +262,20 @@ open class NTriplesPatternParser<T : LineReadable> : NTriplesParser<T> {
         } while nodes.count < count
         return nodes
     }
-    
-    public func parseNode(line : String) -> Node? {
+
+    public func parseNode(line: String) -> Node? {
         let view = AnyIterator(line.unicodeScalars.makeIterator())
         var chars = PeekableIterator(generator: view)
         guard let nodes = parseNodes(chars: &chars, count: 1) else { return nil }
         guard nodes.count == 1 else { return nil }
         return nodes[0]
     }
-    
-    public func parseQuadPattern(line : String) -> QuadPattern? {
+
+    public func parseQuadPattern(line: String) -> QuadPattern? {
         var chars = PeekableIterator(generator: line.unicodeScalars.makeIterator())
         chars.dropWhile { $0 == " " || $0 == "\t" }
         if chars.peek() == "#" { return nil }
-        var nodes : [Node] = []
+        var nodes: [Node] = []
         repeat {
             if let t = parseTerm(&chars) {
                 nodes.append(.bound(t))
@@ -289,12 +289,12 @@ open class NTriplesPatternParser<T : LineReadable> : NTriplesParser<T> {
         guard chars.peek() == nil else { return nil }
         return QuadPattern(subject: nodes[0], predicate: nodes[1], object: nodes[2], graph: nodes[3])
     }
-    
-    public func parseTriplePattern(line : String) -> TriplePattern? {
+
+    public func parseTriplePattern(line: String) -> TriplePattern? {
         var chars = PeekableIterator(generator: line.unicodeScalars.makeIterator())
         chars.dropWhile { $0 == " " || $0 == "\t" }
         if chars.peek() == "#" { return nil }
-        var nodes : [Node] = []
+        var nodes: [Node] = []
         repeat {
             if let t = parseTerm(&chars) {
                 nodes.append(.bound(t))
