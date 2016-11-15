@@ -68,9 +68,9 @@ open class NTriplesParser<T: LineReadable> : Sequence {
             guard let c = generator.next() else { return nil }
             guard let char = String(c).uppercased().unicodeScalars.first else { return nil }
             string.append(String(char))
-            if (char >= "A" && char <= "F") {
+            if char >= "A" && char <= "F" {
                 value = 16 * value + 10 + char.value - 65
-            } else if (char >= "0" && char <= "9") {
+            } else if char >= "0" && char <= "9" {
                 value = 16 * value + char.value - 48
             } else {
                 return nil

@@ -45,7 +45,7 @@ public enum TermType: BufferSerializable {
      **/
 
     public var serializedSize: Int {
-        switch (self) {
+        switch self {
         case .datatype("http://www.w3.org/2001/XMLSchema#float"),
              .datatype("http://www.w3.org/2001/XMLSchema#integer"),
              .datatype("http://www.w3.org/2001/XMLSchema#decimal"),
@@ -318,6 +318,7 @@ private func divResultingNumeric(_ value: Double, _ lhs: Numeric, _ rhs: Numeric
 }
 
 extension TermType {
+    // swiftlint:disable:next variable_name
     func resultType(op: String, operandType rhs: TermType) -> TermType? {
         let integer = TermType.datatype("http://www.w3.org/2001/XMLSchema#integer")
         let decimal = TermType.datatype("http://www.w3.org/2001/XMLSchema#decimal")
@@ -345,7 +346,7 @@ extension TermType {
 
 extension TermType: Hashable {
     public var hashValue: Int {
-        switch (self) {
+        switch self {
         case .blank:
             return 0
         case .iri:

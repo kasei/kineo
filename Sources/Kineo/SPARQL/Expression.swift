@@ -8,7 +8,6 @@
 
 import Foundation
 
-
 extension Term {
     func ebv() throws -> Bool {
         switch type {
@@ -96,7 +95,7 @@ extension Aggregation: CustomStringConvertible {
     }
 }
 
-// swiftlint:disable type_body_length
+// swiftlint:disable:next type_body_length
 public indirect enum Expression: CustomStringConvertible {
     case node(Node)
     case aggregate(Aggregation)
@@ -230,8 +229,6 @@ public indirect enum Expression: CustomStringConvertible {
             return false
         }
     }
-
-
 
     public func evaluate(result: TermResult) throws -> Term {
         switch self {

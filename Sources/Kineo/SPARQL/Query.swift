@@ -853,7 +853,6 @@ extension Algebra {
         case .service(let endpoint, let lhs, let silent):
             return .service(endpoint, lhs.serializableEquivalent, silent)
 
-
             /**
     case .path(Node, PropertyPath, Node)
     case .aggregate(Algebra, [Expression], [(Aggregation, String)])
@@ -1104,5 +1103,3 @@ extension Algebra {
         }
     }
 }
-
-

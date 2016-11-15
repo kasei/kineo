@@ -128,7 +128,7 @@ public class IDPlanEvaluator {
         case .quad(let s, let p, let o, let g):
             var ids = [IDType]()
             var pos = [Int:Int]()
-            for (j, n) in [s,p,o,g].enumerated() {
+            for (j, n) in [s, p, o, g].enumerated() {
                 switch n {
                 case .bound(let i):
                     ids.append(i)
@@ -215,7 +215,7 @@ public class QuadStorePlanner {
         case .innerJoin(let lhs, let rhs):
             let l = try plan(lhs, activeGraph: activeGraph)
             let r = try plan(rhs, activeGraph: activeGraph)
-            switch (l,r) {
+            switch (l, r) {
             case (.idListPlan(let li, let lv), .idListPlan(let ri, let rv)) where lv == rv:
                 return .idListPlan(.hashJoin(li, ri), self.variables)
             default:

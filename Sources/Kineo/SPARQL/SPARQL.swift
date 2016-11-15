@@ -261,7 +261,7 @@ extension SPARQLToken {
     }
 }
 
-// swiftlint:disable type_body_length
+// swiftlint:disable:next type_body_length
 public struct SPARQLLexer: IteratorProtocol {
     var includeComments: Bool
     var source: InputStream
@@ -345,7 +345,6 @@ public struct SPARQLLexer: IteratorProtocol {
         guard let r = try? NSRegularExpression(pattern: "\\\\(.)", options: []) else { fatalError("Failed to compile built-in regular expression") }
         return r
     }()
-
 
     private static let _alphanumRegex: NSRegularExpression = {
         guard let r = try? NSRegularExpression(pattern: "[0-9A-Fa-f]+", options: []) else { fatalError("Failed to compile built-in regular expression") }
@@ -666,7 +665,6 @@ public struct SPARQLLexer: IteratorProtocol {
             default:
                 break
             }
-
 
             let double_range = SPARQLLexer._doubleRegex.rangeOfFirstMatch(in: buffer, options: [], range: bufferLength)
             if double_range.location == 0 {
@@ -1213,7 +1211,7 @@ private enum UnfinishedAlgebra {
     }
 }
 
-// swiftlint:disable type_body_length
+// swiftlint:disable:next type_body_length
 public struct SPARQLParser {
     var lexer: SPARQLLexer
     var prefixes: [String:String]
@@ -1345,7 +1343,6 @@ public struct SPARQLParser {
 
         return algebra
     }
-
 
     private mutating func parsePrologue() throws {
         while true {
@@ -1536,7 +1533,7 @@ public struct SPARQLParser {
                 unnamed.append(iri)
             }
         }
-        return nil;
+        return nil
         fatalError("implement \(named) \(unnamed)")
     }
 
@@ -1707,7 +1704,7 @@ public struct SPARQLParser {
                 groups.append(.node(node))
             }
             algebra = .aggregate(algebra, groups, aggregations)
-        } else if (aggregations.count > 0) { // if algebra contains aggregation
+        } else if aggregations.count > 0 { // if algebra contains aggregation
             algebra = .aggregate(algebra, [], aggregations)
         }
 
@@ -1741,7 +1738,6 @@ public struct SPARQLParser {
         if sortConditions.count > 0 {
             algebra = .order(algebra, sortConditions)
         }
-
 
         if try attempt(token: .keyword("LIMIT")) {
             let limit = try parseInteger()
@@ -2213,7 +2209,7 @@ public struct SPARQLParser {
                 let iri = try parseIRI()
                 return .inv(.link(iri))
             }
-        } else if case .keyword("A") = t{
+        } else if case .keyword("A") = t {
             return .link(Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type", type: .iri))
         } else {
             let iri = try parseIRI()
@@ -2504,7 +2500,6 @@ public struct SPARQLParser {
  **/
     }
 
-
     private mutating func parseNumericExpression() throws -> Expression {
         return try parseAdditiveExpression()
     }
@@ -2753,7 +2748,6 @@ public struct SPARQLParser {
 
  **/
 
-
     }
 
     private mutating func parseIRI() throws -> Term {
@@ -2947,7 +2941,8 @@ public struct SPARQLSerializer {
         }
     }
 
-    struct ParseState {
+    private struct ParseState {
+        // swiftlint:disable:next nesting
         struct NestingCallback {
             let level: [Int]
             let code: (ParseState) -> ()
@@ -2997,7 +2992,7 @@ public struct SPARQLSerializer {
         case tokenString(String)
 
         var description: String {
-            switch (self) {
+            switch self {
             case .newline(_):
                 return "␤"
             case .spaceSeparator:
@@ -3255,8 +3250,6 @@ extension String {
             let begin = String.pnCharsU.union(CharacterSet(charactersIn: "0123456789:"))
             let rest = String.pnChars.union(CharacterSet(charactersIn: ".:"))
             let last = String.pnChars.union(CharacterSet(charactersIn: ":"))
-
-
 
             return self // TODO
         }

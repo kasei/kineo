@@ -61,7 +61,6 @@ guard argscount >= 2 else {
     exit(1)
 }
 
-
 if let next = args.peek(), next.hasPrefix("-") {
     _ = args.next()
     if next == "-s" {
@@ -106,5 +105,3 @@ let elapsed = Double(endTime - startTime)
 if verbose {
     warn("elapsed time: \(elapsed)s")
 }
-
-

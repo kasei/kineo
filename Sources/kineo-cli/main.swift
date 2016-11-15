@@ -205,7 +205,7 @@ func indexes(_ database: FilePageDatabase) throws -> Int {
 func output(_ database: FilePageDatabase) throws -> Int {
     try database.read { (m) in
         guard let store = try? QuadStore(mediator: m) else { return }
-        for (k,v) in store.id {
+        for (k, v) in store.id {
             print("\(k) -> \(v)")
         }
     }
@@ -400,5 +400,3 @@ let tps = Double(count) / elapsed
 if verbose {
     warn("elapsed time: \(elapsed)s (\(tps)/s)")
 }
-
-

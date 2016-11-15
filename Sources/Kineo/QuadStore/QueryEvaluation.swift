@@ -8,7 +8,7 @@
 
 import Foundation
 
-// swiftlint:disable type_body_length
+// swiftlint:disable:next type_body_length
 open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
     var store: Q
     var defaultGraph: Term
@@ -596,7 +596,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
     }
 
     private func _sortResults(_ results: [TermResult], comparators: [Algebra.SortComparator]) -> [TermResult] {
-        let s = results.sorted { (a,b) -> Bool in
+        let s = results.sorted { (a, b) -> Bool in
             for (ascending, expr) in comparators {
                 guard var lhs = try? expr.evaluate(result: a) else { return true }
                 guard var rhs = try? expr.evaluate(result: b) else { return false }
@@ -848,7 +848,7 @@ public func pipelinedHashJoin<R: ResultProtocol>(joinVariables: [String], lhs: A
     }
 }
 
-public func nestedLoopJoin<R: ResultProtocol>(_ results: [[R]], left: Bool = false, cb: (R) -> ()) {
+public func nestedLoopJoin<R: ResultProtocol>(_ results: [[R]], left: Bool = false, cb callback: (R) -> ()) {
     var patternResults = results
     while patternResults.count > 1 {
         let rhs = patternResults.popLast()!
@@ -861,7 +861,7 @@ public func nestedLoopJoin<R: ResultProtocol>(_ results: [[R]], left: Bool = fal
                 if let j = lresult.join(rresult) {
                     joined = true
                     if finalPass {
-                        cb(j)
+                        callback(j)
                     } else {
                         joinedResults.append(j)
                     }
@@ -869,7 +869,7 @@ public func nestedLoopJoin<R: ResultProtocol>(_ results: [[R]], left: Bool = fal
             }
             if left && !joined {
                 if finalPass {
-                    cb(lresult)
+                    callback(lresult)
                 } else {
                     joinedResults.append(lresult)
                 }
@@ -878,4 +878,3 @@ public func nestedLoopJoin<R: ResultProtocol>(_ results: [[R]], left: Bool = fal
         patternResults.append(joinedResults)
     }
 }
-

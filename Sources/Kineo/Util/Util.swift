@@ -96,7 +96,6 @@ public struct FileReader: LineReadable {
     }
 }
 
-
 public struct PeekableIterator<T: IteratorProtocol> : IteratorProtocol {
     public typealias Element = T.Element
     private var generator: T
@@ -134,20 +133,20 @@ public struct PeekableIterator<T: IteratorProtocol> : IteratorProtocol {
     }
 }
 
-extension String {
-    static func fromCString(cs: UnsafePointer<CChar>, length: Int) -> String? {
-        let size = length+1
-        let b = UnsafeMutablePointer<CChar>.allocate(capacity: size)
-        defer {
-            b.deinitialize(count: size)
-            b.deallocate(capacity: size)
-        }
-        b[length] = CChar(0)
-        memcpy(b, cs, length)
-        let s = String(validatingUTF8: b)
-        return s
-    }
-}
+//extension String {
+//    static func fromCString(cs: UnsafePointer<CChar>, length: Int) -> String? {
+//        let size = length+1
+//        let b = UnsafeMutablePointer<CChar>.allocate(capacity: size)
+//        defer {
+//            b.deinitialize(count: size)
+//            b.deallocate(capacity: size)
+//        }
+//        b[length] = CChar(0)
+//        memcpy(b, cs, length)
+//        let s = String(validatingUTF8: b)
+//        return s
+//    }
+//}
 
 extension UInt64 {
     func varint() -> [UInt8] {
@@ -232,7 +231,6 @@ extension Empty: BufferSerializable {
     public static func == (lhs: Empty, rhs: Empty) -> Bool { return true }
 }
 
-
 extension Int: BufferSerializable {
     public var serializedSize: Int { return _sizeof(Int64.self) }
     public func serialize(to buffer: inout UnsafeMutableRawPointer, mediator: RWMediator?, maximumSize: Int) throws {
@@ -313,7 +311,7 @@ public enum StringBuffer: BufferSerializable {
     case large(String, PageId)
 
     public var serializedSize: Int {
-        switch (self) {
+        switch self {
         case .inline(let s):
             let utf8 = s.utf8
             let stringLength = UInt32(utf8.count + 1)

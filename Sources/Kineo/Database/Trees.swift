@@ -15,42 +15,42 @@ private enum TreeError: Error {
 private let cookieHeaderSize = 32
 
 internal struct TreePath<T: BufferSerializable & Comparable, U: BufferSerializable> : CustomStringConvertible {
-    private var internalPath: [(node: TreeNode<T,U>, index: Int)]
-    internal var leaf: TreeLeaf<T,U>?
+    private var internalPath: [(node: TreeNode<T, U>, index: Int)]
+    internal var leaf: TreeLeaf<T, U>?
     private var mediator: RMediator
-    internal static func minPath(tree: Tree<T,U>, mediator: RMediator) throws -> TreePath<T,U> {
-        let (node, _) : (TreeNode<T,U>, PageStatus) = try mediator.readPage(tree.root)
-        var path = [(node: TreeNode<T,U>, index: Int)]()
+    internal static func minPath(tree: Tree<T, U>, mediator: RMediator) throws -> TreePath<T, U> {
+        let (node, _) : (TreeNode<T, U>, PageStatus) = try mediator.readPage(tree.root)
+        var path = [(node: TreeNode<T, U>, index: Int)]()
         var current = node
         while case .internalNode(let i) = current {
             let index = 0
             path.append((node: current, index: index))
             let (_, pid) = i.pairs.first!
-            let (node, _) : (TreeNode<T,U>, PageStatus) = try mediator.readPage(pid)
+            let (node, _) : (TreeNode<T, U>, PageStatus) = try mediator.readPage(pid)
             current = node
         }
         guard case .leafNode(let currentLeaf) = current else { fatalError("Unexpected tree node found in traversal") }
         return TreePath(internalPath: path, leaf: currentLeaf, mediator: mediator)
     }
 
-    internal static func maxPath(tree: Tree<T,U>, mediator: RMediator) throws -> TreePath<T,U> {
-        let (node, _) : (TreeNode<T,U>, PageStatus) = try mediator.readPage(tree.root)
-        var path = [(node: TreeNode<T,U>, index: Int)]()
+    internal static func maxPath(tree: Tree<T, U>, mediator: RMediator) throws -> TreePath<T, U> {
+        let (node, _) : (TreeNode<T, U>, PageStatus) = try mediator.readPage(tree.root)
+        var path = [(node: TreeNode<T, U>, index: Int)]()
         var current = node
         while case .internalNode(let i) = current {
             let index = i.pairs.count - 1
             path.append((node: current, index: index))
             let (_, pid) = i.pairs.last!
-            let (node, _) : (TreeNode<T,U>, PageStatus) = try mediator.readPage(pid)
+            let (node, _) : (TreeNode<T, U>, PageStatus) = try mediator.readPage(pid)
             current = node
         }
         guard case .leafNode(let currentLeaf) = current else { fatalError("Unexpected tree node found in traversal") }
         return TreePath(internalPath: path, leaf: currentLeaf, mediator: mediator)
     }
 
-    internal static func path(for key: T, tree: Tree<T,U>, mediator: RMediator) throws -> TreePath<T,U> {
-        let (node, _) : (TreeNode<T,U>, PageStatus) = try mediator.readPage(tree.root)
-        var path = [(node: TreeNode<T,U>, index: Int)]()
+    internal static func path(for key: T, tree: Tree<T, U>, mediator: RMediator) throws -> TreePath<T, U> {
+        let (node, _) : (TreeNode<T, U>, PageStatus) = try mediator.readPage(tree.root)
+        var path = [(node: TreeNode<T, U>, index: Int)]()
         var current = node
         DESCENT: while case .internalNode(let i) = current {
             var lastMax: T? = nil
@@ -58,7 +58,7 @@ internal struct TreePath<T: BufferSerializable & Comparable, U: BufferSerializab
                 if let min = lastMax {
                     if key >= min && key <= max {
                         do {
-                            let (node, _) : (TreeNode<T,U>, PageStatus) = try mediator.readPage(pid)
+                            let (node, _) : (TreeNode<T, U>, PageStatus) = try mediator.readPage(pid)
                             if node.contains(key: key, mediator: mediator) {
                                 path.append((node: current, index: index))
                                 current = node
@@ -69,7 +69,7 @@ internal struct TreePath<T: BufferSerializable & Comparable, U: BufferSerializab
                 } else {
                     if key <= max {
                         do {
-                            let (node, _) : (TreeNode<T,U>, PageStatus) = try mediator.readPage(pid)
+                            let (node, _) : (TreeNode<T, U>, PageStatus) = try mediator.readPage(pid)
                             if node.contains(key: key, mediator: mediator) {
                                 path.append((node: current, index: index))
                                 current = node
@@ -102,13 +102,13 @@ internal struct TreePath<T: BufferSerializable & Comparable, U: BufferSerializab
                     let index = currentIndex + 1
                     let (_, pid) = i.pairs[index]
                     internalPath.append((node: current, index: index))
-                    let (child, _) : (TreeNode<T,U>, PageStatus) = try mediator.readPage(pid)
+                    let (child, _) : (TreeNode<T, U>, PageStatus) = try mediator.readPage(pid)
                     var current = child
                     while case .internalNode(let i) = current {
                         let index = 0
                         internalPath.append((node: current, index: index))
                         let (_, pid) = i.pairs.first!
-                        let (node, _) : (TreeNode<T,U>, PageStatus) = try mediator.readPage(pid)
+                        let (node, _) : (TreeNode<T, U>, PageStatus) = try mediator.readPage(pid)
                         current = node
                     }
                     guard case .leafNode(let currentLeaf) = current else { fatalError("Unexpected tree node found in traversal") }
@@ -132,19 +132,20 @@ internal struct TreePath<T: BufferSerializable & Comparable, U: BufferSerializab
     }
 }
 
+// swiftlint:disable:next type_body_length
 public class Tree<T: BufferSerializable & Comparable, U: BufferSerializable> : Sequence {
     var root: PageId
     var name: String
     var mediator: RMediator
 
     public var previousPage: PageId? {
-        guard let (node, _) : (TreeNode<T,U>, PageStatus) = try? mediator.readPage(root) else { return nil }
+        guard let (node, _) : (TreeNode<T, U>, PageStatus) = try? mediator.readPage(root) else { return nil }
         return node.previousPage
     }
 
     public var version: Version? {
         // TOOD: read the page header without reading the page contents
-        guard let (node, _) : (TreeNode<T,U>, PageStatus) = try? mediator.readPage(root) else { return nil }
+        guard let (node, _) : (TreeNode<T, U>, PageStatus) = try? mediator.readPage(root) else { return nil }
         switch node {
         case .leafNode(let leaf):
             return leaf.version
@@ -169,12 +170,12 @@ public class Tree<T: BufferSerializable & Comparable, U: BufferSerializable> : S
         }
     }
 
-    public func effectiveVersion(between: (T,T)) throws -> Version? {
+    public func effectiveVersion(between: (T, T)) throws -> Version? {
         var version: Version? = nil
         // TODO: this is inefficient. we shouldn't use walk(::) to get the leaf nodes,
         // but instead should prefer a tree walk that returns early on an internal
         // node if all children nodes fall in the $between range.
-        let (node, _) : (TreeNode<T,U>, PageStatus) = try mediator.readPage(root)
+        let (node, _) : (TreeNode<T, U>, PageStatus) = try mediator.readPage(root)
         _ = try? node.walk(mediator: mediator, between: between) { (leaf) in
             if let v = version {
                 version = Swift.max(v, leaf.version)
@@ -185,21 +186,21 @@ public class Tree<T: BufferSerializable & Comparable, U: BufferSerializable> : S
         return version
     }
 
-    public func elements(between: (T,T)) throws -> AnyIterator<(T,U)> {
+    public func elements(between: (T, T)) throws -> AnyIterator<(T, U)> {
         // TODO: convert this to pipeline the iterator results
-        var pairs = [(T,U)]()
-        let (node, _) : (TreeNode<T,U>, PageStatus) = try mediator.readPage(root)
+        var pairs = [(T, U)]()
+        let (node, _) : (TreeNode<T, U>, PageStatus) = try mediator.readPage(root)
         _ = try? node.walk(mediator: mediator, between: between) { (leaf) in
-            for (k,v) in leaf.pairs where k >= between.0 && k <= between.1 {
-                pairs.append((k,v))
+            for (k, v) in leaf.pairs where k >= between.0 && k <= between.1 {
+                pairs.append((k, v))
             }
         }
         let i = pairs.makeIterator()
         return AnyIterator(i)
     }
 
-    public func makeIterator() -> AnyIterator<(T,U)> {
-        var pairs = [(T,U)]()
+    public func makeIterator() -> AnyIterator<(T, U)> {
+        var pairs = [(T, U)]()
         do {
             var path = try TreePath.minPath(tree: self, mediator: mediator)
             return AnyIterator {
@@ -219,12 +220,12 @@ public class Tree<T: BufferSerializable & Comparable, U: BufferSerializable> : S
         }
     }
 
-    public func walk(between: (T,T), onPairs: ([(T,U)]) throws -> ()) throws {
-        let (node, _) : (TreeNode<T,U>, PageStatus) = try mediator.readPage(root)
-        var elements = [(T,U)]()
+    public func walk(between: (T, T), onPairs: ([(T, U)]) throws -> ()) throws {
+        let (node, _) : (TreeNode<T, U>, PageStatus) = try mediator.readPage(root)
+        var elements = [(T, U)]()
         _ = try? node.walk(mediator: mediator, between: between) { (leaf) in
-            for (k,v) in leaf.pairs where k >= between.0 && k <= between.1 {
-                elements.append((k,v))
+            for (k, v) in leaf.pairs where k >= between.0 && k <= between.1 {
+                elements.append((k, v))
             }
         }
         try onPairs(elements)
@@ -232,7 +233,7 @@ public class Tree<T: BufferSerializable & Comparable, U: BufferSerializable> : S
 
     public func contains(key: T) -> Bool {
         do {
-            let (node, _) : (TreeNode<T,U>, PageStatus) = try mediator.readPage(root)
+            let (node, _) : (TreeNode<T, U>, PageStatus) = try mediator.readPage(root)
             return node.contains(key: key, mediator: mediator)
         } catch {}
         return false
@@ -240,7 +241,7 @@ public class Tree<T: BufferSerializable & Comparable, U: BufferSerializable> : S
 
     public func get(key: T) -> [U] {
         do {
-            let (node, _) : (TreeNode<T,U>, PageStatus) = try mediator.readPage(root)
+            let (node, _) : (TreeNode<T, U>, PageStatus) = try mediator.readPage(root)
             return node.get(key: key, mediator: mediator)
         } catch {}
         warn("*** No tree node found for root '\(root)'")
@@ -249,7 +250,7 @@ public class Tree<T: BufferSerializable & Comparable, U: BufferSerializable> : S
 
     public func maxKey(in range: Range<T>) -> T? {
         do {
-            let (node, _) : (TreeNode<T,U>, PageStatus) = try mediator.readPage(root)
+            let (node, _) : (TreeNode<T, U>, PageStatus) = try mediator.readPage(root)
             return node.maxKey(in: range, mediator: mediator)
         } catch {}
         return nil
@@ -258,17 +259,17 @@ public class Tree<T: BufferSerializable & Comparable, U: BufferSerializable> : S
     public func remove(key: T) throws {
         //        print("==================================================================")
         //        print("TREE add: \(pair)")
-        let (node, rootStatus) : (TreeNode<T,U>, PageStatus) = try mediator.readPage(root)
+        let (node, rootStatus) : (TreeNode<T, U>, PageStatus) = try mediator.readPage(root)
         guard let m = mediator as? RWMediator else { throw DatabaseError.PermissionError("Cannot modify a tree in a read-only transaction") }
 
         // find leaf for pair (and its path from the root)
         var (path, leaf, leafStatus) = try node.pathToLeaf(for: key, mediator: m, currentStatus: rootStatus)
-        var newPairs = [(T,PageId)]()
+        var newPairs = [(T, PageId)]()
 
         var updatedPid: PageId!
         try leaf.remove(key: key, version: m.version)
         newPairs = []
-        var leafNode: TreeNode<T,U> = .leafNode(leaf)
+        var leafNode: TreeNode<T, U> = .leafNode(leaf)
         if case .dirty(let pid) = leafStatus {
             try m.update(page: pid, with: leafNode)
             if let max = leaf.max {
@@ -300,11 +301,11 @@ public class Tree<T: BufferSerializable & Comparable, U: BufferSerializable> : S
             try node.addPairs(newPairs, replacingIndex: index, totalCount: totalCount, version: m.version) // TODO: this look suspicious; probably a copy-paste error from add(pair:); should be removing instead
 
             newPairs = []
-            var internalNode: TreeNode<T,U> = .internalNode(node)
+            var internalNode: TreeNode<T, U> = .internalNode(node)
             if case .dirty(let pid) = status {
                 try m.update(page: pid, with: internalNode)
                 if let max = node.max {
-                    newPairs = [(max,pid)]
+                    newPairs = [(max, pid)]
                 }
                 updatedPid = pid
             } else {
@@ -317,7 +318,7 @@ public class Tree<T: BufferSerializable & Comparable, U: BufferSerializable> : S
 
                 let pid = try m.createPage(for: internalNode)
                 if let max = node.max {
-                    newPairs = [(max,pid)]
+                    newPairs = [(max, pid)]
                 }
                 updatedPid = pid
             }
@@ -333,19 +334,19 @@ public class Tree<T: BufferSerializable & Comparable, U: BufferSerializable> : S
     public func add(pair: (T, U)) throws {
 //        print("==================================================================")
 //        print("TREE add: \(pair)")
-        let (node, rootStatus) : (TreeNode<T,U>, PageStatus) = try mediator.readPage(root)
+        let (node, rootStatus) : (TreeNode<T, U>, PageStatus) = try mediator.readPage(root)
         guard let m = mediator as? RWMediator else { throw DatabaseError.PermissionError("Cannot modify a tree in a read-only transaction") }
 
         // find leaf for pair (and its path from the root)
         var (path, leaf, leafStatus) = try node.pathToLeaf(for: pair.0, mediator: m, currentStatus: rootStatus)
-        var newPairs = [(T,PageId)]()
+        var newPairs = [(T, PageId)]()
         // if leaf can add pair:
         if leaf.spaceForPair(pair, pageSize: m.pageSize) {
 //            print("- there is space in the \(leafStatus) leaf for the add")
             try leaf.addPair(pair, version: m.version)
             let max = leaf.max!
 
-            var leafNode: TreeNode<T,U> = .leafNode(leaf)
+            var leafNode: TreeNode<T, U> = .leafNode(leaf)
             if case .dirty(let pid) = leafStatus {
                 try m.update(page: pid, with: leafNode)
                 newPairs.append((max, pid))
@@ -363,7 +364,7 @@ public class Tree<T: BufferSerializable & Comparable, U: BufferSerializable> : S
         } else {
 //            print("- there is NOT space in the \(leafStatus) leaf for the add; split required")
             var pairs = leaf.pairs
-            pairs.insertSorted(pair) { (l,r) in return l.0 < r.0 }
+            pairs.insertSorted(pair) { (l, r) in return l.0 < r.0 }
             let lcount = pairs.count / 2
             let rcount = pairs.count - lcount
 
@@ -372,7 +373,7 @@ public class Tree<T: BufferSerializable & Comparable, U: BufferSerializable> : S
 
             for pairs in [lpairs, rpairs] {
                 let leaf        = try TreeLeaf(version: m.version, pageSize: m.pageSize, pairs: pairs)
-                var leafNode: TreeNode<T,U> = .leafNode(leaf)
+                var leafNode: TreeNode<T, U> = .leafNode(leaf)
                 switch leafStatus {
                 case .clean(let pid), .dirty(let pid):
                     leafNode.previousPage = pid
@@ -405,10 +406,10 @@ public class Tree<T: BufferSerializable & Comparable, U: BufferSerializable> : S
                 try node.addPairs(newPairs, replacingIndex: index, totalCount: totalCount, version: m.version)
                 let max         = node.max!
 
-                var internalNode: TreeNode<T,U> = .internalNode(node)
+                var internalNode: TreeNode<T, U> = .internalNode(node)
                 if case .dirty(let pid) = status {
                     try m.update(page: pid, with: internalNode)
-                    newPairs = [(max,pid)]
+                    newPairs = [(max, pid)]
                 } else {
                     switch status {
                     case .clean(let pid), .dirty(let pid):
@@ -418,7 +419,7 @@ public class Tree<T: BufferSerializable & Comparable, U: BufferSerializable> : S
                     }
 
                     let pid = try m.createPage(for: internalNode)
-                    newPairs = [(max,pid)]
+                    newPairs = [(max, pid)]
                 }
             } else {
 //                print("- there is NOT space in the \(status) internal for the add; split required")
@@ -439,12 +440,12 @@ public class Tree<T: BufferSerializable & Comparable, U: BufferSerializable> : S
                 for pairs in [lpairs, rpairs] {
                     let total = try pairs.map { (pair) -> UInt64 in
                         let pid = pair.1
-                        let (node, _) : (TreeNode<T,U>, PageStatus) = try m.readPage(pid)
+                        let (node, _) : (TreeNode<T, U>, PageStatus) = try m.readPage(pid)
                         return node.totalCount
                         }.reduce(UInt64(0), +)
 
                     let node    = try TreeInternal(version: m.version, pageSize: m.pageSize, totalCount: total, pairs: pairs)
-                    var internalNode: TreeNode<T,U> = .internalNode(node)
+                    var internalNode: TreeNode<T, U> = .internalNode(node)
                     let max     = node.max!
 
                     switch status {
@@ -472,12 +473,12 @@ public class Tree<T: BufferSerializable & Comparable, U: BufferSerializable> : S
         if newPairs.count > 1 {
 //            print("- old root was split; creating new root")
             var totalCount: UInt64 = 0
-            for (_,pid) in newPairs {
-                let (node, _) : (TreeNode<T,U>, PageStatus) = try m.readPage(pid)
+            for (_, pid) in newPairs {
+                let (node, _) : (TreeNode<T, U>, PageStatus) = try m.readPage(pid)
                 totalCount += node.totalCount
             }
             let newRoot     = try TreeInternal(version: m.version, pageSize: m.pageSize, totalCount: totalCount, pairs: newPairs)
-            let newRootNode: TreeNode<T,U> = .internalNode(newRoot)
+            let newRootNode: TreeNode<T, U> = .internalNode(newRoot)
             let pid = try m.createPage(for: newRootNode)
             //                print("--  new root node \(pid)")
             rootPid = pid
@@ -508,27 +509,27 @@ public class Tree<T: BufferSerializable & Comparable, U: BufferSerializable> : S
 public final class TreeLeaf<T: BufferSerializable & Comparable, U: BufferSerializable> {
     internal var typeCode: UInt32
     public var version: Version
-    public var pairs: [(T,U)]
+    public var pairs: [(T, U)]
     public var serializedSize: Int
     public var max: T?
     public var previousPage: PageId?
 
-    init(version: Version, pageSize: Int, typeCode: UInt32, pairs: [(T,U)]) throws {
+    init(version: Version, pageSize: Int, typeCode: UInt32, pairs: [(T, U)]) throws {
         self.previousPage = nil
         self.version = version
         self.pairs = pairs
         self.typeCode = typeCode
         self.max = pairs.count == 0 ? nil: pairs.last!.0
         self.serializedSize = cookieHeaderSize
-        for (k,v) in pairs {
+        for (k, v) in pairs {
             self.serializedSize += k.serializedSize
             self.serializedSize += v.serializedSize
         }
     }
 
-    convenience init<V: IteratorProtocol>(version: Version, pageSize: Int, pairs iter: inout PeekableIterator<V>) where V.Element == (T,U) {
+    convenience init<V: IteratorProtocol>(version: Version, pageSize: Int, pairs iter: inout PeekableIterator<V>) where V.Element == (T, U) {
         var remainingBytes = pageSize - cookieHeaderSize
-        var pairs = [(T,U)]()
+        var pairs = [(T, U)]()
 
         var next = iter.peek()
         while next != nil {
@@ -541,12 +542,12 @@ public final class TreeLeaf<T: BufferSerializable & Comparable, U: BufferSeriali
             remainingBytes -= serializedSize
             next    = iter.peek()
         }
-        
-        // swiftlint:disable force_try
+
+        // swiftlint:disable:next force_try
         try! self.init(version: version, pageSize: pageSize, typeCode: serializationCode(T.self, U.self), pairs: pairs)
     }
 
-    convenience init(version: Version, pageSize: Int, pairs: [(T,U)]) throws {
+    convenience init(version: Version, pageSize: Int, pairs: [(T, U)]) throws {
         var remainingBytes = pageSize - cookieHeaderSize
         for (key, value) in pairs {
             let serializedSize = key.serializedSize + value.serializedSize
@@ -571,7 +572,7 @@ public final class TreeLeaf<T: BufferSerializable & Comparable, U: BufferSeriali
 
     public var totalCount: UInt64 { return UInt64(pairs.count) }
 
-    @inline(__always) func spaceForPair(_ pair: (T,U), pageSize: Int) -> Bool {
+    @inline(__always) func spaceForPair(_ pair: (T, U), pageSize: Int) -> Bool {
         return self.serializedSize + pair.0.serializedSize + pair.1.serializedSize <= pageSize
     }
 
@@ -582,9 +583,9 @@ public final class TreeLeaf<T: BufferSerializable & Comparable, U: BufferSeriali
         }
     }
 
-    func addPair(_ pair: (T,U), version: Version) throws {
+    func addPair(_ pair: (T, U), version: Version) throws {
         self.version = version
-        pairs.insertSorted(pair) { (l,r) in return l.0 < r.0 }
+        pairs.insertSorted(pair) { (l, r) in return l.0 < r.0 }
         self.serializedSize += pair.0.serializedSize
         self.serializedSize += pair.1.serializedSize
         self.max = self.pairs.last!.0
@@ -608,7 +609,7 @@ public final class TreeLeaf<T: BufferSerializable & Comparable, U: BufferSeriali
         var successful  = 0
         var ptr         = buffer + byteCount
 
-        for (k,v) in self.pairs {
+        for (k, v) in self.pairs {
             let ks = k.serializedSize
             let vs = v.serializedSize
             let q = ptr+ks+vs
@@ -625,13 +626,13 @@ public final class TreeLeaf<T: BufferSerializable & Comparable, U: BufferSeriali
 public final class TreeInternal<T: BufferSerializable & Comparable> {
     internal var typeCode: UInt32
     public var version: Version
-    public var pairs: [(T,PageId)]
+    public var pairs: [(T, PageId)]
     public var totalCount: UInt64
     public var serializedSize: Int
     public var previousPage: PageId?
     public var max: T?
 
-    init(version: Version, pageSize: Int, totalCount: UInt64, typeCode: UInt32, pairs: [(T,PageId)]) throws {
+    init(version: Version, pageSize: Int, totalCount: UInt64, typeCode: UInt32, pairs: [(T, PageId)]) throws {
         self.previousPage = nil
         self.version = version
         self.pairs = pairs
@@ -639,13 +640,13 @@ public final class TreeInternal<T: BufferSerializable & Comparable> {
         self.typeCode = typeCode
         self.max = pairs.count == 0 ? nil: pairs.last!.0
         self.serializedSize = cookieHeaderSize
-        for (k,v) in pairs {
+        for (k, v) in pairs {
             self.serializedSize += k.serializedSize
             self.serializedSize += v.serializedSize
         }
     }
 
-    convenience init(version: Version, pageSize: Int, totalCount: UInt64, pairs: [(T,PageId)]) throws {
+    convenience init(version: Version, pageSize: Int, totalCount: UInt64, pairs: [(T, PageId)]) throws {
         var remainingBytes = pageSize - cookieHeaderSize
         for (key, value) in pairs {
             let serializedSize  = key.serializedSize + value.serializedSize
@@ -657,9 +658,9 @@ public final class TreeInternal<T: BufferSerializable & Comparable> {
         try self.init(version: version, pageSize: pageSize, totalCount: totalCount, typeCode: serializationCode(T.self, PageId.self), pairs: pairs)
     }
 
-    convenience init<V: IteratorProtocol>(version: Version, pageSize: Int, totalCount: UInt64, pairs iter: inout PeekableIterator<V>) where V.Element == (T,PageId) {
+    convenience init<V: IteratorProtocol>(version: Version, pageSize: Int, totalCount: UInt64, pairs iter: inout PeekableIterator<V>) where V.Element == (T, PageId) {
         var remainingBytes = pageSize - cookieHeaderSize
-        var pairs = [(T,PageId)]()
+        var pairs = [(T, PageId)]()
 
         var next = iter.peek()
         while next != nil {
@@ -673,7 +674,7 @@ public final class TreeInternal<T: BufferSerializable & Comparable> {
             next    = iter.peek()
         }
 
-        // swiftlint:disable force_try
+        // swiftlint:disable:next force_try
         try! self.init(version: version, pageSize: pageSize, totalCount: totalCount, typeCode: serializationCode(T.self, PageId.self), pairs: pairs)
     }
 
@@ -688,20 +689,20 @@ public final class TreeInternal<T: BufferSerializable & Comparable> {
         }
     }
 
-    @inline(__always) func spaceForPairs(_ pairs: [(T,PageId)], replacingIndex index: Int, pageSize: Int) -> Bool {
+    @inline(__always) func spaceForPairs(_ pairs: [(T, PageId)], replacingIndex index: Int, pageSize: Int) -> Bool {
         let remove = self.pairs[index]
         let removeSize = remove.0.serializedSize + remove.1.serializedSize
         let addSize = pairs.map { $0.0.serializedSize + $0.1.serializedSize }.reduce(0, +)
         return self.serializedSize + addSize - removeSize <= pageSize
     }
 
-    func addPairs(_ newPairs: [(T,PageId)], replacingIndex index: Int, totalCount newTotal: UInt64, version: Version) throws {
+    func addPairs(_ newPairs: [(T, PageId)], replacingIndex index: Int, totalCount newTotal: UInt64, version: Version) throws {
         self.version = version
         self.totalCount = newTotal
 
         let replacing = self.pairs[index]
         self.serializedSize -= replacing.0.serializedSize + replacing.1.serializedSize
-        for (k,v) in newPairs {
+        for (k, v) in newPairs {
             self.serializedSize += k.serializedSize
             self.serializedSize += v.serializedSize
         }
@@ -714,7 +715,7 @@ public final class TreeInternal<T: BufferSerializable & Comparable> {
         let cookie      = DatabaseInfo.Cookie.internalTreeNode
         let config1     = serializationCode(T.self, PageId.self)
         var config2     = UInt32(0)
-        let totalCount  = self.totalCount;
+        let totalCount  = self.totalCount
         let count       = UInt32(self.pairs.count)
 
         if let pp = self.previousPage {
@@ -727,7 +728,7 @@ public final class TreeInternal<T: BufferSerializable & Comparable> {
 
         var successful  = 0
         var ptr         = buffer + byteCount
-        for (k,v) in self.pairs {
+        for (k, v) in self.pairs {
             let ks = k.serializedSize
             let vs = v.serializedSize
             let q = ptr+ks+vs
@@ -742,7 +743,7 @@ public final class TreeInternal<T: BufferSerializable & Comparable> {
 }
 
 public enum TreeNode<T: BufferSerializable & Comparable, U: BufferSerializable> : PageMarshalled {
-    case leafNode(TreeLeaf<T,U>)
+    case leafNode(TreeLeaf<T, U>)
     case internalNode(TreeInternal<T>)
 
     public var version: Version {
@@ -792,22 +793,22 @@ public enum TreeNode<T: BufferSerializable & Comparable, U: BufferSerializable> 
     }
 
     // TODO: make an Iterator version of this method
-    func walk(mediator: RMediator, between: (T,T), onEachLeaf cb: (TreeLeaf<T,U>) throws -> ()) throws {
+    func walk(mediator: RMediator, between: (T, T), onEachLeaf callback: (TreeLeaf<T, U>) throws -> ()) throws {
         switch self {
         case .leafNode(let l):
-            try cb(l)
+            try callback(l)
         case .internalNode(let i):
             var lastMax: T? = nil
             for (max, pid) in i.pairs {
                 if let min = lastMax {
                     if between.1 >= min && between.0 <= max {
-                        let (node, _) : (TreeNode<T,U>, PageStatus) = try mediator.readPage(pid)
-                        try node.walk(mediator: mediator, between: between, onEachLeaf: cb)
+                        let (node, _) : (TreeNode<T, U>, PageStatus) = try mediator.readPage(pid)
+                        try node.walk(mediator: mediator, between: between, onEachLeaf: callback)
                     }
                 } else {
                     if between.0 <= max {
-                        let (node, _) : (TreeNode<T,U>, PageStatus) = try mediator.readPage(pid)
-                        try node.walk(mediator: mediator, between: between, onEachLeaf: cb)
+                        let (node, _) : (TreeNode<T, U>, PageStatus) = try mediator.readPage(pid)
+                        try node.walk(mediator: mediator, between: between, onEachLeaf: callback)
                     }
                 }
                 lastMax = max
@@ -816,22 +817,22 @@ public enum TreeNode<T: BufferSerializable & Comparable, U: BufferSerializable> 
     }
 
     // TODO: make an Iterator version of this method
-    func walk(mediator: RMediator, in range: Range<T>, onEachLeaf cb: (TreeLeaf<T,U>) throws -> ()) throws {
+    func walk(mediator: RMediator, in range: Range<T>, onEachLeaf callback: (TreeLeaf<T, U>) throws -> ()) throws {
         switch self {
         case .leafNode(let l):
-            try cb(l)
+            try callback(l)
         case .internalNode(let i):
             var lastMax: T? = nil
             for (max, pid) in i.pairs {
                 if let min = lastMax {
                     if range.upperBound > min && range.lowerBound <= max {
-                        let (node, _) : (TreeNode<T,U>, PageStatus) = try mediator.readPage(pid)
-                        try node.walk(mediator: mediator, in: range, onEachLeaf: cb)
+                        let (node, _) : (TreeNode<T, U>, PageStatus) = try mediator.readPage(pid)
+                        try node.walk(mediator: mediator, in: range, onEachLeaf: callback)
                     }
                 } else {
                     if range.lowerBound <= max {
-                        let (node, _) : (TreeNode<T,U>, PageStatus) = try mediator.readPage(pid)
-                        try node.walk(mediator: mediator, in: range, onEachLeaf: cb)
+                        let (node, _) : (TreeNode<T, U>, PageStatus) = try mediator.readPage(pid)
+                        try node.walk(mediator: mediator, in: range, onEachLeaf: callback)
                     }
                 }
                 lastMax = max
@@ -840,22 +841,22 @@ public enum TreeNode<T: BufferSerializable & Comparable, U: BufferSerializable> 
     }
 
     // TODO: make an Iterator version of this method
-    func walk(mediator: RMediator, onEachLeaf cb: (TreeLeaf<T,U>) throws -> ()) throws {
+    func walk(mediator: RMediator, onEachLeaf callback: (TreeLeaf<T, U>) throws -> ()) throws {
         switch self {
         case .leafNode(let l):
-            try cb(l)
+            try callback(l)
         case .internalNode(let i):
-            for (_,pid) in i.pairs {
+            for (_, pid) in i.pairs {
                 //                print("- node walk going to page \(pid)")
-                let (node, _) : (TreeNode<T,U>, PageStatus) = try mediator.readPage(pid)
-                try node.walk(mediator: mediator, onEachLeaf: cb)
+                let (node, _) : (TreeNode<T, U>, PageStatus) = try mediator.readPage(pid)
+                try node.walk(mediator: mediator, onEachLeaf: callback)
             }
         }
     }
     func contains(key: T, mediator: RMediator) -> Bool {
         switch self {
         case .leafNode(let l):
-            for (k,_) in l.pairs where k == key {
+            for (k, _) in l.pairs where k == key {
                 return true
             }
             return false
@@ -865,7 +866,7 @@ public enum TreeNode<T: BufferSerializable & Comparable, U: BufferSerializable> 
                 if let min = lastMax {
                     if key >= min && key <= max {
                         do {
-                            let (node, _) : (TreeNode<T,U>, PageStatus) = try mediator.readPage(pid)
+                            let (node, _) : (TreeNode<T, U>, PageStatus) = try mediator.readPage(pid)
                             if node.contains(key: key, mediator: mediator) {
                                 return true
                             }
@@ -874,7 +875,7 @@ public enum TreeNode<T: BufferSerializable & Comparable, U: BufferSerializable> 
                 } else {
                     if key <= max {
                         do {
-                            let (node, _) : (TreeNode<T,U>, PageStatus) = try mediator.readPage(pid)
+                            let (node, _) : (TreeNode<T, U>, PageStatus) = try mediator.readPage(pid)
                             if node.contains(key: key, mediator: mediator) {
                                 return true
                             }
@@ -889,7 +890,7 @@ public enum TreeNode<T: BufferSerializable & Comparable, U: BufferSerializable> 
     func get(key: T, mediator: RMediator) -> [U] {
         var elements = [U]()
         _ = try? self.walk(mediator: mediator, between: (key, key)) { (leaf) in
-            for (k,v) in leaf.pairs {
+            for (k, v) in leaf.pairs {
                 if k == key {
                     elements.append(v)
                 }
@@ -898,21 +899,21 @@ public enum TreeNode<T: BufferSerializable & Comparable, U: BufferSerializable> 
         return elements
     }
 
-    func pathToLeaf(for key: T, mediator: RMediator, currentStatus: PageStatus) throws -> ([(node: TreeInternal<T>, childPage: PageId, childIndex: Int, status: PageStatus)], TreeLeaf<T,U>, PageStatus) {
+    func pathToLeaf(for key: T, mediator: RMediator, currentStatus: PageStatus) throws -> ([(node: TreeInternal<T>, childPage: PageId, childIndex: Int, status: PageStatus)], TreeLeaf<T, U>, PageStatus) {
         switch self {
         case .leafNode(let l):
             return ([], l, currentStatus)
         case .internalNode(let i):
             for (index, (max, pid)) in i.pairs.enumerated() {
                 if key <= max {
-                    let (node, status) : (TreeNode<T,U>, PageStatus) = try mediator.readPage(pid)
+                    let (node, status) : (TreeNode<T, U>, PageStatus) = try mediator.readPage(pid)
                     let (p, leaf, leafstatus) = try node.pathToLeaf(for: key, mediator: mediator, currentStatus: status)
                     let path = [(node: i, childPage: pid, childIndex: index, status: currentStatus)] + p
                     return (path, leaf, leafstatus)
                 }
             }
             if let (_, pid) = i.pairs.last {
-                let (node, status) : (TreeNode<T,U>, PageStatus) = try mediator.readPage(pid)
+                let (node, status) : (TreeNode<T, U>, PageStatus) = try mediator.readPage(pid)
                 let index = max(i.pairs.count - 1, 0)
                 let (p, leaf, leafstatus) = try node.pathToLeaf(for: key, mediator: mediator, currentStatus: status)
                 let path = [(node: i, childPage: pid, childIndex: index, status: currentStatus)] + p
@@ -936,11 +937,11 @@ public enum TreeNode<T: BufferSerializable & Comparable, U: BufferSerializable> 
         return maxKey
     }
 
-    public static func deserialize(from buffer: UnsafeRawPointer, status: PageStatus, mediator: RMediator) throws -> TreeNode<T,U> {
+    public static func deserialize(from buffer: UnsafeRawPointer, status: PageStatus, mediator: RMediator) throws -> TreeNode<T, U> {
         var ptr = buffer
         guard let cookie = DatabaseInfo.Cookie(rawValue: try UInt32.deserialize(from: &ptr)) else { throw DatabaseError.DataError("Bad tree node cookie") }
         if cookie == .leafTreeNode {
-            if let leaf: TreeLeaf<T,U> = TreeLeaf(mediator: mediator, buffer: buffer, status: status) {
+            if let leaf: TreeLeaf<T, U> = TreeLeaf(mediator: mediator, buffer: buffer, status: status) {
                 return TreeNode.leafNode(leaf)
             } else {
                 throw DatabaseError.DataError("Bad leaf tree node data")
@@ -967,7 +968,7 @@ public enum TreeNode<T: BufferSerializable & Comparable, U: BufferSerializable> 
 }
 
 private extension UnsafeRawPointer {
-    func deserializeTree<T: BufferSerializable & Comparable, U: BufferSerializable>(mediator: RMediator, type: DatabaseInfo.Cookie, pageSize: Int, keyType: T.Type, valueType: U.Type) throws -> (UInt32, Version, UInt32, UInt32, UInt64, AnyIterator<(T,U)>) {
+    func deserializeTree<T: BufferSerializable & Comparable, U: BufferSerializable>(mediator: RMediator, type: DatabaseInfo.Cookie, pageSize: Int, keyType: T.Type, valueType: U.Type) throws -> (UInt32, Version, UInt32, UInt32, UInt64, AnyIterator<(T, U)>) {
         let rawMemory   = UnsafeRawPointer(self)
         var ptr         = rawMemory
         let cookie      = try UInt32.deserialize(from: &ptr)
@@ -980,7 +981,7 @@ private extension UnsafeRawPointer {
         assert(ptr == rawMemory.advanced(by: 32))
 
         var i: UInt32 = 0
-        let gen = AnyIterator { () -> (T,U)? in
+        let gen = AnyIterator { () -> (T, U)? in
             i += 1
             if i > count {
                 return nil
@@ -995,11 +996,11 @@ private extension UnsafeRawPointer {
 }
 
 private extension UnsafePointer {
-    func deserialize<T: BufferSerializable & Comparable, U: BufferSerializable>(mediator: RMediator, type: DatabaseInfo.Cookie, status: PageStatus, pageSize: Int, keyType: T.Type, valueType: U.Type) throws -> TreeNode<T,U> {
+    func deserialize<T: BufferSerializable & Comparable, U: BufferSerializable>(mediator: RMediator, type: DatabaseInfo.Cookie, status: PageStatus, pageSize: Int, keyType: T.Type, valueType: U.Type) throws -> TreeNode<T, U> {
         var ptr = UnsafeRawPointer(self)
         guard let cookie = DatabaseInfo.Cookie(rawValue: try UInt32.deserialize(from: &ptr)) else { throw DatabaseError.DataError("Bad tree node cookie") }
         if cookie == .leafTreeNode {
-            if let leaf: TreeLeaf<T,U> = TreeLeaf(mediator: mediator, buffer: self, status: status) {
+            if let leaf: TreeLeaf<T, U> = TreeLeaf(mediator: mediator, buffer: self, status: status) {
                 return TreeNode.leafNode(leaf)
             }
             throw DatabaseError.DataError("Failed to construct tree leaf node from buffer")
@@ -1016,7 +1017,7 @@ private extension UnsafePointer {
         var ptr = buffer
         guard let cookie = DatabaseInfo.Cookie(rawValue: try UInt32.deserialize(from: &ptr)) else { throw DatabaseError.DataError("Bad tree node cookie") }
         if cookie == .leafTreeNode {
-            if let leaf: TreeLeaf<T,U> = TreeLeaf(mediator: mediator, buffer: buffer, status: status) {
+            if let leaf: TreeLeaf<T, U> = TreeLeaf(mediator: mediator, buffer: buffer, status: status) {
                 return TreeNode.leafNode(leaf)
             } else {
                 throw DatabaseError.DataError("Bad leaf tree node data")
@@ -1049,7 +1050,7 @@ extension UnsafeMutableRawPointer {
 }
 
 extension RMediator {
-    public func tree<T: BufferSerializable & Comparable, U: BufferSerializable>(name: String) -> Tree<T,U>? {
+    public func tree<T: BufferSerializable & Comparable, U: BufferSerializable>(name: String) -> Tree<T, U>? {
         return Tree(name: name, mediator: self)
     }
 
@@ -1105,7 +1106,7 @@ extension RMediator {
         do {
             guard let fm = self as? FilePageRMediator else { fatalError("Cannot serialize trees to DOT with this database mediator") }
             guard let (_, date, _) = fm._pageInfo(page: pid) else { fatalError("Failed to get info for page \(pid)") }
-            let (node, _) : (TreeNode<Empty,Empty>, PageStatus) = try self.readPage(pid)
+            let (node, _) : (TreeNode<Empty, Empty>, PageStatus) = try self.readPage(pid)
             let nodeName = "p\(pid)"
             var attributes = [String]()
             var label: String
@@ -1124,9 +1125,9 @@ extension RMediator {
                 print("\(nodeName) [\(attributes.joined(separator: ", "))]")
                 var children = [PageId]()
                 if i.typeCode == termIntType {
-                    let (typed, _) : (TreeNode<Term,PageId>, PageStatus) = try self.readPage(pid)
+                    let (typed, _) : (TreeNode<Term, PageId>, PageStatus) = try self.readPage(pid)
                     if case .internalNode(let typedi) = typed {
-                        for (k,cpid) in typedi.pairs {
+                        for (k, cpid) in typedi.pairs {
                             children.append(cpid)
                             let esc = String("\(k)".characters.map { $0 == "\"" ? "'" : $0 })
                             let child = "p\(cpid)"
@@ -1134,9 +1135,9 @@ extension RMediator {
                         }
                     }
                 } else if i.typeCode == intIntType {
-                    let (typed, _) : (TreeNode<UInt64,PageId>, PageStatus) = try self.readPage(pid)
+                    let (typed, _) : (TreeNode<UInt64, PageId>, PageStatus) = try self.readPage(pid)
                     if case .internalNode(let typedi) = typed {
-                        for (k,cpid) in typedi.pairs {
+                        for (k, cpid) in typedi.pairs {
                             children.append(cpid)
                             let esc = String("\(k)".characters.map { $0 == "\"" ? "'" : $0 })
                             let child = "p\(cpid)"
@@ -1144,9 +1145,9 @@ extension RMediator {
                         }
                     }
                 } else if i.typeCode == quadIntType {
-                    let (typed, _) : (TreeNode<IDQuad<UInt64>,PageId>, PageStatus) = try self.readPage(pid)
+                    let (typed, _) : (TreeNode<IDQuad<UInt64>, PageId>, PageStatus) = try self.readPage(pid)
                     if case .internalNode(let typedi) = typed {
-                        for (k,cpid) in typedi.pairs {
+                        for (k, cpid) in typedi.pairs {
                             children.append(cpid)
                             let esc = String("\(k)".characters.map { $0 == "\"" ? "'" : $0 })
                             let child = "p\(cpid)"
@@ -1162,7 +1163,7 @@ extension RMediator {
 
     public func debugTreePage(_ pid: PageId) {
         do {
-            let (node, _) : (TreeNode<Empty,Empty>, PageStatus) = try self.readPage(pid)
+            let (node, _) : (TreeNode<Empty, Empty>, PageStatus) = try self.readPage(pid)
             switch node {
             case .leafNode(let l):
                 let date = getDateString(seconds: l.version)
@@ -1171,37 +1172,37 @@ extension RMediator {
                 print("    Modified      : \(date)")
                 print("    Pair count    : \(l.pairs.count)")
                 if l.typeCode == intEmptyType {
-                    let (typed, _) : (TreeNode<UInt64,Empty>, PageStatus) = try self.readPage(pid)
+                    let (typed, _) : (TreeNode<UInt64, Empty>, PageStatus) = try self.readPage(pid)
                     if case .leafNode(let typedl) = typed {
-                        for (k,_) in typedl.pairs {
+                        for (k, _) in typedl.pairs {
                             print("        - \(k)")
                         }
                     }
                 } else if l.typeCode == termIntType {
-                    let (typed, _) : (TreeNode<Term,PageId>, PageStatus) = try self.readPage(pid)
+                    let (typed, _) : (TreeNode<Term, PageId>, PageStatus) = try self.readPage(pid)
                     if case .leafNode(let typedl) = typed {
-                        for (k,v) in typedl.pairs {
+                        for (k, v) in typedl.pairs {
                             print("        - \(k): \(v)")
                         }
                     }
                 } else if l.typeCode == intTermType {
-                    let (typed, _) : (TreeNode<PageId,Term>, PageStatus) = try self.readPage(pid)
+                    let (typed, _) : (TreeNode<PageId, Term>, PageStatus) = try self.readPage(pid)
                     if case .leafNode(let typedl) = typed {
-                        for (k,v) in typedl.pairs {
+                        for (k, v) in typedl.pairs {
                             print("        - \(k): \(v)")
                         }
                     }
                 } else if l.typeCode == intIntType {
-                    let (typed, _) : (TreeNode<UInt64,PageId>, PageStatus) = try self.readPage(pid)
+                    let (typed, _) : (TreeNode<UInt64, PageId>, PageStatus) = try self.readPage(pid)
                     if case .leafNode(let typedl) = typed {
-                        for (k,v) in typedl.pairs {
+                        for (k, v) in typedl.pairs {
                             print("        - \(k): \(v)")
                         }
                     }
                 } else if l.typeCode == quadIntType {
-                    let (typed, _) : (TreeNode<IDQuad<UInt64>,PageId>, PageStatus) = try self.readPage(pid)
+                    let (typed, _) : (TreeNode<IDQuad<UInt64>, PageId>, PageStatus) = try self.readPage(pid)
                     if case .leafNode(let typedl) = typed {
-                        for (k,v) in typedl.pairs {
+                        for (k, v) in typedl.pairs {
                             print("        - \(k): \(v)")
                         }
                     }
@@ -1213,23 +1214,23 @@ extension RMediator {
                 print("    Modified      : \(date)")
                 print("    Pointer count: \(i.pairs.count)")
                 if i.typeCode == termIntType {
-                    let (typed, _) : (TreeNode<Term,PageId>, PageStatus) = try self.readPage(pid)
+                    let (typed, _) : (TreeNode<Term, PageId>, PageStatus) = try self.readPage(pid)
                     if case .internalNode(let typedi) = typed {
-                        for (k,cpid) in typedi.pairs {
+                        for (k, cpid) in typedi.pairs {
                             print("        - \(k): Page \(cpid)")
                         }
                     }
                 } else if i.typeCode == intIntType {
-                    let (typed, _) : (TreeNode<UInt64,PageId>, PageStatus) = try self.readPage(pid)
+                    let (typed, _) : (TreeNode<UInt64, PageId>, PageStatus) = try self.readPage(pid)
                     if case .internalNode(let typedi) = typed {
-                        for (k,cpid) in typedi.pairs {
+                        for (k, cpid) in typedi.pairs {
                             print("        - \(k): Page \(cpid)")
                         }
                     }
                 } else if i.typeCode == quadIntType {
-                    let (typed, _) : (TreeNode<IDQuad<UInt64>,PageId>, PageStatus) = try self.readPage(pid)
+                    let (typed, _) : (TreeNode<IDQuad<UInt64>, PageId>, PageStatus) = try self.readPage(pid)
                     if case .internalNode(let typedi) = typed {
-                        for (k,cpid) in typedi.pairs {
+                        for (k, cpid) in typedi.pairs {
                             print("        - \(k): Page \(cpid)")
                         }
                     }
@@ -1240,7 +1241,7 @@ extension RMediator {
 }
 
 extension RWMediator {
-    private func createTreeInternals<C: Sequence, T: BufferSerializable & Comparable, U: BufferSerializable>(pairs adding: C, keyType: T.Type, valueType: U.Type) throws -> [(TreeNode<T,U>, PageId)] where C.Iterator.Element == (TreeNode<T,U>, PageId) {
+    private func createTreeInternals<C: Sequence, T: BufferSerializable & Comparable, U: BufferSerializable>(pairs adding: C, keyType: T.Type, valueType: U.Type) throws -> [(TreeNode<T, U>, PageId)] where C.Iterator.Element == (TreeNode<T, U>, PageId) {
         var lastKey: T? = nil
         let counts  = adding.map { $0.0.totalCount }
         let pairs   = adding.map { ($0.0.maxKey!, $0.1) }
@@ -1255,14 +1256,14 @@ extension RWMediator {
 
         var iter = PeekableIterator(generator: pairs.makeIterator())
         //        var pages = [PageId]()
-        var newPairs = [(TreeNode<T,U>, PageId)]()
+        var newPairs = [(TreeNode<T, U>, PageId)]()
         while iter.peek() != nil {
             let node = TreeInternal(version: version, pageSize: pageSize, totalCount: UInt64(0), pairs: &iter)
             let filled = node.pairs.count
             //            print("filled internal node with \(filled) pairs")
             let sum = counts.prefix(filled).reduce(0) { $0 + $1 }
             node.totalCount = sum
-            let internalNode: TreeNode<T,U> = .internalNode(node)
+            let internalNode: TreeNode<T, U> = .internalNode(node)
 
             let pid = try self.createPage(for: internalNode)
             newPairs.append((internalNode, pid))
@@ -1270,9 +1271,9 @@ extension RWMediator {
         return newPairs
     }
 
-    private func createTreeLeaves<C: Sequence, T: BufferSerializable & Comparable, U: BufferSerializable>(pairs: C) throws -> [(TreeNode<T,U>, PageId)] where C.Iterator.Element == (T,U) {
+    private func createTreeLeaves<C: Sequence, T: BufferSerializable & Comparable, U: BufferSerializable>(pairs: C) throws -> [(TreeNode<T, U>, PageId)] where C.Iterator.Element == (T, U) {
         var iter = PeekableIterator(generator: pairs.makeIterator())
-        var leaves = [(TreeNode<T,U>, PageId)]()
+        var leaves = [(TreeNode<T, U>, PageId)]()
         var lastKey: T? = nil
         while let next = iter.peek() {
             if let lastKey = lastKey {
@@ -1283,7 +1284,7 @@ extension RWMediator {
             lastKey = next.0
 
             let node = TreeLeaf(version: version, pageSize: pageSize, pairs: &iter)
-            let leafNode: TreeNode<T,U> = .leafNode(node)
+            let leafNode: TreeNode<T, U> = .leafNode(node)
 
             let pid = try self.createPage(for: leafNode)
             leaves.append((leafNode, pid))
@@ -1291,7 +1292,7 @@ extension RWMediator {
         }
         if lastKey == nil {
             let node = TreeLeaf(version: version, pageSize: pageSize, pairs: &iter)
-            let leafNode: TreeNode<T,U> = .leafNode(node)
+            let leafNode: TreeNode<T, U> = .leafNode(node)
 
             let pid = try self.createPage(for: leafNode)
             leaves.append((leafNode, pid))
@@ -1299,13 +1300,13 @@ extension RWMediator {
         return leaves
     }
 
-    public func create<C: Sequence, T: BufferSerializable & Comparable, U: BufferSerializable>(tree name: String, pairs: C) throws -> PageId where C.Iterator.Element == (T,U) {
+    public func create<C: Sequence, T: BufferSerializable & Comparable, U: BufferSerializable>(tree name: String, pairs: C) throws -> PageId where C.Iterator.Element == (T, U) {
         let pid = try self.createTree(pairs: pairs)
         self.updateRoot(name: name, page: pid)
         return pid
     }
 
-    public func createTree<C: Sequence, T: BufferSerializable & Comparable, U: BufferSerializable>(pairs: C) throws -> PageId where C.Iterator.Element == (T,U) {
+    public func createTree<C: Sequence, T: BufferSerializable & Comparable, U: BufferSerializable>(pairs: C) throws -> PageId where C.Iterator.Element == (T, U) {
         let newPairs  = try createTreeLeaves(pairs: pairs)
         if newPairs.count == 0 {
             throw DatabaseError.DataError("Failed to create tree leaves")
@@ -1320,4 +1321,3 @@ extension RWMediator {
         }
     }
 }
-

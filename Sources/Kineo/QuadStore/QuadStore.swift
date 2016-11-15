@@ -20,15 +20,16 @@ public protocol QuadStoreProtocol: Sequence {
     func effectiveVersion(matching pattern: QuadPattern) throws -> Version?
 }
 
+// swiftlint:disable:next type_body_length
 open class QuadStore: Sequence, QuadStoreProtocol {
     public typealias IDType = UInt64
     static public let defaultIndex = "pogs"
     internal var mediator: RMediator
     public let readonly: Bool
-    public var id: PersistentTermIdentityMap
-    public init(mediator: RMediator, mutable rw: Bool = false) throws {
+    public var id: PersistentTermIdentityMap // swiftlint:disable:this variable_name
+    public init(mediator: RMediator, mutable: Bool = false) throws {
         self.mediator = mediator
-        var readonly = !rw
+        var readonly = !mutable
         if readonly {
             if let _ = mediator as? RWMediator {
                 readonly = false
@@ -83,7 +84,7 @@ open class QuadStore: Sequence, QuadStoreProtocol {
             let empty = Empty()
 
             let toIndex = quadMapping(toOrder: defaultIndex)
-            guard let defaultQuadsIndex: Tree<IDQuad<UInt64>,Empty> = m.tree(name: defaultIndex) else { throw DatabaseError.DataError("Missing default index \(defaultIndex)") }
+            guard let defaultQuadsIndex: Tree<IDQuad<UInt64>, Empty> = m.tree(name: defaultIndex) else { throw DatabaseError.DataError("Missing default index \(defaultIndex)") }
 
             let spog = idquads.sorted().filter { (quadOrder) -> Bool in
                 // do not insert quads more than once
@@ -98,7 +99,7 @@ open class QuadStore: Sequence, QuadStoreProtocol {
             }
 
             for secondaryIndex in self.availableQuadIndexes.filter({ $0 != QuadStore.defaultIndex }) {
-                guard let secondaryQuadIndex: Tree<IDQuad<UInt64>,Empty> = m.tree(name: secondaryIndex) else { throw DatabaseError.DataError("Missing secondary index \(secondaryIndex)") }
+                guard let secondaryQuadIndex: Tree<IDQuad<UInt64>, Empty> = m.tree(name: secondaryIndex) else { throw DatabaseError.DataError("Missing secondary index \(secondaryIndex)") }
                 let toSecondaryIndex = quadMapping(toOrder: secondaryIndex)
                 let indexOrdered = spog.map { toSecondaryIndex($0) }.sorted()
                 for indexOrder in indexOrdered {
@@ -116,7 +117,7 @@ open class QuadStore: Sequence, QuadStoreProtocol {
         let defaultIndex = QuadStore.defaultIndex
         guard let m = self.mediator as? RWMediator else { throw DatabaseError.PermissionError("Cannot create a quad index in a read-only quadstore") }
         guard String(index.characters.sorted()) == "gops" else { throw DatabaseError.KeyError("Not a valid quad index name: '\(index)'") }
-        guard let defaultQuadsIndex: Tree<IDQuad<UInt64>,Empty> = m.tree(name: defaultIndex) else { throw DatabaseError.DataError("Missing default index \(defaultIndex)") }
+        guard let defaultQuadsIndex: Tree<IDQuad<UInt64>, Empty> = m.tree(name: defaultIndex) else { throw DatabaseError.DataError("Missing default index \(defaultIndex)") }
 
         let toSpog  = try quadMapping(fromOrder: defaultIndex)
         let toIndex = quadMapping(toOrder: index)
@@ -136,7 +137,7 @@ open class QuadStore: Sequence, QuadStoreProtocol {
             warn("Failed to compute mapping for quad index order \(QuadStore.defaultIndex)")
             return AnyIterator { return nil }
         }
-        guard let quadsTree: Tree<IDQuad<UInt64>,Empty> = mediator.tree(name: QuadStore.defaultIndex) else {
+        guard let quadsTree: Tree<IDQuad<UInt64>, Empty> = mediator.tree(name: QuadStore.defaultIndex) else {
             warn("Failed to load default index \(QuadStore.defaultIndex)")
             return AnyIterator { return nil }
         }
@@ -170,7 +171,7 @@ open class QuadStore: Sequence, QuadStoreProtocol {
             warn("Failed to compute mapping for quad index order \(QuadStore.defaultIndex)")
             return AnyIterator { return nil }
         }
-        guard let quadsTree: Tree<IDQuad<UInt64>,Empty> = mediator.tree(name: QuadStore.defaultIndex) else {
+        guard let quadsTree: Tree<IDQuad<UInt64>, Empty> = mediator.tree(name: QuadStore.defaultIndex) else {
             warn("Failed to load default index \(QuadStore.defaultIndex)")
             return AnyIterator { return nil }
         }
@@ -210,7 +211,7 @@ open class QuadStore: Sequence, QuadStoreProtocol {
     public func iterator(usingIndex treeName: String) throws -> AnyIterator<Quad> {
         let mapping = try quadMapping(fromOrder: treeName)
         let idmap = self.id
-        if let quadsTree: Tree<IDQuad<UInt64>,Empty> = mediator.tree(name: treeName) {
+        if let quadsTree: Tree<IDQuad<UInt64>, Empty> = mediator.tree(name: treeName) {
             let idquads = quadsTree.makeIterator()
             return AnyIterator {
                 repeat {
@@ -276,7 +277,7 @@ open class QuadStore: Sequence, QuadStoreProtocol {
         let p = pattern.predicate
         let o = pattern.object
         let g = pattern.graph
-        let nodes = [s,p,o,g]
+        let nodes = [s, p, o, g]
 
         var bestCount = 0
         let available = availableQuadIndexes
@@ -309,7 +310,7 @@ open class QuadStore: Sequence, QuadStoreProtocol {
     private func quadMapping(fromOrder index: String) throws -> (IDQuad<UInt64>) -> (IDQuad<UInt64>) {
         let QUAD_POSTIONS = ["s": 0, "p": 1, "o": 2, "g": 3]
         var mapping = [Int:Int]()
-        for (i,c) in index.characters.enumerated() {
+        for (i, c) in index.characters.enumerated() {
             guard let index = QUAD_POSTIONS[String(c)] else { throw DatabaseError.DataError("Bad quad position character \(c) found while attempting to map a quad from index order") }
             mapping[index] = i
         }
@@ -323,7 +324,7 @@ open class QuadStore: Sequence, QuadStoreProtocol {
     private func quadMapping(toOrder index: String) -> (IDQuad<UInt64>) -> (IDQuad<UInt64>) {
         let QUAD_POSTIONS = ["s": 0, "p": 1, "o": 2, "g": 3]
         var mapping = [Int:Int]()
-        for (i,c) in index.characters.enumerated() {
+        for (i, c) in index.characters.enumerated() {
             guard let pos = QUAD_POSTIONS[String(c)] else { fatalError("Failed to obtain quad pattern mapping for index \(index)") }
             mapping[i] = pos
         }
@@ -413,7 +414,7 @@ open class QuadStore: Sequence, QuadStoreProtocol {
             indexOrderedMax[i]      = umax
         }
 
-        if let node: Tree<IDQuad<UInt64>,Empty> = mediator.tree(name: index_name) {
+        if let node: Tree<IDQuad<UInt64>, Empty> = mediator.tree(name: index_name) {
             let min = indexOrderedMin
             let max = indexOrderedMax
             return try node.effectiveVersion(between: (min, max))
@@ -460,7 +461,7 @@ open class QuadStore: Sequence, QuadStoreProtocol {
             indexOrderedMax[i]      = umax
         }
 
-        if let node: Tree<IDQuad<UInt64>,Empty> = mediator.tree(name: index_name) {
+        if let node: Tree<IDQuad<UInt64>, Empty> = mediator.tree(name: index_name) {
             let min = indexOrderedMin
             let max = indexOrderedMax
             let iter = try node.elements(between: (min, max))
@@ -538,12 +539,12 @@ public class PersistentTermIdentityMap: IdentityMap, Sequence {
     var next: (iri: UInt64, blank: UInt64, datatype: UInt64, language: UInt64)
     let t2iMapTreeName = "t2i_tree"
     let i2tMapTreeName = "i2t_tree"
-    var i2tcache: LRUCache<Result,Term>
-    var t2icache: LRUCache<Term,Result>
+    var i2tcache: LRUCache<Result, Term>
+    var t2icache: LRUCache<Term, Result>
 
     public init (mediator: RMediator, readonly: Bool = false) throws {
         self.mediator = mediator
-        var t2i: Tree<Element,Result>? = mediator.tree(name: t2iMapTreeName)
+        var t2i: Tree<Element, Result>? = mediator.tree(name: t2iMapTreeName)
         if t2i == nil {
             guard let m = mediator as? RWMediator else {
                 throw DatabaseError.PermissionError("Cannot create new PersistentTermIdentityMap in a read-only transaction")
@@ -553,7 +554,7 @@ public class PersistentTermIdentityMap: IdentityMap, Sequence {
             t2i = mediator.tree(name: t2iMapTreeName)
         }
 
-        var i2t: Tree<Result,Element>? = mediator.tree(name: i2tMapTreeName)
+        var i2t: Tree<Result, Element>? = mediator.tree(name: i2tMapTreeName)
         if i2t == nil {
             guard let m = mediator as? RWMediator else {
                 throw DatabaseError.PermissionError("Cannot create new PersistentTermIdentityMap in a read-only transaction")
@@ -580,21 +581,25 @@ public class PersistentTermIdentityMap: IdentityMap, Sequence {
         self.t2icache = LRUCache(capacity: 64)
     }
 
+    // swiftlint:disable:next variable_name
     internal class func isIRI(id: Result) -> Bool {
         let typebyte = UInt8(UInt64(id) >> 56)
         return typebyte == iriTypeByte
     }
 
+    // swiftlint:disable:next variable_name
     internal class func isBlank(id: Result) -> Bool {
         let typebyte = UInt8(UInt64(id) >> 56)
         return typebyte == blankTypeByte
     }
 
+    // swiftlint:disable:next variable_name
     internal class func isLanguageLiteral(id: Result) -> Bool {
         let typebyte = UInt8(UInt64(id) >> 56)
         return typebyte == languageTypeByte
     }
 
+    // swiftlint:disable:next variable_name
     internal class func isDatatypeLiteral(id: Result) -> Bool {
         let typebyte = UInt8(UInt64(id) >> 56)
         return typebyte == datatypeTypeByte
@@ -606,7 +611,7 @@ public class PersistentTermIdentityMap: IdentityMap, Sequence {
         return min..<max
     }
 
-    private static func loadMaxIDs(from tree: Tree<Result,Element>, mediator: RMediator) -> (UInt64, UInt64, UInt64, UInt64) {
+    private static func loadMaxIDs(from tree: Tree<Result, Element>, mediator: RMediator) -> (UInt64, UInt64, UInt64, UInt64) {
         let mask        = UInt64(0x00ffffffffffffff)
         let blankMax    = (tree.maxKey(in: idRange(for: blankTypeByte)) ?? 0) & mask
         let iriMax      = (tree.maxKey(in: idRange(for: iriTypeByte)) ?? 0) & mask
@@ -616,6 +621,7 @@ public class PersistentTermIdentityMap: IdentityMap, Sequence {
         return (iri: iriMax+1, blank: blankMax+1, datatype: datatypeMax+1, langauge: languageMax+1)
     }
 
+    // swiftlint:disable:next variable_name
     public func term(for id: Result) -> Term? {
         if let term = self.i2tcache[id] {
             return term
@@ -698,6 +704,7 @@ public class PersistentTermIdentityMap: IdentityMap, Sequence {
 }
 
 extension PersistentTermIdentityMap {
+    // swiftlint:disable:next variable_name
     fileprivate func unpack(id: Result) -> Element? {
         let byte = id >> 56
         let value = id & 0x00ffffffffffffff
@@ -947,7 +954,7 @@ public struct IDQuad<T: DefinedTestable & Equatable & Comparable & BufferSeriali
 
     public var values: [T]
     public init(_ value0: T, _ value1: T, _ value2: T, _ value3: T) {
-        self.values = [value0,value1,value2,value3]
+        self.values = [value0, value1, value2, value3]
     }
 
     public subscript(index: Int) -> T {
@@ -998,7 +1005,7 @@ public struct IDQuad<T: DefinedTestable & Equatable & Comparable & BufferSeriali
     }
 
     public static func < <T>(lhs: IDQuad<T>, rhs: IDQuad<T>) -> Bool {
-        for (l,r) in zip(lhs.values, rhs.values) {
+        for (l, r) in zip(lhs.values, rhs.values) {
             if l < r {
                 return true
             } else if l > r {
@@ -1012,7 +1019,6 @@ public struct IDQuad<T: DefinedTestable & Equatable & Comparable & BufferSeriali
         return values.makeIterator()
     }
 }
-
 
 public protocol ResultProtocol: Hashable {
     associatedtype Element: Hashable
@@ -1050,7 +1056,7 @@ public struct TermResult: CustomStringConvertible, ResultProtocol {
             guard bindings[key] == rhs.bindings[key] else { return nil }
         }
         var b = bindings
-        for (k,v) in rhs.bindings {
+        for (k, v) in rhs.bindings {
             b[k] = v
         }
 
@@ -1136,7 +1142,7 @@ public struct IDResult: CustomStringConvertible, ResultProtocol {
             guard bindings[key] == rhs.bindings[key] else { return nil }
         }
         var b = bindings
-        for (k,v) in rhs.bindings {
+        for (k, v) in rhs.bindings {
             b[k] = v
         }
         return IDResult(bindings: b)
@@ -1184,8 +1190,8 @@ public struct IDResult: CustomStringConvertible, ResultProtocol {
 }
 
 open class LanguageQuadStore: QuadStore {
-    var acceptLanguages: [(String,Double)]
-    public init(mediator: RMediator, acceptLanguages: [(String,Double)], mutable: Bool = false) throws {
+    var acceptLanguages: [(String, Double)]
+    public init(mediator: RMediator, acceptLanguages: [(String, Double)], mutable: Bool = false) throws {
         self.acceptLanguages = acceptLanguages
         try super.init(mediator: mediator, mutable: mutable)
     }
@@ -1223,7 +1229,7 @@ open class LanguageQuadStore: QuadStore {
     }
     **/
 
-    internal func qValue(_ language: String, qualityValues: [(String,Double)]) -> Double {
+    internal func qValue(_ language: String, qualityValues: [(String, Double)]) -> Double {
         for (lang, value) in qualityValues {
             if language.hasPrefix(lang) {
                 return value
@@ -1237,7 +1243,7 @@ open class LanguageQuadStore: QuadStore {
         return 1.0
     }
 
-    private func accept(quad: Quad, languages: [(String,Double)]) -> Bool {
+    private func accept(quad: Quad, languages: [(String, Double)]) -> Bool {
         let object = quad.object
         switch object.type {
         case .language(let l):

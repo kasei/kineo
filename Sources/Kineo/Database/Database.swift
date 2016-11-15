@@ -57,7 +57,7 @@ public protocol Database {
     var pageSize: Int { get }
     var pageCount: Int { get }
     func read(cb callback: (ReadMediator) -> ()) throws
-    func update(version: Version, cb: (UpdateMediator) throws -> ()) throws
+    func update(version: Version, cb callback: (UpdateMediator) throws -> ()) throws
 }
 
 public class DatabaseInfo {

@@ -95,7 +95,7 @@ public final class FilePageDatabase: Database {
 
     public let pageSize: Int
     public var pageCount: Int
-    internal let fd: CInt
+    internal let fd: CInt // swiftlint:disable:this variable_name
     var nextPageId: Int
 
     public init?(_ filename: String, size preferredPageSize: Int = 4096) {
@@ -110,7 +110,7 @@ public final class FilePageDatabase: Database {
             pageSize = preferredPageSize
             let b = UnsafeMutableRawPointer.allocate(bytes: pageSize, alignedTo: 0)
             do {
-                let header = DatabaseHeaderPage(version: version, roots: [("sys",0)])
+                let header = DatabaseHeaderPage(version: version, roots: [("sys", 0)])
                 try header.serialize(to: b, status: .unassigned, pageSize: pageSize)
             } catch { return nil }
             guard pwrite(fd, b, pageSize, 0) != -1 else { return nil }
@@ -140,21 +140,21 @@ public final class FilePageDatabase: Database {
         nextPageId = pageCount
     }
 
-    public func read(cb: (ReadMediator) -> ()) throws {
+    public func read(cb callback: (ReadMediator) -> ()) throws {
         let r = FilePageRMediator(database: self)
         #if os (OSX)
-            autoreleasepool { cb(r) }
+            autoreleasepool { callback(r) }
         #else
-            cb(r)
+            callback(r)
         #endif
     }
 
-    public func update(version: Version, cb: (UpdateMediator) throws -> ()) throws {
+    public func update(version: Version, cb callback: (UpdateMediator) throws -> ()) throws {
         let w = FilePageRWMediator(database: self, version: version)
         #if os (OSX)
             let caughtError = autoreleasepool { () -> Error? in
                 do {
-                    try cb(w)
+                    try callback(w)
         //            print("need to commit \(w.pages.count) pages")
                     try w.commit()
                 } catch DatabaseUpdateError.rollback {
@@ -168,7 +168,7 @@ public final class FilePageDatabase: Database {
             }
         #else
             do {
-                try cb(w)
+                try callback(w)
                 //            print("need to commit \(w.pages.count) pages")
                 try w.commit()
             } catch DatabaseUpdateError.rollback {
@@ -247,11 +247,11 @@ open class FilePageRMediator: RMediator {
         }
     }
 
-    public func _pageBufferPointer(_ page: PageId, cb: (UnsafeMutableRawPointer) -> ()) throws {
+    public func _pageBufferPointer(_ page: PageId, cb callback: (UnsafeMutableRawPointer) -> ()) throws {
         let offset = off_t(pageSize * page)
         let sr = pread(database.fd, readBuffer, pageSize, offset)
         if sr == pageSize {
-            cb(readBuffer)
+            callback(readBuffer)
         } else {
             throw DatabaseError.DataError("Failed to read \(pageSize) bytes for page \(page)")
         }
