@@ -14,9 +14,9 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "37B8394A1D1DA34100BE718B"
-               BuildableName = "Kineo"
-               BlueprintName = "Kineo"
+               BlueprintIdentifier = "37559FA61DC9417600B103DD"
+               BuildableName = "kineo-parse"
+               BlueprintName = "kineo-parse"
                ReferencedContainer = "container:Kineo.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -32,9 +32,9 @@
       <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "37B8394A1D1DA34100BE718B"
-            BuildableName = "Kineo"
-            BlueprintName = "Kineo"
+            BlueprintIdentifier = "37559FA61DC9417600B103DD"
+            BuildableName = "kineo-parse"
+            BlueprintName = "kineo-parse"
             ReferencedContainer = "container:Kineo.xcodeproj">
          </BuildableReference>
       </MacroExpansion>
@@ -55,9 +55,9 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "37B8394A1D1DA34100BE718B"
-            BuildableName = "Kineo"
-            BlueprintName = "Kineo"
+            BlueprintIdentifier = "37559FA61DC9417600B103DD"
+            BuildableName = "kineo-parse"
+            BlueprintName = "kineo-parse"
             ReferencedContainer = "container:Kineo.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
@@ -74,9 +74,9 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "37B8394A1D1DA34100BE718B"
-            BuildableName = "Kineo"
-            BlueprintName = "Kineo"
+            BlueprintIdentifier = "37559FA61DC9417600B103DD"
+            BuildableName = "kineo-parse"
+            BlueprintName = "kineo-parse"
             ReferencedContainer = "container:Kineo.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
