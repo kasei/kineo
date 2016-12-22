@@ -14,10 +14,13 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
     var store: Q
     var defaultGraph: Term
     var freshVarNumber: Int
-    public init(store: Q, defaultGraph: Term) {
+    var verbose: Bool
+    
+    public init(store: Q, defaultGraph: Term, verbose: Bool = false) {
         self.store = store
         self.defaultGraph = defaultGraph
         self.freshVarNumber = 1
+        self.verbose = verbose
     }
 
     private func freshVariable() -> Node {
@@ -25,6 +28,225 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
         freshVarNumber += 1
         return .variable(".v\(n)", binding: true)
     }
+    
+    
+    public func evaluate(algebra: Algebra, activeGraph: Term) throws -> AnyIterator<TermResult> {
+        switch algebra {
+        // don't require access to the underlying store:
+        case .unionIdentity:
+            let results = [TermResult]()
+            return AnyIterator(results.makeIterator())
+        case .joinIdentity:
+            let results = [TermResult(bindings: [:])]
+            return AnyIterator(results.makeIterator())
+        case .table(_, let results):
+            return AnyIterator(results.makeIterator())
+        case .innerJoin(let lhs, let rhs):
+            return try self.evaluateJoin(lhs: lhs, rhs: rhs, left: false, activeGraph: activeGraph)
+        case .leftOuterJoin(let lhs, let rhs, let expr):
+            return try self.evaluateLeftJoin(lhs: lhs, rhs: rhs, expression: expr, activeGraph: activeGraph)
+        case .union(let lhs, let rhs):
+            return try self.evaluateUnion([lhs, rhs], activeGraph: activeGraph)
+        case .project(let child, let vars):
+            let i = try self.evaluate(algebra: child, activeGraph: activeGraph)
+            return AnyIterator {
+                guard let result = i.next() else { return nil }
+                return result.projected(variables: vars)
+            }
+        case .slice(let child, let offset, let limit):
+            let i = try self.evaluate(algebra: child, activeGraph: activeGraph)
+            if let offset = offset {
+                for _ in 0..<offset {
+                    _ = i.next()
+                }
+            }
+            
+            if let limit = limit {
+                var seen = 0
+                return AnyIterator {
+                    guard seen < limit else { return nil }
+                    guard let item = i.next() else { return nil }
+                    seen += 1
+                    return item
+                }
+            } else {
+                return i
+            }
+        case .extend(let child, let expr, let name):
+            let i = try self.evaluate(algebra: child, activeGraph: activeGraph)
+            
+            if expr.isNumeric {
+                return AnyIterator {
+                    guard var result = i.next() else { return nil }
+                    do {
+                        let num = try expr.numericEvaluate(result: result)
+                        result.extend(variable: name, value: num.term)
+                    } catch let err {
+                        if self.verbose {
+                            print(err)
+                        }
+                    }
+                    return result
+                }
+            } else {
+                return AnyIterator {
+                    guard var result = i.next() else { return nil }
+                    do {
+                        let term = try expr.evaluate(result: result)
+                        result.extend(variable: name, value: term)
+                    } catch let err {
+                        if self.verbose {
+                            print(err)
+                        }
+                    }
+                    return result
+                }
+            }
+        case .order(let child, let orders):
+            let results = try Array(self.evaluate(algebra: child, activeGraph: activeGraph))
+            let s = _sortResults(results, comparators: orders)
+            return AnyIterator(s.makeIterator())
+        case .aggregate(let child, let groups, let aggs):
+            if aggs.count == 1 {
+                let (agg, name) = aggs[0]
+                switch agg {
+                case .sum(_, false), .count(_, false), .countAll, .avg(_, false), .min(_), .max(_), .groupConcat(_, _, false), .sample(_):
+                    return try evaluateSinglePipelinedAggregation(algebra: child, groups: groups, aggregation: agg, variable: name, activeGraph: activeGraph)
+                default:
+                    break
+                }
+            }
+            return try evaluateAggregation(algebra: child, groups: groups, aggregations: aggs, activeGraph: activeGraph)
+        case .window(let child, let groups, let funcs):
+            return try evaluateWindow(algebra: child, groups: groups, functions: funcs, activeGraph: activeGraph)
+        case .filter(let child, let expr):
+            let i = try self.evaluate(algebra: child, activeGraph: activeGraph)
+            return AnyIterator {
+                repeat {
+                    guard let result = i.next() else { return nil }
+                    do {
+                        let term = try expr.evaluate(result: result)
+                        if case .some(true) = try? term.ebv() {
+                            return result
+                        }
+                    } catch let err {
+                        if self.verbose {
+                            print(err)
+                        }
+                    }
+                } while true
+            }
+        case .distinct(let child):
+            let i = try self.evaluate(algebra: child, activeGraph: activeGraph)
+            var seen = Set<TermResult>()
+            return AnyIterator {
+                repeat {
+                    guard let result = i.next() else { return nil }
+                    guard !seen.contains(result) else { continue }
+                    seen.insert(result)
+                    return result
+                } while true
+            }
+        case .bgp(_), .minus(_, _), .describe(_), .ask(_), .construct(_), .service(_):
+            fatalError("Unimplemented: \(algebra)")
+        case .namedGraph(let child, .bound(let g)):
+            return try evaluate(algebra: child, activeGraph: g)
+        case .triple(let t):
+            let quad = QuadPattern(subject: t.subject, predicate: t.predicate, object: t.object, graph: .bound(activeGraph))
+            return try evaluate(algebra: .quad(quad), activeGraph: activeGraph)
+
+            
+        // requires access to the underlying store:
+        case .quad(let quad):
+            return try store.results(matching: quad)
+        case .path(let s, let path, let o):
+            return try evaluatePath(subject: s, object: o, graph: .bound(activeGraph), path: path)
+        case .namedGraph(let child, let graph):
+            guard case .variable(let gv, let bind) = graph else { fatalError("Unexpected node found where variable required") }
+            var iters = try store.graphs().filter { $0 != defaultGraph }.map { ($0, try evaluate(algebra: child, activeGraph: $0)) }
+            return AnyIterator {
+                repeat {
+                    if iters.count == 0 {
+                        return nil
+                    }
+                    let (graph, i) = iters[0]
+                    guard var result = i.next() else { iters.remove(at: 0); continue }
+                    if bind {
+                        result.extend(variable: gv, value: graph)
+                    }
+                    return result
+                } while true
+            }
+        }
+    }
+    
+    public func effectiveVersion(matching algebra: Algebra, activeGraph: Term) throws -> Version? {
+        switch algebra {
+        // don't require access to the underlying store:
+        case .joinIdentity, .unionIdentity:
+            return 0
+        case .table(_, _):
+            return 0
+        case .innerJoin(let lhs, let rhs), .leftOuterJoin(let lhs, let rhs, _), .union(let lhs, let rhs), .minus(let lhs, let rhs):
+            guard let lhsmtime = try effectiveVersion(matching: lhs, activeGraph: activeGraph) else { return nil }
+            guard let rhsmtime = try effectiveVersion(matching: rhs, activeGraph: activeGraph) else { return lhsmtime }
+            return max(lhsmtime, rhsmtime)
+        case .namedGraph(let child, let graph):
+            if case .bound(let g) = graph {
+                return try effectiveVersion(matching: child, activeGraph: g)
+            } else {
+                fatalError("Unimplemented: effectiveVersion(.namedGraph(_), )")
+            }
+        case .distinct(let child), .project(let child, _), .slice(let child, _, _), .extend(let child, _, _), .order(let child, _), .filter(let child, _), .ask(let child):
+            return try effectiveVersion(matching: child, activeGraph: activeGraph)
+        case .aggregate(let child, _, _):
+            return try effectiveVersion(matching: child, activeGraph: activeGraph)
+        case .window(let child, _, _):
+            return try effectiveVersion(matching: child, activeGraph: activeGraph)
+        case .service(_):
+            return nil
+        case .triple(let t):
+            let quad = QuadPattern(subject: t.subject, predicate: t.predicate, object: t.object, graph: .bound(activeGraph))
+            return try effectiveVersion(matching: .quad(quad), activeGraph: activeGraph)
+            
+            
+        // requires access to the underlying store:
+        case .path(_, _, _):
+            let s: Node = .variable("s", binding: true)
+            let p: Node = .variable("p", binding: true)
+            let o: Node = .variable("o", binding: true)
+            let quad = QuadPattern(subject: s, predicate: p, object: o, graph: .bound(activeGraph))
+            return try store.effectiveVersion(matching: quad)
+        case .quad(let quad):
+            return try store.effectiveVersion(matching: quad)
+        case .describe(let child, let nodes):
+            guard var mtime = try effectiveVersion(matching: child, activeGraph: activeGraph) else { return nil }
+            for node in nodes {
+                let quad = QuadPattern(subject: node, predicate: .variable("p", binding: true), object: .variable("o", binding: true), graph: .bound(activeGraph))
+                guard let qmtime = try store.effectiveVersion(matching: quad) else { return nil }
+                mtime = max(mtime, qmtime)
+            }
+            return mtime
+        case .construct(let child, let triples):
+            let quads = triples.map { QuadPattern(subject: $0.subject, predicate: $0.predicate, object: $0.object, graph: .bound(activeGraph)) }
+            let mtimes = try quads.map { try store.effectiveVersion(matching: $0) }.flatMap { $0 } // TODO: nil should propogate outwards, instead of being dropped by flatMap
+            guard let mtime = try effectiveVersion(matching: child, activeGraph: activeGraph) else { return nil }
+            return mtimes.reduce(mtime) { max($0, $1) }
+        case .bgp(let children):
+            guard children.count > 0 else { return nil }
+            var mtime: Version = 0
+            for t in children {
+                let quad = QuadPattern(subject: t.subject, predicate: t.predicate, object: t.object, graph: .bound(activeGraph))
+                guard let triplemtime = try store.effectiveVersion(matching: quad) else { continue }
+                mtime = max(mtime, triplemtime)
+            }
+            return mtime
+        }
+    }
+    
+    
+    
+    
     func evaluateUnion(_ patterns: [Algebra], activeGraph: Term) throws -> AnyIterator<TermResult> {
         var iters = try patterns.map { try self.evaluate(algebra: $0, activeGraph: activeGraph) }
         return AnyIterator {
@@ -81,9 +303,14 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
         return AnyIterator {
             repeat {
                 guard let result = i.next() else { return nil }
-                if let term = try? expr.evaluate(result: result) {
+                do {
+                    let term = try expr.evaluate(result: result)
                     if case .some(true) = try? term.ebv() {
                         return result
+                    }
+                } catch let err {
+                    if self.verbose {
+                        print(err)
                     }
                 }
             } while true
@@ -98,8 +325,13 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
         } else {
             var count = 0
             for result in results {
-                if let _ = try? keyExpr.evaluate(result: result) {
+                do {
+                    let _ = try keyExpr.evaluate(result: result)
                     count += 1
+                } catch let err {
+                    if self.verbose {
+                        print(err)
+                    }
                 }
             }
             return Term(integer: count)
@@ -614,200 +846,6 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
         }
         return s
     }
-
-    public func evaluate(algebra: Algebra, activeGraph: Term) throws -> AnyIterator<TermResult> {
-        switch algebra {
-        case .unionIdentity:
-            let results = [TermResult]()
-            return AnyIterator(results.makeIterator())
-        case .joinIdentity:
-            let results = [TermResult(bindings: [:])]
-            return AnyIterator(results.makeIterator())
-        case .table(_, let results):
-            return AnyIterator(results.makeIterator())
-        case .triple(let t):
-            let quad = QuadPattern(subject: t.subject, predicate: t.predicate, object: t.object, graph: .bound(activeGraph))
-            return try store.results(matching: quad)
-        case .quad(let quad):
-            return try store.results(matching: quad)
-        case .innerJoin(let lhs, let rhs):
-            return try self.evaluateJoin(lhs: lhs, rhs: rhs, left: false, activeGraph: activeGraph)
-        case .leftOuterJoin(let lhs, let rhs, let expr):
-            return try self.evaluateLeftJoin(lhs: lhs, rhs: rhs, expression: expr, activeGraph: activeGraph)
-        case .union(let lhs, let rhs):
-            return try self.evaluateUnion([lhs, rhs], activeGraph: activeGraph)
-        case .project(let child, let vars):
-            let i = try self.evaluate(algebra: child, activeGraph: activeGraph)
-            return AnyIterator {
-                guard let result = i.next() else { return nil }
-                return result.projected(variables: vars)
-            }
-        case .namedGraph(let child, let graph):
-            if case .bound(let g) = graph {
-                return try evaluate(algebra: child, activeGraph: g)
-            } else {
-                guard case .variable(let gv, let bind) = graph else { fatalError("Unexpected node found where variable required") }
-                var iters = try store.graphs().filter { $0 != defaultGraph }.map { ($0, try evaluate(algebra: child, activeGraph: $0)) }
-                return AnyIterator {
-                    repeat {
-                        if iters.count == 0 {
-                            return nil
-                        }
-                        let (graph, i) = iters[0]
-                        guard var result = i.next() else { iters.remove(at: 0); continue }
-                        if bind {
-                            result.extend(variable: gv, value: graph)
-                        }
-                        return result
-                    } while true
-                }
-            }
-        case .slice(let child, let offset, let limit):
-            let i = try self.evaluate(algebra: child, activeGraph: activeGraph)
-            if let offset = offset {
-                for _ in 0..<offset {
-                    _ = i.next()
-                }
-            }
-
-            if let limit = limit {
-                var seen = 0
-                return AnyIterator {
-                    guard seen < limit else { return nil }
-                    guard let item = i.next() else { return nil }
-                    seen += 1
-                    return item
-                }
-            } else {
-                return i
-            }
-        case .extend(let child, let expr, let name):
-            let i = try self.evaluate(algebra: child, activeGraph: activeGraph)
-
-            if expr.isNumeric {
-                return AnyIterator {
-                    guard var result = i.next() else { return nil }
-                    if let num = try? expr.numericEvaluate(result: result) {
-                        result.extend(variable: name, value: num.term)
-                    }
-                    return result
-                }
-            } else {
-                return AnyIterator {
-                    guard var result = i.next() else { return nil }
-                    if let term = try? expr.evaluate(result: result) {
-                        result.extend(variable: name, value: term)
-                    }
-                    return result
-                }
-            }
-        case .order(let child, let orders):
-            let results = try Array(self.evaluate(algebra: child, activeGraph: activeGraph))
-            let s = _sortResults(results, comparators: orders)
-            return AnyIterator(s.makeIterator())
-        case .aggregate(let child, let groups, let aggs):
-            if aggs.count == 1 {
-                let (agg, name) = aggs[0]
-                switch agg {
-                case .sum(_, false), .count(_, false), .countAll, .avg(_, false), .min(_), .max(_), .groupConcat(_, _, false), .sample(_):
-                    return try evaluateSinglePipelinedAggregation(algebra: child, groups: groups, aggregation: agg, variable: name, activeGraph: activeGraph)
-                default:
-                    break
-                }
-            }
-            return try evaluateAggregation(algebra: child, groups: groups, aggregations: aggs, activeGraph: activeGraph)
-        case .window(let child, let groups, let funcs):
-            return try evaluateWindow(algebra: child, groups: groups, functions: funcs, activeGraph: activeGraph)
-        case .filter(let child, let expr):
-            let i = try self.evaluate(algebra: child, activeGraph: activeGraph)
-            return AnyIterator {
-                repeat {
-                    guard let result = i.next() else { return nil }
-                    if let term = try? expr.evaluate(result: result) {
-                        if case .some(true) = try? term.ebv() {
-                            return result
-                        }
-                    }
-                } while true
-            }
-        case .path(let s, let path, let o):
-            return try evaluatePath(subject: s, object: o, graph: .bound(activeGraph), path: path)
-        case .distinct(let child):
-            let i = try self.evaluate(algebra: child, activeGraph: activeGraph)
-            var seen = Set<TermResult>()
-            return AnyIterator {
-                repeat {
-                    guard let result = i.next() else { return nil }
-                    guard !seen.contains(result) else { continue }
-                    seen.insert(result)
-                    return result
-                } while true
-            }
-        case .bgp(_), .minus(_, _), .describe(_), .ask(_), .construct(_), .service(_):
-            fatalError("Unimplemented: \(algebra)")
-        }
-    }
-
-    public func effectiveVersion(matching algebra: Algebra, activeGraph: Term) throws -> Version? {
-        switch algebra {
-        case .joinIdentity, .unionIdentity:
-            return 0
-        case .table(_, _):
-            return 0
-        case .path(_, _, _):
-            let s: Node = .variable("s", binding: true)
-            let p: Node = .variable("p", binding: true)
-            let o: Node = .variable("o", binding: true)
-            let quad = QuadPattern(subject: s, predicate: p, object: o, graph: .bound(activeGraph))
-            return try store.effectiveVersion(matching: quad)
-        case .triple(let t):
-            let quad = QuadPattern(subject: t.subject, predicate: t.predicate, object: t.object, graph: .bound(activeGraph))
-            return try store.effectiveVersion(matching: quad)
-        case .quad(let quad):
-            return try store.effectiveVersion(matching: quad)
-        case .describe(let child, let nodes):
-            guard var mtime = try effectiveVersion(matching: child, activeGraph: activeGraph) else { return nil }
-            for node in nodes {
-                let quad = QuadPattern(subject: node, predicate: .variable("p", binding: true), object: .variable("o", binding: true), graph: .bound(activeGraph))
-                guard let qmtime = try store.effectiveVersion(matching: quad) else { return nil }
-                mtime = max(mtime, qmtime)
-            }
-            return mtime
-        case .construct(let child, let triples):
-            let quads = triples.map { QuadPattern(subject: $0.subject, predicate: $0.predicate, object: $0.object, graph: .bound(activeGraph)) }
-            let mtimes = try quads.map { try store.effectiveVersion(matching: $0) }.flatMap { $0 } // TODO: nil should propogate outwards, instead of being dropped by flatMap
-            guard let mtime = try effectiveVersion(matching: child, activeGraph: activeGraph) else { return nil }
-            return mtimes.reduce(mtime) { max($0, $1) }
-        case .innerJoin(let lhs, let rhs), .leftOuterJoin(let lhs, let rhs, _), .union(let lhs, let rhs), .minus(let lhs, let rhs):
-            guard let lhsmtime = try effectiveVersion(matching: lhs, activeGraph: activeGraph) else { return nil }
-            guard let rhsmtime = try effectiveVersion(matching: rhs, activeGraph: activeGraph) else { return lhsmtime }
-            return max(lhsmtime, rhsmtime)
-        case .namedGraph(let child, let graph):
-            if case .bound(let g) = graph {
-                return try effectiveVersion(matching: child, activeGraph: g)
-            } else {
-                fatalError("Unimplemented: effectiveVersion(.namedGraph(_), )")
-            }
-        case .distinct(let child), .project(let child, _), .slice(let child, _, _), .extend(let child, _, _), .order(let child, _), .filter(let child, _), .ask(let child):
-            return try effectiveVersion(matching: child, activeGraph: activeGraph)
-        case .aggregate(let child, _, _):
-            return try effectiveVersion(matching: child, activeGraph: activeGraph)
-        case .window(let child, _, _):
-            return try effectiveVersion(matching: child, activeGraph: activeGraph)
-        case .bgp(let children):
-            guard children.count > 0 else { return nil }
-            var mtime: Version = 0
-            for t in children {
-                let quad = QuadPattern(subject: t.subject, predicate: t.predicate, object: t.object, graph: .bound(activeGraph))
-                guard let triplemtime = try store.effectiveVersion(matching: quad) else { continue }
-                mtime = max(mtime, triplemtime)
-            }
-            return mtime
-        case .service(_):
-            return nil
-        }
-    }
-
 }
 
 public func pipelinedHashJoin<R: ResultProtocol>(joinVariables: [String], lhs: AnyIterator<R>, rhs: AnyIterator<R>, left: Bool = false) -> AnyIterator<R> {
