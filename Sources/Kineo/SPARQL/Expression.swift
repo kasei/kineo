@@ -407,7 +407,34 @@ public indirect enum Expression: CustomStringConvertible {
         case .call(let iri, let exprs):
             let terms = exprs.map { try? $0.evaluate(result: result) }
             switch iri {
-            case "CONTAINS", "STRSTARTS", "STRENDS", "STRBEFORE", "STRAFTER":
+            case "CONCAT":
+                var types = Set<TermType>()
+                var string = ""
+                for term in terms.flatMap({ $0 }) {
+                    types.insert(term.type)
+                    string.append(term.value)
+                }
+                if types.count == 1 {
+                    return Term(value: string, type: types.first!)
+                } else {
+                    return Term(string: string)
+                }
+            case "STRLEN", "LCASE", "UCASE", "ENCODE_FOR_URI":
+                guard terms.count == 1 else { throw QueryError.evaluationError("Wrong argument count for \(iri) call") }
+                guard let string = terms[0] else { throw QueryError.evaluationError("Not all arguments are bound in \(iri) call") }
+                if iri == "STRLEN" {
+                    return Term(integer: string.value.characters.count)
+                } else if iri == "LCASE" {
+                    return Term(value: string.value.lowercased(), type: string.type)
+                } else if iri == "UCASE" {
+                    return Term(value: string.value.uppercased(), type: string.type)
+                } else if iri == "ENCODE_FOR_URI" {
+                    guard let encoded = string.value.addingPercentEncoding(withAllowedCharacters: CharacterSet.urlQueryAllowed) else {
+                        throw QueryError.evaluationError("Failed to encode string as a URI")
+                    }
+                    return Term(string: encoded)
+                }
+            case "CONTAINS", "STRSTARTS", "STRENDS", "STRBEFORE", "STRAFTER", "LANGMATCHES":
                 guard terms.count == 2 else { throw QueryError.evaluationError("Wrong argument count for \(iri) call") }
                 guard let string = terms[0], let pattern = terms[1] else { throw QueryError.evaluationError("Not all arguments are bound in \(iri) call") }
                 if iri == "CONTAINS" {
@@ -432,7 +459,20 @@ public indirect enum Expression: CustomStringConvertible {
                     } else {
                         return Term(string: "")
                     }
+                } else if iri == "LANGMATCHES" {
+                    if pattern.value == "*" {
+                        return Term(boolean: string.value.characters.count > 0 ? true : false)
+                    } else {
+                        return Term(boolean: string.value.lowercased().hasPrefix(pattern.value.lowercased()))
+                    }
                 }
+            case "REPLACE":
+                guard (3...4).contains(terms.count) else { throw QueryError.evaluationError("Wrong argument count for \(iri) call") }
+                guard let string = terms[0], let pattern = terms[1], let replacement = terms[2] else { throw QueryError.evaluationError("Not all arguments are bound in \(iri) call") }
+                let flags = Set((terms.count == 4 ? (terms[3]?.value ?? "") : "").characters)
+                let options : String.CompareOptions = flags.contains("i") ? .caseInsensitive : .literal
+                let value = string.value.replacingOccurrences(of: pattern.value, with: replacement.value, options: options)
+                return Term(value: value, type: string.type)
             default:
                 throw QueryError.evaluationError("Failed to evaluate CALL(<\(iri)>(\(exprs)) with result \(result)")
             }
