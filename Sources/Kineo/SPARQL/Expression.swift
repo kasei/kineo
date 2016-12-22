@@ -405,8 +405,34 @@ public indirect enum Expression: CustomStringConvertible {
             guard let n = term.numeric else { throw QueryError.typeError("Cannot coerce term to a numeric value") }
             return Term(float: n.value)
         case .call(let iri, let exprs):
-//            let terms = try exprs.map { try $0.evaluate(result: result) }
+            let terms = exprs.map { try? $0.evaluate(result: result) }
             switch iri {
+            case "CONTAINS", "STRSTARTS", "STRENDS", "STRBEFORE", "STRAFTER":
+                guard terms.count == 2 else { throw QueryError.evaluationError("Wrong argument count for \(iri) call") }
+                guard let string = terms[0], let pattern = terms[1] else { throw QueryError.evaluationError("Not all arguments are bound in \(iri) call") }
+                if iri == "CONTAINS" {
+                    return Term(boolean: string.value.contains(pattern.value))
+                } else if iri == "STRSTARTS" {
+                    return Term(boolean: string.value.hasPrefix(pattern.value))
+                } else if iri == "STRENDS" {
+                    return Term(boolean: string.value.hasSuffix(pattern.value))
+                } else if iri == "STRBEFORE" {
+                    if let range = string.value.range(of: pattern.value) {
+                        let index = range.lowerBound
+                        let prefix = string.value.substring(to: index)
+                        return Term(value: prefix, type: string.type)
+                    } else {
+                        return Term(string: "")
+                    }
+                } else if iri == "STRAFTER" {
+                    if let range = string.value.range(of: pattern.value) {
+                        let index = string.value.index(after: range.upperBound)
+                        let suffix = string.value.substring(to: index)
+                        return Term(value: suffix, type: string.type)
+                    } else {
+                        return Term(string: "")
+                    }
+                }
             default:
                 throw QueryError.evaluationError("Failed to evaluate CALL(<\(iri)>(\(exprs)) with result \(result)")
             }

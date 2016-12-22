@@ -388,7 +388,17 @@ public struct Term: CustomStringConvertible {
         self.value  = value
         self.type   = type
     }
-
+    
+    public init(string value: String) {
+        self.value  = value
+        self.type   = .datatype("http://www.w3.org/2001/XMLSchema#string")
+    }
+    
+    public init(boolean value: Bool) {
+        self.value = value ? "true" : "false"
+        self.type = .datatype("http://www.w3.org/2001/XMLSchema#boolean")
+    }
+    
     public init(integer value: Int) {
         self.value = "\(value)"
         self.type = .datatype("http://www.w3.org/2001/XMLSchema#integer")
@@ -539,9 +549,6 @@ extension Term: Comparable {
         }
         switch (lhs.type, rhs.type) {
         case (let a, let b) where a == b:
-            if lhs.isNumeric {
-                return lhs.numericValue < rhs.numericValue
-            }
             return lhs.value < rhs.value
         case (.blank, _):
             return true
