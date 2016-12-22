@@ -426,8 +426,8 @@ public indirect enum Expression: CustomStringConvertible {
                     }
                 } else if iri == "STRAFTER" {
                     if let range = string.value.range(of: pattern.value) {
-                        let index = string.value.index(after: range.upperBound)
-                        let suffix = string.value.substring(to: index)
+                        let index = range.upperBound
+                        let suffix = string.value.substring(from: index)
                         return Term(value: suffix, type: string.type)
                     } else {
                         return Term(string: "")
