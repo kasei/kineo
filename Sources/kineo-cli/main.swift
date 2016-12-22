@@ -20,6 +20,55 @@ func setup(_ database: FilePageDatabase, startTime: UInt64) throws {
     }
 }
 
+func sortParse(files: [String], startTime: UInt64, graph defaultGraphTerm: Term? = nil) throws -> (Int, [Int:Term]) {
+    var count   = 0
+    var blanks = Set<Term>()
+    var iris = Set<Term>()
+    var literals = Set<Term>()
+    for filename in files {
+        #if os (OSX)
+            guard let path = NSURL(fileURLWithPath: filename).absoluteString else { throw DatabaseError.DataError("Not a valid graph path: \(filename)") }
+        #else
+            let path = NSURL(fileURLWithPath: filename).absoluteString
+        #endif
+        let graph   = defaultGraphTerm ?? Term(value: path, type: .iri)
+
+        iris.insert(graph)
+        
+        let reader  = FileReader(filename: filename)
+        let parser  = NTriplesParser(reader: reader)
+        for triple in parser {
+            count += 1
+            for term in triple {
+                switch term.type {
+                case .iri:
+                    iris.insert(term)
+                case .blank:
+                    blanks.insert(term)
+                default:
+                    literals.insert(term)
+                }
+            }
+        }
+        warn("\r\(count) triples parsed")
+    }
+    
+    let blanksCount = blanks.count
+    let irisAndBlanksCount = iris.count + blanksCount
+
+    var mapping = [Int:Term]()
+    for (i, term) in blanks.enumerated() { // blanks don't have inherent ordering amongst themselves
+        mapping[i] = term
+    }
+    for (i, term) in iris.sorted().enumerated() {
+        mapping[i + blanksCount] = term
+    }
+    for (i, term) in literals.sorted().enumerated() {
+        mapping[i + irisAndBlanksCount] = term
+    }
+    return (count, mapping)
+}
+
 func parse(_ database: FilePageDatabase, files: [String], startTime: UInt64, graph defaultGraphTerm: Term? = nil) throws -> Int {
     var count   = 0
     let version = Version(startTime)
@@ -117,7 +166,7 @@ func query(_ database: FilePageDatabase, algebra query: Algebra, graph: Term? = 
                 defaultGraph = g
                 warn("Using default graph \(defaultGraph)")
             }
-            let e           = SimpleQueryEvaluator(store: store, defaultGraph: defaultGraph)
+            let e           = SimpleQueryEvaluator(store: store, defaultGraph: defaultGraph, verbose: verbose)
             if let mtime = try e.effectiveVersion(matching: query, activeGraph: defaultGraph) {
                 let date = getDateString(seconds: mtime)
                 if verbose {
@@ -251,6 +300,7 @@ var pageSize = 8192
 guard argscount >= 2 else {
     print("Usage: \(pname) [-v] database.db COMMAND [ARGUMENTS]")
     print("       \(pname) database.db load [-g GRAPH-IRI] rdf.nt ...")
+    print("       \(pname) database.db sort [-g GRAPH-IRI] rdf.nt")
     print("       \(pname) database.db query [-g DEFAULT-GRAPH-IRI] query.q")
     print("       \(pname) database.db sparql query.rq")
     print("       \(pname) database.db parse query.rq")
@@ -286,6 +336,21 @@ if let op = args.next() {
         }
 
         count = try parse(database, files: args.elements(), startTime: startSecond, graph: graph)
+    } else if op == "sort" {
+        var graph: Term? = nil
+        if let next = args.peek(), next == "-g" {
+            _ = args.next()
+            guard let iri = args.next() else { fatalError("No IRI value given after -g") }
+            graph = Term(value: iri, type: .iri)
+        }
+
+        let (c, terms) = try sortParse(files: args.elements(), startTime: startSecond, graph: graph)
+        for i in terms.keys.sorted() {
+            if let term = terms[i] {
+                print("\(i)\t\(term)")
+            }
+        }
+        count = c
     } else if op == "graphs" {
         count = try graphs(database)
     } else if op == "indexes" {
