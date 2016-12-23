@@ -231,6 +231,173 @@ public indirect enum Expression: CustomStringConvertible {
         }
     }
 
+    private func evaluate(constructor iri: String, terms: [Term?]) throws -> Term {
+        switch iri {
+        case "STR":
+            guard terms.count == 1 else { throw QueryError.evaluationError("Wrong argument count for \(iri) call") }
+            guard let string = terms[0] else { throw QueryError.evaluationError("Not all arguments are bound in \(iri) call") }
+            return Term(string: string.value)
+        case "URI", "IRI":
+            guard terms.count == 1 else { throw QueryError.evaluationError("Wrong argument count for \(iri) call") }
+            guard let string = terms[0] else { throw QueryError.evaluationError("Not all arguments are bound in \(iri) call") }
+            return Term(value: string.value, type: .iri)
+        case "BNODE":
+            guard terms.count <= 1 else { throw QueryError.evaluationError("Wrong argument count for \(iri) call") }
+            if terms.count == 1 {
+                fatalError("TODO: implement per-solution-mapping BNODE(label) constructor")
+            } else {
+                let id = NSUUID().uuidString
+                return Term(value: id, type: .blank)
+            }
+            guard let string = terms[0] else { throw QueryError.evaluationError("Not all arguments are bound in \(iri) call") }
+            return Term(value: string.value, type: .iri)
+        case "STRDT":
+            guard terms.count == 2 else { throw QueryError.evaluationError("Wrong argument count for \(iri) call") }
+            guard let string = terms[0], let datatype = terms[1] else { throw QueryError.evaluationError("Not all arguments are bound in \(iri) call") }
+            return Term(value: string.value, type: .datatype(datatype.value))
+        case "STRLANG":
+            guard terms.count == 2 else { throw QueryError.evaluationError("Wrong argument count for \(iri) call") }
+            guard let string = terms[0], let lang = terms[1] else { throw QueryError.evaluationError("Not all arguments are bound in \(iri) call") }
+            return Term(value: string.value, type: .language(lang.value))
+        case "UUID":
+            guard terms.count == 0 else { throw QueryError.evaluationError("Wrong argument count for \(iri) call") }
+            let id = NSUUID().uuidString.lowercased()
+            return Term(value: "urn:uuid:\(id)", type: .iri)
+        case "STRUUID":
+            guard terms.count == 0 else { throw QueryError.evaluationError("Wrong argument count for \(iri) call") }
+            let id = NSUUID().uuidString.lowercased()
+            return Term(string: id)
+        default:
+            break
+        }
+        throw QueryError.evaluationError("Unrecognized constructor function: \(iri)")
+    }
+    
+    private func evaluate(stringFunction iri: String, terms: [Term?]) throws -> Term {
+        switch iri {
+        case "CONCAT":
+            var types = Set<TermType>()
+            var string = ""
+            for term in terms.flatMap({ $0 }) {
+                types.insert(term.type)
+                string.append(term.value)
+            }
+            if types.count == 1 {
+                return Term(value: string, type: types.first!)
+            } else {
+                return Term(string: string)
+            }
+        case "STR", "STRLEN", "LCASE", "UCASE", "ENCODE_FOR_URI", "LANG", "DATATYPE":
+            guard terms.count == 1 else { throw QueryError.evaluationError("Wrong argument count for \(iri) call") }
+            guard let string = terms[0] else { throw QueryError.evaluationError("Not all arguments are bound in \(iri) call") }
+            if iri == "STR" {
+                return Term(string: string.value)
+            } else if iri == "STRLEN" {
+                return Term(integer: string.value.characters.count)
+            } else if iri == "LCASE" {
+                return Term(value: string.value.lowercased(), type: string.type)
+            } else if iri == "UCASE" {
+                return Term(value: string.value.uppercased(), type: string.type)
+            } else if iri == "LANG" {
+                if case .language(let l) = string.type {
+                    return Term(string: l)
+                } else {
+                    return Term(string: "")
+                }
+            } else if iri == "DATATYPE" {
+                if case .datatype(let d) = string.type {
+                    return Term(value: d, type: .iri)
+                } else {
+                    throw QueryError.evaluationError("DATATYPE called on on a non-datatyped term")
+                }
+            } else if iri == "ENCODE_FOR_URI" {
+                guard let encoded = string.value.addingPercentEncoding(withAllowedCharacters: CharacterSet.urlQueryAllowed) else {
+                    throw QueryError.evaluationError("Failed to encode string as a URI")
+                }
+                return Term(string: encoded)
+            }
+        case "CONTAINS", "STRSTARTS", "STRENDS", "STRBEFORE", "STRAFTER", "LANGMATCHES":
+            guard terms.count == 2 else { throw QueryError.evaluationError("Wrong argument count for \(iri) call") }
+            guard let string = terms[0], let pattern = terms[1] else { throw QueryError.evaluationError("Not all arguments are bound in \(iri) call") }
+            if iri == "CONTAINS" {
+                return Term(boolean: string.value.contains(pattern.value))
+            } else if iri == "STRSTARTS" {
+                return Term(boolean: string.value.hasPrefix(pattern.value))
+            } else if iri == "STRENDS" {
+                return Term(boolean: string.value.hasSuffix(pattern.value))
+            } else if iri == "STRBEFORE" {
+                if let range = string.value.range(of: pattern.value) {
+                    let index = range.lowerBound
+                    let prefix = string.value.substring(to: index)
+                    return Term(value: prefix, type: string.type)
+                } else {
+                    return Term(string: "")
+                }
+            } else if iri == "STRAFTER" {
+                if let range = string.value.range(of: pattern.value) {
+                    let index = range.upperBound
+                    let suffix = string.value.substring(from: index)
+                    return Term(value: suffix, type: string.type)
+                } else {
+                    return Term(string: "")
+                }
+            } else if iri == "LANGMATCHES" {
+                if pattern.value == "*" {
+                    return Term(boolean: string.value.characters.count > 0 ? true : false)
+                } else {
+                    return Term(boolean: string.value.lowercased().hasPrefix(pattern.value.lowercased()))
+                }
+            }
+        case "REPLACE":
+            guard (3...4).contains(terms.count) else { throw QueryError.evaluationError("Wrong argument count for \(iri) call") }
+            guard let string = terms[0], let pattern = terms[1], let replacement = terms[2] else { throw QueryError.evaluationError("Not all arguments are bound in \(iri) call") }
+            let flags = Set((terms.count == 4 ? (terms[3]?.value ?? "") : "").characters)
+            let options : String.CompareOptions = flags.contains("i") ? .caseInsensitive : .literal
+            let value = string.value.replacingOccurrences(of: pattern.value, with: replacement.value, options: options)
+            return Term(value: value, type: string.type)
+        case "REGEX":
+            guard (2...3).contains(terms.count) else { throw QueryError.evaluationError("Wrong argument count for \(iri) call") }
+            guard let string = terms[0], let pattern = terms[1] else { throw QueryError.evaluationError("Not all arguments are bound in \(iri) call") }
+            let flags = Set((terms.count == 3 ? (terms[2]?.value ?? "") : "").characters)
+            let options : NSRegularExpression.Options = flags.contains("i") ? .caseInsensitive : []
+            let regex = try NSRegularExpression(pattern: pattern.value, options: options)
+            let s = string.value
+            let range = NSRange(location: 0, length: s.utf16.count)
+            return Term(boolean: regex.numberOfMatches(in: s, options: [], range: range) > 0)
+        default:
+            break
+        }
+        throw QueryError.evaluationError("Unrecognized string function: \(iri)")
+    }
+    
+    private func evaluate(numericFunction iri: String, terms: [Term?]) throws -> Term {
+        switch iri {
+        case "RAND":
+            let v = Double(arc4random()) / Double(UINT32_MAX)
+            return Term(double: v)
+        case "ABS", "ROUND", "CEIL", "FLOOR":
+            guard terms.count == 1 else { throw QueryError.evaluationError("Wrong argument count for \(iri) call") }
+            guard let term = terms[0] else { throw QueryError.evaluationError("Not all arguments are bound in \(iri) call") }
+            guard term.isNumeric else { throw QueryError.evaluationError("Arguments is not numeric in \(iri) call") }
+            guard let numeric = term.numeric else { throw QueryError.evaluationError("Arguments is not numeric in \(iri) call") }
+            switch iri {
+            case "ABS":
+                return numeric.absoluteValue.term
+            case "ROUND":
+                return numeric.round.term
+            case "CEIL":
+                return numeric.ceil.term
+            case "FLOOR":
+                return numeric.floor.term
+            default:
+                fatalError()
+            }
+        default:
+            break
+        }
+        throw QueryError.evaluationError("Unrecognized numeric function: \(iri)")
+    }
+    
     public func evaluate(result: TermResult) throws -> Term {
         switch self {
         case .aggregate(_):
@@ -406,73 +573,17 @@ public indirect enum Expression: CustomStringConvertible {
             return Term(float: n.value)
         case .call(let iri, let exprs):
             let terms = exprs.map { try? $0.evaluate(result: result) }
+            let constructorFunctions = Set(["STR", "URI", "IRI", "BNODE", "STRDT", "STRLANG", "UUID", "STRUUID"])
+            let stringFunctions = Set(["CONCAT", "STRLEN", "LCASE", "UCASE", "ENCODE_FOR_URI", "CONTAINS", "STRSTARTS", "STRENDS", "STRBEFORE", "STRAFTER", "LANG", "LANGMATCHES", "DATATYPE", "REGEX"])
+            let numericFunctions = Set(["RAND", "ABS", "ROUND", "CEIL", "FLOOR"])
+            if stringFunctions.contains(iri) {
+                return try evaluate(stringFunction: iri, terms: terms)
+            } else if numericFunctions.contains(iri) {
+                return try evaluate(numericFunction: iri, terms: terms)
+            } else if constructorFunctions.contains(iri) {
+                return try evaluate(constructor: iri, terms: terms)
+            }
             switch iri {
-            case "CONCAT":
-                var types = Set<TermType>()
-                var string = ""
-                for term in terms.flatMap({ $0 }) {
-                    types.insert(term.type)
-                    string.append(term.value)
-                }
-                if types.count == 1 {
-                    return Term(value: string, type: types.first!)
-                } else {
-                    return Term(string: string)
-                }
-            case "STRLEN", "LCASE", "UCASE", "ENCODE_FOR_URI":
-                guard terms.count == 1 else { throw QueryError.evaluationError("Wrong argument count for \(iri) call") }
-                guard let string = terms[0] else { throw QueryError.evaluationError("Not all arguments are bound in \(iri) call") }
-                if iri == "STRLEN" {
-                    return Term(integer: string.value.characters.count)
-                } else if iri == "LCASE" {
-                    return Term(value: string.value.lowercased(), type: string.type)
-                } else if iri == "UCASE" {
-                    return Term(value: string.value.uppercased(), type: string.type)
-                } else if iri == "ENCODE_FOR_URI" {
-                    guard let encoded = string.value.addingPercentEncoding(withAllowedCharacters: CharacterSet.urlQueryAllowed) else {
-                        throw QueryError.evaluationError("Failed to encode string as a URI")
-                    }
-                    return Term(string: encoded)
-                }
-            case "CONTAINS", "STRSTARTS", "STRENDS", "STRBEFORE", "STRAFTER", "LANGMATCHES":
-                guard terms.count == 2 else { throw QueryError.evaluationError("Wrong argument count for \(iri) call") }
-                guard let string = terms[0], let pattern = terms[1] else { throw QueryError.evaluationError("Not all arguments are bound in \(iri) call") }
-                if iri == "CONTAINS" {
-                    return Term(boolean: string.value.contains(pattern.value))
-                } else if iri == "STRSTARTS" {
-                    return Term(boolean: string.value.hasPrefix(pattern.value))
-                } else if iri == "STRENDS" {
-                    return Term(boolean: string.value.hasSuffix(pattern.value))
-                } else if iri == "STRBEFORE" {
-                    if let range = string.value.range(of: pattern.value) {
-                        let index = range.lowerBound
-                        let prefix = string.value.substring(to: index)
-                        return Term(value: prefix, type: string.type)
-                    } else {
-                        return Term(string: "")
-                    }
-                } else if iri == "STRAFTER" {
-                    if let range = string.value.range(of: pattern.value) {
-                        let index = range.upperBound
-                        let suffix = string.value.substring(from: index)
-                        return Term(value: suffix, type: string.type)
-                    } else {
-                        return Term(string: "")
-                    }
-                } else if iri == "LANGMATCHES" {
-                    if pattern.value == "*" {
-                        return Term(boolean: string.value.characters.count > 0 ? true : false)
-                    } else {
-                        return Term(boolean: string.value.lowercased().hasPrefix(pattern.value.lowercased()))
-                    }
-                }
-            case "REPLACE":
-                guard (3...4).contains(terms.count) else { throw QueryError.evaluationError("Wrong argument count for \(iri) call") }
-                guard let string = terms[0], let pattern = terms[1], let replacement = terms[2] else { throw QueryError.evaluationError("Not all arguments are bound in \(iri) call") }
-                let flags = Set((terms.count == 4 ? (terms[3]?.value ?? "") : "").characters)
-                let options : String.CompareOptions = flags.contains("i") ? .caseInsensitive : .literal
-                let value = string.value.replacingOccurrences(of: pattern.value, with: replacement.value, options: options)
-                return Term(value: value, type: string.type)
             default:
                 throw QueryError.evaluationError("Failed to evaluate CALL(<\(iri)>(\(exprs)) with result \(result)")
             }

@@ -202,6 +202,62 @@ public enum Numeric: CustomStringConvertible {
         }
     }
 
+    var absoluteValue: Numeric {
+        if value >= 0.0 {
+            return self
+        } else {
+            return self * .integer(-1)
+        }
+    }
+    
+    var round: Numeric {
+        var v = value
+        if value < 0 {
+            v += 0.5
+        }
+        v.round(.toNearestOrAwayFromZero)
+        switch self {
+        case .decimal(_):
+            return .decimal(v)
+        case .float(_):
+            return .float(v)
+        case .double(_):
+            return .double(v)
+        default:
+            return self
+        }
+    }
+    
+    var ceil: Numeric {
+        var v = value
+        v.round(.up)
+        switch self {
+        case .decimal(_):
+            return .decimal(v)
+        case .float(_):
+            return .float(v)
+        case .double(_):
+            return .double(v)
+        default:
+            return self
+        }
+    }
+    
+    var floor: Numeric {
+        var v = value
+        v.round(.down)
+        switch self {
+        case .decimal(_):
+            return .decimal(v)
+        case .float(_):
+            return .float(v)
+        case .double(_):
+            return .double(v)
+        default:
+            return self
+        }
+    }
+    
     var term: Term {
         switch self {
         case .integer(let value):

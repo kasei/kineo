@@ -80,7 +80,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
                     guard var result = i.next() else { return nil }
                     do {
                         let num = try expr.numericEvaluate(result: result)
-                        result.extend(variable: name, value: num.term)
+                        try? result.extend(variable: name, value: num.term)
                     } catch let err {
                         if self.verbose {
                             print(err)
@@ -93,7 +93,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
                     guard var result = i.next() else { return nil }
                     do {
                         let term = try expr.evaluate(result: result)
-                        result.extend(variable: name, value: term)
+                        try? result.extend(variable: name, value: term)
                     } catch let err {
                         if self.verbose {
                             print(err)
@@ -172,7 +172,11 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
                     let (graph, i) = iters[0]
                     guard var result = i.next() else { iters.remove(at: 0); continue }
                     if bind {
-                        result.extend(variable: gv, value: graph)
+                        do {
+                            try result.extend(variable: gv, value: graph)
+                        } catch {
+                            continue
+                        }
                     }
                     return result
                 } while true
@@ -584,10 +588,10 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
                     var r = result
                     switch f {
                     case .rowNumber:
-                        r.extend(variable: name, value: Term(integer: n))
+                        try? r.extend(variable: name, value: Term(integer: n))
                     case .rank:
                         // TODO: assign the same rank to rows with equal comparator values
-                        r.extend(variable: name, value: Term(integer: n))
+                        try? r.extend(variable: name, value: Term(integer: n))
                     }
                     newResults.append(r)
                 }
@@ -673,7 +677,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
                 for t in store.graphNodeTerms() {
                     let i = try evaluatePath(subject: .bound(t), object: object, graph: graph, path: pp)
                     let j = i.map {
-                        $0.extended(variable: sname, value: t)
+                        $0.extended(variable: sname, value: t) ?? $0
                     }
                     results.append(contentsOf: j)
                 }
@@ -719,7 +723,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
                 for t in store.graphNodeTerms() {
                     let i = try evaluatePath(subject: .bound(t), object: object, graph: graph, path: pp)
                     let j = i.map {
-                        $0.extended(variable: sname, value: t)
+                        $0.extended(variable: sname, value: t) ?? $0
                     }
                     results.append(contentsOf: j)
                 }

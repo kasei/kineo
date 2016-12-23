@@ -12,6 +12,7 @@ enum QueryError: Error {
     case evaluationError(String)
     case typeError(String)
     case parseError(String)
+    case compatabilityError(String)
 }
 
 public struct TriplePattern: CustomStringConvertible {

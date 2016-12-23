@@ -1019,8 +1019,8 @@ public protocol ResultProtocol: Hashable {
     var keys: [String] { get }
     func join(_ rhs: Self) -> Self?
     subscript(key: String) -> Element? { get }
-    mutating func extend(variable: String, value: Element)
-    func extended(variable: String, value: Element) -> Self
+    mutating func extend(variable: String, value: Element) throws
+    func extended(variable: String, value: Element) -> Self?
     func projected(variables: [String]) -> Self
     var hashValue: Int { get }
 }
@@ -1100,12 +1100,22 @@ public struct TermResult: CustomStringConvertible, ResultProtocol {
         return "Result\(bindings.description)"
     }
 
-    public mutating func extend(variable: String, value: Element) {
+    public mutating func extend(variable: String, value: Element) throws {
+        if let existing = self.bindings[variable] {
+            if existing != value {
+                throw QueryError.compatabilityError("Cannot extend solution mapping due to existing incompatible term value")
+            }
+        }
         self.bindings[variable] = value
     }
 
-    public func extended(variable: String, value: Element) -> TermResult {
+    public func extended(variable: String, value: Element) -> TermResult? {
         var b = bindings
+        if let existing = b[variable] {
+            if existing != value {
+                return nil
+            }
+        }
         b[variable] = value
         return TermResult(bindings: b)
     }
@@ -1160,12 +1170,22 @@ public struct IDResult: CustomStringConvertible, ResultProtocol {
         return "Result\(bindings.description)"
     }
 
-    public mutating func extend(variable: String, value: Element) {
+    public mutating func extend(variable: String, value: Element) throws {
+        if let existing = self.bindings[variable] {
+            if existing != value {
+                throw QueryError.compatabilityError("Cannot extend solution mapping due to existing incompatible term value")
+            }
+        }
         self.bindings[variable] = value
     }
 
-    public func extended(variable: String, value: Element) -> IDResult {
+    public func extended(variable: String, value: Element) -> IDResult? {
         var b = bindings
+        if let existing = b[variable] {
+            if existing != value {
+                return nil
+            }
+        }
         b[variable] = value
         return IDResult(bindings: b)
     }
