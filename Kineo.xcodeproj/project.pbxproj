@@ -14,6 +14,7 @@
 		37559FB01DC941CB00B103DD /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37559FAF1DC941CB00B103DD /* main.swift */; };
 		37559FB11DC941EE00B103DD /* libKineo.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 379C05631D219B9A00ACE54D /* libKineo.dylib */; };
 		376417B31DCCF35600C5E367 /* Algebra.swift in Sources */ = {isa = PBXBuildFile; fileRef = 376417B21DCCF35600C5E367 /* Algebra.swift */; };
+		378904FF1E16CE1500FF3D30 /* Date.swift in Sources */ = {isa = PBXBuildFile; fileRef = 378904FE1E16CE1500FF3D30 /* Date.swift */; };
 		379BD8141D63F308009EACC2 /* Trees.swift in Sources */ = {isa = PBXBuildFile; fileRef = 379BD8131D63F308009EACC2 /* Trees.swift */; };
 		379C05651D219C8B00ACE54D /* libKineo.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 379C05631D219B9A00ACE54D /* libKineo.dylib */; };
 		37B839B71D1E06B500BE718B /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37B839A31D1E06B500BE718B /* main.swift */; };
@@ -55,6 +56,7 @@
 		376CEB711DD3C159004CFDE9 /* Query.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Query.swift; sourceTree = "<group>"; };
 		376CEB731DD3C207004CFDE9 /* Expression.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Expression.swift; sourceTree = "<group>"; };
 		377C49F41D3061EF006222B6 /* QueryEvaluation.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = QueryEvaluation.swift; sourceTree = "<group>"; };
+		378904FE1E16CE1500FF3D30 /* Date.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Date.swift; sourceTree = "<group>"; };
 		379BD8131D63F308009EACC2 /* Trees.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Trees.swift; sourceTree = "<group>"; };
 		379C05631D219B9A00ACE54D /* libKineo.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libKineo.dylib; path = .build/debug/libKineo.dylib; sourceTree = "<group>"; };
 		37B839821D1DECF700BE718B /* kineo-cli */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "kineo-cli"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -224,6 +226,7 @@
 			children = (
 				37B839A01D1E06B500BE718B /* LRUCache.swift */,
 				37B839A11D1E06B500BE718B /* Util.swift */,
+				378904FE1E16CE1500FF3D30 /* Date.swift */,
 			);
 			path = Util;
 			sourceTree = "<group>";
@@ -390,7 +393,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "swift build --chdir \"$SRCROOT\"\n";
+			shellScript = "swift build --chdir \"$SRCROOT\"";
 		};
 		37C990381DDBBCC0003CD6E6 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -414,6 +417,7 @@
 			files = (
 				376417B31DCCF35600C5E367 /* Algebra.swift in Sources */,
 				37C3B71F1DB6B77600CF5E81 /* SPARQLParser.swift in Sources */,
+				378904FF1E16CE1500FF3D30 /* Date.swift in Sources */,
 				372AE7731D582D9F001D72DF /* QueryEvaluation.swift in Sources */,
 				379BD8141D63F308009EACC2 /* Trees.swift in Sources */,
 				372AE7711D582D9F001D72DF /* FilePageDatabase.swift in Sources */,
@@ -554,7 +558,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 10.11;
+				MACOSX_DEPLOYMENT_TARGET = 10.12;
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = macosx;
@@ -596,7 +600,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 10.11;
+				MACOSX_DEPLOYMENT_TARGET = 10.12;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				SDKROOT = macosx;
 				SWIFT_OPTIMIZATION_LEVEL = "-Owholemodule";
@@ -611,6 +615,7 @@
 					"$(PROJECT_DIR)/.build/debug",
 				);
 				LLVM_LTO = YES_THIN;
+				MACOSX_DEPLOYMENT_TARGET = 10.12;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/.build/debug/";
 				SWIFT_VERSION = 3.0;
@@ -625,6 +630,7 @@
 					"$(PROJECT_DIR)/.build/release",
 				);
 				LLVM_LTO = YES_THIN;
+				MACOSX_DEPLOYMENT_TARGET = 10.12;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/.build/release/";
 				SWIFT_OPTIMIZATION_LEVEL = "-Owholemodule";

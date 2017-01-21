@@ -15,12 +15,14 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
     var defaultGraph: Term
     var freshVarNumber: Int
     var verbose: Bool
+    var ee: ExpressionEvaluator
     
     public init(store: Q, defaultGraph: Term, verbose: Bool = false) {
         self.store = store
         self.defaultGraph = defaultGraph
         self.freshVarNumber = 1
         self.verbose = verbose
+        self.ee = ExpressionEvaluator()
     }
 
     private func freshVariable() -> Node {
@@ -74,12 +76,11 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
             }
         case .extend(let child, let expr, let name):
             let i = try self.evaluate(algebra: child, activeGraph: activeGraph)
-            
             if expr.isNumeric {
                 return AnyIterator {
                     guard var result = i.next() else { return nil }
                     do {
-                        let num = try expr.numericEvaluate(result: result)
+                        let num = try self.ee.numericEvaluate(expression: expr, result: result)
                         try? result.extend(variable: name, value: num.term)
                     } catch let err {
                         if self.verbose {
@@ -92,7 +93,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
                 return AnyIterator {
                     guard var result = i.next() else { return nil }
                     do {
-                        let term = try expr.evaluate(result: result)
+                        let term = try self.ee.evaluate(expression: expr, result: result)
                         try? result.extend(variable: name, value: term)
                     } catch let err {
                         if self.verbose {
@@ -125,7 +126,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
                 repeat {
                     guard let result = i.next() else { return nil }
                     do {
-                        let term = try expr.evaluate(result: result)
+                        let term = try self.ee.evaluate(expression: expr, result: result)
                         if case .some(true) = try? term.ebv() {
                             return result
                         }
@@ -308,7 +309,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
             repeat {
                 guard let result = i.next() else { return nil }
                 do {
-                    let term = try expr.evaluate(result: result)
+                    let term = try self.ee.evaluate(expression: expr, result: result)
                     if case .some(true) = try? term.ebv() {
                         return result
                     }
@@ -323,14 +324,14 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
 
     func evaluateCount<S: Sequence>(results: S, expression keyExpr: Expression, distinct: Bool) -> Term? where S.Iterator.Element == TermResult {
         if distinct {
-            let terms = results.map { try? keyExpr.evaluate(result: $0) }.flatMap { $0 }
+            let terms = results.map { try? self.ee.evaluate(expression: keyExpr, result: $0) }.flatMap { $0 }
             let unique = Set(terms)
             return Term(integer: unique.count)
         } else {
             var count = 0
             for result in results {
                 do {
-                    let _ = try keyExpr.evaluate(result: result)
+                    let _ = try self.ee.evaluate(expression: keyExpr, result: result)
                     count += 1
                 } catch let err {
                     if self.verbose {
@@ -356,7 +357,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
         var resultingType: TermType? = integer
         var count = 0
 
-        var terms = results.map { try? keyExpr.evaluate(result: $0) }.flatMap { $0 }
+        var terms = results.map { try? self.ee.evaluate(expression: keyExpr, result: $0) }.flatMap { $0 }
         if distinct {
             terms = Array(Set(terms))
         }
@@ -386,7 +387,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
     func evaluateSum<S: Sequence>(results: S, expression keyExpr: Expression, distinct: Bool) -> Term? where S.Iterator.Element == TermResult {
         var runningSum: Numeric = .integer(0)
         if distinct {
-            let terms = results.map { try? keyExpr.evaluate(result: $0) }.flatMap { $0 }.sorted()
+            let terms = results.map { try? self.ee.evaluate(expression: keyExpr, result: $0) }.flatMap { $0 }.sorted()
             let unique = Set(terms)
             if unique.count == 0 {
                 return nil
@@ -400,7 +401,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
         } else {
             var count = 0
             for result in results {
-                if let term = try? keyExpr.evaluate(result: result) {
+                if let term = try? self.ee.evaluate(expression: keyExpr, result: result) {
                     count += 1
                     if let numeric = term.numeric {
                         runningSum = runningSum + numeric
@@ -415,7 +416,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
     }
 
     func evaluateGroupConcat<S: Sequence>(results: S, expression keyExpr: Expression, separator: String, distinct: Bool) -> Term? where S.Iterator.Element == TermResult {
-        var terms = results.map { try? keyExpr.evaluate(result: $0) }.flatMap { $0 }
+        var terms = results.map { try? self.ee.evaluate(expression: keyExpr, result: $0) }.flatMap { $0 }
         if distinct {
             terms = Array(Set(terms))
         }
@@ -437,16 +438,16 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
         var groupCount = [String:Int]()
         var groupBindings = [String:[String:Term]]()
         for result in i {
-            let group = groups.map { (expr) -> Term? in return try? expr.evaluate(result: result) }
+            let group = groups.map { (expr) -> Term? in return try? self.ee.evaluate(expression: expr, result: result) }
             let groupKey = "\(group)"
             if let value = termGroups[groupKey] {
                 switch agg {
                 case .min(let keyExpr):
-                    if let term = try? keyExpr.evaluate(result: result) {
+                    if let term = try? self.ee.evaluate(expression: keyExpr, result: result) {
                         termGroups[groupKey] = min(value, term)
                     }
                 case .max(let keyExpr):
-                    if let term = try? keyExpr.evaluate(result: result) {
+                    if let term = try? self.ee.evaluate(expression: keyExpr, result: result) {
                         termGroups[groupKey] = max(value, term)
                     }
                 case .sample(_):
@@ -454,7 +455,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
                 case .groupConcat(let keyExpr, let sep, false):
                     guard case .datatype(_) = value.type else { fatalError("Unexpected term in generating GROUP_CONCAT value") }
                     let string = value.value
-                    if let term = try? keyExpr.evaluate(result: result) {
+                    if let term = try? self.ee.evaluate(expression: keyExpr, result: result) {
                         let updated = string + sep + term.value
                         termGroups[groupKey] = Term(value: updated, type: value.type)
                     }
@@ -466,18 +467,18 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
                 case .countAll:
                     numericGroups[groupKey] = value + .integer(1)
                 case .avg(let keyExpr, false):
-                    if let term = try? keyExpr.evaluate(result: result), let c = groupCount[groupKey] {
+                    if let term = try? self.ee.evaluate(expression: keyExpr, result: result), let c = groupCount[groupKey] {
                         if let n = term.numeric {
                             numericGroups[groupKey] = value + n
                             groupCount[groupKey] = c + 1
                         }
                     }
                 case .count(let keyExpr, false):
-                    if let _ = try? keyExpr.evaluate(result: result) {
+                    if let _ = try? self.ee.evaluate(expression: keyExpr, result: result) {
                         numericGroups[groupKey] = value + .integer(1)
                     }
                 case .sum(let keyExpr, false):
-                    if let term = try? keyExpr.evaluate(result: result) {
+                    if let term = try? self.ee.evaluate(expression: keyExpr, result: result) {
                         if let n = term.numeric {
                             numericGroups[groupKey] = value + n
                         }
@@ -490,36 +491,36 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
                 case .countAll:
                     numericGroups[groupKey] = .integer(1)
                 case .avg(let keyExpr, false):
-                    if let term = try? keyExpr.evaluate(result: result) {
+                    if let term = try? self.ee.evaluate(expression: keyExpr, result: result) {
                         if term.isNumeric {
                             numericGroups[groupKey] = term.numeric
                             groupCount[groupKey] = 1
                         }
                     }
                 case .count(let keyExpr, false):
-                    if let _ = try? keyExpr.evaluate(result: result) {
+                    if let _ = try? self.ee.evaluate(expression: keyExpr, result: result) {
                         numericGroups[groupKey] = .integer(1)
                     }
                 case .sum(let keyExpr, false):
-                    if let term = try? keyExpr.evaluate(result: result) {
+                    if let term = try? self.ee.evaluate(expression: keyExpr, result: result) {
                         if term.isNumeric {
                             numericGroups[groupKey] = term.numeric
                         }
                     }
                 case .min(let keyExpr):
-                    if let term = try? keyExpr.evaluate(result: result) {
+                    if let term = try? self.ee.evaluate(expression: keyExpr, result: result) {
                         termGroups[groupKey] = term
                     }
                 case .max(let keyExpr):
-                    if let term = try? keyExpr.evaluate(result: result) {
+                    if let term = try? self.ee.evaluate(expression: keyExpr, result: result) {
                         termGroups[groupKey] = term
                     }
                 case .sample(let keyExpr):
-                    if let term = try? keyExpr.evaluate(result: result) {
+                    if let term = try? self.ee.evaluate(expression: keyExpr, result: result) {
                         termGroups[groupKey] = term
                     }
                 case .groupConcat(let keyExpr, _, false):
-                    if let term = try? keyExpr.evaluate(result: result) {
+                    if let term = try? self.ee.evaluate(expression: keyExpr, result: result) {
                         switch term.type {
                         case .datatype(_):
                             termGroups[groupKey] = term
@@ -563,7 +564,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
         let i = try self.evaluate(algebra: child, activeGraph: activeGraph)
         var groupBuckets = [String:[TermResult]]()
         for result in i {
-            let group = groups.map { (expr) -> Term? in return try? expr.evaluate(result: result) }
+            let group = groups.map { (expr) -> Term? in return try? self.ee.evaluate(expression: expr, result: result) }
             let groupKey = "\(group)"
             if groupBuckets[groupKey] == nil {
                 groupBuckets[groupKey] = [result]
@@ -765,7 +766,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
         var groupBuckets = [String:[TermResult]]()
         var groupBindings = [String:[String:Term]]()
         for result in i {
-            let group = groups.map { (expr) -> Term? in return try? expr.evaluate(result: result) }
+            let group = groups.map { (expr) -> Term? in return try? self.ee.evaluate(expression: expr, result: result) }
             let groupKey = "\(group)"
             if groupBuckets[groupKey] == nil {
                 groupBuckets[groupKey] = [result]
@@ -806,19 +807,19 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
                         bindings[name] = n
                     }
                 case .min(let keyExpr):
-                    let terms = results.map { try? keyExpr.evaluate(result: $0) }.flatMap { $0 }
+                    let terms = results.map { try? self.ee.evaluate(expression: keyExpr, result: $0) }.flatMap { $0 }
                     if terms.count > 0 {
                         let n = terms.reduce(terms.first!) { min($0, $1) }
                         bindings[name] = n
                     }
                 case .max(let keyExpr):
-                    let terms = results.map { try? keyExpr.evaluate(result: $0) }.flatMap { $0 }
+                    let terms = results.map { try? self.ee.evaluate(expression: keyExpr, result: $0) }.flatMap { $0 }
                     if terms.count > 0 {
                         let n = terms.reduce(terms.first!) { max($0, $1) }
                         bindings[name] = n
                     }
                 case .sample(let keyExpr):
-                    let terms = results.map { try? keyExpr.evaluate(result: $0) }.flatMap { $0 }
+                    let terms = results.map { try? self.ee.evaluate(expression: keyExpr, result: $0) }.flatMap { $0 }
                     if let n = terms.first {
                         bindings[name] = n
                     }
@@ -835,8 +836,8 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
     private func _sortResults(_ results: [TermResult], comparators: [Algebra.SortComparator]) -> [TermResult] {
         let s = results.sorted { (a, b) -> Bool in
             for (ascending, expr) in comparators {
-                guard var lhs = try? expr.evaluate(result: a) else { return true }
-                guard var rhs = try? expr.evaluate(result: b) else { return false }
+                guard var lhs = try? self.ee.evaluate(expression: expr, result: a) else { return true }
+                guard var rhs = try? self.ee.evaluate(expression: expr, result: b) else { return false }
                 if !ascending {
                     (lhs, rhs) = (rhs, lhs)
                 }

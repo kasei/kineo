@@ -218,7 +218,7 @@ public indirect enum Expression: CustomStringConvertible {
 
     var isNumeric: Bool {
         switch self {
-        case .node(_):
+        case .node(.bound(let term)) where term.isNumeric:
             return true
         case .neg(let expr):
             return expr.isNumeric
@@ -228,432 +228,6 @@ public indirect enum Expression: CustomStringConvertible {
             return expr.isNumeric
         default:
             return false
-        }
-    }
-
-    private func evaluate(constructor iri: String, terms: [Term?]) throws -> Term {
-        switch iri {
-        case "STR":
-            guard terms.count == 1 else { throw QueryError.evaluationError("Wrong argument count for \(iri) call") }
-            guard let string = terms[0] else { throw QueryError.evaluationError("Not all arguments are bound in \(iri) call") }
-            return Term(string: string.value)
-        case "URI", "IRI":
-            guard terms.count == 1 else { throw QueryError.evaluationError("Wrong argument count for \(iri) call") }
-            guard let string = terms[0] else { throw QueryError.evaluationError("Not all arguments are bound in \(iri) call") }
-            return Term(value: string.value, type: .iri)
-        case "BNODE":
-            guard terms.count <= 1 else { throw QueryError.evaluationError("Wrong argument count for \(iri) call") }
-            if terms.count == 1 {
-                fatalError("TODO: implement per-solution-mapping BNODE(label) constructor")
-            } else {
-                let id = NSUUID().uuidString
-                return Term(value: id, type: .blank)
-            }
-            guard let string = terms[0] else { throw QueryError.evaluationError("Not all arguments are bound in \(iri) call") }
-            return Term(value: string.value, type: .iri)
-        case "STRDT":
-            guard terms.count == 2 else { throw QueryError.evaluationError("Wrong argument count for \(iri) call") }
-            guard let string = terms[0], let datatype = terms[1] else { throw QueryError.evaluationError("Not all arguments are bound in \(iri) call") }
-            return Term(value: string.value, type: .datatype(datatype.value))
-        case "STRLANG":
-            guard terms.count == 2 else { throw QueryError.evaluationError("Wrong argument count for \(iri) call") }
-            guard let string = terms[0], let lang = terms[1] else { throw QueryError.evaluationError("Not all arguments are bound in \(iri) call") }
-            return Term(value: string.value, type: .language(lang.value))
-        case "UUID":
-            guard terms.count == 0 else { throw QueryError.evaluationError("Wrong argument count for \(iri) call") }
-            let id = NSUUID().uuidString.lowercased()
-            return Term(value: "urn:uuid:\(id)", type: .iri)
-        case "STRUUID":
-            guard terms.count == 0 else { throw QueryError.evaluationError("Wrong argument count for \(iri) call") }
-            let id = NSUUID().uuidString.lowercased()
-            return Term(string: id)
-        default:
-            break
-        }
-        throw QueryError.evaluationError("Unrecognized constructor function: \(iri)")
-    }
-    
-    private func evaluate(stringFunction iri: String, terms: [Term?]) throws -> Term {
-        switch iri {
-        case "CONCAT":
-            var types = Set<TermType>()
-            var string = ""
-            for term in terms.flatMap({ $0 }) {
-                types.insert(term.type)
-                string.append(term.value)
-            }
-            if types.count == 1 {
-                return Term(value: string, type: types.first!)
-            } else {
-                return Term(string: string)
-            }
-        case "STR", "STRLEN", "LCASE", "UCASE", "ENCODE_FOR_URI", "LANG", "DATATYPE":
-            guard terms.count == 1 else { throw QueryError.evaluationError("Wrong argument count for \(iri) call") }
-            guard let string = terms[0] else { throw QueryError.evaluationError("Not all arguments are bound in \(iri) call") }
-            if iri == "STR" {
-                return Term(string: string.value)
-            } else if iri == "STRLEN" {
-                return Term(integer: string.value.characters.count)
-            } else if iri == "LCASE" {
-                return Term(value: string.value.lowercased(), type: string.type)
-            } else if iri == "UCASE" {
-                return Term(value: string.value.uppercased(), type: string.type)
-            } else if iri == "LANG" {
-                if case .language(let l) = string.type {
-                    return Term(string: l)
-                } else {
-                    return Term(string: "")
-                }
-            } else if iri == "DATATYPE" {
-                if case .datatype(let d) = string.type {
-                    return Term(value: d, type: .iri)
-                } else {
-                    throw QueryError.evaluationError("DATATYPE called on on a non-datatyped term")
-                }
-            } else if iri == "ENCODE_FOR_URI" {
-                guard let encoded = string.value.addingPercentEncoding(withAllowedCharacters: CharacterSet.urlQueryAllowed) else {
-                    throw QueryError.evaluationError("Failed to encode string as a URI")
-                }
-                return Term(string: encoded)
-            }
-        case "CONTAINS", "STRSTARTS", "STRENDS", "STRBEFORE", "STRAFTER", "LANGMATCHES":
-            guard terms.count == 2 else { throw QueryError.evaluationError("Wrong argument count for \(iri) call") }
-            guard let string = terms[0], let pattern = terms[1] else { throw QueryError.evaluationError("Not all arguments are bound in \(iri) call") }
-            if iri == "CONTAINS" {
-                return Term(boolean: string.value.contains(pattern.value))
-            } else if iri == "STRSTARTS" {
-                return Term(boolean: string.value.hasPrefix(pattern.value))
-            } else if iri == "STRENDS" {
-                return Term(boolean: string.value.hasSuffix(pattern.value))
-            } else if iri == "STRBEFORE" {
-                if let range = string.value.range(of: pattern.value) {
-                    let index = range.lowerBound
-                    let prefix = string.value.substring(to: index)
-                    return Term(value: prefix, type: string.type)
-                } else {
-                    return Term(string: "")
-                }
-            } else if iri == "STRAFTER" {
-                if let range = string.value.range(of: pattern.value) {
-                    let index = range.upperBound
-                    let suffix = string.value.substring(from: index)
-                    return Term(value: suffix, type: string.type)
-                } else {
-                    return Term(string: "")
-                }
-            } else if iri == "LANGMATCHES" {
-                if pattern.value == "*" {
-                    return Term(boolean: string.value.characters.count > 0 ? true : false)
-                } else {
-                    return Term(boolean: string.value.lowercased().hasPrefix(pattern.value.lowercased()))
-                }
-            }
-        case "REPLACE":
-            guard (3...4).contains(terms.count) else { throw QueryError.evaluationError("Wrong argument count for \(iri) call") }
-            guard let string = terms[0], let pattern = terms[1], let replacement = terms[2] else { throw QueryError.evaluationError("Not all arguments are bound in \(iri) call") }
-            let flags = Set((terms.count == 4 ? (terms[3]?.value ?? "") : "").characters)
-            let options : String.CompareOptions = flags.contains("i") ? .caseInsensitive : .literal
-            let value = string.value.replacingOccurrences(of: pattern.value, with: replacement.value, options: options)
-            return Term(value: value, type: string.type)
-        case "REGEX":
-            guard (2...3).contains(terms.count) else { throw QueryError.evaluationError("Wrong argument count for \(iri) call") }
-            guard let string = terms[0], let pattern = terms[1] else { throw QueryError.evaluationError("Not all arguments are bound in \(iri) call") }
-            let flags = Set((terms.count == 3 ? (terms[2]?.value ?? "") : "").characters)
-            let options : NSRegularExpression.Options = flags.contains("i") ? .caseInsensitive : []
-            let regex = try NSRegularExpression(pattern: pattern.value, options: options)
-            let s = string.value
-            let range = NSRange(location: 0, length: s.utf16.count)
-            return Term(boolean: regex.numberOfMatches(in: s, options: [], range: range) > 0)
-        default:
-            break
-        }
-        throw QueryError.evaluationError("Unrecognized string function: \(iri)")
-    }
-    
-    private func evaluate(numericFunction iri: String, terms: [Term?]) throws -> Term {
-        switch iri {
-        case "RAND":
-            let v = Double(arc4random()) / Double(UINT32_MAX)
-            return Term(double: v)
-        case "ABS", "ROUND", "CEIL", "FLOOR":
-            guard terms.count == 1 else { throw QueryError.evaluationError("Wrong argument count for \(iri) call") }
-            guard let term = terms[0] else { throw QueryError.evaluationError("Not all arguments are bound in \(iri) call") }
-            guard term.isNumeric else { throw QueryError.evaluationError("Arguments is not numeric in \(iri) call") }
-            guard let numeric = term.numeric else { throw QueryError.evaluationError("Arguments is not numeric in \(iri) call") }
-            switch iri {
-            case "ABS":
-                return numeric.absoluteValue.term
-            case "ROUND":
-                return numeric.round.term
-            case "CEIL":
-                return numeric.ceil.term
-            case "FLOOR":
-                return numeric.floor.term
-            default:
-                fatalError()
-            }
-        default:
-            break
-        }
-        throw QueryError.evaluationError("Unrecognized numeric function: \(iri)")
-    }
-    
-    public func evaluate(result: TermResult) throws -> Term {
-        switch self {
-        case .aggregate(_):
-            fatalError("cannot evaluate an aggregate expression without a query context")
-        case .node(.bound(let term)):
-            return term
-        case .node(.variable(let name, _)):
-            if let term = result[name] {
-                return term
-            } else {
-                throw QueryError.typeError("Variable ?\(name) is unbound in result \(result)")
-            }
-        case .and(let lhs, let rhs):
-            let lval = try lhs.evaluate(result: result)
-            if try lval.ebv() {
-                let rval = try rhs.evaluate(result: result)
-                if try rval.ebv() {
-                    return Term.trueValue
-                }
-            }
-            return Term.falseValue
-        case .or(let lhs, let rhs):
-            if let lval = try? lhs.evaluate(result: result), let lebv = try? lval.ebv() {
-                if lebv {
-                    return Term.trueValue
-                }
-            }
-            let rval = try rhs.evaluate(result: result)
-            if try rval.ebv() {
-                return Term.trueValue
-            }
-            return Term.falseValue
-        case .eq(let lhs, let rhs):
-            if let lval = try? lhs.evaluate(result: result), let rval = try? rhs.evaluate(result: result) {
-                return (lval == rval) ? Term.trueValue: Term.falseValue
-            }
-        case .ne(let lhs, let rhs):
-            if let lval = try? lhs.evaluate(result: result), let rval = try? rhs.evaluate(result: result) {
-                return (lval != rval) ? Term.trueValue: Term.falseValue
-            }
-        case .gt(let lhs, let rhs):
-            if let lval = try? lhs.evaluate(result: result), let rval = try? rhs.evaluate(result: result) {
-                return (lval > rval) ? Term.trueValue: Term.falseValue
-            }
-        case .between(let expr, let lower, let upper):
-            if let val = try? expr.evaluate(result: result), let lval = try? lower.evaluate(result: result), let uval = try? upper.evaluate(result: result) {
-                return (val <= uval && val >= lval) ? Term.trueValue: Term.falseValue
-            }
-        case .lt(let lhs, let rhs):
-            if let lval = try? lhs.evaluate(result: result), let rval = try? rhs.evaluate(result: result) {
-                return (lval < rval) ? Term.trueValue: Term.falseValue
-            }
-        case .ge(let lhs, let rhs):
-            if let lval = try? lhs.evaluate(result: result), let rval = try? rhs.evaluate(result: result) {
-                return (lval >= rval) ? Term.trueValue: Term.falseValue
-            }
-        case .le(let lhs, let rhs):
-            if let lval = try? lhs.evaluate(result: result), let rval = try? rhs.evaluate(result: result) {
-                return (lval <= rval) ? Term.trueValue: Term.falseValue
-            }
-        case .add(let lhs, let rhs):
-            if let lval = try? lhs.evaluate(result: result), let rval = try? rhs.evaluate(result: result) {
-                guard lval.isNumeric else { throw QueryError.typeError("Value \(lval) is not numeric") }
-                guard rval.isNumeric else { throw QueryError.typeError("Value \(lval) is not numeric") }
-                let value = lval.numericValue + rval.numericValue
-                guard let type = lval.type.resultType(for: "+", withOperandType: rval.type) else { throw QueryError.typeError("Cannot determine resulting type for adding \(lval) and \(rval)") }
-                guard let term = Term(numeric: value, type: type) else { throw QueryError.typeError("Cannot add \(lval) and \(rval) and produce a valid numeric term") }
-                return term
-            }
-        case .sub(let lhs, let rhs):
-            if let lval = try? lhs.evaluate(result: result), let rval = try? rhs.evaluate(result: result) {
-                guard lval.isNumeric else { throw QueryError.typeError("Value \(lval) is not numeric") }
-                guard rval.isNumeric else { throw QueryError.typeError("Value \(lval) is not numeric") }
-                let value = lval.numericValue - rval.numericValue
-                guard let type = lval.type.resultType(for: "-", withOperandType: rval.type) else { throw QueryError.typeError("Cannot determine resulting type for subtracting \(lval) and \(rval)") }
-                guard let term = Term(numeric: value, type: type) else { throw QueryError.typeError("Cannot subtract \(lval) and \(rval) and produce a valid numeric term") }
-                return term
-            }
-        case .mul(let lhs, let rhs):
-            if let lval = try? lhs.evaluate(result: result), let rval = try? rhs.evaluate(result: result) {
-                guard lval.isNumeric else { throw QueryError.typeError("Value \(lval) is not numeric") }
-                guard rval.isNumeric else { throw QueryError.typeError("Value \(lval) is not numeric") }
-                let value = lval.numericValue * rval.numericValue
-                guard let type = lval.type.resultType(for: "*", withOperandType: rval.type) else { throw QueryError.typeError("Cannot determine resulting type for multiplying \(lval) and \(rval)") }
-                guard let term = Term(numeric: value, type: type) else { throw QueryError.typeError("Cannot multiply \(lval) and \(rval) and produce a valid numeric term") }
-                return term
-            }
-        case .div(let lhs, let rhs):
-            if let lval = try? lhs.evaluate(result: result), let rval = try? rhs.evaluate(result: result) {
-                guard lval.isNumeric else { throw QueryError.typeError("Value \(lval) is not numeric") }
-                guard rval.isNumeric else { throw QueryError.typeError("Value \(lval) is not numeric") }
-                let value = lval.numericValue / rval.numericValue
-                guard let type = lval.type.resultType(for: "/", withOperandType: rval.type) else { throw QueryError.typeError("Cannot determine resulting type for dividing \(lval) and \(rval)") }
-                guard let term = Term(numeric: value, type: type) else { throw QueryError.typeError("Cannot divide \(lval) and \(rval) and produce a valid numeric term") }
-                return term
-            }
-            //        default:
-            //            print("*** Cannot evaluate expression \(self)")
-        //            throw QueryError.evaluationError("Cannot evaluate \(self) with result \(result)")
-        case .neg(let expr):
-            if let val = try? expr.evaluate(result: result) {
-                guard let num = val.numeric else { throw QueryError.typeError("Value \(val) is not numeric") }
-                let neg = -num
-                return neg.term
-            }
-        case .not(let expr):
-            let val = try expr.evaluate(result: result)
-            let ebv = try val.ebv()
-            return ebv ? Term.falseValue: Term.trueValue
-        case .isiri(let expr):
-            let val = try expr.evaluate(result: result)
-            if case .iri = val.type {
-                return Term.trueValue
-            } else {
-                return Term.falseValue
-            }
-        case .isblank(let expr):
-            let val = try expr.evaluate(result: result)
-            if case .blank = val.type {
-                return Term.trueValue
-            } else {
-                return Term.falseValue
-            }
-        case .isliteral(let expr):
-            let val = try expr.evaluate(result: result)
-            if case .language(_) = val.type {
-                return Term.trueValue
-            } else if case .datatype(_) = val.type {
-                return Term.trueValue
-            } else {
-                return Term.falseValue
-            }
-        case .isnumeric(let expr):
-            let val = try expr.evaluate(result: result)
-            if val.isNumeric {
-                return Term.trueValue
-            } else {
-                return Term.falseValue
-            }
-        case .datatype(let expr):
-            let val = try expr.evaluate(result: result)
-            if case .datatype(let dt) = val.type {
-                return Term(value: dt, type: .iri)
-            } else if case .language(_) = val.type {
-                return Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#", type: .iri)
-            } else {
-                throw QueryError.typeError("DATATYPE called with non-literal")
-            }
-        case .lang(let expr):
-            let val = try expr.evaluate(result: result)
-            if case .language(let l) = val.type {
-                return Term(value: l, type: .datatype("http://www.w3.org/2001/XMLSchema#string"))
-            } else {
-                throw QueryError.typeError("LANG called with non-language-literal")
-            }
-        case .bound(let expr):
-            if let _ = try? expr.evaluate(result: result) {
-                return Term.trueValue
-            } else {
-                return Term.falseValue
-            }
-        case .intCast(let expr):
-            let term = try expr.evaluate(result: result)
-            guard let n = term.numeric else { throw QueryError.typeError("Cannot coerce term to a numeric value") }
-            return Term(integer: Int(n.value))
-        case .floatCast(let expr):
-            let term = try expr.evaluate(result: result)
-            guard let n = term.numeric else { throw QueryError.typeError("Cannot coerce term to a numeric value") }
-            return Term(float: n.value)
-        case .doubleCast(let expr):
-            let term = try expr.evaluate(result: result)
-            guard let n = term.numeric else { throw QueryError.typeError("Cannot coerce term to a numeric value") }
-            return Term(float: n.value)
-        case .call(let iri, let exprs):
-            let terms = exprs.map { try? $0.evaluate(result: result) }
-            let constructorFunctions = Set(["STR", "URI", "IRI", "BNODE", "STRDT", "STRLANG", "UUID", "STRUUID"])
-            let stringFunctions = Set(["CONCAT", "STRLEN", "LCASE", "UCASE", "ENCODE_FOR_URI", "CONTAINS", "STRSTARTS", "STRENDS", "STRBEFORE", "STRAFTER", "LANG", "LANGMATCHES", "DATATYPE", "REGEX"])
-            let numericFunctions = Set(["RAND", "ABS", "ROUND", "CEIL", "FLOOR"])
-            if stringFunctions.contains(iri) {
-                return try evaluate(stringFunction: iri, terms: terms)
-            } else if numericFunctions.contains(iri) {
-                return try evaluate(numericFunction: iri, terms: terms)
-            } else if constructorFunctions.contains(iri) {
-                return try evaluate(constructor: iri, terms: terms)
-            }
-            switch iri {
-            default:
-                throw QueryError.evaluationError("Failed to evaluate CALL(<\(iri)>(\(exprs)) with result \(result)")
-            }
-        case .valuein(let expr, let exprs):
-            let term = try expr.evaluate(result: result)
-            let terms = try exprs.map { try $0.evaluate(result: result) }
-            let contains = terms.index(of: term) == terms.startIndex
-            return contains ? Term.trueValue: Term.falseValue
-        }
-        throw QueryError.evaluationError("Failed to evaluate \(self) with result \(result)")
-    }
-
-    public func numericEvaluate(result: TermResult) throws -> Numeric {
-        //        print("numericEvaluate over result: \(result)")
-        //        print("numericEvaluate expression: \(self)")
-        //        guard self.isNumeric else { throw QueryError.evaluationError("Cannot compile expression as numeric") }
-        switch self {
-        case .aggregate(_):
-            fatalError("cannot evaluate an aggregate expression without a query context")
-        case .node(.bound(let term)):
-            guard term.isNumeric else { throw QueryError.typeError("Term is not numeric") }
-            if let num = term.numeric {
-                return num
-            } else {
-                throw QueryError.typeError("Term is not numeric")
-            }
-        case .node(.variable(let name, binding: _)):
-            if let term = result[name] {
-                if let num = term.numeric {
-                    return num
-                } else {
-                    throw QueryError.typeError("Term is not numeric")
-                }
-            } else {
-                throw QueryError.typeError("Variable ?\(name) is unbound in result \(result)")
-            }
-        case .neg(let expr):
-            let val = try expr.numericEvaluate(result: result)
-            return -val
-        case .add(let lhs, let rhs):
-            let lval = try lhs.numericEvaluate(result: result)
-            let rval = try rhs.numericEvaluate(result: result)
-            let value = lval + rval
-            return value
-        case .sub(let lhs, let rhs):
-            let lval = try lhs.numericEvaluate(result: result)
-            let rval = try rhs.numericEvaluate(result: result)
-            let value = lval - rval
-            return value
-        case .mul(let lhs, let rhs):
-            let lval = try lhs.numericEvaluate(result: result)
-            let rval = try rhs.numericEvaluate(result: result)
-            let value = lval * rval
-            return value
-        case .div(let lhs, let rhs):
-            let lval = try lhs.numericEvaluate(result: result)
-            let rval = try rhs.numericEvaluate(result: result)
-            let value = lval / rval
-            return value
-        case .intCast(let expr):
-            let val = try expr.numericEvaluate(result: result)
-            return .integer(Int(val.value))
-        case .floatCast(let expr):
-            let val = try expr.numericEvaluate(result: result)
-            return .float(val.value)
-        case .doubleCast(let expr):
-            let val = try expr.numericEvaluate(result: result)
-            return .double(val.value)
-        default:
-            throw QueryError.evaluationError("Failed to numerically evaluate \(self) with result \(result)")
         }
     }
 
@@ -1020,6 +594,552 @@ extension Expression {
             return n.sparqlTokens
         default:
             fatalError("implement")
+        }
+    }
+}
+
+class ExpressionEvaluator {
+    var bnodes: [String: String]
+    var now: Date
+    
+    init() {
+        self.bnodes = [:]
+        self.now = Date()
+    }
+    
+    public func nextResult() {
+        self.bnodes = [:]
+    }
+    
+    private func evaluate(dateFunction iri: String, terms: [Term?]) throws -> Term {
+        if iri == "NOW" {
+            if #available (OSX 10.12, *) {
+                let f = W3CDTFLocatedDateFormatter()
+                return Term(value: f.string(from: now), type: .datatype(Term.xsd("dateTime").value))
+            } else {
+                throw QueryError.evaluationError("OSX 10.12 is required to use date functions")
+            }
+        } else {
+            guard terms.count == 1 else { throw QueryError.evaluationError("Wrong argument count for \(iri) call") }
+            guard let term = terms[0] else { throw QueryError.evaluationError("Not all arguments are bound in \(iri) call") }
+            guard let date = term.dateValue else { throw QueryError.evaluationError("Argument is not a valid xsd:dateTime value in \(iri) call") }
+            guard let tz = term.timeZone else { throw QueryError.evaluationError("Argument is not a valid xsd:dateTime value in \(iri) call") }
+            var calendar = Calendar(identifier: .gregorian)
+            calendar.timeZone = tz
+            if iri == "YEAR" {
+                let value = calendar.component(.year, from: date)
+                return Term(integer: value)
+            } else if iri == "MONTH" {
+                let value = calendar.component(.month, from: date)
+                return Term(integer: value)
+            } else if iri == "DAY" {
+                let value = calendar.component(.day, from: date)
+                return Term(integer: value)
+            } else if iri == "HOURS" {
+                let value = calendar.component(.hour, from: date)
+                return Term(integer: value)
+            } else if iri == "MINUTES" {
+                let value = calendar.component(.minute, from: date)
+                return Term(integer: value)
+            } else if iri == "SECONDS" {
+                let value = calendar.component(.second, from: date)
+                return Term(integer: value)
+            } else if iri == "TIMEZONE" {
+                let seconds = tz.secondsFromGMT()
+                if seconds == 0 {
+                    return Term(value: "PT0S", type: .datatype(Term.xsd("dayTimeDuration").value))
+                } else {
+                    let neg = seconds < 0 ? "-" : ""
+                    let minutes = abs(seconds / 60) % 60
+                    let hours = abs(seconds) / (60 * 60)
+                    var string = "\(neg)PT\(hours)H"
+                    if minutes > 0 {
+                        string += "\(minutes)M"
+                    }
+                    return Term(value: string, type: .datatype(Term.xsd("dayTimeDuration").value))
+                }
+            } else if iri == "TZ" {
+                let seconds = tz.secondsFromGMT()
+                if seconds == 0 {
+                    return Term(string: "Z")
+                } else {
+                    let neg = seconds < 0 ? "-" : ""
+                    let minutes = abs(seconds / 60) % 60
+                    let hours = abs(seconds) / (60 * 60)
+                    let string = String(format: "\(neg)%02d:%02d", hours, minutes)
+                    return Term(string: string)
+                }
+            }
+        }
+        fatalError("unrecognized date function: \(iri)")
+    }
+    
+    private func evaluate(hashFunction iri: String, terms: [Term?]) throws -> Term {
+        fatalError("TODO: implement hash functions")
+    }
+    
+    private func evaluate(constructor iri: String, terms: [Term?]) throws -> Term {
+        switch iri {
+        case "STR":
+            guard terms.count == 1 else { throw QueryError.evaluationError("Wrong argument count for \(iri) call") }
+            guard let string = terms[0] else { throw QueryError.evaluationError("Not all arguments are bound in \(iri) call") }
+            return Term(string: string.value)
+        case "URI", "IRI":
+            guard terms.count == 1 else { throw QueryError.evaluationError("Wrong argument count for \(iri) call") }
+            guard let string = terms[0] else { throw QueryError.evaluationError("Not all arguments are bound in \(iri) call") }
+            return Term(value: string.value, type: .iri)
+        case "BNODE":
+            guard terms.count <= 1 else { throw QueryError.evaluationError("Wrong argument count for \(iri) call") }
+            if terms.count == 1 {
+                guard let string = terms[0] else { throw QueryError.evaluationError("Not all arguments are bound in \(iri) call") }
+                let name = string.value
+                let id = self.bnodes[name] ?? NSUUID().uuidString
+                self.bnodes[name] = id
+                return Term(value: id, type: .blank)
+            } else {
+                let id = NSUUID().uuidString
+                return Term(value: id, type: .blank)
+            }
+        case "STRDT":
+            guard terms.count == 2 else { throw QueryError.evaluationError("Wrong argument count for \(iri) call") }
+            guard let string = terms[0], let datatype = terms[1] else { throw QueryError.evaluationError("Not all arguments are bound in \(iri) call") }
+            return Term(value: string.value, type: .datatype(datatype.value))
+        case "STRLANG":
+            guard terms.count == 2 else { throw QueryError.evaluationError("Wrong argument count for \(iri) call") }
+            guard let string = terms[0], let lang = terms[1] else { throw QueryError.evaluationError("Not all arguments are bound in \(iri) call") }
+            return Term(value: string.value, type: .language(lang.value))
+        case "UUID":
+            guard terms.count == 0 else { throw QueryError.evaluationError("Wrong argument count for \(iri) call") }
+            let id = NSUUID().uuidString.lowercased()
+            return Term(value: "urn:uuid:\(id)", type: .iri)
+        case "STRUUID":
+            guard terms.count == 0 else { throw QueryError.evaluationError("Wrong argument count for \(iri) call") }
+            let id = NSUUID().uuidString.lowercased()
+            return Term(string: id)
+        default:
+            break
+        }
+        throw QueryError.evaluationError("Unrecognized constructor function: \(iri)")
+    }
+    
+    private func evaluate(stringFunction iri: String, terms: [Term?]) throws -> Term {
+        switch iri {
+        case "CONCAT":
+            var types = Set<TermType>()
+            var string = ""
+            for term in terms.flatMap({ $0 }) {
+                types.insert(term.type)
+                string.append(term.value)
+            }
+            if types.count == 1 {
+                return Term(value: string, type: types.first!)
+            } else {
+                return Term(string: string)
+            }
+        case "STR", "STRLEN", "LCASE", "UCASE", "ENCODE_FOR_URI", "LANG", "DATATYPE":
+            guard terms.count == 1 else { throw QueryError.evaluationError("Wrong argument count for \(iri) call") }
+            guard let string = terms[0] else { throw QueryError.evaluationError("Not all arguments are bound in \(iri) call") }
+            if iri == "STR" {
+                return Term(string: string.value)
+            } else if iri == "STRLEN" {
+                return Term(integer: string.value.characters.count)
+            } else if iri == "LCASE" {
+                return Term(value: string.value.lowercased(), type: string.type)
+            } else if iri == "UCASE" {
+                return Term(value: string.value.uppercased(), type: string.type)
+            } else if iri == "LANG" {
+                if case .language(let l) = string.type {
+                    return Term(string: l)
+                } else {
+                    return Term(string: "")
+                }
+            } else if iri == "DATATYPE" {
+                if case .datatype(let d) = string.type {
+                    return Term(value: d, type: .iri)
+                } else {
+                    throw QueryError.evaluationError("DATATYPE called on on a non-datatyped term")
+                }
+            } else if iri == "ENCODE_FOR_URI" {
+                guard let encoded = string.value.addingPercentEncoding(withAllowedCharacters: CharacterSet.urlQueryAllowed) else {
+                    throw QueryError.evaluationError("Failed to encode string as a URI")
+                }
+                return Term(string: encoded)
+            }
+        case "CONTAINS", "STRSTARTS", "STRENDS", "STRBEFORE", "STRAFTER", "LANGMATCHES":
+            guard terms.count == 2 else { throw QueryError.evaluationError("Wrong argument count for \(iri) call") }
+            guard let string = terms[0], let pattern = terms[1] else { throw QueryError.evaluationError("Not all arguments are bound in \(iri) call") }
+            if iri == "CONTAINS" {
+                return Term(boolean: string.value.contains(pattern.value))
+            } else if iri == "STRSTARTS" {
+                return Term(boolean: string.value.hasPrefix(pattern.value))
+            } else if iri == "STRENDS" {
+                return Term(boolean: string.value.hasSuffix(pattern.value))
+            } else if iri == "STRBEFORE" {
+                if let range = string.value.range(of: pattern.value) {
+                    let index = range.lowerBound
+                    let prefix = string.value.substring(to: index)
+                    return Term(value: prefix, type: string.type)
+                } else {
+                    return Term(string: "")
+                }
+            } else if iri == "STRAFTER" {
+                if let range = string.value.range(of: pattern.value) {
+                    let index = range.upperBound
+                    let suffix = string.value.substring(from: index)
+                    return Term(value: suffix, type: string.type)
+                } else {
+                    return Term(string: "")
+                }
+            } else if iri == "LANGMATCHES" {
+                if pattern.value == "*" {
+                    return Term(boolean: string.value.characters.count > 0 ? true : false)
+                } else {
+                    return Term(boolean: string.value.lowercased().hasPrefix(pattern.value.lowercased()))
+                }
+            }
+        case "REPLACE":
+            guard (3...4).contains(terms.count) else { throw QueryError.evaluationError("Wrong argument count for \(iri) call") }
+            guard let string = terms[0], let pattern = terms[1], let replacement = terms[2] else { throw QueryError.evaluationError("Not all arguments are bound in \(iri) call") }
+            let flags = Set((terms.count == 4 ? (terms[3]?.value ?? "") : "").characters)
+            let options : String.CompareOptions = flags.contains("i") ? .caseInsensitive : .literal
+            let value = string.value.replacingOccurrences(of: pattern.value, with: replacement.value, options: options)
+            return Term(value: value, type: string.type)
+        case "REGEX":
+            guard (2...3).contains(terms.count) else { throw QueryError.evaluationError("Wrong argument count for \(iri) call") }
+            guard let string = terms[0], let pattern = terms[1] else { throw QueryError.evaluationError("Not all arguments are bound in \(iri) call") }
+            let flags = Set((terms.count == 3 ? (terms[2]?.value ?? "") : "").characters)
+            let options : NSRegularExpression.Options = flags.contains("i") ? .caseInsensitive : []
+            let regex = try NSRegularExpression(pattern: pattern.value, options: options)
+            let s = string.value
+            let range = NSRange(location: 0, length: s.utf16.count)
+            return Term(boolean: regex.numberOfMatches(in: s, options: [], range: range) > 0)
+        default:
+            break
+        }
+        throw QueryError.evaluationError("Unrecognized string function: \(iri)")
+    }
+    
+    private func evaluate(expression: Expression, numericFunction iri: String, terms: [Term?]) throws -> Term {
+        switch iri {
+        case "RAND":
+            let v = Double(arc4random()) / Double(UINT32_MAX)
+            return Term(double: v)
+        case "ABS", "ROUND", "CEIL", "FLOOR":
+            guard terms.count == 1 else { throw QueryError.evaluationError("Wrong argument count for \(iri) call") }
+            guard let term = terms[0] else { throw QueryError.evaluationError("Not all arguments are bound in \(iri) call") }
+            guard term.isNumeric else { throw QueryError.evaluationError("Arguments is not numeric in \(iri) call") }
+            guard let numeric = term.numeric else { throw QueryError.evaluationError("Arguments is not numeric in \(iri) call") }
+            switch iri {
+            case "ABS":
+                return numeric.absoluteValue.term
+            case "ROUND":
+                return numeric.round.term
+            case "CEIL":
+                return numeric.ceil.term
+            case "FLOOR":
+                return numeric.floor.term
+            default:
+                fatalError()
+            }
+        default:
+            break
+        }
+        throw QueryError.evaluationError("Unrecognized numeric function: \(iri)")
+    }
+    
+    private func evaluate(numericFunction iri: String, terms: [Term?]) throws -> Term {
+        switch iri {
+        case "RAND":
+            let v = Double(arc4random()) / Double(UINT32_MAX)
+            return Term(double: v)
+        case "ABS", "ROUND", "CEIL", "FLOOR":
+            guard terms.count == 1 else { throw QueryError.evaluationError("Wrong argument count for \(iri) call") }
+            guard let term = terms[0] else { throw QueryError.evaluationError("Not all arguments are bound in \(iri) call") }
+            guard term.isNumeric else { throw QueryError.evaluationError("Arguments is not numeric in \(iri) call") }
+            guard let numeric = term.numeric else { throw QueryError.evaluationError("Arguments is not numeric in \(iri) call") }
+            switch iri {
+            case "ABS":
+                return numeric.absoluteValue.term
+            case "ROUND":
+                return numeric.round.term
+            case "CEIL":
+                return numeric.ceil.term
+            case "FLOOR":
+                return numeric.floor.term
+            default:
+                fatalError()
+            }
+        default:
+            break
+        }
+        throw QueryError.evaluationError("Unrecognized numeric function: \(iri)")
+    }
+
+    public func evaluate(expression: Expression, result: TermResult) throws -> Term {
+        switch expression {
+        case .aggregate(_):
+            fatalError("cannot evaluate an aggregate expression without a query context")
+        case .node(.bound(let term)):
+            return term
+        case .node(.variable(let name, _)):
+            if let term = result[name] {
+                return term
+            } else {
+                throw QueryError.typeError("Variable ?\(name) is unbound in result \(result)")
+            }
+        case .and(let lhs, let rhs):
+            let lval = try evaluate(expression: lhs, result: result)
+            if try lval.ebv() {
+                let rval = try evaluate(expression: rhs, result: result)
+                if try rval.ebv() {
+                    return Term.trueValue
+                }
+            }
+            return Term.falseValue
+        case .or(let lhs, let rhs):
+            if let lval = try? evaluate(expression: lhs, result: result), let lebv = try? lval.ebv() {
+                if lebv {
+                    return Term.trueValue
+                }
+            }
+            let rval = try evaluate(expression: rhs, result: result)
+            if try rval.ebv() {
+                return Term.trueValue
+            }
+            return Term.falseValue
+        case .eq(let lhs, let rhs):
+            if let lval = try? evaluate(expression: lhs, result: result), let rval = try? evaluate(expression: rhs, result: result) {
+                return (lval == rval) ? Term.trueValue: Term.falseValue
+            }
+        case .ne(let lhs, let rhs):
+            if let lval = try? evaluate(expression: lhs, result: result), let rval = try? evaluate(expression: rhs, result: result) {
+                return (lval != rval) ? Term.trueValue: Term.falseValue
+            }
+        case .gt(let lhs, let rhs):
+            if let lval = try? evaluate(expression: lhs, result: result), let rval = try? evaluate(expression: rhs, result: result) {
+                return (lval > rval) ? Term.trueValue: Term.falseValue
+            }
+        case .between(let expr, let lower, let upper):
+            if let val = try? evaluate(expression: expr, result: result), let lval = try? evaluate(expression: lower, result: result), let uval = try? evaluate(expression: upper, result: result) {
+                return (val <= uval && val >= lval) ? Term.trueValue: Term.falseValue
+            }
+        case .lt(let lhs, let rhs):
+            if let lval = try? evaluate(expression: lhs, result: result), let rval = try? evaluate(expression: rhs, result: result) {
+                return (lval < rval) ? Term.trueValue: Term.falseValue
+            }
+        case .ge(let lhs, let rhs):
+            if let lval = try? evaluate(expression: lhs, result: result), let rval = try? evaluate(expression: rhs, result: result) {
+                return (lval >= rval) ? Term.trueValue: Term.falseValue
+            }
+        case .le(let lhs, let rhs):
+            if let lval = try? evaluate(expression: lhs, result: result), let rval = try? evaluate(expression: rhs, result: result) {
+                return (lval <= rval) ? Term.trueValue: Term.falseValue
+            }
+        case .add(let lhs, let rhs):
+            if let lval = try? evaluate(expression: lhs, result: result), let rval = try? evaluate(expression: rhs, result: result) {
+                guard lval.isNumeric else { throw QueryError.typeError("Value \(lval) is not numeric") }
+                guard rval.isNumeric else { throw QueryError.typeError("Value \(lval) is not numeric") }
+                let value = lval.numericValue + rval.numericValue
+                guard let type = lval.type.resultType(for: "+", withOperandType: rval.type) else { throw QueryError.typeError("Cannot determine resulting type for adding \(lval) and \(rval)") }
+                guard let term = Term(numeric: value, type: type) else { throw QueryError.typeError("Cannot add \(lval) and \(rval) and produce a valid numeric term") }
+                return term
+            }
+        case .sub(let lhs, let rhs):
+            if let lval = try? evaluate(expression: lhs, result: result), let rval = try? evaluate(expression: rhs, result: result) {
+                guard lval.isNumeric else { throw QueryError.typeError("Value \(lval) is not numeric") }
+                guard rval.isNumeric else { throw QueryError.typeError("Value \(lval) is not numeric") }
+                let value = lval.numericValue - rval.numericValue
+                guard let type = lval.type.resultType(for: "-", withOperandType: rval.type) else { throw QueryError.typeError("Cannot determine resulting type for subtracting \(lval) and \(rval)") }
+                guard let term = Term(numeric: value, type: type) else { throw QueryError.typeError("Cannot subtract \(lval) and \(rval) and produce a valid numeric term") }
+                return term
+            }
+        case .mul(let lhs, let rhs):
+            if let lval = try? evaluate(expression: lhs, result: result), let rval = try? evaluate(expression: rhs, result: result) {
+                guard lval.isNumeric else { throw QueryError.typeError("Value \(lval) is not numeric") }
+                guard rval.isNumeric else { throw QueryError.typeError("Value \(lval) is not numeric") }
+                let value = lval.numericValue * rval.numericValue
+                guard let type = lval.type.resultType(for: "*", withOperandType: rval.type) else { throw QueryError.typeError("Cannot determine resulting type for multiplying \(lval) and \(rval)") }
+                guard let term = Term(numeric: value, type: type) else { throw QueryError.typeError("Cannot multiply \(lval) and \(rval) and produce a valid numeric term") }
+                return term
+            }
+        case .div(let lhs, let rhs):
+            if let lval = try? evaluate(expression: lhs, result: result), let rval = try? evaluate(expression: rhs, result: result) {
+                guard lval.isNumeric else { throw QueryError.typeError("Value \(lval) is not numeric") }
+                guard rval.isNumeric else { throw QueryError.typeError("Value \(lval) is not numeric") }
+                let value = lval.numericValue / rval.numericValue
+                guard let type = lval.type.resultType(for: "/", withOperandType: rval.type) else { throw QueryError.typeError("Cannot determine resulting type for dividing \(lval) and \(rval)") }
+                guard let term = Term(numeric: value, type: type) else { throw QueryError.typeError("Cannot divide \(lval) and \(rval) and produce a valid numeric term") }
+                return term
+            }
+            //        default:
+            //            print("*** Cannot evaluate expression \(self)")
+        //            throw QueryError.evaluationError("Cannot evaluate \(self) with result \(result)")
+        case .neg(let expr):
+            if let val = try? evaluate(expression: expr, result: result) {
+                guard let num = val.numeric else { throw QueryError.typeError("Value \(val) is not numeric") }
+                let neg = -num
+                return neg.term
+            }
+        case .not(let expr):
+            let val = try evaluate(expression: expr, result: result)
+            let ebv = try val.ebv()
+            return ebv ? Term.falseValue: Term.trueValue
+        case .isiri(let expr):
+            let val = try evaluate(expression: expr, result: result)
+            if case .iri = val.type {
+                return Term.trueValue
+            } else {
+                return Term.falseValue
+            }
+        case .isblank(let expr):
+            let val = try evaluate(expression: expr, result: result)
+            if case .blank = val.type {
+                return Term.trueValue
+            } else {
+                return Term.falseValue
+            }
+        case .isliteral(let expr):
+            let val = try evaluate(expression: expr, result: result)
+            if case .language(_) = val.type {
+                return Term.trueValue
+            } else if case .datatype(_) = val.type {
+                return Term.trueValue
+            } else {
+                return Term.falseValue
+            }
+        case .isnumeric(let expr):
+            let val = try evaluate(expression: expr, result: result)
+            if val.isNumeric {
+                return Term.trueValue
+            } else {
+                return Term.falseValue
+            }
+        case .datatype(let expr):
+            let val = try evaluate(expression: expr, result: result)
+            if case .datatype(let dt) = val.type {
+                return Term(value: dt, type: .iri)
+            } else if case .language(_) = val.type {
+                return Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#", type: .iri)
+            } else {
+                throw QueryError.typeError("DATATYPE called with non-literal")
+            }
+        case .lang(let expr):
+            let val = try evaluate(expression: expr, result: result)
+            if case .language(let l) = val.type {
+                return Term(value: l, type: .datatype("http://www.w3.org/2001/XMLSchema#string"))
+            } else {
+                throw QueryError.typeError("LANG called with non-language-literal")
+            }
+        case .bound(let expr):
+            if let _ = try? evaluate(expression: expr, result: result) {
+                return Term.trueValue
+            } else {
+                return Term.falseValue
+            }
+        case .intCast(let expr):
+            let term = try evaluate(expression: expr, result: result)
+            guard let n = term.numeric else { throw QueryError.typeError("Cannot coerce term to a numeric value") }
+            return Term(integer: Int(n.value))
+        case .floatCast(let expr):
+            let term = try evaluate(expression: expr, result: result)
+            guard let n = term.numeric else { throw QueryError.typeError("Cannot coerce term to a numeric value") }
+            return Term(float: n.value)
+        case .doubleCast(let expr):
+            let term = try evaluate(expression: expr, result: result)
+            guard let n = term.numeric else { throw QueryError.typeError("Cannot coerce term to a numeric value") }
+            return Term(float: n.value)
+        case .call(let iri, let exprs):
+            let terms = exprs.map { try? evaluate(expression: $0, result: result) }
+            let constructorFunctions = Set(["STR", "URI", "IRI", "BNODE", "STRDT", "STRLANG", "UUID", "STRUUID"])
+            let stringFunctions = Set(["CONCAT", "STRLEN", "LCASE", "UCASE", "ENCODE_FOR_URI", "CONTAINS", "STRSTARTS", "STRENDS", "STRBEFORE", "STRAFTER", "LANG", "LANGMATCHES", "DATATYPE", "REGEX"])
+            let numericFunctions = Set(["RAND", "ABS", "ROUND", "CEIL", "FLOOR"])
+            let dateFunctions = Set(["NOW", "YEAR", "MONTH", "DAY", "HOURS", "MINUTES", "SECONDS", "TIMEZONE", "TZ"])
+            let hashFunctions = Set(["MD5", "SHA1", "SHA256", "SHA384", "SHA512"])
+            
+            if stringFunctions.contains(iri) {
+                return try evaluate(stringFunction: iri, terms: terms)
+            } else if numericFunctions.contains(iri) {
+                return try evaluate(numericFunction: iri, terms: terms)
+            } else if constructorFunctions.contains(iri) {
+                return try evaluate(constructor: iri, terms: terms)
+            } else if dateFunctions.contains(iri) {
+                return try evaluate(dateFunction: iri, terms: terms)
+            } else if hashFunctions.contains(iri) {
+                return try evaluate(hashFunction: iri, terms: terms)
+            }
+            switch iri {
+            default:
+                throw QueryError.evaluationError("Failed to evaluate CALL(<\(iri)>(\(exprs)) with result \(result)")
+            }
+        case .valuein(let expr, let exprs):
+            let term = try evaluate(expression: expr, result: result)
+            let terms = try exprs.map { try evaluate(expression: $0, result: result) }
+            let contains = terms.index(of: term) == terms.startIndex
+            return contains ? Term.trueValue: Term.falseValue
+        }
+        throw QueryError.evaluationError("Failed to evaluate \(self) with result \(result)")
+    }
+    
+    public func numericEvaluate(expression: Expression, result: TermResult) throws -> Numeric {
+        //        print("numericEvaluate over result: \(result)")
+        //        print("numericEvaluate expression: \(self)")
+        //        guard self.isNumeric else { throw QueryError.evaluationError("Cannot compile expression as numeric") }
+        switch expression {
+        case .aggregate(_):
+            fatalError("cannot evaluate an aggregate expression without a query context")
+        case .node(.bound(let term)):
+            guard term.isNumeric else {
+                throw QueryError.typeError("Term is not numeric in evaluation: \(term)")
+            }
+            if let num = term.numeric {
+                return num
+            } else {
+                throw QueryError.typeError("Term is not numeric")
+            }
+        case .node(.variable(let name, binding: _)):
+            if let term = result[name] {
+                if let num = term.numeric {
+                    return num
+                } else {
+                    throw QueryError.typeError("Term is not numeric")
+                }
+            } else {
+                throw QueryError.typeError("Variable ?\(name) is unbound in result \(result)")
+            }
+        case .neg(let expr):
+            let val = try numericEvaluate(expression: expr, result: result)
+            return -val
+        case .add(let lhs, let rhs):
+            let lval = try numericEvaluate(expression: lhs, result: result)
+            let rval = try numericEvaluate(expression: rhs, result: result)
+            let value = lval + rval
+            return value
+        case .sub(let lhs, let rhs):
+            let lval = try numericEvaluate(expression: lhs, result: result)
+            let rval = try numericEvaluate(expression: rhs, result: result)
+            let value = lval - rval
+            return value
+        case .mul(let lhs, let rhs):
+            let lval = try numericEvaluate(expression: lhs, result: result)
+            let rval = try numericEvaluate(expression: rhs, result: result)
+            let value = lval * rval
+            return value
+        case .div(let lhs, let rhs):
+            let lval = try numericEvaluate(expression: lhs, result: result)
+            let rval = try numericEvaluate(expression: rhs, result: result)
+            let value = lval / rval
+            return value
+        case .intCast(let expr):
+            let val = try numericEvaluate(expression: expr, result: result)
+            return .integer(Int(val.value))
+        case .floatCast(let expr):
+            let val = try numericEvaluate(expression: expr, result: result)
+            return .float(val.value)
+        case .doubleCast(let expr):
+            let val = try numericEvaluate(expression: expr, result: result)
+            return .double(val.value)
+        default:
+            throw QueryError.evaluationError("Failed to numerically evaluate \(self) with result \(result)")
         }
     }
 }

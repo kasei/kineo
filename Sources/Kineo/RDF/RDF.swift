@@ -8,12 +8,71 @@
 
 import Foundation
 
-public enum TermType: BufferSerializable {
+public enum TermType {
     case blank
     case iri
     case language(String)
     case datatype(String)
+}
 
+extension TermType {
+    // swiftlint:disable:next variable_name
+    func resultType(for op: String, withOperandType rhs: TermType) -> TermType? {
+        let integer = TermType.datatype("http://www.w3.org/2001/XMLSchema#integer")
+        let decimal = TermType.datatype("http://www.w3.org/2001/XMLSchema#decimal")
+        let float   = TermType.datatype("http://www.w3.org/2001/XMLSchema#float")
+        let double  = TermType.datatype("http://www.w3.org/2001/XMLSchema#double")
+        if op == "/" {
+            if self == rhs && self == integer {
+                return decimal
+            }
+        }
+        switch (self, rhs) {
+        case (let a, let b) where a == b:
+            return a
+        case (integer, decimal), (decimal, integer):
+            return decimal
+        case (integer, float), (float, integer), (decimal, float), (float, decimal):
+            return float
+        case (integer, double), (double, integer), (decimal, double), (double, decimal):
+            return double
+        default:
+            return nil
+        }
+    }
+}
+
+extension TermType: Equatable {
+    public static func == (lhs: TermType, rhs: TermType) -> Bool {
+        switch (lhs, rhs) {
+        case (.iri, .iri), (.blank, .blank):
+            return true
+        case (.language(let l), .language(let r)):
+            return l == r
+        case (.datatype(let l), .datatype(let r)):
+            return l == r
+        default:
+            return false
+        }
+    }
+}
+
+extension TermType: Hashable {
+    public var hashValue: Int {
+        switch self {
+        case .blank:
+            return 0
+        case .iri:
+            return 1
+        case .datatype(let d):
+            return 2 ^ d.hashValue
+        case .language(let l):
+            return 3 ^ l.hashValue
+        }
+    }
+}
+
+extension TermType: BufferSerializable {
     /**
 
      Term type encodings (most specific wins):
@@ -183,6 +242,246 @@ public enum TermType: BufferSerializable {
             return .datatype(dt)
         default:
             throw DatabaseError.DataError("Unrecognized term type value \(type)")
+        }
+    }
+}
+
+public struct Term: CustomStringConvertible {
+    public var value: String
+    public var type: TermType
+    
+    static func rdf(_ local: String) -> Term {
+        return Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#\(local)", type: .iri)
+    }
+    
+    static func xsd(_ local: String) -> Term {
+        return Term(value: "http://www.w3.org/2001/XMLSchema#\(local)", type: .iri)
+    }
+    
+    public init(value: String, type: TermType) {
+        self.value  = value
+        self.type   = type
+    }
+    
+    public init(string value: String) {
+        self.value  = value
+        self.type   = .datatype("http://www.w3.org/2001/XMLSchema#string")
+    }
+    
+    public init(boolean value: Bool) {
+        self.value = value ? "true" : "false"
+        self.type = .datatype("http://www.w3.org/2001/XMLSchema#boolean")
+    }
+    
+    public init(integer value: Int) {
+        self.value = "\(value)"
+        self.type = .datatype("http://www.w3.org/2001/XMLSchema#integer")
+    }
+    
+    public init(float value: Double) {
+        self.value = "\(value)"
+        // TODO: fix the lexical form for xsd:float
+        self.type = .datatype("http://www.w3.org/2001/XMLSchema#float")
+    }
+    
+    public init(double value: Double) {
+        self.value = "\(value)"
+        // TODO: fix the lexical form for xsd:double
+        self.type = .datatype("http://www.w3.org/2001/XMLSchema#double")
+    }
+    
+    public init(decimal value: Double) {
+        self.value = String(format: "%f", value)
+        self.type = .datatype("http://www.w3.org/2001/XMLSchema#decimal")
+    }
+    
+    public init?(numeric value: Double, type: TermType) {
+        self.type = type
+        switch type {
+        case .datatype("http://www.w3.org/2001/XMLSchema#float"),
+             .datatype("http://www.w3.org/2001/XMLSchema#double"):
+            self.value = "\(value)"
+        case .datatype("http://www.w3.org/2001/XMLSchema#decimal"):
+            self.value = String(format: "%f", value)
+        case .datatype("http://www.w3.org/2001/XMLSchema#integer"):
+            let i = Int(value)
+            self.value = "\(i)"
+        default:
+            return nil
+        }
+    }
+    
+    public var description: String {
+        switch type {
+            //        case .iri where value == "http://www.w3.org/1999/02/22-rdf-syntax-ns#type":
+        //            return "a"
+        case .iri:
+            return "<\(value)>"
+        case .blank:
+            return "_:\(value)"
+        case .language(let lang):
+            let escaped = value.replacingOccurrences(of:"\"", with: "\\\"")
+            return "\"\(escaped)\"@\(lang)"
+        case .datatype("http://www.w3.org/2001/XMLSchema#string"):
+            let escaped = value.replacingOccurrences(of:"\"", with: "\\\"")
+            return "\"\(escaped)\""
+        case .datatype("http://www.w3.org/2001/XMLSchema#float"):
+            let s = "\(value)"
+            if s.contains("e") {
+                return s
+            } else {
+                return "\(s)e0"
+            }
+        case .datatype("http://www.w3.org/2001/XMLSchema#integer"), .datatype("http://www.w3.org/2001/XMLSchema#decimal"), .datatype("http://www.w3.org/2001/XMLSchema#boolean"):
+            return "\(value)"
+        case .datatype(let dt):
+            let escaped = value.replacingOccurrences(of:"\"", with: "\\\"")
+            return "\"\(escaped)\"^^<\(dt)>"
+        }
+    }
+    
+    static let trueValue = Term(value: "true", type: .datatype("http://www.w3.org/2001/XMLSchema#boolean"))
+    static let falseValue = Term(value: "false", type: .datatype("http://www.w3.org/2001/XMLSchema#boolean"))
+}
+
+extension Term: Comparable {
+    public static func < (lhs: Term, rhs: Term) -> Bool {
+        if lhs.isNumeric && rhs.isNumeric {
+            return lhs.numericValue < rhs.numericValue
+        }
+        switch (lhs.type, rhs.type) {
+        case (let a, let b) where a == b:
+            return lhs.value < rhs.value
+        case (.blank, _):
+            return true
+        case (.iri, .language(_)), (.iri, .datatype(_)):
+            return true
+        case (.language(_), .datatype(_)):
+            return true
+        default:
+            return false
+        }
+    }
+}
+
+extension Term: Equatable {
+    public static func == (lhs: Term, rhs: Term) -> Bool {
+        if lhs.isNumeric && rhs.isNumeric {
+            return lhs.numericValue == rhs.numericValue
+        }
+        switch (lhs.type, rhs.type) {
+        case (.iri, .iri), (.blank, .blank):
+            return lhs.value == rhs.value
+        case (.language(let l), .language(let r)) where l == r:
+            return lhs.value == rhs.value
+        case (.datatype(let l), .datatype(let r)) where l == r:
+            return lhs.value == rhs.value
+        default:
+            return false
+        }
+    }
+}
+
+extension Term: Hashable {
+    public var hashValue: Int {
+        return self.value.hashValue
+    }
+}
+
+extension Term: BufferSerializable {
+    public var serializedSize: Int {
+        return type.serializedSize + value.serializedSize
+    }
+    public func serialize(to buffer: inout UnsafeMutableRawPointer, mediator: RWMediator?, maximumSize: Int) throws {
+        if serializedSize > maximumSize { throw DatabaseError.OverflowError("Cannot serialize Term in available space") }
+        try type.serialize(to: &buffer)
+        try value.serialize(to: &buffer)
+    }
+    
+    public static func deserialize(from buffer: inout UnsafeRawPointer, mediator: RMediator?=nil) throws -> Term {
+        do {
+            let type    = try TermType.deserialize(from: &buffer)
+            let value   = try String.deserialize(from: &buffer)
+            let term    = Term(value: value, type: type)
+            return term
+        } catch let e {
+            throw e
+        }
+    }
+}
+
+extension Term {
+    public var dateValue: Date? {
+        guard case .datatype("http://www.w3.org/2001/XMLSchema#dateTime") = self.type else { return nil }
+        let lexical = self.value
+        if #available (OSX 10.12, *) {
+            let f = W3CDTFLocatedDateFormatter()
+            return f.date(from: lexical)
+        } else {
+            fatalError("OSX 10.12 is required to use date functions")
+        }
+        
+        return nil
+    }
+    
+    public var timeZone: TimeZone? {
+        guard case .datatype("http://www.w3.org/2001/XMLSchema#dateTime") = self.type else { return nil }
+        let lexical = self.value
+        if #available (OSX 10.12, *) {
+            let f = W3CDTFLocatedDateFormatter()
+            guard let ld = f.locatedDate(from: lexical) else { return nil }
+            return ld.timezone
+        } else {
+            fatalError("OSX 10.12 is required to use date functions")
+        }
+        
+        return nil
+    }
+}
+
+extension Term {
+    public var isNumeric: Bool {
+        switch type {
+        case .datatype("http://www.w3.org/2001/XMLSchema#integer"),
+             .datatype("http://www.w3.org/2001/XMLSchema#decimal"),
+             .datatype("http://www.w3.org/2001/XMLSchema#float"),
+             .datatype("http://www.w3.org/2001/XMLSchema#double"):
+            return true
+        default:
+            return false
+        }
+    }
+    
+    public var numeric: Numeric? {
+        switch type {
+        case .datatype("http://www.w3.org/2001/XMLSchema#integer"):
+            if let i = Int(value) {
+                return .integer(i)
+            } else {
+                return nil
+            }
+        case .datatype("http://www.w3.org/2001/XMLSchema#decimal"):
+            return .decimal(numericValue)
+        case .datatype("http://www.w3.org/2001/XMLSchema#float"):
+            return .float(numericValue)
+        case .datatype("http://www.w3.org/2001/XMLSchema#double"):
+            return .double(numericValue)
+        default:
+            return nil
+        }
+        
+    }
+    
+    public var numericValue: Double {
+        switch type {
+        case .datatype("http://www.w3.org/2001/XMLSchema#integer"):
+            return Double(value) ?? 0.0
+        case .datatype("http://www.w3.org/2001/XMLSchema#decimal"),
+             .datatype("http://www.w3.org/2001/XMLSchema#float"),
+             .datatype("http://www.w3.org/2001/XMLSchema#double"):
+            return Double(value) ?? 0.0
+        default:
+            fatalError("Cannot compute a numeric value for term of type \(type)")
         }
     }
 }
@@ -370,269 +669,6 @@ private func divResultingNumeric(_ value: Double, _ lhs: Numeric, _ rhs: Numeric
     //    case (.integer(_), .double(_)), (.double(_), .integer(_)), (.decimal(_), .double(_)), (.double(_), .decimal(_)):
     default:
         return .double(value)
-    }
-}
-
-extension TermType {
-    // swiftlint:disable:next variable_name
-    func resultType(for op: String, withOperandType rhs: TermType) -> TermType? {
-        let integer = TermType.datatype("http://www.w3.org/2001/XMLSchema#integer")
-        let decimal = TermType.datatype("http://www.w3.org/2001/XMLSchema#decimal")
-        let float   = TermType.datatype("http://www.w3.org/2001/XMLSchema#float")
-        let double  = TermType.datatype("http://www.w3.org/2001/XMLSchema#double")
-        if op == "/" {
-            if self == rhs && self == integer {
-                return decimal
-            }
-        }
-        switch (self, rhs) {
-        case (let a, let b) where a == b:
-            return a
-        case (integer, decimal), (decimal, integer):
-            return decimal
-        case (integer, float), (float, integer), (decimal, float), (float, decimal):
-            return float
-        case (integer, double), (double, integer), (decimal, double), (double, decimal):
-            return double
-        default:
-            return nil
-        }
-    }
-}
-
-extension TermType: Hashable {
-    public var hashValue: Int {
-        switch self {
-        case .blank:
-            return 0
-        case .iri:
-            return 1
-        case .datatype(let d):
-            return 2 ^ d.hashValue
-        case .language(let l):
-            return 3 ^ l.hashValue
-        }
-    }
-
-    public static func == (lhs: TermType, rhs: TermType) -> Bool {
-        switch (lhs, rhs) {
-        case (.iri, .iri), (.blank, .blank):
-            return true
-        case (.language(let l), .language(let r)):
-            return l == r
-        case (.datatype(let l), .datatype(let r)):
-            return l == r
-        default:
-            return false
-        }
-    }
-}
-
-public struct Term: CustomStringConvertible {
-    public var value: String
-    public var type: TermType
-
-    static func rdf(_ local: String) -> Term {
-        return Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#\(local)", type: .iri)
-    }
-
-    static func xsd(_ local: String) -> Term {
-        return Term(value: "http://www.w3.org/2001/XMLSchema#\(local)", type: .iri)
-    }
-
-    public init(value: String, type: TermType) {
-        self.value  = value
-        self.type   = type
-    }
-    
-    public init(string value: String) {
-        self.value  = value
-        self.type   = .datatype("http://www.w3.org/2001/XMLSchema#string")
-    }
-    
-    public init(boolean value: Bool) {
-        self.value = value ? "true" : "false"
-        self.type = .datatype("http://www.w3.org/2001/XMLSchema#boolean")
-    }
-    
-    public init(integer value: Int) {
-        self.value = "\(value)"
-        self.type = .datatype("http://www.w3.org/2001/XMLSchema#integer")
-    }
-
-    public init(float value: Double) {
-        self.value = "\(value)"
-        // TODO: fix the lexical form for xsd:float
-        self.type = .datatype("http://www.w3.org/2001/XMLSchema#float")
-    }
-
-    public init(double value: Double) {
-        self.value = "\(value)"
-        // TODO: fix the lexical form for xsd:double
-        self.type = .datatype("http://www.w3.org/2001/XMLSchema#double")
-    }
-
-    public init(decimal value: Double) {
-        self.value = String(format: "%f", value)
-        self.type = .datatype("http://www.w3.org/2001/XMLSchema#decimal")
-    }
-
-    public init?(numeric value: Double, type: TermType) {
-        self.type = type
-        switch type {
-        case .datatype("http://www.w3.org/2001/XMLSchema#float"),
-             .datatype("http://www.w3.org/2001/XMLSchema#double"):
-            self.value = "\(value)"
-        case .datatype("http://www.w3.org/2001/XMLSchema#decimal"):
-            self.value = String(format: "%f", value)
-        case .datatype("http://www.w3.org/2001/XMLSchema#integer"):
-            let i = Int(value)
-            self.value = "\(i)"
-        default:
-            return nil
-        }
-    }
-
-    public var description: String {
-        switch type {
-//        case .iri where value == "http://www.w3.org/1999/02/22-rdf-syntax-ns#type":
-//            return "a"
-        case .iri:
-            return "<\(value)>"
-        case .blank:
-            return "_:\(value)"
-        case .language(let lang):
-            let escaped = value.replacingOccurrences(of:"\"", with: "\\\"")
-            return "\"\(escaped)\"@\(lang)"
-        case .datatype("http://www.w3.org/2001/XMLSchema#string"):
-            let escaped = value.replacingOccurrences(of:"\"", with: "\\\"")
-            return "\"\(escaped)\""
-        case .datatype("http://www.w3.org/2001/XMLSchema#float"):
-            let s = "\(value)"
-            if s.contains("e") {
-                return s
-            } else {
-                return "\(s)e0"
-            }
-        case .datatype("http://www.w3.org/2001/XMLSchema#integer"), .datatype("http://www.w3.org/2001/XMLSchema#decimal"), .datatype("http://www.w3.org/2001/XMLSchema#boolean"):
-            return "\(value)"
-        case .datatype(let dt):
-            let escaped = value.replacingOccurrences(of:"\"", with: "\\\"")
-            return "\"\(escaped)\"^^<\(dt)>"
-        }
-    }
-
-    static let trueValue = Term(value: "true", type: .datatype("http://www.w3.org/2001/XMLSchema#boolean"))
-    static let falseValue = Term(value: "false", type: .datatype("http://www.w3.org/2001/XMLSchema#boolean"))
-}
-
-extension Term: BufferSerializable {
-    public var serializedSize: Int {
-        return type.serializedSize + value.serializedSize
-    }
-    public func serialize(to buffer: inout UnsafeMutableRawPointer, mediator: RWMediator?, maximumSize: Int) throws {
-        if serializedSize > maximumSize { throw DatabaseError.OverflowError("Cannot serialize Term in available space") }
-        try type.serialize(to: &buffer)
-        try value.serialize(to: &buffer)
-    }
-
-    public static func deserialize(from buffer: inout UnsafeRawPointer, mediator: RMediator?=nil) throws -> Term {
-        do {
-            let type    = try TermType.deserialize(from: &buffer)
-            let value   = try String.deserialize(from: &buffer)
-            let term    = Term(value: value, type: type)
-            return term
-        } catch let e {
-            throw e
-        }
-    }
-}
-
-extension Term: Hashable {
-    public var hashValue: Int {
-        return self.value.hashValue
-    }
-}
-
-extension Term: Comparable {
-    public var isNumeric: Bool {
-        switch type {
-        case .datatype("http://www.w3.org/2001/XMLSchema#integer"),
-             .datatype("http://www.w3.org/2001/XMLSchema#decimal"),
-             .datatype("http://www.w3.org/2001/XMLSchema#float"),
-             .datatype("http://www.w3.org/2001/XMLSchema#double"):
-            return true
-        default:
-            return false
-        }
-    }
-
-    public var numeric: Numeric? {
-        switch type {
-        case .datatype("http://www.w3.org/2001/XMLSchema#integer"):
-            if let i = Int(value) {
-                return .integer(i)
-            } else {
-                return nil
-            }
-        case .datatype("http://www.w3.org/2001/XMLSchema#decimal"):
-            return .decimal(numericValue)
-        case .datatype("http://www.w3.org/2001/XMLSchema#float"):
-            return .float(numericValue)
-        case .datatype("http://www.w3.org/2001/XMLSchema#double"):
-            return .double(numericValue)
-        default:
-            return nil
-        }
-
-    }
-    public var numericValue: Double {
-        switch type {
-        case .datatype("http://www.w3.org/2001/XMLSchema#integer"):
-            return Double(value) ?? 0.0
-        case .datatype("http://www.w3.org/2001/XMLSchema#decimal"),
-             .datatype("http://www.w3.org/2001/XMLSchema#float"),
-             .datatype("http://www.w3.org/2001/XMLSchema#double"):
-            return Double(value) ?? 0.0
-        default:
-            fatalError("Cannot compute a numeric value for term of type \(type)")
-        }
-    }
-
-    public static func < (lhs: Term, rhs: Term) -> Bool {
-        if lhs.isNumeric && rhs.isNumeric {
-            return lhs.numericValue < rhs.numericValue
-        }
-        switch (lhs.type, rhs.type) {
-        case (let a, let b) where a == b:
-            return lhs.value < rhs.value
-        case (.blank, _):
-            return true
-        case (.iri, .language(_)), (.iri, .datatype(_)):
-            return true
-        case (.language(_), .datatype(_)):
-            return true
-        default:
-            return false
-        }
-    }
-}
-
-extension Term: Equatable {
-    public static func == (lhs: Term, rhs: Term) -> Bool {
-        if lhs.isNumeric && rhs.isNumeric {
-            return lhs.numericValue == rhs.numericValue
-        }
-        switch (lhs.type, rhs.type) {
-        case (.iri, .iri), (.blank, .blank):
-            return lhs.value == rhs.value
-        case (.language(let l), .language(let r)) where l == r:
-            return lhs.value == rhs.value
-        case (.datatype(let l), .datatype(let r)) where l == r:
-            return lhs.value == rhs.value
-        default:
-            return false
-        }
     }
 }
 
