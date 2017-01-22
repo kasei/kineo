@@ -35,11 +35,9 @@ func sortParse(files: [String], startTime: UInt64, graph defaultGraphTerm: Term?
 
         iris.insert(graph)
         
-        let reader  = FileReader(filename: filename)
-        let parser  = NTriplesParser(reader: reader)
-        for triple in parser {
-            count += 1
-            for term in triple {
+        let parser = RDFParser()
+        count = try parser.parse(file: filename) { (s, p, o) in
+            for term in [s, p, o] {
                 switch term.type {
                 case .iri:
                     iris.insert(term)
@@ -82,16 +80,11 @@ func parse(_ database: FilePageDatabase, files: [String], startTime: UInt64, gra
                 #endif
                 let graph   = defaultGraphTerm ?? Term(value: path, type: .iri)
 
-                let reader  = FileReader(filename: filename)
-                let parser  = NTriplesParser(reader: reader)
-                let quads = AnySequence { () -> AnyIterator<Quad> in
-                    let i = parser.makeIterator()
-                    return AnyIterator {
-                        guard let triple = i.next() else { return nil }
-                        count += 1
-                        return Quad(subject: triple.subject, predicate: triple.predicate, object: triple.object, graph: graph)
-                    }
-                    //    warn("\r\(quads.count) triples parsed")
+                let parser = RDFParser()
+                var quads = [Quad]()
+                count = try parser.parse(file: filename) { (s, p, o) in
+                    let q = Quad(subject: s, predicate: p, object: o, graph: graph)
+                    quads.append(q)
                 }
 
                 let store = try QuadStore.create(mediator: m)

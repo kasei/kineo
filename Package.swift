@@ -16,7 +16,9 @@ let package = Package(
             ]
         )
     ],
-    dependencies: []
+    dependencies: [
+		.Package(url: "https://github.com/kasei/swift-serd.git", majorVersion: 0)
+    ]
 )
 
 let lib = Product(name: "Kineo", type: .Library(.Dynamic), modules: "Kineo")
