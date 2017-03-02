@@ -385,7 +385,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
     }
 
     func evaluateSum<S: Sequence>(results: S, expression keyExpr: Expression, distinct: Bool) -> Term? where S.Iterator.Element == TermResult {
-        var runningSum: Numeric = .integer(0)
+        var runningSum = NumericValue.integer(0)
         if distinct {
             let terms = results.map { try? self.ee.evaluate(expression: keyExpr, result: $0) }.flatMap { $0 }.sorted()
             let unique = Set(terms)
@@ -433,7 +433,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
 
     func evaluateSinglePipelinedAggregation(algebra child: Algebra, groups: [Expression], aggregation agg: Aggregation, variable name: String, activeGraph: Term) throws -> AnyIterator<TermResult> {
         let i = try self.evaluate(algebra: child, activeGraph: activeGraph)
-        var numericGroups = [String:Numeric]()
+        var numericGroups = [String:NumericValue]()
         var termGroups = [String:Term]()
         var groupCount = [String:Int]()
         var groupBindings = [String:[String:Term]]()
@@ -551,7 +551,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
             var value = v
             if case .avg(_) = agg {
                 guard let count = groupCount[groupKey] else { fatalError("Failed to find expected group data during aggregation") }
-                value = v / Numeric.double(Double(count))
+                value = v / NumericValue.double(Double(count))
             }
 
             guard var bindings = groupBindings[groupKey] else { fatalError("Unexpected missing aggregation group template") }

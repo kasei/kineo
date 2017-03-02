@@ -8,86 +8,26 @@
 
 import serd
 
-public enum RDFParserError : Error {
-    case parseError(String)
-    case internalError(String)
-}
-
-public enum RDFSyntax {
-    case ntriples
-    case turtle
-    
-    var serdSyntax : SerdSyntax {
-        switch self {
-        case .ntriples:
-            return SERD_NTRIPLES
-        case .turtle:
-            return SERD_TURTLE
-        }
-    }
-}
-
-fileprivate extension SerdURI {
-    var value : String {
-        var value = ""
-        value += self.scheme.value
-        value += "://"
-        value += self.authority.value
-        value += self.path_base.value
-        value += self.path.value
-        let query = self.query.value
-        if query.characters.count > 0 {
-            value += "?"
-            value += self.query.value
-        }
-        value += self.fragment.value
-        return value
-    }
-}
-
-fileprivate extension SerdChunk {
-    var value : String {
-        if let buf = self.buf {
-            let len = self.len
-            let value = String(cString: buf)
-            if value.utf8.count != len {
-                let bytes = value.utf8.prefix(len)
-                if let string = String(bytes) {
-                    return string
-                } else {
-                    fatalError()
-                }
-            } else {
-                return value
-            }
-        } else {
-            return ""
-        }
-    }
-}
-
-fileprivate extension SerdNode {
-    var value : String {
-        if let buf = self.buf {
-            let len = self.n_bytes
-            let value = String(cString: buf)
-            if value.utf8.count != len {
-                let bytes = value.utf8.prefix(len)
-                if let string = String(bytes) {
-                    return string
-                } else {
-                    fatalError()
-                }
-            } else {
-                return value
-            }
-        } else {
-            return ""
-        }
-    }
-}
-
 public class RDFParser {
+    public enum RDFParserError : Error {
+        case parseError(String)
+        case internalError(String)
+    }
+    
+    public enum RDFSyntax {
+        case ntriples
+        case turtle
+        
+        var serdSyntax : SerdSyntax {
+            switch self {
+            case .ntriples:
+                return SERD_NTRIPLES
+            case .turtle:
+                return SERD_TURTLE
+            }
+        }
+    }
+
     public typealias TripleHandler = (Term, Term, Term) -> Void
     private class ParserContext {
         var count: Int
@@ -148,12 +88,13 @@ public class RDFParser {
     }
     
     var inputSyntax: RDFSyntax
-    
-    public init(syntax: RDFSyntax = .turtle) {
+    var defaultBase: String
+    public init(syntax: RDFSyntax = .turtle, base defaultBase: String = "http://base.example.org/") {
         self.inputSyntax = syntax
+        self.defaultBase = defaultBase
     }
     
-    fileprivate static func node_as_term(env: OpaquePointer?, node: SerdNode, datatype: String?, language: String?) throws -> Term {
+    private static func node_as_term(env: OpaquePointer?, node: SerdNode, datatype: String?, language: String?) throws -> Term {
         switch node.type {
         case SERD_URI:
             var base_uri = SERD_URI_NULL
@@ -199,7 +140,7 @@ public class RDFParser {
         var base = SERD_NODE_NULL
         
         guard let env = serd_env_new(&base) else { throw RDFParserError.internalError("Failed to construct parser context") }
-        base = serd_node_new_uri_from_string("http://base.example.org/", nil, &baseUri)
+        base = serd_node_new_uri_from_string(defaultBase, nil, &baseUri)
         
         var context = ParserContext(env: env, handler: handleTriple)
         withUnsafePointer(to: &context) { (ctx) -> Void in
@@ -251,5 +192,65 @@ public class RDFParser {
         serd_env_free(env)
         serd_node_free(&base)
         return context.count
+    }
+}
+
+fileprivate extension SerdURI {
+    var value : String {
+        var value = ""
+        value += self.scheme.value
+        value += "://"
+        value += self.authority.value
+        value += self.path_base.value
+        value += self.path.value
+        let query = self.query.value
+        if query.characters.count > 0 {
+            value += "?"
+            value += self.query.value
+        }
+        value += self.fragment.value
+        return value
+    }
+}
+
+fileprivate extension SerdChunk {
+    var value : String {
+        if let buf = self.buf {
+            let len = self.len
+            let value = String(cString: buf)
+            if value.utf8.count != len {
+                let bytes = value.utf8.prefix(len)
+                if let string = String(bytes) {
+                    return string
+                } else {
+                    fatalError()
+                }
+            } else {
+                return value
+            }
+        } else {
+            return ""
+        }
+    }
+}
+
+fileprivate extension SerdNode {
+    var value : String {
+        if let buf = self.buf {
+            let len = self.n_bytes
+            let value = String(cString: buf)
+            if value.utf8.count != len {
+                let bytes = value.utf8.prefix(len)
+                if let string = String(bytes) {
+                    return string
+                } else {
+                    fatalError()
+                }
+            } else {
+                return value
+            }
+        } else {
+            return ""
+        }
     }
 }

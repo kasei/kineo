@@ -452,7 +452,7 @@ extension Term {
         }
     }
     
-    public var numeric: Numeric? {
+    public var numeric: NumericValue? {
         switch type {
         case .datatype("http://www.w3.org/2001/XMLSchema#integer"):
             if let i = Int(value) {
@@ -486,7 +486,7 @@ extension Term {
     }
 }
 
-public enum Numeric: CustomStringConvertible {
+public enum NumericValue: CustomStringConvertible {
     case integer(Int)
     case decimal(Double)
     case float(Double)
@@ -501,7 +501,7 @@ public enum Numeric: CustomStringConvertible {
         }
     }
 
-    var absoluteValue: Numeric {
+    var absoluteValue: NumericValue {
         if value >= 0.0 {
             return self
         } else {
@@ -509,7 +509,7 @@ public enum Numeric: CustomStringConvertible {
         }
     }
     
-    var round: Numeric {
+    var round: NumericValue {
         var v = value
         if value < 0 {
             v += 0.5
@@ -527,7 +527,7 @@ public enum Numeric: CustomStringConvertible {
         }
     }
     
-    var ceil: Numeric {
+    var ceil: NumericValue {
         var v = value
         v.round(.up)
         switch self {
@@ -542,7 +542,7 @@ public enum Numeric: CustomStringConvertible {
         }
     }
     
-    var floor: Numeric {
+    var floor: NumericValue {
         var v = value
         v.round(.down)
         switch self {
@@ -583,27 +583,27 @@ public enum Numeric: CustomStringConvertible {
         }
     }
 
-    public static func + (lhs: Numeric, rhs: Numeric) -> Numeric {
+    public static func + (lhs: NumericValue, rhs: NumericValue) -> NumericValue {
         let value = lhs.value + rhs.value
         return nonDivResultingNumeric(value, lhs, rhs)
     }
 
-    public static func - (lhs: Numeric, rhs: Numeric) -> Numeric {
+    public static func - (lhs: NumericValue, rhs: NumericValue) -> NumericValue {
         let value = lhs.value - rhs.value
         return nonDivResultingNumeric(value, lhs, rhs)
     }
 
-    public static func * (lhs: Numeric, rhs: Numeric) -> Numeric {
+    public static func * (lhs: NumericValue, rhs: NumericValue) -> NumericValue {
         let value = lhs.value * rhs.value
         return nonDivResultingNumeric(value, lhs, rhs)
     }
 
-    public static func / (lhs: Numeric, rhs: Numeric) -> Numeric {
+    public static func / (lhs: NumericValue, rhs: NumericValue) -> NumericValue {
         let value = lhs.value / rhs.value
         return divResultingNumeric(value, lhs, rhs)
     }
 
-    public static prefix func - (num: Numeric) -> Numeric {
+    public static prefix func - (num: NumericValue) -> NumericValue {
         switch num {
         case .integer(let value):
             return .integer(-value)
@@ -617,8 +617,8 @@ public enum Numeric: CustomStringConvertible {
     }
 }
 
-public extension Numeric {
-    public static func === (lhs: Numeric, rhs: Numeric) -> Bool {
+public extension NumericValue {
+    public static func === (lhs: NumericValue, rhs: NumericValue) -> Bool {
         switch (lhs, rhs) {
         case (.integer(let l), .integer(let r)) where l == r:
             return true
@@ -634,7 +634,7 @@ public extension Numeric {
     }
 }
 
-private func nonDivResultingNumeric(_ value: Double, _ lhs: Numeric, _ rhs: Numeric) -> Numeric {
+private func nonDivResultingNumeric(_ value: Double, _ lhs: NumericValue, _ rhs: NumericValue) -> NumericValue {
     switch (lhs, rhs) {
     case (.integer(_), .integer(_)):
         return .integer(Int(value))
@@ -654,7 +654,7 @@ private func nonDivResultingNumeric(_ value: Double, _ lhs: Numeric, _ rhs: Nume
     }
 }
 
-private func divResultingNumeric(_ value: Double, _ lhs: Numeric, _ rhs: Numeric) -> Numeric {
+private func divResultingNumeric(_ value: Double, _ lhs: NumericValue, _ rhs: NumericValue) -> NumericValue {
     switch (lhs, rhs) {
     case (.integer(_), .integer(_)), (.decimal(_), .decimal(_)):
         return .decimal(value)

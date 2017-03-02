@@ -1080,7 +1080,7 @@ class ExpressionEvaluator {
         throw QueryError.evaluationError("Failed to evaluate \(self) with result \(result)")
     }
     
-    public func numericEvaluate(expression: Expression, result: TermResult) throws -> Numeric {
+    public func numericEvaluate(expression: Expression, result: TermResult) throws -> NumericValue {
         //        print("numericEvaluate over result: \(result)")
         //        print("numericEvaluate expression: \(self)")
         //        guard self.isNumeric else { throw QueryError.evaluationError("Cannot compile expression as numeric") }
