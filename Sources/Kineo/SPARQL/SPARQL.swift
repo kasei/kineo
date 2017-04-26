@@ -263,6 +263,16 @@ extension SPARQLToken {
 
 // swiftlint:disable:next type_body_length
 public struct SPARQLLexer: IteratorProtocol {
+    public struct PositionedToken {
+        var token: SPARQLToken
+        var startColumn: Int
+        var startLine: Int
+        var startCharacter: UInt
+        var endLine: Int
+        var endColumn: Int
+        var endCharacter: UInt
+    }
+
     var includeComments: Bool
     var source: InputStream
     var lookaheadBuffer: [UInt8]
@@ -277,7 +287,7 @@ public struct SPARQLLexer: IteratorProtocol {
     var startLine: Int
     var startCharacter: UInt
     var comments: Bool
-    var lookahead: SPARQLToken?
+    var lookahead: PositionedToken?
 
     private mutating func lexError(_ message: String) -> SPARQLParsingError {
         try? fillBuffer()
@@ -447,6 +457,24 @@ public struct SPARQLLexer: IteratorProtocol {
         self.lookahead = nil
     }
 
+    public mutating func nextPositionedToken() -> PositionedToken? {
+        do {
+            return try getToken()
+        } catch {
+            return nil
+        }
+    }
+    public mutating func next() -> SPARQLToken? {
+        do {
+            if let pt : PositionedToken = try getToken() {
+                return pt.token
+            }
+            return nil
+        } catch {
+            return nil
+        }
+    }
+    
     mutating func readUnicodeEscape(length: Int) throws -> [UInt8] {
         var charbuffer = [UInt8](repeating: 0, count: length)
         let read = source.read(&charbuffer, maxLength: length)
@@ -467,13 +495,13 @@ public struct SPARQLLexer: IteratorProtocol {
         var charbuffer: [UInt8] = [0]
         LOOP: while true {
             let read = source.read(&charbuffer, maxLength: 1)
-            guard read != -1 else { print("\(source.streamError)"); break }
+            guard read != -1 else { print("\(source.streamError.debugDescription)"); break }
             guard read > 0 else { break }
 
             if charbuffer[0] == 0x5c {
                 // backslash; check for \u or \U escapes
                 let read = source.read(&charbuffer, maxLength: 1)
-                guard read != -1 else { print("\(source.streamError)"); break }
+                guard read != -1 else { print("\(source.streamError.debugDescription)"); break }
                 guard read > 0 else { break }
 
                 switch charbuffer[0] {
@@ -504,15 +532,7 @@ public struct SPARQLLexer: IteratorProtocol {
         buffer = s
     }
 
-    public mutating func next() -> SPARQLToken? {
-        do {
-            return try getToken()
-        } catch {
-            return nil
-        }
-    }
-
-    mutating func peekToken() throws -> SPARQLToken? {
+    mutating func peekToken() throws -> PositionedToken? {
         if let t = lookahead {
             return t
         } else {
@@ -521,7 +541,7 @@ public struct SPARQLLexer: IteratorProtocol {
         }
     }
 
-    mutating func getToken() throws -> SPARQLToken? {
+    mutating func getToken() throws -> PositionedToken? {
         if let t = lookahead {
             lookahead = nil
             return t
@@ -530,8 +550,20 @@ public struct SPARQLLexer: IteratorProtocol {
         }
     }
 
+    private func packageToken(_ token: SPARQLToken?) -> PositionedToken? {
+        guard let token = token else { return nil }
+        return PositionedToken(
+            token: token,
+            startColumn: startColumn,
+            startLine: startLine,
+            startCharacter: startCharacter,
+            endLine: line,
+            endColumn: column,
+            endCharacter: character
+        )
+    }
     // swiftlint:disable:next cyclomatic_complexity
-    mutating func _getToken() throws -> SPARQLToken? {
+    mutating func _getToken() throws -> PositionedToken? {
         while true {
             try fillBuffer()
             guard var c = try peekChar() else { return nil }
@@ -560,7 +592,7 @@ public struct SPARQLLexer: IteratorProtocol {
                     } else {
                         if includeComments {
                             let c = String(chars).trimmingCharacters(in: CharacterSet(charactersIn: "#\n\r"))
-                            return .comment(c)
+                            return packageToken(.comment(c))
                         } else {
                             return nil
                         }
@@ -568,7 +600,7 @@ public struct SPARQLLexer: IteratorProtocol {
                 }
                 if includeComments {
                     let c = String(chars).trimmingCharacters(in: CharacterSet(charactersIn: "#\n\r"))
-                    return .comment(c)
+                    return packageToken(.comment(c))
                 } else {
                     continue
                 }
@@ -579,58 +611,58 @@ public struct SPARQLLexer: IteratorProtocol {
             let nil_range = SPARQLLexer._nilRegex.rangeOfFirstMatch(in: buffer, options: [], range: bufferLength)
             if nil_range.location == 0 {
                 try read(length: nil_range.length)
-                return ._nil
+                return packageToken(._nil)
             }
 
             let anon_range = SPARQLLexer._anonRegex.rangeOfFirstMatch(in: buffer, options: [], range: bufferLength)
             if anon_range.location == 0 {
                 try read(length: anon_range.length)
-                return .anon
+                return packageToken(.anon)
             }
 
             switch c {
             case ",":
                 getChar()
-                return .comma
+                return packageToken(.comma)
             case ".":
                 getChar()
-                return .dot
+                return packageToken(.dot)
             case "=":
                 getChar()
-                return .equals
+                return packageToken(.equals)
             case "{":
                 getChar()
-                return .lbrace
+                return packageToken(.lbrace)
             case "[":
                 getChar()
-                return .lbracket
+                return packageToken(.lbracket)
             case "(":
                 getChar()
-                return .lparen
+                return packageToken(.lparen)
             case "-":
                 getChar()
-                return .minus
+                return packageToken(.minus)
             case "+":
                 getChar()
-                return .plus
+                return packageToken(.plus)
             case "}":
                 getChar()
-                return .rbrace
+                return packageToken(.rbrace)
             case "]":
                 getChar()
-                return .rbracket
+                return packageToken(.rbracket)
             case ")":
                 getChar()
-                return .rparen
+                return packageToken(.rparen)
             case ";":
                 getChar()
-                return .semicolon
+                return packageToken(.semicolon)
             case "/":
                 getChar()
-                return .slash
+                return packageToken(.slash)
             case "*":
                 getChar()
-                return .star
+                return packageToken(.star)
             default:
                 break
             }
@@ -638,31 +670,31 @@ public struct SPARQLLexer: IteratorProtocol {
             let us = UnicodeScalar("\(c)")!
             if SPARQLLexer.pnCharSet.contains(us) {
                 if let t = try getPName() {
-                    return t
+                    return packageToken(t)
                 }
             }
 
             switch c {
             case "@":
-                return try getLanguage()
+                return try packageToken(getLanguage())
             case "<":
-                return try getIRIRefOrRelational()
+                return try packageToken(getIRIRefOrRelational())
             case "?", "$":
-                return try getVariable()
+                return try packageToken(getVariable())
             case "!":
-                return try getBang()
+                return try packageToken(getBang())
             case ">":
-                return try getIRIRefOrRelational()
+                return try packageToken(getIRIRefOrRelational())
             case "|":
-                return try getOr()
+                return try packageToken(getOr())
             case "'":
-                return try getSingleLiteral()
+                return try packageToken(getSingleLiteral())
             case "\"":
-                return try getDoubleLiteral()
+                return try packageToken(getDoubleLiteral())
             case "_":
-                return try getBnode()
+                return try packageToken(getBnode())
             case ":":
-                 return try getPName()
+                 return try packageToken(getPName())
             default:
                 break
             }
@@ -670,37 +702,37 @@ public struct SPARQLLexer: IteratorProtocol {
             let double_range = SPARQLLexer._doubleRegex.rangeOfFirstMatch(in: buffer, options: [], range: bufferLength)
             if double_range.location == 0 {
                 let value = try read(length: double_range.length)
-                return .double(value)
+                return packageToken(.double(value))
             }
 
             let decimal_range = SPARQLLexer._decimalRegex.rangeOfFirstMatch(in: buffer, options: [], range: bufferLength)
             if decimal_range.location == 0 {
                 let value = try read(length: decimal_range.length)
-                return .decimal(value)
+                return packageToken(.decimal(value))
             }
 
             let integer_range = SPARQLLexer._integerRegex.rangeOfFirstMatch(in: buffer, options: [], range: bufferLength)
             if integer_range.location == 0 {
                 let value = try read(length: integer_range.length)
-                return .integer(value)
+                return packageToken(.integer(value))
             }
 
             if c == "^" {
                 if buffer.hasPrefix("^^") {
                     try read(word: "^^")
-                    return .hathat
+                    return packageToken(.hathat)
                 } else {
                     try read(word: "^")
-                    return .hat
+                    return packageToken(.hat)
                 }
             }
 
             if buffer.hasPrefix("&&") {
                 try read(word: "&&")
-                return .andand
+                return packageToken(.andand)
             }
 
-            return try getKeyword()
+            return try packageToken(getKeyword())
         }
     }
 
@@ -1741,6 +1773,10 @@ public struct SPARQLParser {
             algebra = .project(algebra, projection)
         }
 
+        if distinct {
+            algebra = .distinct(algebra)
+        }
+        
         if sortConditions.count > 0 {
             algebra = .order(algebra, sortConditions)
         }

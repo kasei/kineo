@@ -375,7 +375,7 @@ class SPARQLParserTest: XCTestCase {
         guard var p = SPARQLParser(string: "CONSTRUCT { ?s <p1> <o> . ?s <p2> ?o } WHERE {?s ?p ?o}") else { XCTFail(); return }
         do {
             let a = try p.parse()
-            guard case .construct(.triple(_), let ctriples) = a else {
+            guard case .construct(.distinct(.triple(_)), let ctriples) = a else {
                 XCTFail("Unexpected algebra: \(a.serialize())")
                 return
             }
@@ -390,7 +390,7 @@ class SPARQLParserTest: XCTestCase {
         guard var p = SPARQLParser(string: "DESCRIBE <u>") else { XCTFail(); return }
         do {
             let a = try p.parse()
-            guard case .describe(.joinIdentity, let nodes) = a else {
+            guard case .distinct(.describe(.joinIdentity, let nodes)) = a else {
                 XCTFail("Unexpected algebra: \(a.serialize())")
                 return
             }
@@ -435,7 +435,7 @@ class SPARQLParserTest: XCTestCase {
         guard var p = SPARQLParser(string: "PREFIX : <http://www.example.org> CONSTRUCT { ?s :p (1 2) } WHERE { ?s ?p ?o }") else { XCTFail(); return }
         do {
             let a = try p.parse()
-            guard case .construct(.triple(_), let template) = a else {
+            guard case .construct(.distinct(.triple(_)), let template) = a else {
                 XCTFail("Unexpected algebra: \(a.serialize())")
                 return
             }
@@ -450,7 +450,7 @@ class SPARQLParserTest: XCTestCase {
         guard var p = SPARQLParser(string: "PREFIX : <http://www.example.org> CONSTRUCT { (1 2) :p ?o } WHERE { ?s ?p ?o }") else { XCTFail(); return }
         do {
             let a = try p.parse()
-            guard case .construct(.triple(_), let template) = a else {
+            guard case .construct(.distinct(.triple(_)), let template) = a else {
                 XCTFail("Unexpected algebra: \(a.serialize())")
                 return
             }
@@ -465,7 +465,7 @@ class SPARQLParserTest: XCTestCase {
         guard var p = SPARQLParser(string: "PREFIX : <http://www.example.org> CONSTRUCT { [ :p ?o ] } WHERE { ?s ?p ?o }") else { XCTFail(); return }
         do {
             let a = try p.parse()
-            guard case .construct(.triple(_), let template) = a else {
+            guard case .construct(.distinct(.triple(_)), let template) = a else {
                 XCTFail("Unexpected algebra: \(a.serialize())")
                 return
             }
