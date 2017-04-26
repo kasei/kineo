@@ -676,6 +676,11 @@ public struct Triple: CustomStringConvertible {
     public var subject: Term
     public var predicate: Term
     public var object: Term
+    public init(subject: Term, predicate: Term, object: Term) {
+        self.subject = subject
+        self.predicate = predicate
+        self.object = object
+    }
     public var description: String {
         return "\(subject) \(predicate) \(object) ."
     }
