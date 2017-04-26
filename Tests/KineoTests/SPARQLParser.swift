@@ -71,11 +71,42 @@ class SPARQLParserTest: XCTestCase {
         XCTAssertNil(lexer.next())
     }
 
+    func testLexerPositionedTokens() {
+        guard let sparql = "SELECT * WHERE { ?s <p> 'o' }".data(using: .utf8) else { XCTFail(); return }
+        let stream = InputStream(data: sparql)
+        stream.open()
+        let lexer = SPARQLLexer(source: stream, includeComments: false)
+        let pt = lexer.nextPositionedToken()!
+        let loc = pt.startCharacter
+        let len = pt.endCharacter - pt.startCharacter
+        XCTAssertEqual(loc, 0)
+        XCTAssertEqual(len, 6)
+        
+        let tokens: UnfoldSequence<PositionedToken, Int> = sequence(state: 0) { (_) in return lexer.nextPositionedToken() }
+        let expected = [
+            (7,1),
+            (9,5),
+            (15,1),
+            (17,2),
+            (20,3),
+            (24,3),
+            (28,1),
+        ]
+        
+        let positions = tokens.map { (Int($0.startCharacter), Int($0.endCharacter-$0.startCharacter)) }
+        let comparisions = zip(positions, expected)
+        for (got, expected) in comparisions {
+            print("got: \(got); expected: \(expected)")
+            XCTAssertEqual(got.0, expected.0)
+            XCTAssertEqual(got.1, expected.1)
+        }
+    }
+    
     func testLexerSingleQuotedStrings() {
         guard let data = "'foo' 'foo\\nbar' '\\u706B' '\\U0000661F' '''baz''' '''' ''' ''''''''".data(using: .utf8) else { XCTFail(); return }
         let stream = InputStream(data: data)
         stream.open()
-        var lexer = SPARQLLexer(source: stream)
+        let lexer = SPARQLLexer(source: stream)
 
         XCTAssertEqual(lexer.next()!, .string1s("foo"), "expected token")
         XCTAssertEqual(lexer.next()!, .string1s("foo\nbar"), "expected token")

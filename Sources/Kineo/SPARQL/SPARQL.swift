@@ -261,18 +261,18 @@ extension SPARQLToken {
     }
 }
 
-// swiftlint:disable:next type_body_length
-public struct SPARQLLexer: IteratorProtocol {
-    public struct PositionedToken {
-        var token: SPARQLToken
-        var startColumn: Int
-        var startLine: Int
-        var startCharacter: UInt
-        var endLine: Int
-        var endColumn: Int
-        var endCharacter: UInt
-    }
+public struct PositionedToken {
+    public var token: SPARQLToken
+    public var startColumn: Int
+    public var startLine: Int
+    public var startCharacter: UInt
+    public var endLine: Int
+    public var endColumn: Int
+    public var endCharacter: UInt
+}
 
+// swiftlint:disable:next type_body_length
+public class SPARQLLexer: IteratorProtocol {
     var includeComments: Bool
     var source: InputStream
     var lookaheadBuffer: [UInt8]
@@ -289,7 +289,7 @@ public struct SPARQLLexer: IteratorProtocol {
     var comments: Bool
     var lookahead: PositionedToken?
 
-    private mutating func lexError(_ message: String) -> SPARQLParsingError {
+    private func lexError(_ message: String) -> SPARQLParsingError {
         try? fillBuffer()
         let rest = buffer
         return SPARQLParsingError.lexicalError("\(message) at \(line):\(column) near '\(rest)...'")
@@ -457,14 +457,14 @@ public struct SPARQLLexer: IteratorProtocol {
         self.lookahead = nil
     }
 
-    public mutating func nextPositionedToken() -> PositionedToken? {
+    public func nextPositionedToken() -> PositionedToken? {
         do {
             return try getToken()
         } catch {
             return nil
         }
     }
-    public mutating func next() -> SPARQLToken? {
+    public func next() -> SPARQLToken? {
         do {
             if let pt : PositionedToken = try getToken() {
                 return pt.token
@@ -475,7 +475,7 @@ public struct SPARQLLexer: IteratorProtocol {
         }
     }
     
-    mutating func readUnicodeEscape(length: Int) throws -> [UInt8] {
+    func readUnicodeEscape(length: Int) throws -> [UInt8] {
         var charbuffer = [UInt8](repeating: 0, count: length)
         let read = source.read(&charbuffer, maxLength: length)
         guard read == length else { throw lexError("Failed to read unicode escape") }
@@ -488,7 +488,7 @@ public struct SPARQLLexer: IteratorProtocol {
         return u
     }
 
-    mutating func fillBuffer() throws {
+    func fillBuffer() throws {
         guard source.hasBytesAvailable else { return }
         guard buffer.characters.count == 0 else { return }
         var bytes = [UInt8]()
@@ -532,7 +532,7 @@ public struct SPARQLLexer: IteratorProtocol {
         buffer = s
     }
 
-    mutating func peekToken() throws -> PositionedToken? {
+    func peekToken() throws -> PositionedToken? {
         if let t = lookahead {
             return t
         } else {
@@ -541,7 +541,7 @@ public struct SPARQLLexer: IteratorProtocol {
         }
     }
 
-    mutating func getToken() throws -> PositionedToken? {
+    func getToken() throws -> PositionedToken? {
         if let t = lookahead {
             lookahead = nil
             return t
@@ -552,6 +552,10 @@ public struct SPARQLLexer: IteratorProtocol {
 
     private func packageToken(_ token: SPARQLToken?) -> PositionedToken? {
         guard let token = token else { return nil }
+        if self.character == self.startCharacter {
+            print("Zero-length token \(startCharacter), \(character): \(token)")
+            fatalError()
+        }
         return PositionedToken(
             token: token,
             startColumn: startColumn,
@@ -562,8 +566,9 @@ public struct SPARQLLexer: IteratorProtocol {
             endCharacter: character
         )
     }
+    
     // swiftlint:disable:next cyclomatic_complexity
-    mutating func _getToken() throws -> PositionedToken? {
+    func _getToken() throws -> PositionedToken? {
         while true {
             try fillBuffer()
             guard var c = try peekChar() else { return nil }
@@ -731,12 +736,13 @@ public struct SPARQLLexer: IteratorProtocol {
                 try read(word: "&&")
                 return packageToken(.andand)
             }
-
-            return try packageToken(getKeyword())
+            
+            let token = try getKeyword()
+            return packageToken(token)
         }
     }
 
-    mutating func getKeyword() throws -> SPARQLToken? {
+    func getKeyword() throws -> SPARQLToken? {
         let bufferLength = NSMakeRange(0, buffer.characters.count)
         let keyword_range = SPARQLLexer._keywordRegex.rangeOfFirstMatch(in: buffer, options: [], range: bufferLength)
         if keyword_range.location == 0 {
@@ -759,7 +765,7 @@ public struct SPARQLLexer: IteratorProtocol {
         throw lexError("Expecting keyword")
     }
 
-    mutating func getVariable() throws -> SPARQLToken? {
+    func getVariable() throws -> SPARQLToken? {
         getChar()
         let bufferLength = NSMakeRange(0, buffer.characters.count)
         let variable_range = SPARQLLexer._variableNameRegex.rangeOfFirstMatch(in: buffer, options: [], range: bufferLength)
@@ -772,7 +778,7 @@ public struct SPARQLLexer: IteratorProtocol {
     }
 
     // swiftlint:disable:next cyclomatic_complexity
-    mutating func getSingleLiteral() throws -> SPARQLToken? {
+    func getSingleLiteral() throws -> SPARQLToken? {
         var chars = [Character]()
         if buffer.hasPrefix("''") {
             try read(word: "'''")
@@ -852,7 +858,7 @@ public struct SPARQLLexer: IteratorProtocol {
         }
     }
 
-    mutating func getEscapedChar() throws -> Character {
+    func getEscapedChar() throws -> Character {
         try getChar(expecting: "\\")
         let c = try getExpectedChar()
         switch c {
@@ -887,7 +893,7 @@ public struct SPARQLLexer: IteratorProtocol {
         }
     }
 
-    mutating func getPName() throws -> SPARQLToken? {
+    func getPName() throws -> SPARQLToken? {
         let bufferLength = NSMakeRange(0, buffer.characters.count)
         let range = SPARQLLexer._pNameLNre.rangeOfFirstMatch(in: buffer, options: [], range: bufferLength)
         if range.location == 0 {
@@ -928,7 +934,7 @@ public struct SPARQLLexer: IteratorProtocol {
             }
         }
     }
-    mutating func getOr() throws -> SPARQLToken? {
+    func getOr() throws -> SPARQLToken? {
         if buffer.hasPrefix("||") {
             try read(word: "||")
             return .oror
@@ -938,7 +944,7 @@ public struct SPARQLLexer: IteratorProtocol {
         }
     }
 
-    mutating func getLanguage() throws -> SPARQLToken? {
+    func getLanguage() throws -> SPARQLToken? {
         try getChar(expecting: "@")
         let bufferLength = NSMakeRange(0, buffer.characters.count)
 
@@ -955,7 +961,7 @@ public struct SPARQLLexer: IteratorProtocol {
         }
     }
 
-    mutating func getIRIRefOrRelational() throws -> SPARQLToken? {
+    func getIRIRefOrRelational() throws -> SPARQLToken? {
         let bufferLength = NSMakeRange(0, buffer.characters.count)
         let range = SPARQLLexer._iriRegex.rangeOfFirstMatch(in: buffer, options: [], range: bufferLength)
         if range.location == 0 {
@@ -997,7 +1003,7 @@ public struct SPARQLLexer: IteratorProtocol {
     }
 
     // swiftlint:disable:next cyclomatic_complexity
-    mutating func getDoubleLiteral() throws -> SPARQLToken? {
+    func getDoubleLiteral() throws -> SPARQLToken? {
         var chars = [Character]()
         if buffer.hasPrefix("\"\"\"") {
             try read(word: "\"\"\"")
@@ -1077,7 +1083,7 @@ public struct SPARQLLexer: IteratorProtocol {
         }
     }
 
-    mutating func getBnode() throws -> SPARQLToken? {
+    func getBnode() throws -> SPARQLToken? {
         try read(word: "_:")
         let bufferLength = NSMakeRange(0, buffer.characters.count)
         let bnode_range = SPARQLLexer._bnodeNameRegex.rangeOfFirstMatch(in: buffer, options: [], range: bufferLength)
@@ -1089,7 +1095,7 @@ public struct SPARQLLexer: IteratorProtocol {
         }
     }
 
-    mutating func getBang() throws -> SPARQLToken? {
+    func getBang() throws -> SPARQLToken? {
         if buffer.hasPrefix("!=") {
             try read(word: "!=")
             return .notequals
@@ -1099,13 +1105,13 @@ public struct SPARQLLexer: IteratorProtocol {
         }
     }
 
-    mutating func peekChar() throws -> Character? {
+    func peekChar() throws -> Character? {
         try fillBuffer()
         return buffer.characters.first
     }
 
     @discardableResult
-    mutating func getChar() -> Character {
+    func getChar() -> Character {
         let c = buffer.characters.first!
         buffer = buffer.substring(from: buffer.index(buffer.startIndex, offsetBy: 1))
         self.character += 1
@@ -1119,7 +1125,7 @@ public struct SPARQLLexer: IteratorProtocol {
     }
 
     @discardableResult
-    mutating func getExpectedChar() throws -> Character {
+    func getExpectedChar() throws -> Character {
         guard let c = buffer.characters.first else {
             throw lexError("Unexpected EOF")
         }
@@ -1135,7 +1141,7 @@ public struct SPARQLLexer: IteratorProtocol {
     }
 
     @discardableResult
-    mutating func getChar(expecting: Character) throws -> Character {
+    func getChar(expecting: Character) throws -> Character {
         let c = getChar()
         guard c == expecting else {
             throw lexError("Expecting '\(expecting)' but got '\(c)'")
@@ -1143,7 +1149,7 @@ public struct SPARQLLexer: IteratorProtocol {
         return c
     }
 
-    mutating func getCharFillBuffer() throws -> Character? {
+    func getCharFillBuffer() throws -> Character? {
         try fillBuffer()
         guard buffer.characters.count > 0 else { return nil }
         let c = buffer.characters.first!
@@ -1158,7 +1164,7 @@ public struct SPARQLLexer: IteratorProtocol {
         return c
     }
 
-    mutating func read(word: String) throws {
+    func read(word: String) throws {
         try fillBuffer()
         if buffer.characters.count < word.characters.count {
             throw lexError("Expecting '\(word)' but not enough read-ahead data available")
@@ -1182,7 +1188,7 @@ public struct SPARQLLexer: IteratorProtocol {
     }
 
     @discardableResult
-    mutating func read(length: Int) throws -> String {
+    func read(length: Int) throws -> String {
         try fillBuffer()
         if buffer.characters.count < length {
             throw lexError("Expecting \(length) characters but not enough read-ahead data available")
