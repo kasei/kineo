@@ -26,22 +26,22 @@ class TreesTest: XCTestCase {
         XCTAssertEqual(database.pageCount, 1)
 
         let treeName = "testvalues"
-        try database.update(version: 101) { (m) in
+        try database.update(version: 101) { (dbm) in
             let pairs: [(UInt32, String)] = []
-            _ = try m.create(tree: treeName, pairs: pairs)
+            _ = try dbm.create(tree: treeName, pairs: pairs)
         }
 
         XCTAssertEqual(database.pageCount, 2)
-        try database.read { (m) in
-            guard let pid = try? m.getRoot(named: treeName) else { XCTFail(); return }
+        try database.read { (dbm) in
+            guard let pid = try? dbm.getRoot(named: treeName) else { XCTFail(); return }
             XCTAssertEqual(pid, 1, "An empty tree created in a fresh database should appear on page 1")
-            assertValidTreeVersionMtime(m, pid, "tree read 1")
-            guard let t: Tree<UInt32, String> = m.tree(name: treeName) else { fatalError("No such tree") }
+            assertValidTreeVersionMtime(dbm, pid, "tree read 1")
+            guard let t: Tree<UInt32, String> = dbm.tree(name: treeName) else { fatalError("No such tree") }
             XCTAssertEqual(t.version, 101)
         }
 
-        try database.update(version: 102) { (m) in
-            guard let t: Tree<UInt32, String> = m.tree(name: treeName) else { fatalError("No such tree") }
+        try database.update(version: 102) { (dbm) in
+            guard let t: Tree<UInt32, String> = dbm.tree(name: treeName) else { fatalError("No such tree") }
             for k: UInt32 in 0..<14 {
                 let key = k * 2
                 let value = "<<\(key)>>"
@@ -50,48 +50,48 @@ class TreesTest: XCTestCase {
         }
 
         XCTAssertEqual(database.pageCount, 3)
-        try database.read { (m) in
-            guard let pid = try? m.getRoot(named: treeName) else { XCTFail(); return }
+        try database.read { (dbm) in
+            guard let pid = try? dbm.getRoot(named: treeName) else { XCTFail(); return }
             XCTAssertEqual(pid, 2, "After inserting pairs into the tree which all fit in one page, the root should appear on page 2")
-            assertValidTreeVersionMtime(m, pid, "tree read 2")
-            guard let t: Tree<UInt32, String> = m.tree(name: treeName) else { fatalError("No such tree") }
+            assertValidTreeVersionMtime(dbm, pid, "tree read 2")
+            guard let t: Tree<UInt32, String> = dbm.tree(name: treeName) else { fatalError("No such tree") }
             XCTAssertEqual(t.version, 102)
 
-            assertTreeVersions(m, pid, [102])
+            assertTreeVersions(dbm, pid, [102])
         }
 
-        try database.update(version: 103) { (m) in
-            guard let t: Tree<UInt32, String> = m.tree(name: treeName) else { fatalError("No such tree") }
+        try database.update(version: 103) { (dbm) in
+            guard let t: Tree<UInt32, String> = dbm.tree(name: treeName) else { fatalError("No such tree") }
             try t.add(pair: (1, "==\(1)=="))
         }
 
         XCTAssertEqual(database.pageCount, 6)
-        try database.read { (m) in
-            guard let pid = try? m.getRoot(named: treeName) else { XCTFail(); return }
+        try database.read { (dbm) in
+            guard let pid = try? dbm.getRoot(named: treeName) else { XCTFail(); return }
             XCTAssertEqual(pid, 5, "After inserting a pair that causes a split, the root should appear on page 5")
-            assertValidTreeVersionMtime(m, pid, "tree read 3")
-            guard let t: Tree<UInt32, String> = m.tree(name: treeName) else { fatalError("No such tree") }
+            assertValidTreeVersionMtime(dbm, pid, "tree read 3")
+            guard let t: Tree<UInt32, String> = dbm.tree(name: treeName) else { fatalError("No such tree") }
             XCTAssertEqual(t.version, 103)
 
-            assertTreeVersions(m, pid, [103, 103, 103])
+            assertTreeVersions(dbm, pid, [103, 103, 103])
         }
 
-        try database.update(version: 104) { (m) in
-            guard let t: Tree<UInt32, String> = m.tree(name: treeName) else { fatalError("No such tree") }
+        try database.update(version: 104) { (dbm) in
+            guard let t: Tree<UInt32, String> = dbm.tree(name: treeName) else { fatalError("No such tree") }
             try t.add(pair: (99, "==\(999)=="))
         }
 
         XCTAssertEqual(database.pageCount, 8)
-        try database.read { (m) in
-            guard let pid = try? m.getRoot(named: treeName) else { XCTFail(); return }
+        try database.read { (dbm) in
+            guard let pid = try? dbm.getRoot(named: treeName) else { XCTFail(); return }
             XCTAssertEqual(pid, 7, "After inserting a pair into the right-most leaf, the root should appear on page 7")
-            assertValidTreeVersionMtime(m, pid, "tree read 4")
-            guard let t: Tree<UInt32, String> = m.tree(name: treeName) else { fatalError("No such tree") }
+            assertValidTreeVersionMtime(dbm, pid, "tree read 4")
+            guard let t: Tree<UInt32, String> = dbm.tree(name: treeName) else { fatalError("No such tree") }
             XCTAssertEqual(t.version, 104)
 
             let oldVersion = UInt64(103)
             let newVersion = UInt64(104)
-            assertTreeVersions(m, pid, [newVersion, oldVersion, newVersion])
+            assertTreeVersions(dbm, pid, [newVersion, oldVersion, newVersion])
         }
     }
 
@@ -99,10 +99,10 @@ class TreesTest: XCTestCase {
         let pageSize = 256
         guard let database = FilePageDatabase(self.tempFilename, size: pageSize) else { XCTFail(); return }
         let treeName = "testvalues"
-        try database.update(version: 101) { (m) in
+        try database.update(version: 101) { (dbm) in
             let pairs: [(UInt32, String)] = []
-            _ = try m.create(tree: treeName, pairs: pairs)
-            guard let t: Tree<UInt32, String> = m.tree(name: treeName) else { fatalError("No such tree") }
+            _ = try dbm.create(tree: treeName, pairs: pairs)
+            guard let t: Tree<UInt32, String> = dbm.tree(name: treeName) else { fatalError("No such tree") }
             for k: UInt32 in 0..<16 {
                 let key = k * 2
                 let value = "<<\(key)>>"
@@ -112,8 +112,8 @@ class TreesTest: XCTestCase {
 
         XCTAssertEqual(database.pageCount, 4)
 
-        try database.read { (m) in
-            guard let t: Tree<UInt32, String> = m.tree(name: treeName) else { fatalError("No such tree") }
+        try database.read { (dbm) in
+            guard let t: Tree<UInt32, String> = dbm.tree(name: treeName) else { fatalError("No such tree") }
             do {
                 let mtime = try t.effectiveVersion(between: (0, 15))
                 XCTAssertNotNil(mtime)
@@ -123,13 +123,13 @@ class TreesTest: XCTestCase {
             }
         }
 
-        try database.update(version: 102) { (m) in
-            guard let t: Tree<UInt32, String> = m.tree(name: treeName) else { fatalError("No such tree") }
+        try database.update(version: 102) { (dbm) in
+            guard let t: Tree<UInt32, String> = dbm.tree(name: treeName) else { fatalError("No such tree") }
             try t.add(pair: (13, "foo"))
         }
 
-        try database.read { (m) in
-            guard let t: Tree<UInt32, String> = m.tree(name: treeName) else { fatalError("No such tree") }
+        try database.read { (dbm) in
+            guard let t: Tree<UInt32, String> = dbm.tree(name: treeName) else { fatalError("No such tree") }
             do {
                 let mtimeAll = try t.effectiveVersion(between: (0, 99))
                 XCTAssertNotNil(mtimeAll)
