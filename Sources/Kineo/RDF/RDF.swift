@@ -249,6 +249,20 @@ extension TermType: BufferSerializable {
 public struct Term: CustomStringConvertible {
     public var value: String
     public var type: TermType
+    public var _doubleValue: Double?
+        
+    private mutating func computeNumericValue() {
+        switch type {
+        case .datatype("http://www.w3.org/2001/XMLSchema#integer"):
+            _doubleValue = Double(value) ?? 0.0
+        case .datatype("http://www.w3.org/2001/XMLSchema#decimal"),
+             .datatype("http://www.w3.org/2001/XMLSchema#float"),
+             .datatype("http://www.w3.org/2001/XMLSchema#double"):
+            _doubleValue = Double(value) ?? 0.0
+        default:
+            break
+        }
+    }
     
     static func rdf(_ local: String) -> Term {
         return Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#\(local)", type: .iri)
@@ -276,23 +290,27 @@ public struct Term: CustomStringConvertible {
     public init(integer value: Int) {
         self.value = "\(value)"
         self.type = .datatype("http://www.w3.org/2001/XMLSchema#integer")
+        computeNumericValue()
     }
     
     public init(float value: Double) {
         self.value = "\(value)"
         // TODO: fix the lexical form for xsd:float
         self.type = .datatype("http://www.w3.org/2001/XMLSchema#float")
+        computeNumericValue()
     }
     
     public init(double value: Double) {
         self.value = "\(value)"
         // TODO: fix the lexical form for xsd:double
         self.type = .datatype("http://www.w3.org/2001/XMLSchema#double")
+        computeNumericValue()
     }
     
     public init(decimal value: Double) {
         self.value = String(format: "%f", value)
         self.type = .datatype("http://www.w3.org/2001/XMLSchema#decimal")
+        computeNumericValue()
     }
     
     public init?(numeric value: Double, type: TermType) {
@@ -309,6 +327,7 @@ public struct Term: CustomStringConvertible {
         default:
             return nil
         }
+        computeNumericValue()
     }
     
     public var description: String {
@@ -473,16 +492,7 @@ extension Term {
     }
     
     public var numericValue: Double {
-        switch type {
-        case .datatype("http://www.w3.org/2001/XMLSchema#integer"):
-            return Double(value) ?? 0.0
-        case .datatype("http://www.w3.org/2001/XMLSchema#decimal"),
-             .datatype("http://www.w3.org/2001/XMLSchema#float"),
-             .datatype("http://www.w3.org/2001/XMLSchema#double"):
-            return Double(value) ?? 0.0
-        default:
-            fatalError("Cannot compute a numeric value for term of type \(type)")
-        }
+        return _doubleValue ?? 0.0
     }
 }
 
