@@ -82,11 +82,13 @@ func parse(_ database: FilePageDatabase, files: [String], startTime: UInt64, gra
 
                 let parser = RDFParser()
                 var quads = [Quad]()
+                print("Parsing RDF...")
                 count = try parser.parse(file: filename) { (s, p, o) in
                     let q = Quad(subject: s, predicate: p, object: o, graph: graph)
                     quads.append(q)
                 }
 
+                print("Loading RDF...")
                 let store = try QuadStore.create(mediator: m)
                 try store.load(quads: quads)
             }
@@ -220,6 +222,36 @@ func serialize(_ database: FilePageDatabase, index: String? = nil) throws -> Int
     return count
 }
 
+func info(_ database: FilePageDatabase) throws {
+    try database.read { (m) in
+        guard let store = try? QuadStore(mediator: m) else { return }
+        print("Quad Store")
+        if let v = try? store.effectiveVersion(), let version = v {
+            let versionDate = getDateString(seconds: version)
+            print("Version: \(versionDate)")
+        }
+        print("Quads: \(store.count)")
+
+        for idx in store.availableQuadIndexes {
+            print("Index: \(idx)")
+        }
+        
+        for graph in store.graphs() {
+            let pattern = QuadPattern(
+                subject: .variable("s", binding: true),
+                predicate: .variable("p", binding: true),
+                object: .variable("o", binding: true),
+                graph: .bound(graph)
+            )
+            let count = store.count(matching: pattern)
+            print("Graph: \(graph) (\(count) triples)")
+        }
+        
+        print("")
+    }
+    
+}
+
 func graphs(_ database: FilePageDatabase) throws -> Int {
     var count = 0
     try database.read { (m) in
@@ -294,10 +326,10 @@ guard argscount >= 2 else {
     print("Usage: \(pname) [-v] database.db COMMAND [ARGUMENTS]")
     print("       \(pname) database.db load [-g GRAPH-IRI] rdf.nt ...")
     print("       \(pname) database.db sort [-g GRAPH-IRI] rdf.nt")
-    print("       \(pname) database.db query [-g DEFAULT-GRAPH-IRI] query.q")
+//    print("       \(pname) database.db query [-g DEFAULT-GRAPH-IRI] query.q")
     print("       \(pname) database.db sparql query.rq")
     print("       \(pname) database.db parse query.rq")
-    print("       \(pname) database.db qparse query.q")
+//    print("       \(pname) database.db qparse query.q")
     print("       \(pname) database.db graphs")
     print("       \(pname) database.db indexes")
     print("       \(pname) database.db index INDEXNAME")
@@ -449,7 +481,7 @@ if let op = args.next() {
         exit(1)
     }
 } else {
-    count = try serialize(database)
+    try info(database)
 }
 
 let endTime = getCurrentTime()
