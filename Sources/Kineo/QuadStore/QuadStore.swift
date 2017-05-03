@@ -10,6 +10,7 @@ import Foundation
 
 public protocol QuadStoreProtocol: Sequence {
     associatedtype IDType
+    var count: Int { get }
     func graphs() -> AnyIterator<Term>
     func graphIDs() -> AnyIterator<IDType>
     func graphNodeTerms() -> AnyIterator<Term>
@@ -18,6 +19,18 @@ public protocol QuadStoreProtocol: Sequence {
     func results(matching pattern: QuadPattern) throws -> AnyIterator<TermResult>
     func quads(matching pattern: QuadPattern) throws -> AnyIterator<Quad>
     func effectiveVersion(matching pattern: QuadPattern) throws -> Version?
+}
+
+extension QuadStoreProtocol {
+    public func effectiveVersion() throws -> Version? {
+        let pattern = QuadPattern(
+            subject: .variable("s", binding: true),
+            predicate: .variable("p", binding: true),
+            object: .variable("o", binding: true),
+            graph: .variable("g", binding: true)
+        )
+        return try effectiveVersion(matching: pattern)
+    }
 }
 
 // swiftlint:disable:next type_body_length
@@ -39,6 +52,25 @@ open class QuadStore: Sequence, QuadStoreProtocol {
         self.id = try PersistentTermIdentityMap(mediator: mediator, readonly: readonly)
     }
 
+    public var count : Int {
+        let pattern = QuadPattern(
+            subject: .variable("s", binding: true),
+            predicate: .variable("p", binding: true),
+            object: .variable("o", binding: true),
+            graph: .variable("g", binding: true)
+        )
+        return count(matching: pattern)
+    }
+    
+    public func count(matching pattern: QuadPattern) -> Int {
+        guard let idquads = try? idquads(matching: pattern) else { return 0 }
+        var count = 0
+        for _ in idquads {
+            count += 1
+        }
+        return count
+    }
+    
     public static func create(mediator: RWMediator) throws -> QuadStore {
         do {
             _ = try PersistentTermIdentityMap(mediator: mediator)
@@ -62,14 +94,20 @@ open class QuadStore: Sequence, QuadStoreProtocol {
 
     private func generateIDQuadsAddingTerms<S: Sequence>(quads: S) throws -> AnyIterator<IDQuad<IDType>> where S.Iterator.Element == Quad {
         var idquads = [IDQuad<IDType>]()
+        var count = 0
         for quad in quads {
             var ids = [IDType]()
             for term in quad {
+                count += 1
+                if count % 100 == 0 {
+                    print("\(count)")
+                }
                 let id = try self.id.getOrSetID(for: term)
                 ids.append(id)
             }
             idquads.append(IDQuad(ids[0], ids[1], ids[2], ids[3]))
         }
+        print("\r\(count) term IDs generated")
         return AnyIterator(idquads.makeIterator())
     }
 
@@ -77,10 +115,10 @@ open class QuadStore: Sequence, QuadStoreProtocol {
         let defaultIndex = QuadStore.defaultIndex
         guard let m = self.mediator as? RWMediator else { throw DatabaseError.PermissionError("Cannot load quads into a read-only quadstore") }
         do {
-//            print("Adding RDF terms to database...")
+            print("Adding RDF terms to database...")
             let idquads = try generateIDQuadsAddingTerms(quads: quads)
 
-//            print("Adding RDF triples to database...")
+            print("Adding RDF triples to database...")
             let empty = Empty()
 
             let toIndex = quadMapping(toOrder: defaultIndex)
@@ -92,6 +130,7 @@ open class QuadStore: Sequence, QuadStoreProtocol {
                 return !defaultQuadsIndex.contains(key: indexOrder)
             }
 
+            print("Loading quads into primary index \(defaultIndex)")
             for spogquad in spog {
                 let indexOrder = toIndex(spogquad)
                 let pair = (indexOrder, empty)
@@ -99,6 +138,7 @@ open class QuadStore: Sequence, QuadStoreProtocol {
             }
 
             for secondaryIndex in self.availableQuadIndexes.filter({ $0 != QuadStore.defaultIndex }) {
+                print("Loading quads into secondary index \(secondaryIndex)")
                 guard let secondaryQuadIndex: Tree<IDQuad<UInt64>, Empty> = m.tree(name: secondaryIndex) else { throw DatabaseError.DataError("Missing secondary index \(secondaryIndex)") }
                 let toSecondaryIndex = quadMapping(toOrder: secondaryIndex)
                 let indexOrdered = spog.map { toSecondaryIndex($0) }.sorted()
@@ -577,8 +617,8 @@ public class PersistentTermIdentityMap: IdentityMap, Sequence {
             }
         }
 
-        self.i2tcache = LRUCache(capacity: 64)
-        self.t2icache = LRUCache(capacity: 64)
+        self.i2tcache = LRUCache(capacity: 4096)
+        self.t2icache = LRUCache(capacity: 4096)
     }
 
     internal class func isIRI(id: Result) -> Bool {
@@ -630,6 +670,13 @@ public class PersistentTermIdentityMap: IdentityMap, Sequence {
             }
             self.i2tcache[id] = pairs.first
             return pairs.first
+// TODO: figure out why the getAny code isn't working
+//            guard let term = node.getAny(key: id) else {
+//                warn("*** No terms found for ID \(id)")
+//                return nil
+//            }
+//            self.i2tcache[id] = term
+//            return term
         } else {
             warn("*** No node found for tree \(i2tMapTreeName)")
         }
@@ -646,6 +693,10 @@ public class PersistentTermIdentityMap: IdentityMap, Sequence {
             let pairs = node.get(key: value)
             self.t2icache[value] = pairs.first
             return pairs.first
+// TODO: figure out why the getAny code isn't working
+//            guard let id = node.getAny(key: value) else { return nil }
+//            self.t2icache[value] = id
+//            return id
         }
         return nil
     }
