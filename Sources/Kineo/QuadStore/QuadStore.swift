@@ -669,10 +669,6 @@ public class PersistentTermIdentityMap: IdentityMap, Sequence {
             return id
         }
         if let node: Tree<Element, Result> = mediator.tree(name: t2iMapTreeName) {
-//            let pairs = node.get(key: value)
-//            self.t2icache[value] = pairs.first
-//            return pairs.first
-// TODO: figure out why the getAny code isn't working
             guard let id = node.getAny(key: value) else { return nil }
             self.t2icache[value] = id
             return id
