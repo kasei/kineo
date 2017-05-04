@@ -94,20 +94,14 @@ open class QuadStore: Sequence, QuadStoreProtocol {
 
     private func generateIDQuadsAddingTerms<S: Sequence>(quads: S) throws -> AnyIterator<IDQuad<IDType>> where S.Iterator.Element == Quad {
         var idquads = [IDQuad<IDType>]()
-        var count = 0
         for quad in quads {
             var ids = [IDType]()
             for term in quad {
-                count += 1
-                if count % 100 == 0 {
-                    print("\(count)")
-                }
                 let id = try self.id.getOrSetID(for: term)
                 ids.append(id)
             }
             idquads.append(IDQuad(ids[0], ids[1], ids[2], ids[3]))
         }
-        print("\r\(count) term IDs generated")
         return AnyIterator(idquads.makeIterator())
     }
 
@@ -124,17 +118,12 @@ open class QuadStore: Sequence, QuadStoreProtocol {
             let toIndex = quadMapping(toOrder: defaultIndex)
             guard let defaultQuadsIndex: Tree<IDQuad<UInt64>, Empty> = m.tree(name: defaultIndex) else { throw DatabaseError.DataError("Missing default index \(defaultIndex)") }
 
-            let spog = idquads.sorted().filter { (quadOrder) -> Bool in
-                // do not insert quads more than once
-                let indexOrder = toIndex(quadOrder)
-                return !defaultQuadsIndex.contains(key: indexOrder)
-            }
-
+            let spog = idquads.sorted()
             print("Loading quads into primary index \(defaultIndex)")
             for spogquad in spog {
                 let indexOrder = toIndex(spogquad)
                 let pair = (indexOrder, empty)
-                try defaultQuadsIndex.add(pair: pair)
+                try defaultQuadsIndex.insertIgnore(pair: pair)
             }
 
             for secondaryIndex in self.availableQuadIndexes.filter({ $0 != QuadStore.defaultIndex }) {
@@ -144,7 +133,7 @@ open class QuadStore: Sequence, QuadStoreProtocol {
                 let indexOrdered = spog.map { toSecondaryIndex($0) }.sorted()
                 for indexOrder in indexOrdered {
                     let pair = (indexOrder, empty)
-                    try secondaryQuadIndex.add(pair: pair)
+                    try secondaryQuadIndex.insertIgnore(pair: pair)
                 }
             }
         } catch let e {
@@ -664,19 +653,9 @@ public class PersistentTermIdentityMap: IdentityMap, Sequence {
             return term
         }
         if let node: Tree<Result, Element> = mediator.tree(name: i2tMapTreeName) {
-            let pairs = node.get(key: id)
-            if pairs.count == 0 {
-                warn("*** No terms found for ID \(id)")
-            }
-            self.i2tcache[id] = pairs.first
-            return pairs.first
-// TODO: figure out why the getAny code isn't working
-//            guard let term = node.getAny(key: id) else {
-//                warn("*** No terms found for ID \(id)")
-//                return nil
-//            }
-//            self.i2tcache[id] = term
-//            return term
+            let term = node.getAny(key: id)
+            self.i2tcache[id] = term
+            return term
         } else {
             warn("*** No node found for tree \(i2tMapTreeName)")
         }
@@ -690,13 +669,13 @@ public class PersistentTermIdentityMap: IdentityMap, Sequence {
             return id
         }
         if let node: Tree<Element, Result> = mediator.tree(name: t2iMapTreeName) {
-            let pairs = node.get(key: value)
-            self.t2icache[value] = pairs.first
-            return pairs.first
+//            let pairs = node.get(key: value)
+//            self.t2icache[value] = pairs.first
+//            return pairs.first
 // TODO: figure out why the getAny code isn't working
-//            guard let id = node.getAny(key: value) else { return nil }
-//            self.t2icache[value] = id
-//            return id
+            guard let id = node.getAny(key: value) else { return nil }
+            self.t2icache[value] = id
+            return id
         }
         return nil
     }

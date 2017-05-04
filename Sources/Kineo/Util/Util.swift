@@ -510,19 +510,26 @@ internal func typeName(_ code: UInt16) -> String {
     }
 }
 
-public extension Array {
+extension Array {
+    public func firstIndex(where predicate: (Element) -> Bool) -> Int {
+        var low = 0
+        var high = self.count
+        while low < high {
+            let midIndex = low + (high - low)/2
+            if predicate(self[midIndex]) {
+                low = midIndex + 1
+            } else {
+                high = midIndex
+            }
+        }
+        return low
+    }
+    
     public mutating func insertSorted(_ element: Element, isOrderedBefore: (Element, Element) -> Bool) {
         if count == 0 {
             self.append(element)
         } else {
-            // TODO: improve this using a binary search and an insert
-            var index = count
-            for i in 0..<count {
-                if isOrderedBefore(element, self[i]) {
-                    index = i
-                    break
-                }
-            }
+            let index = firstIndex(where: { !isOrderedBefore(element, $0) })
             self.insert(element, at: index)
         }
     }

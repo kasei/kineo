@@ -240,14 +240,13 @@ public class Tree<T: BufferSerializable & Comparable, U: BufferSerializable> : S
         return false
     }
 
-//    public func getAny(key: T) -> U? {
-//        do {
-//            let (node, _) : (TreeNode<T, U>, PageStatus) = try mediator.readPage(root)
-//            return node.getAny(key: key, mediator: mediator)
-//        } catch {}
-//        warn("*** No tree node found for root '\(root)'")
-//        return nil
-//    }
+    public func getAny(key: T) -> U? {
+        do {
+            let (node, _) : (TreeNode<T, U>, PageStatus) = try mediator.readPage(root)
+            return node.getAny(key: key, mediator: mediator)
+        } catch {}
+        return nil
+    }
     
     public func get(key: T) -> [U] {
         do {
@@ -341,7 +340,15 @@ public class Tree<T: BufferSerializable & Comparable, U: BufferSerializable> : S
         return
     }
 
+    public func insertIgnore(pair: (T, U)) throws {
+        return try _add(pair: pair, noopOnExists: true)
+    }
+    
     public func add(pair: (T, U)) throws {
+        return try _add(pair: pair, noopOnExists: false)
+    }
+    
+    private func _add(pair: (T, U), noopOnExists: Bool) throws {
 //        print("==================================================================")
 //        print("TREE add: \(pair)")
         let (node, rootStatus) : (TreeNode<T, U>, PageStatus) = try mediator.readPage(root)
@@ -349,6 +356,13 @@ public class Tree<T: BufferSerializable & Comparable, U: BufferSerializable> : S
 
         // find leaf for pair (and its path from the root)
         var (path, leaf, leafStatus) = try node.pathToLeaf(for: pair.0, mediator: m, currentStatus: rootStatus)
+        
+        if noopOnExists {
+            if leaf.contains(key: pair.0) {
+                return
+            }
+        }
+        
         var newPairs = [(T, PageId)]()
         // if leaf can add pair:
         if leaf.spaceForPair(pair, pageSize: m.pageSize) {
@@ -586,6 +600,36 @@ public final class TreeLeaf<T: BufferSerializable & Comparable, U: BufferSeriali
         return self.serializedSize + pair.0.serializedSize + pair.1.serializedSize <= pageSize
     }
 
+    public func contains(key: T) -> Bool {
+        if pairs.count == 0 {
+            return false
+        }
+        let index = pairs.firstIndex { $0.0 < key }
+        if index >= (pairs.count - 1) {
+            return false
+        }
+        let element = pairs[index]
+        if element.0 == key {
+            return true
+        }
+        return false
+    }
+    
+    public func getAny(key: T) -> U? {
+        if pairs.count == 0 {
+            return nil
+        }
+        let index = pairs.firstIndex { $0.0 < key }
+        if index >= (pairs.count - 1) {
+            return nil
+        }
+        let element = pairs[index]
+        if element.0 == key {
+            return element.1
+        }
+        return nil
+    }
+    
     func remove(key: T, version: Version) throws {
         self.version = version
         pairs = pairs.filter { (pair) -> Bool in
@@ -824,6 +868,7 @@ public enum TreeNode<T: BufferSerializable & Comparable, U: BufferSerializable> 
             try callback(l)
         case .internalNode(let i):
             var lastMax: T? = nil
+            // TODO: use firstIndex(with:) instead of the linear scan here
             for (max, pid) in i.pairs {
                 if let min = lastMax {
                     if between.1 >= min && between.0 <= max {
@@ -848,6 +893,7 @@ public enum TreeNode<T: BufferSerializable & Comparable, U: BufferSerializable> 
             try callback(l)
         case .internalNode(let i):
             var lastMax: T? = nil
+            // TODO: use firstIndex(with:) instead of the linear scan here
             for (max, pid) in i.pairs {
                 if let min = lastMax {
                     if range.upperBound > min && range.lowerBound <= max {
@@ -878,15 +924,14 @@ public enum TreeNode<T: BufferSerializable & Comparable, U: BufferSerializable> 
             }
         }
     }
+    
     func contains(key: T, mediator: RMediator) -> Bool {
         switch self {
         case .leafNode(let l):
-            for (k, _) in l.pairs where k == key {
-                return true
-            }
-            return false
+            return l.contains(key: key)
         case .internalNode(let i):
             var lastMax: T? = nil
+            // TODO: use firstIndex(with:) instead of the linear scan here
             for (max, pid) in i.pairs {
                 if let min = lastMax {
                     if key >= min && key <= max {
@@ -913,29 +958,34 @@ public enum TreeNode<T: BufferSerializable & Comparable, U: BufferSerializable> 
         }
     }
     
-//    func getAny(key: T, mediator: RMediator) -> U? {
-//        do {
-//            var current: TreeNode<T,U> = self
-//            while case .internalNode(let i) = current {
-//                var lastMax: T? = nil
-//                for (max, pid) in i.pairs {
-//                    if key <= max {
-//                        let (node, _) : (TreeNode<T, U>, PageStatus) = try mediator.readPage(pid)
-//                        current = node
-//                    }
-//                    lastMax = max
-//                }
-//            }
-//            
-//            guard case .leafNode(let l) = current else { return nil }
-//            for (k, v) in l.pairs {
-//                if k == key {
-//                    return v
-//                }
-//            }
-//        } catch {}
-//        return nil
-//    }
+    func getAny(key: T, mediator: RMediator) -> U? {
+        switch self {
+        case .leafNode(let l):
+            return l.getAny(key: key)
+        case .internalNode(let i):
+            var lastMax: T? = nil
+            // TODO: use firstIndex(with:) instead of the linear scan here
+            for (max, pid) in i.pairs {
+                if let min = lastMax {
+                    if key >= min && key <= max {
+                        do {
+                            let (node, _) : (TreeNode<T, U>, PageStatus) = try mediator.readPage(pid)
+                            return node.getAny(key: key, mediator: mediator)
+                        } catch {}
+                    }
+                } else {
+                    if key <= max {
+                        do {
+                            let (node, _) : (TreeNode<T, U>, PageStatus) = try mediator.readPage(pid)
+                            return node.getAny(key: key, mediator: mediator)
+                        } catch {}
+                    }
+                }
+                lastMax = max
+            }
+            return nil
+        }
+    }
     
     func get(key: T, mediator: RMediator) -> [U] {
         var elements = [U]()
