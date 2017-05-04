@@ -377,6 +377,8 @@ extension Term: Comparable {
             return true
         case (.language(_), .datatype(_)):
             return true
+        case (.datatype(let l), .datatype(let r)):
+            return l < r
         default:
             return false
         }
