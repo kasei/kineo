@@ -605,7 +605,7 @@ public final class TreeLeaf<T: BufferSerializable & Comparable, U: BufferSeriali
             return false
         }
         let index = pairs.firstIndex { $0.0 < key }
-        if index >= (pairs.count - 1) {
+        if index > (pairs.count - 1) {
             return false
         }
         let element = pairs[index]
@@ -620,7 +620,7 @@ public final class TreeLeaf<T: BufferSerializable & Comparable, U: BufferSeriali
             return nil
         }
         let index = pairs.firstIndex { $0.0 < key }
-        if index >= (pairs.count - 1) {
+        if index > (pairs.count - 1) {
             return nil
         }
         let element = pairs[index]
@@ -794,21 +794,6 @@ public final class TreeInternal<T: BufferSerializable & Comparable> {
             successful += 1
         }
     }
-
-    func firstIndex(with key: T) -> Int {
-        var low = 0
-        var high = pairs.count
-        while low < high {
-            let midIndex = low + (high - low)/2
-            if pairs[midIndex].0 < key {
-                low = midIndex + 1
-            } else {
-                high = midIndex
-            }
-        }
-        return low
-    }
-    
 }
 
 public enum TreeNode<T: BufferSerializable & Comparable, U: BufferSerializable> : PageMarshalled {
@@ -1004,7 +989,8 @@ public enum TreeNode<T: BufferSerializable & Comparable, U: BufferSerializable> 
         case .leafNode(let l):
             return ([], l, currentStatus)
         case .internalNode(let i):
-            let boundaryIndex = i.firstIndex(with: key)
+            let boundaryIndex = i.pairs.firstIndex { $0.0 < key }
+//            let boundaryIndex = i.firstIndex(with: key)
             if boundaryIndex < i.pairs.count {
                 if boundaryIndex < i.pairs.count {
                     let (_, pid) = i.pairs[boundaryIndex]
