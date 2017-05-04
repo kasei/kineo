@@ -252,6 +252,19 @@ func info(_ database: FilePageDatabase) throws {
     
 }
 
+func terms(_ database: FilePageDatabase) throws -> Int {
+    var count = 0
+    try database.read { (m) in
+        let t2iMapTreeName = "t2i_tree"
+        guard let t2i: Tree<Term, UInt64> = m.tree(name: t2iMapTreeName) else { print("*** no term map"); return }
+        for (term, id) in t2i {
+            count += 1
+            print("\(id) \(term)")
+        }
+    }
+    return count
+}
+
 func graphs(_ database: FilePageDatabase) throws -> Int {
     var count = 0
     try database.read { (m) in
@@ -368,7 +381,7 @@ if let op = args.next() {
             guard let iri = args.next() else { fatalError("No IRI value given after -g") }
             graph = Term(value: iri, type: .iri)
         }
-
+        
         let (c, terms) = try sortParse(files: args.elements(), startTime: startSecond, graph: graph)
         for i in terms.keys.sorted() {
             if let term = terms[i] {
@@ -376,6 +389,8 @@ if let op = args.next() {
             }
         }
         count = c
+    } else if op == "terms" {
+        count = try terms(database)
     } else if op == "graphs" {
         count = try graphs(database)
     } else if op == "indexes" {
