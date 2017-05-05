@@ -511,7 +511,11 @@ internal func typeName(_ code: UInt16) -> String {
 }
 
 extension Array {
-    public func firstIndex(where predicate: (Element) -> Bool) -> Int {
+    // Binary search for the first index of the array not passing the supplied predicate:
+    //   let a = [0, 0, 1, 1, 2, 3, 4, 4, 5, 6, 6, 7, 8]
+    //   let j = firstIndexNotMatching { $0 < 4 }
+    //   assert(j == 6)
+    public func firstIndexNotMatching(predicate: (Element) -> Bool) -> Int {
         var low = 0
         var high = self.count
         while low < high {
@@ -529,7 +533,7 @@ extension Array {
         if count == 0 {
             self.append(element)
         } else {
-            let index = firstIndex(where: { !isOrderedBefore(element, $0) })
+            let index = firstIndexNotMatching { !isOrderedBefore(element, $0) }
             self.insert(element, at: index)
         }
     }

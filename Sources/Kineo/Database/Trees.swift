@@ -604,7 +604,7 @@ public final class TreeLeaf<T: BufferSerializable & Comparable, U: BufferSeriali
         if pairs.count == 0 {
             return false
         }
-        let index = pairs.firstIndex { $0.0 < key }
+        let index = pairs.firstIndexNotMatching { $0.0 < key }
         if index > (pairs.count - 1) {
             return false
         }
@@ -619,7 +619,7 @@ public final class TreeLeaf<T: BufferSerializable & Comparable, U: BufferSeriali
         if pairs.count == 0 {
             return nil
         }
-        let index = pairs.firstIndex { $0.0 < key }
+        let index = pairs.firstIndexNotMatching { $0.0 < key }
         if index > (pairs.count - 1) {
             return nil
         }
@@ -853,7 +853,7 @@ public enum TreeNode<T: BufferSerializable & Comparable, U: BufferSerializable> 
             try callback(l)
         case .internalNode(let i):
             var lastMax: T? = nil
-            // TODO: use firstIndex(with:) instead of the linear scan here
+            // TODO: use firstIndexNotMatching(_:) instead of the linear scan here
             for (max, pid) in i.pairs {
                 if let min = lastMax {
                     if between.1 >= min && between.0 <= max {
@@ -878,7 +878,7 @@ public enum TreeNode<T: BufferSerializable & Comparable, U: BufferSerializable> 
             try callback(l)
         case .internalNode(let i):
             var lastMax: T? = nil
-            // TODO: use firstIndex(with:) instead of the linear scan here
+            // TODO: use firstIndexNotMatching(_:) instead of the linear scan here
             for (max, pid) in i.pairs {
                 if let min = lastMax {
                     if range.upperBound > min && range.lowerBound <= max {
@@ -916,7 +916,7 @@ public enum TreeNode<T: BufferSerializable & Comparable, U: BufferSerializable> 
             return l.contains(key: key)
         case .internalNode(let i):
             var lastMax: T? = nil
-            // TODO: use firstIndex(with:) instead of the linear scan here
+            // TODO: use firstIndexNotMatching(_:) instead of the linear scan here
             for (max, pid) in i.pairs {
                 if let min = lastMax {
                     if key >= min && key <= max {
@@ -949,7 +949,7 @@ public enum TreeNode<T: BufferSerializable & Comparable, U: BufferSerializable> 
             return l.getAny(key: key)
         case .internalNode(let i):
             var lastMax: T? = nil
-            // TODO: use firstIndex(with:) instead of the linear scan here
+            // TODO: use firstIndexNotMatching(_:) instead of the linear scan here
             for (max, pid) in i.pairs {
                 if let min = lastMax {
                     if key >= min && key <= max {
@@ -989,8 +989,7 @@ public enum TreeNode<T: BufferSerializable & Comparable, U: BufferSerializable> 
         case .leafNode(let l):
             return ([], l, currentStatus)
         case .internalNode(let i):
-            let boundaryIndex = i.pairs.firstIndex { $0.0 < key }
-//            let boundaryIndex = i.firstIndex(with: key)
+            let boundaryIndex = i.pairs.firstIndexNotMatching { $0.0 < key }
             if boundaryIndex < i.pairs.count {
                 if boundaryIndex < i.pairs.count {
                     let (_, pid) = i.pairs[boundaryIndex]
