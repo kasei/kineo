@@ -948,25 +948,13 @@ public enum TreeNode<T: BufferSerializable & Comparable, U: BufferSerializable> 
         case .leafNode(let l):
             return l.getAny(key: key)
         case .internalNode(let i):
-            var lastMax: T? = nil
-            // TODO: use firstIndexNotMatching(_:) instead of the linear scan here
-            for (max, pid) in i.pairs {
-                if let min = lastMax {
-                    if key >= min && key <= max {
-                        do {
-                            let (node, _) : (TreeNode<T, U>, PageStatus) = try mediator.readPage(pid)
-                            return node.getAny(key: key, mediator: mediator)
-                        } catch {}
-                    }
-                } else {
-                    if key <= max {
-                        do {
-                            let (node, _) : (TreeNode<T, U>, PageStatus) = try mediator.readPage(pid)
-                            return node.getAny(key: key, mediator: mediator)
-                        } catch {}
-                    }
-                }
-                lastMax = max
+            let index = i.pairs.firstIndexNotMatching { $0.0 < key }
+            if index < i.pairs.count {
+                let (_, _pid) = i.pairs[index]
+                do {
+                    let (node, _) : (TreeNode<T, U>, PageStatus) = try mediator.readPage(_pid)
+                    return node.getAny(key: key, mediator: mediator)
+                } catch {}
             }
             return nil
         }
