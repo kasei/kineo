@@ -194,7 +194,7 @@ public extension Algebra {
             d += child.serialize(depth: depth+1)
             return d
         case .slice(let child, let offset, let limit):
-            var d = "\(indent)Slice offset=\(offset) limit=\(limit)\n"
+            var d = "\(indent)Slice offset=\(String(describing: offset)) limit=\(String(describing: limit))\n"
             d += child.serialize(depth: depth+1)
             return d
         case .order(let child, let orders):
