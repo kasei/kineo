@@ -246,6 +246,16 @@ extension Int: BufferSerializable {
     }
 }
 
+extension Int {
+    public init(zigzag n: Int) {
+        self.init((n >> 1) ^ (-(n & 1)))
+    }
+    
+    public var zigzag : Int {
+        return (self << 1) ^ (self >> 31)
+    }
+}
+
 extension UInt64: BufferSerializable {
     public var serializedSize: Int { return _sizeof(UInt64.self) }
     public func serialize(to buffer: inout UnsafeMutableRawPointer, mediator: RWMediator?, maximumSize: Int) throws {
