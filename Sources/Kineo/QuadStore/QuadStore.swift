@@ -1025,7 +1025,9 @@ public struct IDQuad<T: DefinedTestable & Equatable & Comparable & BufferSeriali
     }
 
     public static func < <T>(lhs: IDQuad<T>, rhs: IDQuad<T>) -> Bool {
-        for (l, r) in zip(lhs.values, rhs.values) {
+        for i in 0..<4 {
+            let l = lhs.values[i]
+            let r = rhs.values[i]
             if l < r {
                 return true
             } else if l > r {
