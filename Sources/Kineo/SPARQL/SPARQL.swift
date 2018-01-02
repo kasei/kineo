@@ -411,11 +411,6 @@ public class SPARQLLexer: IteratorProtocol {
         pn.insert(charactersIn: "a"..."z")
         pn.insert(charactersIn: "A"..."Z")
 
-        // This is working around a bug in the swift compiler that causes a crash when U+D7FF is inserted into a CharacterSet as part of a ClosedRange.
-        // Instead, we insert it directly as a single UnicodeScalar.
-        guard let scalar = UnicodeScalar(0xD7FF) else { fatalError("Failed to construct built-in CharacterSet") }
-        pn.insert(scalar)
-
         let ranges: [(Int, Int)] = [
             (0xC0, 0xD6),
             (0xD8, 0xF6),
@@ -425,7 +420,7 @@ public class SPARQLLexer: IteratorProtocol {
             (0x200C, 0x200D),
             (0x2070, 0x218F),
             (0x2C00, 0x2FEF),
-            (0x3001, 0xD7FE), // U+D7FF should be included here
+            (0x3001, 0xD7FF),
             (0xF900, 0xFDCF),
             (0xFDF0, 0xFFFD),
             (0x10000, 0xEFFFF),
@@ -490,7 +485,7 @@ public class SPARQLLexer: IteratorProtocol {
 
     func fillBuffer() throws {
         guard source.hasBytesAvailable else { return }
-        guard buffer.characters.count == 0 else { return }
+        guard buffer.count == 0 else { return }
         var bytes = [UInt8]()
         var charbuffer: [UInt8] = [0]
         LOOP: while true {
@@ -611,7 +606,7 @@ public class SPARQLLexer: IteratorProtocol {
                 }
             }
 
-            let bufferLength = NSMakeRange(0, buffer.characters.count)
+            let bufferLength = NSMakeRange(0, buffer.count)
 
             let nil_range = SPARQLLexer._nilRegex.rangeOfFirstMatch(in: buffer, options: [], range: bufferLength)
             if nil_range.location == 0 {
@@ -743,7 +738,7 @@ public class SPARQLLexer: IteratorProtocol {
     }
 
     func getKeyword() throws -> SPARQLToken? {
-        let bufferLength = NSMakeRange(0, buffer.characters.count)
+        let bufferLength = NSMakeRange(0, buffer.count)
         let keyword_range = SPARQLLexer._keywordRegex.rangeOfFirstMatch(in: buffer, options: [], range: bufferLength)
         if keyword_range.location == 0 {
             let value = try read(length: keyword_range.length)
@@ -767,7 +762,7 @@ public class SPARQLLexer: IteratorProtocol {
 
     func getVariable() throws -> SPARQLToken? {
         getChar()
-        let bufferLength = NSMakeRange(0, buffer.characters.count)
+        let bufferLength = NSMakeRange(0, buffer.count)
         let variable_range = SPARQLLexer._variableNameRegex.rangeOfFirstMatch(in: buffer, options: [], range: bufferLength)
         if variable_range.location == 0 {
             let value = try read(length: variable_range.length)
@@ -784,9 +779,9 @@ public class SPARQLLexer: IteratorProtocol {
             try read(word: "'''")
             var quote_count = 0
             while true {
-                if buffer.characters.count == 0 {
+                if buffer.count == 0 {
                     try fillBuffer()
-                    if buffer.characters.count == 0 {
+                    if buffer.count == 0 {
                         if quote_count >= 3 {
                             for _ in 0..<(quote_count-3) {
                                 chars.append("'")
@@ -833,9 +828,9 @@ public class SPARQLLexer: IteratorProtocol {
         } else {
             try getChar(expecting: "'")
             while true {
-                if buffer.characters.count == 0 {
+                if buffer.count == 0 {
                     try fillBuffer()
-                    if buffer.characters.count == 0 {
+                    if buffer.count == 0 {
                         throw lexError("Found EOF in string literal")
                     }
                 }
@@ -894,13 +889,13 @@ public class SPARQLLexer: IteratorProtocol {
     }
 
     func getPName() throws -> SPARQLToken? {
-        let bufferLength = NSMakeRange(0, buffer.characters.count)
+        let bufferLength = NSMakeRange(0, buffer.count)
         let range = SPARQLLexer._pNameLNre.rangeOfFirstMatch(in: buffer, options: [], range: bufferLength)
         if range.location == 0 {
             var pname = try read(length: range.length)
             if pname.contains("\\") {
                 var chars = [Character]()
-                var i = pname.characters.makeIterator()
+                var i = pname.makeIterator()
                 while let c = i.next() {
                     if c == "\\" {
                         guard let cc = i.next() else { throw lexError("Invalid prefixedname escape") }
@@ -946,7 +941,7 @@ public class SPARQLLexer: IteratorProtocol {
 
     func getLanguage() throws -> SPARQLToken? {
         try getChar(expecting: "@")
-        let bufferLength = NSMakeRange(0, buffer.characters.count)
+        let bufferLength = NSMakeRange(0, buffer.count)
 
         let prefixOrBase_range = SPARQLLexer._prefixOrBaseRegex.rangeOfFirstMatch(in: buffer, options: [], range: bufferLength)
         let lang_range = SPARQLLexer._langRegex.rangeOfFirstMatch(in: buffer, options: [], range: bufferLength)
@@ -962,7 +957,7 @@ public class SPARQLLexer: IteratorProtocol {
     }
 
     func getIRIRefOrRelational() throws -> SPARQLToken? {
-        let bufferLength = NSMakeRange(0, buffer.characters.count)
+        let bufferLength = NSMakeRange(0, buffer.count)
         let range = SPARQLLexer._iriRegex.rangeOfFirstMatch(in: buffer, options: [], range: bufferLength)
         if range.location == 0 {
             try getChar(expecting: "<")
@@ -1009,9 +1004,9 @@ public class SPARQLLexer: IteratorProtocol {
             try read(word: "\"\"\"")
             var quote_count = 0
             while true {
-                if buffer.characters.count == 0 {
+                if buffer.count == 0 {
                     try fillBuffer()
-                    if buffer.characters.count == 0 {
+                    if buffer.count == 0 {
                         if quote_count >= 3 {
                             for _ in 0..<(quote_count-3) {
                                 chars.append("\"")
@@ -1058,9 +1053,9 @@ public class SPARQLLexer: IteratorProtocol {
         } else {
             try getChar(expecting: "\"")
             while true {
-                if buffer.characters.count == 0 {
+                if buffer.count == 0 {
                     try fillBuffer()
-                    if buffer.characters.count == 0 {
+                    if buffer.count == 0 {
                         throw lexError("Found EOF in string literal")
                     }
                 }
@@ -1085,7 +1080,7 @@ public class SPARQLLexer: IteratorProtocol {
 
     func getBnode() throws -> SPARQLToken? {
         try read(word: "_:")
-        let bufferLength = NSMakeRange(0, buffer.characters.count)
+        let bufferLength = NSMakeRange(0, buffer.count)
         let bnode_range = SPARQLLexer._bnodeNameRegex.rangeOfFirstMatch(in: buffer, options: [], range: bufferLength)
         if bnode_range.location == 0 {
             let value = try read(length: bnode_range.length)
@@ -1107,12 +1102,12 @@ public class SPARQLLexer: IteratorProtocol {
 
     func peekChar() throws -> Character? {
         try fillBuffer()
-        return buffer.characters.first
+        return buffer.first
     }
 
     @discardableResult
     func getChar() -> Character {
-        let c = buffer.characters.first!
+        let c = buffer.first!
         buffer = buffer.substring(from: buffer.index(buffer.startIndex, offsetBy: 1))
         self.character += 1
         if c == "\n" {
@@ -1126,7 +1121,7 @@ public class SPARQLLexer: IteratorProtocol {
 
     @discardableResult
     func getExpectedChar() throws -> Character {
-        guard let c = buffer.characters.first else {
+        guard let c = buffer.first else {
             throw lexError("Unexpected EOF")
         }
         buffer = buffer.substring(from: buffer.index(buffer.startIndex, offsetBy: 1))
@@ -1151,8 +1146,8 @@ public class SPARQLLexer: IteratorProtocol {
 
     func getCharFillBuffer() throws -> Character? {
         try fillBuffer()
-        guard buffer.characters.count > 0 else { return nil }
-        let c = buffer.characters.first!
+        guard buffer.count > 0 else { return nil }
+        let c = buffer.first!
         buffer = buffer.substring(from: buffer.index(buffer.startIndex, offsetBy: 1))
         self.character += 1
         if c == "\n" {
@@ -1166,18 +1161,18 @@ public class SPARQLLexer: IteratorProtocol {
 
     func read(word: String) throws {
         try fillBuffer()
-        if buffer.characters.count < word.characters.count {
+        if buffer.count < word.count {
             throw lexError("Expecting '\(word)' but not enough read-ahead data available")
         }
 
-        let index = buffer.index(buffer.startIndex, offsetBy: word.characters.count)
+        let index = buffer.index(buffer.startIndex, offsetBy: word.count)
         guard buffer.hasPrefix(word) else {
             throw lexError("Expecting '\(word)' but found '\(buffer.substring(to: index))'")
         }
 
         buffer = buffer.substring(from: index)
-        self.character += UInt(word.characters.count)
-        for c in word.characters {
+        self.character += UInt(word.count)
+        for c in word {
             if c == "\n" {
                 self.line += 1
                 self.column = 1
@@ -1190,7 +1185,7 @@ public class SPARQLLexer: IteratorProtocol {
     @discardableResult
     func read(length: Int) throws -> String {
         try fillBuffer()
-        if buffer.characters.count < length {
+        if buffer.count < length {
             throw lexError("Expecting \(length) characters but not enough read-ahead data available")
         }
 
@@ -1198,7 +1193,7 @@ public class SPARQLLexer: IteratorProtocol {
         let s = buffer.substring(to: index)
         buffer = buffer.substring(from: index)
         self.character += UInt(length)
-        for c in s.characters {
+        for c in s {
             if c == "\n" {
                 self.line += 1
                 self.column = 1
@@ -3052,7 +3047,7 @@ public struct SPARQLSerializer {
                     outputArray.append((t, .tokenString("\(t.sparql)")))
                     outputArray.append((t, .spaceSeparator))
                 case (_, .comment(let c), _):
-                    if c.characters.count > 0 {
+                    if c.count > 0 {
                         outputArray.append((t, .tokenString("\(t.sparql)")))
                         outputArray.append((t, .newline(pstate.indentLevel)))
                     }

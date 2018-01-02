@@ -9,6 +9,7 @@ struct TestStore: QuadStoreProtocol {
     }
 
     var quads: [Quad]
+    var count: Int { return quads.count }
 
     func graphIDs() -> AnyIterator<Term> {
         return graphs()

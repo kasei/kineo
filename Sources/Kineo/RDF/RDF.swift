@@ -275,6 +275,7 @@ public struct Term: CustomStringConvertible {
     public init(value: String, type: TermType) {
         self.value  = value
         self.type   = type
+        computeNumericValue()
     }
     
     public init(string value: String) {
