@@ -523,10 +523,10 @@ open class QuadStore: Sequence, QuadStoreProtocol {
 }
 
 public protocol IdentityMap {
-    associatedtype Element: Hashable
+    associatedtype Item: Hashable
     associatedtype Result: Comparable, DefinedTestable
-    func id(for value: Element) -> Result?
-    func getOrSetID(for value: Element) throws -> Result
+    func id(for value: Item) -> Result?
+    func getOrSetID(for value: Item) throws -> Result
 }
 
 public class PersistentTermIdentityMap: IdentityMap, Sequence {
@@ -561,7 +561,7 @@ public class PersistentTermIdentityMap: IdentityMap, Sequence {
     static let languageTypeByte: UInt8    = 0x10
     static let datatypeTypeByte: UInt8    = 0x11
 
-    public typealias Element = Term
+    public typealias Item = Term
     public typealias Result = UInt64
 
     var mediator: RMediator
@@ -573,22 +573,22 @@ public class PersistentTermIdentityMap: IdentityMap, Sequence {
 
     public init (mediator: RMediator, readonly: Bool = false) throws {
         self.mediator = mediator
-        var t2i: Tree<Element, Result>? = mediator.tree(name: t2iMapTreeName)
+        var t2i: Tree<Item, Result>? = mediator.tree(name: t2iMapTreeName)
         if t2i == nil {
             guard let m = mediator as? RWMediator else {
                 throw DatabaseError.PermissionError("Cannot create new PersistentTermIdentityMap in a read-only transaction")
             }
-            let t2ipairs = [(Element, Result)]()
+            let t2ipairs = [(Item, Result)]()
             _ = try m.create(tree: t2iMapTreeName, pairs: t2ipairs)
             t2i = mediator.tree(name: t2iMapTreeName)
         }
 
-        var i2t: Tree<Result, Element>? = mediator.tree(name: i2tMapTreeName)
+        var i2t: Tree<Result, Item>? = mediator.tree(name: i2tMapTreeName)
         if i2t == nil {
             guard let m = mediator as? RWMediator else {
                 throw DatabaseError.PermissionError("Cannot create new PersistentTermIdentityMap in a read-only transaction")
             }
-            let i2tpairs = [(Result, Element)]()
+            let i2tpairs = [(Result, Item)]()
             _ = try m.create(tree: i2tMapTreeName, pairs: i2tpairs)
             i2t = mediator.tree(name: i2tMapTreeName)
         }
@@ -636,7 +636,7 @@ public class PersistentTermIdentityMap: IdentityMap, Sequence {
         return min..<max
     }
 
-    private static func loadMaxIDs(from tree: Tree<Result, Element>, mediator: RMediator) -> (UInt64, UInt64, UInt64, UInt64) {
+    private static func loadMaxIDs(from tree: Tree<Result, Item>, mediator: RMediator) -> (UInt64, UInt64, UInt64, UInt64) {
         let mask        = UInt64(0x00ffffffffffffff)
         let blankMax    = (tree.maxKey(in: idRange(for: blankTypeByte)) ?? 0) & mask
         let iriMax      = (tree.maxKey(in: idRange(for: iriTypeByte)) ?? 0) & mask
@@ -652,7 +652,7 @@ public class PersistentTermIdentityMap: IdentityMap, Sequence {
         } else if let term = self.unpack(id: id) {
             return term
         }
-        if let node: Tree<Result, Element> = mediator.tree(name: i2tMapTreeName) {
+        if let node: Tree<Result, Item> = mediator.tree(name: i2tMapTreeName) {
             let term = node.getAny(key: id)
             self.i2tcache[id] = term
             return term
@@ -662,13 +662,13 @@ public class PersistentTermIdentityMap: IdentityMap, Sequence {
         return nil
     }
 
-    public func id(for value: Element) -> Result? {
+    public func id(for value: Item) -> Result? {
         if let id = self.t2icache[value] {
             return id
         } else if let id = self.pack(value: value) {
             return id
         }
-        if let node: Tree<Element, Result> = mediator.tree(name: t2iMapTreeName) {
+        if let node: Tree<Item, Result> = mediator.tree(name: t2iMapTreeName) {
             guard let id = node.getAny(key: value) else { return nil }
             self.t2icache[value] = id
             return id
@@ -676,15 +676,15 @@ public class PersistentTermIdentityMap: IdentityMap, Sequence {
         return nil
     }
 
-    public func makeIterator() -> AnyIterator<(Result, Element)> {
-        if let node: Tree<Result, Element> = mediator.tree(name: i2tMapTreeName) {
+    public func makeIterator() -> AnyIterator<(Result, Item)> {
+        if let node: Tree<Result, Item> = mediator.tree(name: i2tMapTreeName) {
             return node.makeIterator()
         } else {
             return AnyIterator { return nil }
         }
     }
 
-    public func getOrSetID(for term: Element) throws -> UInt64 {
+    public func getOrSetID(for term: Item) throws -> UInt64 {
         if let id = id(for: term) {
             return id
         } else {
@@ -713,8 +713,8 @@ public class PersistentTermIdentityMap: IdentityMap, Sequence {
             let id = (UInt64(type) << 56) + value
 
             guard let m = mediator as? RWMediator else { throw DatabaseError.PermissionError("Cannot create new term IDs in a read-only transaction") }
-            guard let i2t: Tree<Result, Element> = m.tree(name: i2tMapTreeName) else { throw DatabaseError.DataError("Failed to get the ID to term tree") }
-            guard let t2i: Tree<Element, Result> = m.tree(name: t2iMapTreeName) else { throw DatabaseError.DataError("Failed to get the term to ID tree") }
+            guard let i2t: Tree<Result, Item> = m.tree(name: i2tMapTreeName) else { throw DatabaseError.DataError("Failed to get the ID to term tree") }
+            guard let t2i: Tree<Item, Result> = m.tree(name: t2iMapTreeName) else { throw DatabaseError.DataError("Failed to get the term to ID tree") }
 
             try i2t.add(pair: (id, term))
             try t2i.add(pair: (term, id))
@@ -725,7 +725,7 @@ public class PersistentTermIdentityMap: IdentityMap, Sequence {
 }
 
 extension PersistentTermIdentityMap {
-    fileprivate func unpack(id: Result) -> Element? {
+    fileprivate func unpack(id: Result) -> Item? {
         let byte = id >> 56
         let value = id & 0x00ffffffffffffff
         // TODO: unpack xsd:dateTime
@@ -748,7 +748,7 @@ extension PersistentTermIdentityMap {
         }
     }
 
-    fileprivate func pack(value: Element) -> Result? {
+    fileprivate func pack(value: Item) -> Result? {
         switch (value.type, value.value) {
         // TODO: pack xsd:dateTime
         // TODO: pack xsd:boolean
@@ -780,7 +780,7 @@ extension PersistentTermIdentityMap {
         return id
     }
 
-    private func unpack(string value: UInt64) -> Element? {
+    private func unpack(string value: UInt64) -> Item? {
         var buffer = value.bigEndian
         var string: String? = nil
         withUnsafePointer(to: &buffer) { (p) in
@@ -804,15 +804,15 @@ extension PersistentTermIdentityMap {
         return nil
     }
 
-    private func unpack(integer value: UInt64) -> Element? {
+    private func unpack(integer value: UInt64) -> Item? {
         return Term(value: "\(value)", type: .datatype("http://www.w3.org/2001/XMLSchema#integer"))
     }
 
-    private func unpack(int value: UInt64) -> Element? {
+    private func unpack(int value: UInt64) -> Item? {
         return Term(value: "\(value)", type: .datatype("http://www.w3.org/2001/XMLSchema#int"))
     }
 
-    private func unpack(decimal: UInt64) -> Element? {
+    private func unpack(decimal: UInt64) -> Item? {
         let scale = Int((decimal & 0x00ff000000000000) >> 48)
         let value = decimal & 0x0000ffffffffffff
         let hb = (decimal & 0x0000ff0000000000) >> 40
@@ -838,7 +838,7 @@ extension PersistentTermIdentityMap {
         }
     }
 
-    private func unpack(date value: UInt64) -> Element? {
+    private func unpack(date value: UInt64) -> Item? {
         let day     = value & 0x000000000000001f
         let months  = (value & 0x00000000001fffe0) >> 5
         let month   = months % 12
@@ -893,7 +893,7 @@ extension PersistentTermIdentityMap {
         }
     }
 
-    private func unpack(iri value: UInt64) -> Element? {
+    private func unpack(iri value: UInt64) -> Item? {
         switch value {
         case 1:
             return Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type", type: .iri)

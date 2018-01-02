@@ -2911,7 +2911,7 @@ public struct SPARQLSerializer {
 
     }
 
-    public func serialize<S: Sequence>(_ algebra: Algebra) -> String where S.Iterator.Element == SPARQLToken {
+    public func serialize(_ algebra: Algebra) -> String {
         return self.serialize(algebra.sparqlQueryTokens())
     }
 

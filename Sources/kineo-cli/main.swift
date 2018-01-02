@@ -429,7 +429,7 @@ if let op = args.next() {
         guard let algebra = try parseQuery(database, filename: qfile) else { fatalError("Failed to parse query") }
         count = try query2(database, algebra: algebra, graph: graph, verbose: verbose)
     } else if op == "parse", let qfile = args.next() {
-        guard let qfile = args.next() else { fatalError("No query file given") }
+//        guard let qfile = args.next() else { fatalError("No query file given") }
         let url = URL(fileURLWithPath: qfile)
         let sparql = try Data(contentsOf: url)
         guard var p = SPARQLParser(data: sparql) else { fatalError("Failed to construct SPARQL parser") }
