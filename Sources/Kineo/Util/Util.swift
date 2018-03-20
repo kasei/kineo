@@ -554,3 +554,190 @@ public func myprintf(_ format: String, _ arguments: CVarArg...) {
         vprintf(format, $0)
     }
 }
+
+extension RMediator {
+    public func printTreeDOT(name: String) {
+        var buffer = [PageId]()
+        if let pid = try? self.getRoot(named: name) {
+            buffer.append(pid)
+        }
+        
+        print("digraph graphname {")
+        var seen = Set<PageId>()
+        while buffer.count > 0 {
+            if let pid = buffer.popLast() {
+                if seen.contains(pid) {
+                    continue
+                } else if let children = self.printTreeDOT(page: pid) {
+                    buffer += children
+                    seen.insert(pid)
+                }
+            }
+        }
+        for name in self.rootNames {
+            if let pid = try? self.getRoot(named: name) {
+                if seen.contains(pid) {
+                    print("r\(pid) [label=\"\(name)\", style=bold, shape=diamond]")
+                    print("r\(pid) -> p\(pid)")
+                }
+            }
+        }
+        print("}")
+    }
+    
+    public func printTreeDOT(pages: [PageId]) {
+        print("digraph graphname {")
+        var seen = Set<PageId>()
+        for pid in pages {
+            if let _ = self.printTreeDOT(page: pid) {
+                seen.insert(pid)
+            }
+        }
+        for name in self.rootNames {
+            if let pid = try? self.getRoot(named: name) {
+                if seen.contains(pid) {
+                    print("r\(pid) [label=\"\(name)\", style=bold, shape=diamond]")
+                    print("r\(pid) -> p\(pid)")
+                }
+            }
+        }
+        print("}")
+    }
+    
+    private func printTreeDOT(page pid: PageId) -> [PageId]? {
+        do {
+            guard let fm = self as? FilePageRMediator else { fatalError("Cannot serialize trees to DOT with this database mediator") }
+            guard let (_, date, _) = fm._pageInfo(page: pid) else { fatalError("Failed to get info for page \(pid)") }
+            let (node, _) : (TreeNode<Empty, Empty>, PageStatus) = try self.readPage(pid)
+            let nodeName = "p\(pid)"
+            var attributes = [String]()
+            var label: String
+            switch node {
+            case .leafNode(let l):
+                let type = pairName(l.typeCode)
+                label = "[\(pid)] \(type) leaf (\(l.pairs.count) pairs) \(date)"
+                attributes.append("label=\"\(label)\"")
+                attributes.append("shape=box")
+                print("\(nodeName) [\(attributes.joined(separator: ", "))]")
+                return []
+            case .internalNode(let i):
+                let type = pairName(i.typeCode)
+                label = "[\(pid)] \(type) internal (\(i.pairs.count) children, \(i.totalCount) total) \(date)"
+                attributes.append("label=\"\(label)\"")
+                print("\(nodeName) [\(attributes.joined(separator: ", "))]")
+                var children = [PageId]()
+                if i.typeCode == termIntType {
+                    let (typed, _) : (TreeNode<Term, PageId>, PageStatus) = try self.readPage(pid)
+                    if case .internalNode(let typedi) = typed {
+                        for (k, cpid) in typedi.pairs {
+                            children.append(cpid)
+                            let esc = String("\(k)".map { $0 == "\"" ? "'" : $0 })
+                            let child = "p\(cpid)"
+                            print("\(nodeName) -> \(child) [label=\"\(esc)\"]")
+                        }
+                    }
+                } else if i.typeCode == intIntType {
+                    let (typed, _) : (TreeNode<UInt64, PageId>, PageStatus) = try self.readPage(pid)
+                    if case .internalNode(let typedi) = typed {
+                        for (k, cpid) in typedi.pairs {
+                            children.append(cpid)
+                            let esc = String("\(k)".map { $0 == "\"" ? "'" : $0 })
+                            let child = "p\(cpid)"
+                            print("\(nodeName) -> \(child) [label=\"\(esc)\"]")
+                        }
+                    }
+                } else if i.typeCode == quadIntType {
+                    let (typed, _) : (TreeNode<IDQuad<UInt64>, PageId>, PageStatus) = try self.readPage(pid)
+                    if case .internalNode(let typedi) = typed {
+                        for (k, cpid) in typedi.pairs {
+                            children.append(cpid)
+                            let esc = String("\(k)".map { $0 == "\"" ? "'" : $0 })
+                            let child = "p\(cpid)"
+                            print("\(nodeName) -> \(child) [label=\"\(esc)\"]")
+                        }
+                    }
+                }
+                return children
+            }
+        } catch {}
+        return nil
+    }
+    
+    public func debugTreePage(_ pid: PageId) {
+        do {
+            let (node, _) : (TreeNode<Empty, Empty>, PageStatus) = try self.readPage(pid)
+            switch node {
+            case .leafNode(let l):
+                let date = getDateString(seconds: l.version)
+                print("Tree node on page \(pid)")
+                print("    Type          : LEAF")
+                print("    Modified      : \(date)")
+                print("    Pair count    : \(l.pairs.count)")
+                if l.typeCode == intEmptyType {
+                    let (typed, _) : (TreeNode<UInt64, Empty>, PageStatus) = try self.readPage(pid)
+                    if case .leafNode(let typedl) = typed {
+                        for (k, _) in typedl.pairs {
+                            print("        - \(k)")
+                        }
+                    }
+                } else if l.typeCode == termIntType {
+                    let (typed, _) : (TreeNode<Term, PageId>, PageStatus) = try self.readPage(pid)
+                    if case .leafNode(let typedl) = typed {
+                        for (k, v) in typedl.pairs {
+                            print("        - \(k): \(v)")
+                        }
+                    }
+                } else if l.typeCode == intTermType {
+                    let (typed, _) : (TreeNode<PageId, Term>, PageStatus) = try self.readPage(pid)
+                    if case .leafNode(let typedl) = typed {
+                        for (k, v) in typedl.pairs {
+                            print("        - \(k): \(v)")
+                        }
+                    }
+                } else if l.typeCode == intIntType {
+                    let (typed, _) : (TreeNode<UInt64, PageId>, PageStatus) = try self.readPage(pid)
+                    if case .leafNode(let typedl) = typed {
+                        for (k, v) in typedl.pairs {
+                            print("        - \(k): \(v)")
+                        }
+                    }
+                } else if l.typeCode == quadIntType {
+                    let (typed, _) : (TreeNode<IDQuad<UInt64>, PageId>, PageStatus) = try self.readPage(pid)
+                    if case .leafNode(let typedl) = typed {
+                        for (k, v) in typedl.pairs {
+                            print("        - \(k): \(v)")
+                        }
+                    }
+                }
+            case .internalNode(let i):
+                let date = getDateString(seconds: i.version)
+                print("Tree node on page \(pid)")
+                print("    Type          : INTERNAL")
+                print("    Modified      : \(date)")
+                print("    Pointer count: \(i.pairs.count)")
+                if i.typeCode == termIntType {
+                    let (typed, _) : (TreeNode<Term, PageId>, PageStatus) = try self.readPage(pid)
+                    if case .internalNode(let typedi) = typed {
+                        for (k, cpid) in typedi.pairs {
+                            print("        - \(k): Page \(cpid)")
+                        }
+                    }
+                } else if i.typeCode == intIntType {
+                    let (typed, _) : (TreeNode<UInt64, PageId>, PageStatus) = try self.readPage(pid)
+                    if case .internalNode(let typedi) = typed {
+                        for (k, cpid) in typedi.pairs {
+                            print("        - \(k): Page \(cpid)")
+                        }
+                    }
+                } else if i.typeCode == quadIntType {
+                    let (typed, _) : (TreeNode<IDQuad<UInt64>, PageId>, PageStatus) = try self.readPage(pid)
+                    if case .internalNode(let typedi) = typed {
+                        for (k, cpid) in typedi.pairs {
+                            print("        - \(k): Page \(cpid)")
+                        }
+                    }
+                }
+            }
+        } catch {}
+    }
+}

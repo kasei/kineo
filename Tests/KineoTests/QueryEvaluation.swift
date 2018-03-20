@@ -221,7 +221,7 @@ class QueryEvaluationTest: XCTestCase {
         XCTAssertEqual(results.count, 1)
         guard let result = results.first else { XCTFail(); return }
         guard let value = result["sum"] else { XCTFail(); return }
-        XCTAssertEqualWithAccuracy(value.numericValue, -85.3, accuracy: 0.1)
+        XCTAssertEqual(value.numericValue, -85.3, accuracy: 0.1)
     }
 
     func testAvgEval() {
@@ -229,7 +229,7 @@ class QueryEvaluationTest: XCTestCase {
         XCTAssertEqual(results.count, 1)
         guard let result = results.first else { XCTFail(); return }
         guard let value = result["avg"] else { XCTFail(); return }
-        XCTAssertEqualWithAccuracy(value.numericValue, -42.65, accuracy: 0.1)
+        XCTAssertEqual(value.numericValue, -42.65, accuracy: 0.1)
     }
 
     func testMultiAggEval() {
@@ -250,8 +250,8 @@ class QueryEvaluationTest: XCTestCase {
         guard let sum = result["sum"] else { XCTFail(); return }
         guard let avg = result["avg"] else { XCTFail(); return }
 
-        XCTAssertEqualWithAccuracy(sum.numericValue, -85.3, accuracy: 0.1)
-        XCTAssertEqualWithAccuracy(avg.numericValue, -42.65, accuracy: 0.1)
+        XCTAssertEqual(sum.numericValue, -85.3, accuracy: 0.1)
+        XCTAssertEqual(avg.numericValue, -42.65, accuracy: 0.1)
     }
 
     func testSortEval() {
@@ -267,24 +267,24 @@ class QueryEvaluationTest: XCTestCase {
 
         XCTAssertEqual(ascResults.count, 2)
         let ascValues = ascResults.map { $0["o"]!.numericValue }
-        XCTAssertEqualWithAccuracy(ascValues[0], -118.0, accuracy: 0.1)
-        XCTAssertEqualWithAccuracy(ascValues[1], 32.7, accuracy: 0.1)
+        XCTAssertEqual(ascValues[0], -118.0, accuracy: 0.1)
+        XCTAssertEqual(ascValues[1], 32.7, accuracy: 0.1)
 
         let descending: Algebra = .order(quad, [(false, .node(.variable("o", binding: false)))])
         guard let descResults = try? Array(eval(algebra: descending)) else { XCTFail(); return }
 
         XCTAssertEqual(descResults.count, 2)
         let descValues = descResults.map { $0["o"]!.numericValue }
-        XCTAssertEqualWithAccuracy(descValues[0], 32.7, accuracy: 0.1)
-        XCTAssertEqualWithAccuracy(descValues[1], -118.0, accuracy: 0.1)
+        XCTAssertEqual(descValues[0], 32.7, accuracy: 0.1)
+        XCTAssertEqual(descValues[1], -118.0, accuracy: 0.1)
 
         let negated: Algebra = .order(quad, [(false, .neg(.node(.variable("o", binding: false))))])
         guard let negResults = try? Array(eval(algebra: negated)) else { XCTFail(); return }
 
         XCTAssertEqual(negResults.count, 2)
         let negValues = negResults.map { $0["o"]!.numericValue }
-        XCTAssertEqualWithAccuracy(negValues[0], -118.0, accuracy: 0.1)
-        XCTAssertEqualWithAccuracy(negValues[1], 32.7, accuracy: 0.1)
+        XCTAssertEqual(negValues[0], -118.0, accuracy: 0.1)
+        XCTAssertEqual(negValues[1], 32.7, accuracy: 0.1)
     }
 
     func testIRINamedGraphEval() {

@@ -40,7 +40,7 @@ class SPARQLParserTest: XCTestCase {
 //        guard let data = "[ [] { - @en-US".data(using: .utf8) else { XCTFail(); return }
         let stream = InputStream(data: data)
         stream.open()
-        var lexer = SPARQLLexer(source: stream)
+        let lexer = SPARQLLexer(source: stream)
         XCTAssertEqual(lexer.next()!, .lbracket, "expected token")
         XCTAssertEqual(lexer.next()!, .anon, "expected token")
         XCTAssertEqual(lexer.next()!, .lbrace, "expected token")
@@ -121,7 +121,7 @@ class SPARQLParserTest: XCTestCase {
         guard let data = "\"foo\" \"foo\\nbar\" \"\\u706B\" \"\\U0000661F\" \"\"\"baz\"\"\" \"\"\"\" \"\"\" \"\"\"\"\"\"\"\"".data(using: .utf8) else { XCTFail(); return }
         let stream = InputStream(data: data)
         stream.open()
-        var lexer = SPARQLLexer(source: stream)
+        let lexer = SPARQLLexer(source: stream)
 
         XCTAssertEqual(lexer.next()!, .string1d("foo"), "expected token")
         XCTAssertEqual(lexer.next()!, .string1d("foo\nbar"), "expected token")

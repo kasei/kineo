@@ -145,7 +145,7 @@ open class QuadStore: Sequence, QuadStoreProtocol {
     public func addQuadIndex(_ index: String) throws {
         let defaultIndex = QuadStore.defaultIndex
         guard let m = self.mediator as? RWMediator else { throw DatabaseError.PermissionError("Cannot create a quad index in a read-only quadstore") }
-        guard String(index.characters.sorted()) == "gops" else { throw DatabaseError.KeyError("Not a valid quad index name: '\(index)'") }
+        guard String(index.sorted()) == "gops" else { throw DatabaseError.KeyError("Not a valid quad index name: '\(index)'") }
         guard let defaultQuadsIndex: Tree<IDQuad<UInt64>, Empty> = m.tree(name: defaultIndex) else { throw DatabaseError.DataError("Missing default index \(defaultIndex)") }
 
         let toSpog  = try quadMapping(fromOrder: defaultIndex)
@@ -268,7 +268,7 @@ open class QuadStore: Sequence, QuadStoreProtocol {
     }
 
     public var availableQuadIndexes: [String] {
-        return mediator.rootNames.filter { String($0.characters.sorted()) == "gops" }
+        return mediator.rootNames.filter { String($0.sorted()) == "gops" }
     }
 
     private func bestIndex(for bound: [Bool]) -> (String, Int) {
@@ -278,7 +278,7 @@ open class QuadStore: Sequence, QuadStoreProtocol {
         var indexCoverage = [0: available[0]]
         for index_name in available {
             var count = 0
-            for c in index_name.characters {
+            for c in index_name {
                 if let pos = QUAD_POSTIONS[String(c)] {
                     if bound[pos] {
                         count += 1
@@ -313,7 +313,7 @@ open class QuadStore: Sequence, QuadStoreProtocol {
         var indexCoverage = [0: available[0]]
         for index_name in available {
             var count = 0
-            for c in index_name.characters {
+            for c in index_name {
                 if let pos = QUAD_POSTIONS[String(c)] {
                     let node = nodes[pos]
                     if case .bound(_) = node {
@@ -339,7 +339,7 @@ open class QuadStore: Sequence, QuadStoreProtocol {
     private func quadMapping(fromOrder index: String) throws -> (IDQuad<UInt64>) -> (IDQuad<UInt64>) {
         let QUAD_POSTIONS = ["s": 0, "p": 1, "o": 2, "g": 3]
         var mapping = [Int:Int]()
-        for (i, c) in index.characters.enumerated() {
+        for (i, c) in index.enumerated() {
             guard let index = QUAD_POSTIONS[String(c)] else { throw DatabaseError.DataError("Bad quad position character \(c) found while attempting to map a quad from index order") }
             mapping[index] = i
         }
@@ -353,7 +353,7 @@ open class QuadStore: Sequence, QuadStoreProtocol {
     private func quadMapping(toOrder index: String) -> (IDQuad<UInt64>) -> (IDQuad<UInt64>) {
         let QUAD_POSTIONS = ["s": 0, "p": 1, "o": 2, "g": 3]
         var mapping = [Int:Int]()
-        for (i, c) in index.characters.enumerated() {
+        for (i, c) in index.enumerated() {
             guard let pos = QUAD_POSTIONS[String(c)] else { fatalError("Failed to obtain quad pattern mapping for index \(index)") }
             mapping[i] = pos
         }
@@ -823,8 +823,8 @@ extension PersistentTermIdentityMap {
             guard scale >= 0 else { print("TODO:"); return nil }
             let combined = "\(value)"
             var string = ""
-            let breakpoint = combined.characters.count - scale
-            for (i, c) in combined.characters.enumerated() {
+            let breakpoint = combined.count - scale
+            for (i, c) in combined.enumerated() {
                 if i == breakpoint {
                     if i == 0 {
                         string += "0."
@@ -856,7 +856,7 @@ extension PersistentTermIdentityMap {
         } else {
             let combined = c.joined(separator: "")
             guard let value = UInt64(combined) else { return nil }
-            let scale = UInt8(c[1].characters.count)
+            let scale = UInt8(c[1].count)
             guard value <= 0x007fffffffffff else { return nil }
             guard scale >= 0 else { return nil }
             let id = (UInt64(0x19) << 56) + (UInt64(scale) << 48) + value
