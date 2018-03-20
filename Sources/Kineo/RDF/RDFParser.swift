@@ -204,7 +204,7 @@ fileprivate extension SerdURI {
         value += self.path_base.value
         value += self.path.value
         let query = self.query.value
-        if query.characters.count > 0 {
+        if query.count > 0 {
             value += "?"
             value += self.query.value
         }

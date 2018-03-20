@@ -98,6 +98,24 @@ public indirect enum PropertyPath {
     case zeroOrOne(PropertyPath)
 }
 
+public enum QueryForm {
+    case select
+    case ask
+    case construct([TriplePattern])
+    case describe([Node])
+}
+
+public struct Dataset {
+    var defaultGraphs: [Term]
+    var namedGraphs: [Term]
+}
+
+public struct Query {
+    public var form: QueryForm
+    public var algebra: Algebra
+    public var dataset: Dataset?
+}
+
 public indirect enum Algebra {
     public typealias SortComparator = (Bool, Expression)
 
@@ -122,11 +140,38 @@ public indirect enum Algebra {
     case path(Node, PropertyPath, Node)
     case aggregate(Algebra, [Expression], [(Aggregation, String)])
     case window(Algebra, [Expression], [(WindowFunction, [SortComparator], String)])
-    case construct(Algebra, [TriplePattern])
-    case describe(Algebra, [Node])
-    case ask(Algebra)
 }
 
+public extension Query {
+    public func serialize(depth: Int=0) -> String {
+        let indent = String(repeating: " ", count: (depth*2))
+        let algebra = self.algebra
+        switch self.form {
+        case .construct(let triples):
+            var d = "\(indent)Construct\n"
+            d += "\(indent)  Query\n"
+            d += algebra.serialize(depth: depth+2)
+            d += "\(indent)  Template\n"
+            for t in triples {
+                d += "\(indent)    \(t)\n"
+            }
+            return d
+        case .describe(let nodes):
+            let expressions = nodes.map { "\($0)" }
+            var d = "\(indent)Describe { \(expressions.joined(separator: ", ")) }\n"
+            d += algebra.serialize(depth: depth+1)
+            return d
+        case .ask:
+            var d = "\(indent)Ask\n"
+            d += algebra.serialize(depth: depth+1)
+            return d
+        case .select:
+            var d = "\(indent)Select\n"
+            d += algebra.serialize(depth: depth+1)
+            return d
+        }
+    }
+}
 public extension Algebra {
     // swiftlint:disable:next cyclomatic_complexity
     public func serialize(depth: Int=0) -> String {
@@ -231,24 +276,6 @@ public extension Algebra {
                 d += "\(indent)  \(result)\n"
             }
             return d
-        case .construct(let child, let triples):
-            var d = "\(indent)Construct\n"
-            d += "\(indent)  Query\n"
-            d += child.serialize(depth: depth+2)
-            d += "\(indent)  Template\n"
-            for t in triples {
-                d += "\(indent)    \(t)\n"
-            }
-            return d
-        case .describe(let child, let nodes):
-            let expressions = nodes.map { "\($0)" }
-            var d = "\(indent)Describe { \(expressions.joined(separator: ", ")) }\n"
-            d += child.serialize(depth: depth+1)
-            return d
-        case .ask(let child):
-            var d = "\(indent)Ask\n"
-            d += child.serialize(depth: depth+1)
-            return d
         }
     }
 }
@@ -290,7 +317,7 @@ public extension Algebra {
                 }
             }
             return variables
-        case .bgp(let triples), .construct(_, let triples):
+        case .bgp(let triples):
             if triples.count == 0 {
                 return Set()
             }
@@ -348,8 +375,6 @@ public extension Algebra {
                 }
             }
             return variables
-        case .describe(_), .ask(_):
-            return variables
         }
     }
 }
@@ -361,12 +386,6 @@ public extension Algebra {
             return self
         case .distinct(let a):
             return .distinct(a.replace(map))
-        case .ask(let a):
-            return .ask(a.replace(map))
-        case .describe(let a, let nodes):
-            return .describe(a.replace(map), nodes)
-        case .construct(let a, let triples):
-            return .construct(a.replace(map), triples)
         case .project(let a, let p):
             return .project(a.replace(map), p)
         case .minus(let a, let b):
@@ -420,12 +439,6 @@ public extension Algebra {
                 return self
             case .distinct(let a):
                 return .distinct(a.replace(map))
-            case .ask(let a):
-                return .ask(a.replace(map))
-            case .describe(let a, let nodes):
-                return .describe(a.replace(map), nodes)
-            case .construct(let a, let triples):
-                return .construct(a.replace(map), triples)
             case .project(let a, let p):
                 return .project(a.replace(map), p)
             case .order(let a, let cmps):
@@ -481,10 +494,6 @@ public extension Algebra {
                 return .bgp(triples.map { $0.bind(variable, to: replacement) })
             case .table(_):
                 fatalError("TODO: semantics of binding a variable for a values table are unclear")
-            case .describe(let a, let nodes):
-                return .describe(a, nodes.map { $0.bind(variable, to: replacement) })
-            case .construct(let a, let triples):
-                return .construct(a, triples.map { $0.bind(variable, to: replacement) })
             case .project(let a, let p):
                 let child = a.bind(variable, to: replacement)
                 if preservingProjection {
@@ -761,13 +770,16 @@ open class QueryParser<T: LineReadable> {
         return stack.popLast()
     }
 
-    public func parse() throws -> Algebra? {
+    public func parse() throws -> Query? {
         let lines = self.reader.lines()
         for line in lines {
             guard let algebra = try self.parse(line: line) else { continue }
             stack.append(algebra)
         }
-        return stack.popLast()
+        guard let algebra = stack.popLast() else {
+            return nil
+        }
+        return Query(form: .select, algebra: algebra, dataset: nil)
     }
 }
 

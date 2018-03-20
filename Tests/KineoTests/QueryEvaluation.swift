@@ -86,7 +86,7 @@ class QueryEvaluationTest: XCTestCase {
         let qp      = QueryParser(reader: query)
         do {
             let query   = try qp.parse()
-            return query
+            return query?.algebra
         } catch {
             return nil
         }
@@ -307,7 +307,7 @@ class QueryEvaluationTest: XCTestCase {
         guard let results = try? Array(eval(algebra: algebra)) else { XCTFail(); return }
 
         XCTAssertEqual(results.count, 3)
-        let values = results.flatMap { $0["value"] }.flatMap { $0.numeric }
+        let values = results.compactMap { $0["value"] }.compactMap { $0.numeric }
         XCTAssertTrue(values[0] === .integer(-117))
         XCTAssertTrue(values[1] === .integer(33))
     }

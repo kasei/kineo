@@ -31,6 +31,11 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
         return .variable(".v\(n)", binding: true)
     }
     
+
+    public func evaluate(query: Query, activeGraph: Term) throws -> AnyIterator<TermResult> {
+        let algebra = query.algebra
+        return try self.evaluate(algebra: algebra, activeGraph: activeGraph)
+    }
     
     public func evaluate(algebra: Algebra, activeGraph: Term) throws -> AnyIterator<TermResult> {
         switch algebra {
@@ -148,7 +153,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
                     return result
                 } while true
             }
-        case .bgp(_), .minus(_, _), .describe(_), .ask(_), .construct(_), .service(_):
+        case .bgp(_), .minus(_, _), .service(_):
             fatalError("Unimplemented: \(algebra)")
         case .namedGraph(let child, .bound(let g)):
             return try evaluate(algebra: child, activeGraph: g)
@@ -184,6 +189,19 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
             }
         }
     }
+
+    public func effectiveVersion(matching query: Query, activeGraph: Term) throws -> Version? {
+        let algebra = query.algebra
+        guard var mtime = try effectiveVersion(matching: algebra, activeGraph: activeGraph) else { return nil }
+        if case .describe(let nodes) = query.form {
+            for node in nodes {
+                let quad = QuadPattern(subject: node, predicate: .variable("p", binding: true), object: .variable("o", binding: true), graph: .bound(activeGraph))
+                guard let qmtime = try store.effectiveVersion(matching: quad) else { return nil }
+                mtime = max(mtime, qmtime)
+            }
+        }
+        return mtime
+    }
     
     public func effectiveVersion(matching algebra: Algebra, activeGraph: Term) throws -> Version? {
         switch algebra {
@@ -202,7 +220,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
             } else {
                 fatalError("Unimplemented: effectiveVersion(.namedGraph(_), )")
             }
-        case .distinct(let child), .project(let child, _), .slice(let child, _, _), .extend(let child, _, _), .order(let child, _), .filter(let child, _), .ask(let child):
+        case .distinct(let child), .project(let child, _), .slice(let child, _, _), .extend(let child, _, _), .order(let child, _), .filter(let child, _):
             return try effectiveVersion(matching: child, activeGraph: activeGraph)
         case .aggregate(let child, _, _):
             return try effectiveVersion(matching: child, activeGraph: activeGraph)
@@ -224,19 +242,6 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
             return try store.effectiveVersion(matching: quad)
         case .quad(let quad):
             return try store.effectiveVersion(matching: quad)
-        case .describe(let child, let nodes):
-            guard var mtime = try effectiveVersion(matching: child, activeGraph: activeGraph) else { return nil }
-            for node in nodes {
-                let quad = QuadPattern(subject: node, predicate: .variable("p", binding: true), object: .variable("o", binding: true), graph: .bound(activeGraph))
-                guard let qmtime = try store.effectiveVersion(matching: quad) else { return nil }
-                mtime = max(mtime, qmtime)
-            }
-            return mtime
-        case .construct(let child, let triples):
-            let quads = triples.map { QuadPattern(subject: $0.subject, predicate: $0.predicate, object: $0.object, graph: .bound(activeGraph)) }
-            let mtimes = try quads.map { try store.effectiveVersion(matching: $0) }.flatMap { $0 } // TODO: nil should propogate outwards, instead of being dropped by flatMap
-            guard let mtime = try effectiveVersion(matching: child, activeGraph: activeGraph) else { return nil }
-            return mtimes.reduce(mtime) { max($0, $1) }
         case .bgp(let children):
             guard children.count > 0 else { return nil }
             var mtime: Version = 0

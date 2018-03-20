@@ -18,7 +18,7 @@ class SPARQLParserTest: XCTestCase {
     func testParser() {
         guard var p = SPARQLParser(string: "PREFIX ex: <http://example.org/> SELECT * WHERE {\n_:s ex:value ?o . FILTER(?o != 7.0)\n}\n") else { XCTFail(); return }
         do {
-            let a = try p.parse()
+            let a = try p.parseAlgebra()
             guard case .filter(let pattern, .ne(.node(.variable("o", binding: true)), .node(.bound(Term(value: "7.0", type: .datatype("http://www.w3.org/2001/XMLSchema#decimal")))))) = a else {
                 XCTFail("Unexpected algebra: \(a.serialize())")
                 return
@@ -135,7 +135,7 @@ class SPARQLParserTest: XCTestCase {
     func testProjectExpression() {
         guard var p = SPARQLParser(string: "SELECT (?x+1 AS ?y) ?x WHERE {\n_:s <p> ?x .\n}\n") else { XCTFail(); return }
         do {
-            let a = try p.parse()
+            let a = try p.parseAlgebra()
             guard case .project(let algebra, let variables) = a else {
                 XCTFail("Unexpected algebra: \(a.serialize())")
                 return
@@ -153,7 +153,7 @@ class SPARQLParserTest: XCTestCase {
     func testSubSelect() {
         guard var p = SPARQLParser(string: "SELECT ?x WHERE {\n{ SELECT ?x ?y { ?x ?y ?z } }}\n") else { XCTFail(); return }
         do {
-            let a = try p.parse()
+            let a = try p.parseAlgebra()
             guard case .project(let algebra, let variables) = a else {
                 XCTFail("Unexpected algebra: \(a.serialize())")
                 return
@@ -175,7 +175,7 @@ class SPARQLParserTest: XCTestCase {
     func testBuiltinFunctionCallExpression() {
         guard var p = SPARQLParser(string: "SELECT * WHERE {\n_:s <p> ?x . FILTER ISNUMERIC(?x)\n}\n") else { XCTFail(); return }
         do {
-            let a = try p.parse()
+            let a = try p.parseAlgebra()
             guard case .filter(_, let expr) = a else {
                 XCTFail("Unexpected algebra: \(a.serialize())")
                 return
@@ -191,7 +191,7 @@ class SPARQLParserTest: XCTestCase {
     func testFunctionCallExpression() {
         guard var p = SPARQLParser(string: "PREFIX ex: <http://example.org/> SELECT * WHERE {\n_:s <p> ?x . FILTER ex:function(?x)\n}\n") else { XCTFail(); return }
         do {
-            let a = try p.parse()
+            let a = try p.parseAlgebra()
             guard case .filter(_, let expr) = a else {
                 XCTFail("Unexpected algebra: \(a.serialize())")
                 return
@@ -207,7 +207,7 @@ class SPARQLParserTest: XCTestCase {
     func testAggregation1() {
         guard var p = SPARQLParser(string: "SELECT ?x (SUM(?y) AS ?z) WHERE {\n?x <p> ?y\n}\nGROUP BY ?x") else { XCTFail(); return }
         do {
-            let a = try p.parse()
+            let a = try p.parseAlgebra()
             guard case .project(let extend, let projection) = a else {
                 XCTFail("Unexpected algebra: \(a.serialize())")
                 return
@@ -239,7 +239,7 @@ class SPARQLParserTest: XCTestCase {
     func testAggregation2() {
         guard var p = SPARQLParser(string: "SELECT ?x (SUM(?y) AS ?sum) (AVG(?y) AS ?avg) WHERE {\n?x <p> ?y\n}\nGROUP BY ?x") else { XCTFail(); return }
         do {
-            let a = try p.parse()
+            let a = try p.parseAlgebra()
             guard case .project(let extend1, let projection) = a else {
                 XCTFail("Unexpected algebra: \(a.serialize())")
                 return
@@ -280,7 +280,7 @@ class SPARQLParserTest: XCTestCase {
     func testAggregationGroupBy() {
         guard var p = SPARQLParser(string: "SELECT ?x WHERE {\n_:s <p> ?x\n}\nGROUP BY ?x") else { XCTFail(); return }
         do {
-            let a = try p.parse()
+            let a = try p.parseAlgebra()
             guard case .project(.aggregate(_, let groups, let aggs), let projection) = a else {
                 XCTFail("Unexpected algebra: \(a.serialize())")
                 return
@@ -298,7 +298,7 @@ class SPARQLParserTest: XCTestCase {
     func testAggregationHaving() {
         guard var p = SPARQLParser(string: "SELECT ?x WHERE {\n_:s <p> ?x\n}\nGROUP BY ?x HAVING (?x > 2)") else { XCTFail(); return }
         do {
-            let a = try p.parse()
+            let a = try p.parseAlgebra()
             guard case .project(.filter(.aggregate(_, let groups, let aggs), .gt(.node(.variable("x", binding: true)), .node(.bound(Term(value: "2", type: .datatype("http://www.w3.org/2001/XMLSchema#integer")))))), let projection) = a else {
                 XCTFail("Unexpected algebra: \(a.serialize())")
                 return
@@ -316,7 +316,7 @@ class SPARQLParserTest: XCTestCase {
     func testInlineData1() {
         guard var p = SPARQLParser(string: "SELECT ?x WHERE {\nVALUES ?x {7 2 3}\n}\n") else { XCTFail(); return }
         do {
-            let a = try p.parse()
+            let a = try p.parseAlgebra()
             guard case .project(let table, _) = a else {
                 XCTFail("Unexpected algebra: \(a.serialize())")
                 return
@@ -343,7 +343,7 @@ class SPARQLParserTest: XCTestCase {
     func testInlineData2() {
         guard var p = SPARQLParser(string: "SELECT * WHERE {\n\n}\nVALUES (?x ?y) { (UNDEF 7) (2 UNDEF) }\n") else { XCTFail(); return }
         do {
-            let a = try p.parse()
+            let a = try p.parseAlgebra()
             guard case .innerJoin(.joinIdentity, let table) = a else {
                 XCTFail("Unexpected algebra: \(a.serialize())")
                 return
@@ -370,7 +370,7 @@ class SPARQLParserTest: XCTestCase {
     func testFilterNotIn() {
         guard var p = SPARQLParser(string: "SELECT * WHERE {\n?x ?y ?z . FILTER(?z NOT IN (1,2,3))\n}\n") else { XCTFail(); return }
         do {
-            let a = try p.parse()
+            let a = try p.parseAlgebra()
             guard case .filter(_, let expr) = a else {
                 XCTFail("Unexpected algebra: \(a.serialize())")
                 return
@@ -390,7 +390,7 @@ class SPARQLParserTest: XCTestCase {
     func testList() {
         guard var p = SPARQLParser(string: "SELECT * WHERE { ( () ) }") else { XCTFail(); return }
         do {
-            let a = try p.parse()
+            let a = try p.parseAlgebra()
             guard case .bgp(let triples) = a else {
                 XCTFail("Unexpected algebra: \(a.serialize())")
                 return
@@ -405,8 +405,13 @@ class SPARQLParserTest: XCTestCase {
     func testConstruct() {
         guard var p = SPARQLParser(string: "CONSTRUCT { ?s <p1> <o> . ?s <p2> ?o } WHERE {?s ?p ?o}") else { XCTFail(); return }
         do {
-            let a = try p.parse()
-            guard case .construct(.distinct(.triple(_)), let ctriples) = a else {
+            let q = try p.parseQuery()
+            let a = q.algebra
+            guard case .construct(let ctriples) = q.form else {
+                XCTFail("Unexpected query form: \(q.form)")
+                return
+            }
+            guard case .distinct(.triple(_)) = a else {
                 XCTFail("Unexpected algebra: \(a.serialize())")
                 return
             }
@@ -420,8 +425,13 @@ class SPARQLParserTest: XCTestCase {
     func testDescribe() {
         guard var p = SPARQLParser(string: "DESCRIBE <u>") else { XCTFail(); return }
         do {
-            let a = try p.parse()
-            guard case .distinct(.describe(.joinIdentity, let nodes)) = a else {
+            let q = try p.parseQuery()
+            let a = q.algebra
+            guard case .describe(let nodes) = q.form else {
+                XCTFail("Unexpected query form: \(q.form)")
+                return
+            }
+            guard case .distinct(.joinIdentity) = a else {
                 XCTFail("Unexpected algebra: \(a.serialize())")
                 return
             }
@@ -435,7 +445,7 @@ class SPARQLParserTest: XCTestCase {
     func testNumericLiteral() {
         guard var p = SPARQLParser(string: "SELECT * WHERE { <a><b>-1 }") else { XCTFail(); return }
         do {
-            let a = try p.parse()
+            let a = try p.parseAlgebra()
             guard case .triple(_) = a else {
                 XCTFail("Unexpected algebra: \(a.serialize())")
                 return
@@ -450,7 +460,7 @@ class SPARQLParserTest: XCTestCase {
     func testBind() {
         guard var p = SPARQLParser(string: "PREFIX : <http://www.example.org> SELECT * WHERE { :s :p ?o . BIND((1+?o) AS ?o1) :s :q ?o1 }") else { XCTFail(); return }
         do {
-            let a = try p.parse()
+            let a = try p.parseAlgebra()
             guard case .innerJoin(.extend(_, _, _), _) = a else {
                 XCTFail("Unexpected algebra: \(a.serialize())")
                 return
@@ -465,8 +475,13 @@ class SPARQLParserTest: XCTestCase {
     func testConstructCollection1() {
         guard var p = SPARQLParser(string: "PREFIX : <http://www.example.org> CONSTRUCT { ?s :p (1 2) } WHERE { ?s ?p ?o }") else { XCTFail(); return }
         do {
-            let a = try p.parse()
-            guard case .construct(.distinct(.triple(_)), let template) = a else {
+            let q = try p.parseQuery()
+            let a = q.algebra
+            guard case .construct(let template) = q.form else {
+                XCTFail("Unexpected query form: \(q.form)")
+                return
+            }
+            guard case .distinct(.triple(_)) = a else {
                 XCTFail("Unexpected algebra: \(a.serialize())")
                 return
             }
@@ -480,8 +495,13 @@ class SPARQLParserTest: XCTestCase {
     func testConstructCollection2() {
         guard var p = SPARQLParser(string: "PREFIX : <http://www.example.org> CONSTRUCT { (1 2) :p ?o } WHERE { ?s ?p ?o }") else { XCTFail(); return }
         do {
-            let a = try p.parse()
-            guard case .construct(.distinct(.triple(_)), let template) = a else {
+            let q = try p.parseQuery()
+            let a = q.algebra
+            guard case .construct(let template) = q.form else {
+                XCTFail("Unexpected query form: \(q.form)")
+                return
+            }
+            guard case .distinct(.triple(_)) = a else {
                 XCTFail("Unexpected algebra: \(a.serialize())")
                 return
             }
@@ -495,8 +515,13 @@ class SPARQLParserTest: XCTestCase {
     func testConstructBlank() {
         guard var p = SPARQLParser(string: "PREFIX : <http://www.example.org> CONSTRUCT { [ :p ?o ] } WHERE { ?s ?p ?o }") else { XCTFail(); return }
         do {
-            let a = try p.parse()
-            guard case .construct(.distinct(.triple(_)), let template) = a else {
+            let q = try p.parseQuery()
+            let a = q.algebra
+            guard case .construct(let template) = q.form else {
+                XCTFail("Unexpected query form: \(q.form)")
+                return
+            }
+            guard case .distinct(.triple(_)) = a else {
                 XCTFail("Unexpected algebra: \(a.serialize())")
                 return
             }
@@ -510,7 +535,7 @@ class SPARQLParserTest: XCTestCase {
     func testI18N() {
         guard var p = SPARQLParser(string: "PREFIX foaf: <http://xmlns.com/foaf/0.1/> PREFIX 食: <http://www.w3.org/2001/sw/DataAccess/tests/data/i18n/kanji.ttl#> SELECT ?name ?food WHERE { [ foaf:name ?name ; 食:食べる ?food ] . }") else { XCTFail(); return }
         do {
-            let a = try p.parse()
+            let a = try p.parseAlgebra()
             guard case .project(.innerJoin(.triple(let ta), .triple(let tb)), let variables) = a else {
                 XCTFail("Unexpected algebra: \(a.serialize())")
                 return
@@ -532,7 +557,7 @@ class SPARQLParserTest: XCTestCase {
     func testIRIResolution() {
         guard var p = SPARQLParser(string: "BASE <http://example.org/foo/> SELECT * WHERE { ?s <p> <../bar> }") else { XCTFail(); return }
         do {
-            let a = try p.parse()
+            let a = try p.parseAlgebra()
             guard case .triple(let triple) = a else {
                 XCTFail("Unexpected algebra: \(a.serialize())")
                 return

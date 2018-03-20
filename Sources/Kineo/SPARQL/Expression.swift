@@ -17,7 +17,7 @@ extension Term {
             if self.isNumeric {
                 return self.numericValue != 0.0
             } else {
-                return value.characters.count > 0
+                return value.count > 0
             }
         default:
             throw QueryError.typeError("EBV cannot be computed for \(self)")
@@ -675,7 +675,7 @@ class ExpressionEvaluator {
     }
     
     private func evaluate(hashFunction iri: String, terms: [Term?]) throws -> Term {
-        fatalError("TODO: implement hash functions")
+        fatalError("TODO: implement hash function: \(iri)")
     }
     
     private func evaluate(constructor iri: String, terms: [Term?]) throws -> Term {
@@ -742,7 +742,7 @@ class ExpressionEvaluator {
             if iri == "STR" {
                 return Term(string: string.value)
             } else if iri == "STRLEN" {
-                return Term(integer: string.value.characters.count)
+                return Term(integer: string.value.count)
             } else if iri == "LCASE" {
                 return Term(value: string.value.lowercased(), type: string.type)
             } else if iri == "UCASE" {
@@ -792,7 +792,7 @@ class ExpressionEvaluator {
                 }
             } else if iri == "LANGMATCHES" {
                 if pattern.value == "*" {
-                    return Term(boolean: string.value.characters.count > 0 ? true : false)
+                    return Term(boolean: string.value.count > 0 ? true : false)
                 } else {
                     return Term(boolean: string.value.lowercased().hasPrefix(pattern.value.lowercased()))
                 }
@@ -800,14 +800,14 @@ class ExpressionEvaluator {
         case "REPLACE":
             guard (3...4).contains(terms.count) else { throw QueryError.evaluationError("Wrong argument count for \(iri) call") }
             guard let string = terms[0], let pattern = terms[1], let replacement = terms[2] else { throw QueryError.evaluationError("Not all arguments are bound in \(iri) call") }
-            let flags = Set((terms.count == 4 ? (terms[3]?.value ?? "") : "").characters)
+            let flags = Set((terms.count == 4 ? (terms[3]?.value ?? "") : ""))
             let options : String.CompareOptions = flags.contains("i") ? .caseInsensitive : .literal
             let value = string.value.replacingOccurrences(of: pattern.value, with: replacement.value, options: options)
             return Term(value: value, type: string.type)
         case "REGEX":
             guard (2...3).contains(terms.count) else { throw QueryError.evaluationError("Wrong argument count for \(iri) call") }
             guard let string = terms[0], let pattern = terms[1] else { throw QueryError.evaluationError("Not all arguments are bound in \(iri) call") }
-            let flags = Set((terms.count == 3 ? (terms[2]?.value ?? "") : "").characters)
+            let flags = Set((terms.count == 3 ? (terms[2]?.value ?? "") : ""))
             let options : NSRegularExpression.Options = flags.contains("i") ? .caseInsensitive : []
             let regex = try NSRegularExpression(pattern: pattern.value, options: options)
             let s = string.value

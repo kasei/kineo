@@ -1359,27 +1359,29 @@ public struct SPARQLParser {
         return
     }
 
-    public mutating func parse() throws -> Algebra {
+    public mutating func parseQuery() throws -> Query {
         try parsePrologue()
-
+        
         let t = try peekExpectedToken()
         guard case .keyword(let kw) = t else { throw parseError("Expected query method not found") }
-
-        var algebra: Algebra
+        
         switch kw {
         case "SELECT":
-            algebra = try parseSelectQuery()
+            return try parseSelectQuery()
         case "CONSTRUCT":
-            algebra = try parseConstructQuery()
+            return try parseConstructQuery()
         case "DESCRIBE":
-            algebra = try parseDescribeQuery()
+            return try parseDescribeQuery()
         case "ASK":
-            algebra = try parseAskQuery()
+            return try parseAskQuery()
         default:
             throw parseError("Expected query method not found: \(kw)")
         }
-
-        return algebra
+    }
+    
+    public mutating func parseAlgebra() throws -> Algebra {
+        let query : Query = try self.parseQuery()
+        return query.algebra
     }
 
     private mutating func parsePrologue() throws {
@@ -1400,7 +1402,7 @@ public struct SPARQLParser {
         }
     }
 
-    private mutating func parseSelectQuery() throws -> Algebra {
+    private mutating func parseSelectQuery() throws -> Query {
         try expect(token: .keyword("SELECT"))
         var distinct = false
         var star = false
@@ -1442,7 +1444,7 @@ public struct SPARQLParser {
             }
         }
 
-        let dataset = try parseDatasetClauses() // TODO
+        let dataset = try parseDatasetClauses()
         try attempt(token: .keyword("WHERE"))
         var algebra = try parseGroupGraphPattern()
 
@@ -1453,10 +1455,10 @@ public struct SPARQLParser {
             // TODO: verify that the query does not perform aggregation
         }
 
-        return algebra
+        return Query(form: .select, algebra: algebra, dataset: dataset)
     }
 
-    private mutating func parseConstructQuery() throws -> Algebra {
+    private mutating func parseConstructQuery() throws -> Query {
         try expect(token: .keyword("CONSTRUCT"))
         var pattern = [TriplePattern]()
         var hasTemplate = false
@@ -1464,7 +1466,7 @@ public struct SPARQLParser {
             hasTemplate = true
             pattern = try parseConstructTemplate()
         }
-        let dataset = try parseDatasetClauses() // TODO
+        let dataset = try parseDatasetClauses()
         try expect(token: .keyword("WHERE"))
         var algebra = try parseGroupGraphPattern()
 
@@ -1480,10 +1482,10 @@ public struct SPARQLParser {
         }
 
         algebra = try parseSolutionModifier(algebra: algebra, distinct: true, projection: nil, projectExpressions: [], aggregation: [:], valuesBlock: nil)
-        return .construct(algebra, pattern)
+        return Query(form: .construct(pattern), algebra: algebra, dataset: dataset)
     }
 
-    private mutating func parseDescribeQuery() throws -> Algebra {
+    private mutating func parseDescribeQuery() throws -> Query {
         try expect(token: .keyword("DESCRIBE"))
         var star = false
         var describe = [Node]()
@@ -1504,7 +1506,7 @@ public struct SPARQLParser {
             }
         }
 
-        let dataset = try parseDatasetClauses() // TODO
+        let dataset = try parseDatasetClauses()
         try attempt(token: .keyword("WHERE"))
         let ggp: Algebra
         if try peek(token: .lbrace) {
@@ -1517,10 +1519,8 @@ public struct SPARQLParser {
 
         }
 
-        var algebra: Algebra = .describe(ggp, describe)
-        algebra = try parseSolutionModifier(algebra: algebra, distinct: true, projection: nil, projectExpressions: [], aggregation: [:], valuesBlock: nil)
-
-        return algebra
+        let algebra = try parseSolutionModifier(algebra: ggp, distinct: true, projection: nil, projectExpressions: [], aggregation: [:], valuesBlock: nil)
+        return Query(form: .describe(describe), algebra: algebra, dataset: dataset)
     }
 
     private mutating func parseConstructTemplate() throws -> [TriplePattern] {
@@ -1551,15 +1551,15 @@ public struct SPARQLParser {
         }
     }
 
-    private mutating func parseAskQuery() throws -> Algebra {
+    private mutating func parseAskQuery() throws -> Query {
         try expect(token: .keyword("ASK"))
-        let dataset = try parseDatasetClauses() // TODO
+        let dataset = try parseDatasetClauses()
         try attempt(token: .keyword("WHERE"))
         let ggp = try parseGroupGraphPattern()
-        return .ask(ggp)
+        return Query(form: .ask, algebra: ggp, dataset: dataset)
     }
 
-    private mutating func parseDatasetClauses() throws -> Any? { // TODO: figure out the return type here
+    private mutating func parseDatasetClauses() throws -> Dataset? { // TODO: figure out the return type here
         var named = [Term]()
         var unnamed = [Term]()
         while try attempt(token: .keyword("FROM")) {
@@ -1571,8 +1571,8 @@ public struct SPARQLParser {
                 unnamed.append(iri)
             }
         }
-        return nil
-        fatalError("implement \(named) \(unnamed)")
+        
+        return Dataset(defaultGraphs: unnamed, namedGraphs: named)
     }
 
     private mutating func parseGroupGraphPattern() throws -> Algebra {

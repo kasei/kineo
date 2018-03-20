@@ -167,6 +167,12 @@ public class QuadStorePlanner {
         variableNumbers = [:]
     }
 
+    public func plan(_ query: Query) throws -> ResultPlan {
+        let algebra = query.algebra
+        let plan = try self.plan(algebra)
+        return plan
+    }
+    
     public func plan(_ algebra: Algebra) throws -> ResultPlan {
         return try plan(algebra, activeGraph: defaultGraph)
     }

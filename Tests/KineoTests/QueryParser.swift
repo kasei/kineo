@@ -20,7 +20,7 @@ class QueryParserTest: XCTestCase {
 //        }
 //    }
 
-    private func parse(query: String) -> Algebra? {
+    private func parse(query: String) -> Query? {
         let qp      = QueryParser(reader: query)
         do {
             let query   = try qp.parse()
@@ -36,12 +36,13 @@ class QueryParserTest: XCTestCase {
         XCTAssertNil(parse(query: "triple _:a <http://xmlns.com/foaf/0.1/name>"))
         XCTAssertNil(parse(query: "triple <s> <http://xmlns.com/foaf/0.1/name> ?o ?g"))
         guard let query = parse(query: "triple ?s ?p ?o\n") else { XCTFail(); return }
-        guard case .triple(_) = query else {
+        let algebra = query.algebra
+        guard case .triple(_) = algebra else {
             XCTFail()
             return
         }
         XCTAssert(true)
-        XCTAssertEqual(query.inscope, Set(["s", "p", "o"]))
+        XCTAssertEqual(algebra.inscope, Set(["s", "p", "o"]))
     }
 
     func testQuad() {
@@ -51,12 +52,13 @@ class QueryParserTest: XCTestCase {
         XCTAssertNil(parse(query: "quad ?.s <http://xmlns.com/foaf/0.1/name> ?o"))
 
         guard let query = parse(query: "quad ?.s <http://xmlns.com/foaf/0.1/name> ?o ?g") else { XCTFail(); return }
-        guard case .quad(_) = query else {
+        let algebra = query.algebra
+        guard case .quad(_) = algebra else {
             XCTFail()
             return
         }
         XCTAssert(true)
-        XCTAssertEqual(query.inscope, Set(["o", "g"]))
+        XCTAssertEqual(algebra.inscope, Set(["o", "g"]))
     }
 
     func testJoin() {
@@ -64,12 +66,13 @@ class QueryParserTest: XCTestCase {
         XCTAssertNil(parse(query: "triple ?s ?p ?o\njoin"))
 
         guard let query = parse(query: "triple ?s <http://www.w3.org/2003/01/geo/wgs84_pos#lat> ?lat\ntriple ?s <http://www.w3.org/2003/01/geo/wgs84_pos#long> ?long\njoin") else { XCTFail(); return }
-        guard case .innerJoin(.triple(_), .triple(_)) = query else {
+        let algebra = query.algebra
+        guard case .innerJoin(.triple(_), .triple(_)) = algebra else {
             XCTFail()
             return
         }
         XCTAssert(true)
-        XCTAssertEqual(query.inscope, Set(["s", "lat", "long"]))
+        XCTAssertEqual(algebra.inscope, Set(["s", "lat", "long"]))
     }
 
     func testUnion() {
@@ -77,12 +80,13 @@ class QueryParserTest: XCTestCase {
         XCTAssertNil(parse(query: "triple ?s ?p ?o\nunion"))
 
         guard let query = parse(query: "triple ?s <http://xmlns.com/foaf/0.1/name> ?name\ntriple ?s <http://purl.org/dc/elements/1.1/title> ?name\nunion") else { XCTFail(); return }
-        guard case .union(.triple(_), .triple(_)) = query else {
+        let algebra = query.algebra
+        guard case .union(.triple(_), .triple(_)) = algebra else {
             XCTFail()
             return
         }
         XCTAssert(true)
-        XCTAssertEqual(query.inscope, Set(["s", "name"]))
+        XCTAssertEqual(algebra.inscope, Set(["s", "name"]))
     }
 
     func testProject() {
@@ -90,14 +94,15 @@ class QueryParserTest: XCTestCase {
         XCTAssertNil(parse(query: "triple ?s ?p ?o\nproject"))
 
         guard let query = parse(query: "triple ?s ?p ?o\nproject s o") else { XCTFail(); return }
-        guard case .project(.triple(_), let vars) = query else {
+        let algebra = query.algebra
+        guard case .project(.triple(_), let vars) = algebra else {
             XCTFail()
             return
         }
         XCTAssert(true)
         let vs = Set(vars)
         XCTAssertEqual(vs, Set(["s", "o"]))
-        XCTAssertEqual(query.inscope, Set(["o", "s"]))
+        XCTAssertEqual(algebra.inscope, Set(["o", "s"]))
     }
 
 //    * `leftjoin` - Join the two patterns on the top of the stack

@@ -26,7 +26,7 @@ func parseAlgebra(_ qfile: String, silent: Bool = false, includeComments: Bool =
     let url = URL(fileURLWithPath: qfile)
     let sparql = try Data(contentsOf: url)
     guard var p = SPARQLParser(data: sparql, includeComments: includeComments) else { fatalError("Failed to construct SPARQL parser") }
-    let algebra = try p.parse()
+    let algebra = try p.parseAlgebra()
     let s = algebra.serialize()
     if !silent {
         print(s)
