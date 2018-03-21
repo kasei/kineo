@@ -123,21 +123,26 @@ func query2(_ database: FilePageDatabase, query: Query, graph: Term? = nil, verb
                 defaultGraph = g
                 warn("Using default graph \(defaultGraph)")
             }
-//            let e           = SimpleQueryEvaluator(store: store, defaultGraph: defaultGraph)
-//            if let mtime = try e.effectiveVersion(matching: query, activeGraph: defaultGraph) {
-//                let date = getDateString(seconds: mtime)
-//                if verbose {
-//                    print("# Last-Modified: \(date)")
-//                }
-//            }
-
-            let planner     = QuadStorePlanner(store: store, defaultGraph: defaultGraph)
-            let plan        = try planner.plan(query)
-            let e           = ResultPlanEvaluator(store: store)
-            for result in try e.evaluate(plan) {
+            let e           = SimpleQueryEvaluator(store: store, defaultGraph: defaultGraph)
+            for result in try e.evaluate(query: query, activeGraph: defaultGraph) {
                 count += 1
                 print("\(count)\t\(result.description)")
             }
+
+            if let mtime = try e.effectiveVersion(matching: query, activeGraph: defaultGraph) {
+                let date = getDateString(seconds: mtime)
+                if verbose {
+                    print("# Last-Modified: \(date)")
+                }
+            }
+
+//            let planner     = QuadStorePlanner(store: store, defaultGraph: defaultGraph)
+//            let plan        = try planner.plan(query)
+//            let e           = ResultPlanEvaluator(store: store)
+//            for result in try e.evaluate(plan) {
+//                count += 1
+//                print("\(count)\t\(result.description)")
+//            }
         } catch let e {
             warn("*** \(e)")
         }
@@ -433,8 +438,8 @@ if let op = args.next() {
         let url = URL(fileURLWithPath: qfile)
         let sparql = try Data(contentsOf: url)
         guard var p = SPARQLParser(data: sparql) else { fatalError("Failed to construct SPARQL parser") }
-        let algebra = try p.parseAlgebra()
-        let s = algebra.serialize()
+        let query = try p.parseQuery()
+        let s = query.serialize()
         count = 1
         print(s)
     } else if op == "qparse", let qfile = args.next() {
@@ -474,7 +479,7 @@ if let op = args.next() {
                 }
             }
 
-            var pages = Array(args.elements().flatMap { Int($0) })
+            var pages = Array(args.elements().compactMap { Int($0) })
             if pages.count == 0 {
                 pages = Array(0..<m.pageCount)
             }

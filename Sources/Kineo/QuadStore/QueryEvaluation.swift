@@ -688,8 +688,6 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
                     results.append(contentsOf: j)
                 }
                 return AnyIterator(results.makeIterator())
-            default:
-                fatalError("Unexpected case found for * property path")
             }
         case .plus(let pp):
             switch (subject, object) {

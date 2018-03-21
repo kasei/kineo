@@ -599,6 +599,63 @@ extension Expression {
 }
 
 class ExpressionEvaluator {
+    public enum ConstructorFunction : String {
+        case str = "STR"
+        case uri = "URI"
+        case iri = "IRI"
+        case bnode = "BNODE"
+        case strdt = "STRDT"
+        case strlang = "STRLANG"
+        case uuid = "UUID"
+        case struuid = "STRUUID"
+    }
+    public enum StringFunction : String {
+        case concat = "CONCAT"
+        case str = "STR"
+        case strlen = "STRLEN"
+        case lcase = "LCASE"
+        case ucase = "UCASE"
+        case encode_for_uri = "ENCODE_FOR_URI"
+        case lang = "LANG"
+        case datatype = "DATATYPE"
+        case contains = "CONTAINS"
+        case strstarts = "STRSTARTS"
+        case strends = "STRENDS"
+        case strbefore = "STRBEFORE"
+        case strafter = "STRAFTER"
+        case langmatches = "LANGMATCHES"
+        case replace = "REPLACE"
+        case regex = "REGEX"
+    }
+
+    public enum HashFunction : String {
+        case md5 = "MD5"
+        case sha1 = "SHA1"
+        case sha256 = "SHA256"
+        case sha384 = "SHA384"
+        case sha512 = "SHA512"
+    }
+    
+    public enum DateFunction : String {
+        case now = "NOW"
+        case year = "YEAR"
+        case month = "MONTH"
+        case day = "DAY"
+        case hours = "HOURS"
+        case minutes = "MINUTES"
+        case seconds = "SECONDS"
+        case timezone = "TIMEZONE"
+        case tz = "TZ"
+    }
+    
+    public enum NumericFunction : String {
+        case rand = "RAND"
+        case abs = "ABS"
+        case round = "ROUND"
+        case ceil = "CEIL"
+        case floor = "FLOOR"
+    }
+    
     var bnodes: [String: String]
     var now: Date
     
@@ -611,8 +668,8 @@ class ExpressionEvaluator {
         self.bnodes = [:]
     }
     
-    private func evaluate(dateFunction iri: String, terms: [Term?]) throws -> Term {
-        if iri == "NOW" {
+    private func evaluate(dateFunction: DateFunction, terms: [Term?]) throws -> Term {
+        if dateFunction == .now {
             if #available (OSX 10.12, *) {
                 let f = W3CDTFLocatedDateFormatter()
                 return Term(value: f.string(from: now), type: .datatype(Term.xsd("dateTime").value))
@@ -620,31 +677,31 @@ class ExpressionEvaluator {
                 throw QueryError.evaluationError("OSX 10.12 is required to use date functions")
             }
         } else {
-            guard terms.count == 1 else { throw QueryError.evaluationError("Wrong argument count for \(iri) call") }
-            guard let term = terms[0] else { throw QueryError.evaluationError("Not all arguments are bound in \(iri) call") }
-            guard let date = term.dateValue else { throw QueryError.evaluationError("Argument is not a valid xsd:dateTime value in \(iri) call") }
-            guard let tz = term.timeZone else { throw QueryError.evaluationError("Argument is not a valid xsd:dateTime value in \(iri) call") }
+            guard terms.count == 1 else { throw QueryError.evaluationError("Wrong argument count for \(dateFunction) call") }
+            guard let term = terms[0] else { throw QueryError.evaluationError("Not all arguments are bound in \(dateFunction) call") }
+            guard let date = term.dateValue else { throw QueryError.evaluationError("Argument is not a valid xsd:dateTime value in \(dateFunction) call") }
+            guard let tz = term.timeZone else { throw QueryError.evaluationError("Argument is not a valid xsd:dateTime value in \(dateFunction) call") }
             var calendar = Calendar(identifier: .gregorian)
             calendar.timeZone = tz
-            if iri == "YEAR" {
+            if dateFunction == .year {
                 let value = calendar.component(.year, from: date)
                 return Term(integer: value)
-            } else if iri == "MONTH" {
+            } else if dateFunction == .month {
                 let value = calendar.component(.month, from: date)
                 return Term(integer: value)
-            } else if iri == "DAY" {
+            } else if dateFunction == .day {
                 let value = calendar.component(.day, from: date)
                 return Term(integer: value)
-            } else if iri == "HOURS" {
+            } else if dateFunction == .hours {
                 let value = calendar.component(.hour, from: date)
                 return Term(integer: value)
-            } else if iri == "MINUTES" {
+            } else if dateFunction == .minutes {
                 let value = calendar.component(.minute, from: date)
                 return Term(integer: value)
-            } else if iri == "SECONDS" {
+            } else if dateFunction == .seconds {
                 let value = calendar.component(.second, from: date)
                 return Term(integer: value)
-            } else if iri == "TIMEZONE" {
+            } else if dateFunction == .timezone {
                 let seconds = tz.secondsFromGMT()
                 if seconds == 0 {
                     return Term(value: "PT0S", type: .datatype(Term.xsd("dayTimeDuration").value))
@@ -658,7 +715,7 @@ class ExpressionEvaluator {
                     }
                     return Term(value: string, type: .datatype(Term.xsd("dayTimeDuration").value))
                 }
-            } else if iri == "TZ" {
+            } else if dateFunction == .tz {
                 let seconds = tz.secondsFromGMT()
                 if seconds == 0 {
                     return Term(string: "Z")
@@ -671,27 +728,38 @@ class ExpressionEvaluator {
                 }
             }
         }
-        fatalError("unrecognized date function: \(iri)")
+        fatalError("unrecognized date function: \(dateFunction)")
     }
     
-    private func evaluate(hashFunction iri: String, terms: [Term?]) throws -> Term {
-        fatalError("TODO: implement hash function: \(iri)")
+    private func evaluate(hashFunction: HashFunction, terms: [Term?]) throws -> Term {
+        switch hashFunction {
+        case .md5:
+            fatalError("TODO: implement hash function: \(hashFunction)")
+        case .sha1:
+            fatalError("TODO: implement hash function: \(hashFunction)")
+        case .sha256:
+            fatalError("TODO: implement hash function: \(hashFunction)")
+        case .sha384:
+            fatalError("TODO: implement hash function: \(hashFunction)")
+        case .sha512:
+            fatalError("TODO: implement hash function: \(hashFunction)")
+        }
     }
     
-    private func evaluate(constructor iri: String, terms: [Term?]) throws -> Term {
-        switch iri {
-        case "STR":
-            guard terms.count == 1 else { throw QueryError.evaluationError("Wrong argument count for \(iri) call") }
-            guard let string = terms[0] else { throw QueryError.evaluationError("Not all arguments are bound in \(iri) call") }
+    private func evaluate(constructor constructorFunction: ConstructorFunction, terms: [Term?]) throws -> Term {
+        switch constructorFunction {
+        case .str:
+            guard terms.count == 1 else { throw QueryError.evaluationError("Wrong argument count for \(constructorFunction) call") }
+            guard let string = terms[0] else { throw QueryError.evaluationError("Not all arguments are bound in \(constructorFunction) call") }
             return Term(string: string.value)
-        case "URI", "IRI":
-            guard terms.count == 1 else { throw QueryError.evaluationError("Wrong argument count for \(iri) call") }
-            guard let string = terms[0] else { throw QueryError.evaluationError("Not all arguments are bound in \(iri) call") }
+        case .uri, .iri:
+            guard terms.count == 1 else { throw QueryError.evaluationError("Wrong argument count for \(constructorFunction) call") }
+            guard let string = terms[0] else { throw QueryError.evaluationError("Not all arguments are bound in \(constructorFunction) call") }
             return Term(value: string.value, type: .iri)
-        case "BNODE":
-            guard terms.count <= 1 else { throw QueryError.evaluationError("Wrong argument count for \(iri) call") }
+        case .bnode:
+            guard terms.count <= 1 else { throw QueryError.evaluationError("Wrong argument count for \(constructorFunction) call") }
             if terms.count == 1 {
-                guard let string = terms[0] else { throw QueryError.evaluationError("Not all arguments are bound in \(iri) call") }
+                guard let string = terms[0] else { throw QueryError.evaluationError("Not all arguments are bound in \(constructorFunction) call") }
                 let name = string.value
                 let id = self.bnodes[name] ?? NSUUID().uuidString
                 self.bnodes[name] = id
@@ -700,31 +768,28 @@ class ExpressionEvaluator {
                 let id = NSUUID().uuidString
                 return Term(value: id, type: .blank)
             }
-        case "STRDT":
-            guard terms.count == 2 else { throw QueryError.evaluationError("Wrong argument count for \(iri) call") }
-            guard let string = terms[0], let datatype = terms[1] else { throw QueryError.evaluationError("Not all arguments are bound in \(iri) call") }
+        case .strdt:
+            guard terms.count == 2 else { throw QueryError.evaluationError("Wrong argument count for \(constructorFunction) call") }
+            guard let string = terms[0], let datatype = terms[1] else { throw QueryError.evaluationError("Not all arguments are bound in \(constructorFunction) call") }
             return Term(value: string.value, type: .datatype(datatype.value))
-        case "STRLANG":
-            guard terms.count == 2 else { throw QueryError.evaluationError("Wrong argument count for \(iri) call") }
-            guard let string = terms[0], let lang = terms[1] else { throw QueryError.evaluationError("Not all arguments are bound in \(iri) call") }
+        case .strlang:
+            guard terms.count == 2 else { throw QueryError.evaluationError("Wrong argument count for \(constructorFunction) call") }
+            guard let string = terms[0], let lang = terms[1] else { throw QueryError.evaluationError("Not all arguments are bound in \(constructorFunction) call") }
             return Term(value: string.value, type: .language(lang.value))
-        case "UUID":
-            guard terms.count == 0 else { throw QueryError.evaluationError("Wrong argument count for \(iri) call") }
+        case .uuid:
+            guard terms.count == 0 else { throw QueryError.evaluationError("Wrong argument count for \(constructorFunction) call") }
             let id = NSUUID().uuidString.lowercased()
             return Term(value: "urn:uuid:\(id)", type: .iri)
-        case "STRUUID":
-            guard terms.count == 0 else { throw QueryError.evaluationError("Wrong argument count for \(iri) call") }
+        case .struuid:
+            guard terms.count == 0 else { throw QueryError.evaluationError("Wrong argument count for \(constructorFunction) call") }
             let id = NSUUID().uuidString.lowercased()
             return Term(string: id)
-        default:
-            break
         }
-        throw QueryError.evaluationError("Unrecognized constructor function: \(iri)")
     }
     
-    private func evaluate(stringFunction iri: String, terms: [Term?]) throws -> Term {
-        switch iri {
-        case "CONCAT":
+    private func evaluate(stringFunction: StringFunction, terms: [Term?]) throws -> Term {
+        switch stringFunction {
+        case .concat:
             var types = Set<TermType>()
             var string = ""
             for term in terms.flatMap({ $0 }) {
@@ -736,45 +801,45 @@ class ExpressionEvaluator {
             } else {
                 return Term(string: string)
             }
-        case "STR", "STRLEN", "LCASE", "UCASE", "ENCODE_FOR_URI", "LANG", "DATATYPE":
-            guard terms.count == 1 else { throw QueryError.evaluationError("Wrong argument count for \(iri) call") }
-            guard let string = terms[0] else { throw QueryError.evaluationError("Not all arguments are bound in \(iri) call") }
-            if iri == "STR" {
+        case .str, .strlen, .lcase, .ucase, .encode_for_uri, .lang, .datatype:
+            guard terms.count == 1 else { throw QueryError.evaluationError("Wrong argument count for \(stringFunction) call") }
+            guard let string = terms[0] else { throw QueryError.evaluationError("Not all arguments are bound in \(stringFunction) call") }
+            if stringFunction == .str {
                 return Term(string: string.value)
-            } else if iri == "STRLEN" {
+            } else if stringFunction == .strlen {
                 return Term(integer: string.value.count)
-            } else if iri == "LCASE" {
+            } else if stringFunction == .lcase {
                 return Term(value: string.value.lowercased(), type: string.type)
-            } else if iri == "UCASE" {
+            } else if stringFunction == .ucase {
                 return Term(value: string.value.uppercased(), type: string.type)
-            } else if iri == "LANG" {
+            } else if stringFunction == .lang {
                 if case .language(let l) = string.type {
                     return Term(string: l)
                 } else {
                     return Term(string: "")
                 }
-            } else if iri == "DATATYPE" {
+            } else if stringFunction == .datatype {
                 if case .datatype(let d) = string.type {
                     return Term(value: d, type: .iri)
                 } else {
                     throw QueryError.evaluationError("DATATYPE called on on a non-datatyped term")
                 }
-            } else if iri == "ENCODE_FOR_URI" {
+            } else if stringFunction == .encode_for_uri {
                 guard let encoded = string.value.addingPercentEncoding(withAllowedCharacters: CharacterSet.urlQueryAllowed) else {
                     throw QueryError.evaluationError("Failed to encode string as a URI")
                 }
                 return Term(string: encoded)
             }
-        case "CONTAINS", "STRSTARTS", "STRENDS", "STRBEFORE", "STRAFTER", "LANGMATCHES":
-            guard terms.count == 2 else { throw QueryError.evaluationError("Wrong argument count for \(iri) call") }
-            guard let string = terms[0], let pattern = terms[1] else { throw QueryError.evaluationError("Not all arguments are bound in \(iri) call") }
-            if iri == "CONTAINS" {
+        case .contains, .strstarts, .strends, .strbefore, .strafter, .langmatches:
+            guard terms.count == 2 else { throw QueryError.evaluationError("Wrong argument count for \(stringFunction) call") }
+            guard let string = terms[0], let pattern = terms[1] else { throw QueryError.evaluationError("Not all arguments are bound in \(stringFunction) call") }
+            if stringFunction == .contains {
                 return Term(boolean: string.value.contains(pattern.value))
-            } else if iri == "STRSTARTS" {
+            } else if stringFunction == .strstarts {
                 return Term(boolean: string.value.hasPrefix(pattern.value))
-            } else if iri == "STRENDS" {
+            } else if stringFunction == .strends {
                 return Term(boolean: string.value.hasSuffix(pattern.value))
-            } else if iri == "STRBEFORE" {
+            } else if stringFunction == .strbefore {
                 if let range = string.value.range(of: pattern.value) {
                     let index = range.lowerBound
                     let prefix = string.value.substring(to: index)
@@ -782,7 +847,7 @@ class ExpressionEvaluator {
                 } else {
                     return Term(string: "")
                 }
-            } else if iri == "STRAFTER" {
+            } else if stringFunction == .strafter {
                 if let range = string.value.range(of: pattern.value) {
                     let index = range.upperBound
                     let suffix = string.value.substring(from: index)
@@ -790,89 +855,83 @@ class ExpressionEvaluator {
                 } else {
                     return Term(string: "")
                 }
-            } else if iri == "LANGMATCHES" {
+            } else if stringFunction == .langmatches {
                 if pattern.value == "*" {
                     return Term(boolean: string.value.count > 0 ? true : false)
                 } else {
                     return Term(boolean: string.value.lowercased().hasPrefix(pattern.value.lowercased()))
                 }
             }
-        case "REPLACE":
-            guard (3...4).contains(terms.count) else { throw QueryError.evaluationError("Wrong argument count for \(iri) call") }
-            guard let string = terms[0], let pattern = terms[1], let replacement = terms[2] else { throw QueryError.evaluationError("Not all arguments are bound in \(iri) call") }
+        case .replace:
+            guard (3...4).contains(terms.count) else { throw QueryError.evaluationError("Wrong argument count for \(stringFunction) call") }
+            guard let string = terms[0], let pattern = terms[1], let replacement = terms[2] else { throw QueryError.evaluationError("Not all arguments are bound in \(stringFunction) call") }
             let flags = Set((terms.count == 4 ? (terms[3]?.value ?? "") : ""))
             let options : String.CompareOptions = flags.contains("i") ? .caseInsensitive : .literal
             let value = string.value.replacingOccurrences(of: pattern.value, with: replacement.value, options: options)
             return Term(value: value, type: string.type)
-        case "REGEX":
-            guard (2...3).contains(terms.count) else { throw QueryError.evaluationError("Wrong argument count for \(iri) call") }
-            guard let string = terms[0], let pattern = terms[1] else { throw QueryError.evaluationError("Not all arguments are bound in \(iri) call") }
+        case .regex:
+            guard (2...3).contains(terms.count) else { throw QueryError.evaluationError("Wrong argument count for \(stringFunction) call") }
+            guard let string = terms[0], let pattern = terms[1] else { throw QueryError.evaluationError("Not all arguments are bound in \(stringFunction) call") }
             let flags = Set((terms.count == 3 ? (terms[2]?.value ?? "") : ""))
             let options : NSRegularExpression.Options = flags.contains("i") ? .caseInsensitive : []
             let regex = try NSRegularExpression(pattern: pattern.value, options: options)
             let s = string.value
             let range = NSRange(location: 0, length: s.utf16.count)
             return Term(boolean: regex.numberOfMatches(in: s, options: [], range: range) > 0)
-        default:
-            break
         }
-        throw QueryError.evaluationError("Unrecognized string function: \(iri)")
+        throw QueryError.evaluationError("Unrecognized string function: \(stringFunction)")
     }
     
-    private func evaluate(expression: Expression, numericFunction iri: String, terms: [Term?]) throws -> Term {
-        switch iri {
-        case "RAND":
+    private func evaluate(expression: Expression, numericFunction: NumericFunction, terms: [Term?]) throws -> Term {
+        switch numericFunction {
+        case .rand:
             let v = Double(arc4random()) / Double(UINT32_MAX)
             return Term(double: v)
-        case "ABS", "ROUND", "CEIL", "FLOOR":
-            guard terms.count == 1 else { throw QueryError.evaluationError("Wrong argument count for \(iri) call") }
-            guard let term = terms[0] else { throw QueryError.evaluationError("Not all arguments are bound in \(iri) call") }
-            guard term.isNumeric else { throw QueryError.evaluationError("Arguments is not numeric in \(iri) call") }
-            guard let numeric = term.numeric else { throw QueryError.evaluationError("Arguments is not numeric in \(iri) call") }
-            switch iri {
-            case "ABS":
+        case .abs, .round, .ceil, .floor:
+            guard terms.count == 1 else { throw QueryError.evaluationError("Wrong argument count for \(numericFunction) call") }
+            guard let term = terms[0] else { throw QueryError.evaluationError("Not all arguments are bound in \(numericFunction) call") }
+            guard term.isNumeric else { throw QueryError.evaluationError("Arguments is not numeric in \(numericFunction) call") }
+            guard let numeric = term.numeric else { throw QueryError.evaluationError("Arguments is not numeric in \(numericFunction) call") }
+            switch numericFunction {
+            case .abs:
                 return numeric.absoluteValue.term
-            case "ROUND":
+            case .round:
                 return numeric.round.term
-            case "CEIL":
+            case .ceil:
                 return numeric.ceil.term
-            case "FLOOR":
+            case .floor:
                 return numeric.floor.term
             default:
                 fatalError()
             }
-        default:
-            break
         }
-        throw QueryError.evaluationError("Unrecognized numeric function: \(iri)")
+        throw QueryError.evaluationError("Unrecognized numeric function: \(numericFunction)")
     }
     
-    private func evaluate(numericFunction iri: String, terms: [Term?]) throws -> Term {
-        switch iri {
-        case "RAND":
+    private func evaluate(numericFunction: NumericFunction, terms: [Term?]) throws -> Term {
+        switch numericFunction {
+        case .rand:
             let v = Double(arc4random()) / Double(UINT32_MAX)
             return Term(double: v)
-        case "ABS", "ROUND", "CEIL", "FLOOR":
-            guard terms.count == 1 else { throw QueryError.evaluationError("Wrong argument count for \(iri) call") }
-            guard let term = terms[0] else { throw QueryError.evaluationError("Not all arguments are bound in \(iri) call") }
-            guard term.isNumeric else { throw QueryError.evaluationError("Arguments is not numeric in \(iri) call") }
-            guard let numeric = term.numeric else { throw QueryError.evaluationError("Arguments is not numeric in \(iri) call") }
-            switch iri {
-            case "ABS":
+        case .abs, .round, .ceil, .floor:
+            guard terms.count == 1 else { throw QueryError.evaluationError("Wrong argument count for \(numericFunction) call") }
+            guard let term = terms[0] else { throw QueryError.evaluationError("Not all arguments are bound in \(numericFunction) call") }
+            guard term.isNumeric else { throw QueryError.evaluationError("Arguments is not numeric in \(numericFunction) call") }
+            guard let numeric = term.numeric else { throw QueryError.evaluationError("Arguments is not numeric in \(numericFunction) call") }
+            switch numericFunction {
+            case .abs:
                 return numeric.absoluteValue.term
-            case "ROUND":
+            case .round:
                 return numeric.round.term
-            case "CEIL":
+            case .ceil:
                 return numeric.ceil.term
-            case "FLOOR":
+            case .floor:
                 return numeric.floor.term
             default:
                 fatalError()
             }
-        default:
-            break
         }
-        throw QueryError.evaluationError("Unrecognized numeric function: \(iri)")
+        throw QueryError.evaluationError("Unrecognized numeric function: \(numericFunction)")
     }
 
     public func evaluate(expression: Expression, result: TermResult) throws -> Term {
@@ -1050,22 +1109,16 @@ class ExpressionEvaluator {
             return Term(float: n.value)
         case .call(let iri, let exprs):
             let terms = exprs.map { try? evaluate(expression: $0, result: result) }
-            let constructorFunctions = Set(["STR", "URI", "IRI", "BNODE", "STRDT", "STRLANG", "UUID", "STRUUID"])
-            let stringFunctions = Set(["CONCAT", "STRLEN", "LCASE", "UCASE", "ENCODE_FOR_URI", "CONTAINS", "STRSTARTS", "STRENDS", "STRBEFORE", "STRAFTER", "LANG", "LANGMATCHES", "DATATYPE", "REGEX"])
-            let numericFunctions = Set(["RAND", "ABS", "ROUND", "CEIL", "FLOOR"])
-            let dateFunctions = Set(["NOW", "YEAR", "MONTH", "DAY", "HOURS", "MINUTES", "SECONDS", "TIMEZONE", "TZ"])
-            let hashFunctions = Set(["MD5", "SHA1", "SHA256", "SHA384", "SHA512"])
-            
-            if stringFunctions.contains(iri) {
-                return try evaluate(stringFunction: iri, terms: terms)
-            } else if numericFunctions.contains(iri) {
-                return try evaluate(numericFunction: iri, terms: terms)
-            } else if constructorFunctions.contains(iri) {
-                return try evaluate(constructor: iri, terms: terms)
-            } else if dateFunctions.contains(iri) {
-                return try evaluate(dateFunction: iri, terms: terms)
-            } else if hashFunctions.contains(iri) {
-                return try evaluate(hashFunction: iri, terms: terms)
+            if let strFunc = StringFunction(rawValue: iri) {
+                return try evaluate(stringFunction: strFunc, terms: terms)
+            } else if let numericFunction = NumericFunction(rawValue: iri) {
+                return try evaluate(numericFunction: numericFunction, terms: terms)
+            } else if let constructorFunction = ConstructorFunction(rawValue: iri) {
+                return try evaluate(constructor: constructorFunction, terms: terms)
+            } else if let dateFunction = DateFunction(rawValue: iri) {
+                return try evaluate(dateFunction: dateFunction, terms: terms)
+            } else if let hash = HashFunction(rawValue: iri) {
+                return try evaluate(hashFunction: hash, terms: terms)
             }
             switch iri {
             default:
