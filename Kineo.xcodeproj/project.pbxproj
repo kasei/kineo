@@ -43,6 +43,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		370246222063F43E00920C0A /* libKineo.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libKineo.dylib; path = ".build/x86_64-apple-macosx10.10/debug/libKineo.dylib"; sourceTree = "<group>"; };
 		3707F6271E342B0B004DA874 /* RDFParser.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = RDFParser.swift; sourceTree = "<group>"; };
 		372AE76D1D582D9F001D72DF /* FilePageDatabase.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FilePageDatabase.swift; sourceTree = "<group>"; };
 		372AE76E1D582D9F001D72DF /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -145,6 +146,7 @@
 		379C05621D219B9A00ACE54D /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				370246222063F43E00920C0A /* libKineo.dylib */,
 				379C05631D219B9A00ACE54D /* libKineo.dylib */,
 			);
 			name = Frameworks;
@@ -305,7 +307,7 @@
 		37B839431D1DA34100BE718B /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastSwiftUpdateCheck = 0810;
+				LastSwiftUpdateCheck = 0920;
 				LastUpgradeCheck = 0930;
 				ORGANIZATIONNAME = "Gregory Todd Williams";
 				TargetAttributes = {
@@ -652,6 +654,7 @@
 					"$(inherited)",
 					"$(PROJECT_DIR)/.build/debug",
 				);
+				LINK_WITH_STANDARD_LIBRARIES = YES;
 				LLVM_LTO = YES_THIN;
 				MACOSX_DEPLOYMENT_TARGET = 10.12;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -668,6 +671,7 @@
 					"$(inherited)",
 					"$(PROJECT_DIR)/.build/release",
 				);
+				LINK_WITH_STANDARD_LIBRARIES = YES;
 				LLVM_LTO = YES_THIN;
 				MACOSX_DEPLOYMENT_TARGET = 10.12;
 				PRODUCT_NAME = "$(TARGET_NAME)";

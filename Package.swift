@@ -17,7 +17,8 @@ let package = Package(
         )
     ],
     dependencies: [
-		.Package(url: "https://github.com/kasei/swift-serd.git", majorVersion: 0)
+		.Package(url: "https://github.com/kasei/swift-serd.git", majorVersion: 0),
+		.Package(url: "https://github.com/krzyzanowskim/CryptoSwift.git", majorVersion: 0, minor: 8)
     ]
 )
 

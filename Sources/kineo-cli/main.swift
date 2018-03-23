@@ -411,8 +411,14 @@ if let op = args.next() {
         let url = URL(fileURLWithPath: qfile)
         let sparql = try Data(contentsOf: url)
         guard var p = SPARQLParser(data: sparql) else { fatalError("Failed to construct SPARQL parser") }
-        let q = try p.parseQuery()
-        count = try query(database, query: q, graph: graph, verbose: verbose)
+        do {
+            let q = try p.parseQuery()
+            print(q.serialize())
+            count = try query(database, query: q, graph: graph, verbose: verbose)
+        } catch let e {
+            warn("*** Failed to evaluate query:")
+            warn("*** - \(e)")
+        }
     } else if op == "query" {
         var graph: Term? = nil
         if let next = args.peek(), next == "-g" {

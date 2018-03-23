@@ -8,9 +8,22 @@
 
 import Foundation
 
-public enum SPARQLParsingError: Error {
+public enum SPARQLParsingError: Error, CustomStringConvertible {
     case lexicalError(String)
     case parsingError(String)
+    
+    public var localizedDescription : String {
+        return self.description
+    }
+    
+    public var description : String {
+        switch self {
+        case .lexicalError(let s):
+            return s
+        case .parsingError(let s):
+            return s
+        }
+    }
 }
 
 public enum SPARQLToken {
