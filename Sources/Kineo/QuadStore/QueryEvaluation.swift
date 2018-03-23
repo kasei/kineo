@@ -732,8 +732,6 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
                     results.append(contentsOf: j)
                 }
                 return AnyIterator(results.makeIterator())
-            default:
-                fatalError("Unexpected case found for + property path")
             }
         case .zeroOrOne(_):
             fatalError("TODO: ZeroOrOne paths are not implemented yet")
