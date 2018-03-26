@@ -739,6 +739,9 @@ class ExpressionEvaluator {
         guard let term = terms[0] else {
             throw QueryError.evaluationError("Hash function invocation must be unary")
         }
+        guard case .datatype("http://www.w3.org/2001/XMLSchema#string") = term.type else {
+            throw QueryError.evaluationError("Hash function invocation must have simple literal operand")
+        }
         let value = term.value
         guard let data = value.data(using: .utf8) else {
             throw QueryError.evaluationError("Hash function operand not valid utf8 data")
@@ -760,9 +763,7 @@ class ExpressionEvaluator {
             hashData = data.sha512()
         }
         
-        print("hash data: \(hashData.debugDescription)")
-        let bytes = Array(hashData)
-        let hex = bytes.toHexString()
+        let hex = hashData.bytes.toHexString()
         return Term(string: hex)
     }
     
@@ -1128,7 +1129,6 @@ class ExpressionEvaluator {
             guard let n = term.numeric else { throw QueryError.typeError("Cannot coerce term to a numeric value") }
             return Term(float: n.value)
         case .call(let iri, let exprs):
-            print("calling function <\(iri)>")
             let terms = exprs.map { try? evaluate(expression: $0, result: result) }
             if let strFunc = StringFunction(rawValue: iri) {
                 return try evaluate(stringFunction: strFunc, terms: terms)
