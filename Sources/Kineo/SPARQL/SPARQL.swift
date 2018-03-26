@@ -1572,7 +1572,7 @@ public struct SPARQLParser {
         return Query(form: .ask, algebra: ggp, dataset: dataset)
     }
 
-    private mutating func parseDatasetClauses() throws -> Dataset? { // TODO: figure out the return type here
+    private mutating func parseDatasetClauses() throws -> Dataset? {
         var named = [Term]()
         var unnamed = [Term]()
         while try attempt(token: .keyword("FROM")) {
@@ -2629,6 +2629,7 @@ public struct SPARQLParser {
                 }
                 try expect(token: .rparen)
             }
+            // TODO: parse built-in functions into native Expression enum cases, not generic .call(_)s
             return .call(kw, args)
         default:
             throw parseError("Expected built-in function call but found \(t)")
@@ -2838,6 +2839,7 @@ public struct SPARQLParser {
         } else {
             let t = try peekExpectedToken()
             if case .lang(let lang) = t {
+                let _ = try nextExpectedToken()
                 return .bound(Term(value: value, type: .language(lang)))
             }
         }
