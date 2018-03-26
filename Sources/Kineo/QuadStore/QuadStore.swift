@@ -543,6 +543,7 @@ public class PersistentTermIdentityMap: IdentityMap, Sequence {
      19	0001 0011       xsd:boolean
      20	0001 0100       xsd:date
      21	0001 0101       xsd:dateTime
+     22 0001 0110       xsd:string
      24	0001 1000		xsd:integer
      25	0001 1001		xsd:int
      26	0001 1010		xsd:decimal
@@ -728,14 +729,16 @@ extension PersistentTermIdentityMap {
     fileprivate func unpack(id: Result) -> Item? {
         let byte = id >> 56
         let value = id & 0x00ffffffffffffff
-        // TODO: unpack xsd:dateTime
-        // TODO: unpack xsd:boolean
         switch byte {
         case 0x03:
             return unpack(iri: value)
+        case 0x13:
+            fatalError("TODO: unpack xsd:boolean")
         case 0x14:
             return unpack(date: value)
         case 0x15:
+            fatalError("TODO: unpack xsd:dateTime")
+        case 0x16:
             return unpack(string: value)
         case 0x18:
             return unpack(integer: value)
@@ -750,10 +753,12 @@ extension PersistentTermIdentityMap {
 
     fileprivate func pack(value: Item) -> Result? {
         switch (value.type, value.value) {
-        // TODO: pack xsd:dateTime
-        // TODO: pack xsd:boolean
         case (.iri, let v):
             return pack(iri: v)
+        case (.datatype("http://www.w3.org/2001/XMLSchema#boolean"), _):
+            fatalError("TODO: pack xsd:boolean")
+        case (.datatype("http://www.w3.org/2001/XMLSchema#dateTime"), _):
+            fatalError("TODO: pack xsd:dateTime")
         case (.datatype("http://www.w3.org/2001/XMLSchema#date"), let v):
             return pack(date: v)
         case (.datatype("http://www.w3.org/2001/XMLSchema#string"), let v):
@@ -771,7 +776,7 @@ extension PersistentTermIdentityMap {
 
     private func pack(string: String) -> Result? {
         guard string.utf8.count <= 7 else { return nil }
-        var id: UInt64 = UInt64(0x15) << 56
+        var id: UInt64 = UInt64(0x16) << 56
         for (i, u) in string.utf8.enumerated() {
             let shift = UInt64(8 * (6 - i))
             let b: UInt64 = UInt64(u) << shift

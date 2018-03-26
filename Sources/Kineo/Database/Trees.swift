@@ -173,7 +173,7 @@ public class Tree<T: BufferSerializable & Comparable, U: BufferSerializable> : S
 
     public func effectiveVersion(between: (T, T)) throws -> Version? {
         var version: Version? = nil
-        // TODO: this is inefficient. we shouldn't use walk(::) to get the leaf nodes,
+        // OPTIMIZE: this is inefficient. we shouldn't use walk(::) to get the leaf nodes,
         // but instead should prefer a tree walk that returns early on an internal
         // node if all children nodes fall in the $between range.
         let (node, _) : (TreeNode<T, U>, PageStatus) = try mediator.readPage(root)
@@ -188,7 +188,7 @@ public class Tree<T: BufferSerializable & Comparable, U: BufferSerializable> : S
     }
 
     public func elements(between: (T, T)) throws -> AnyIterator<(T, U)> {
-        // TODO: convert this to pipeline the iterator results
+        // OPTIMIZE: convert this to pipeline the iterator results
         var pairs = [(T, U)]()
         let (node, _) : (TreeNode<T, U>, PageStatus) = try mediator.readPage(root)
         _ = try? node.walk(mediator: mediator, between: between) { (leaf) in
@@ -853,7 +853,7 @@ public enum TreeNode<T: BufferSerializable & Comparable, U: BufferSerializable> 
             try callback(l)
         case .internalNode(let i):
             var lastMax: T? = nil
-            // TODO: use firstIndexNotMatching(_:) instead of the linear scan here
+            // OPTIMIZE: use firstIndexNotMatching(_:) instead of the linear scan here
             for (max, pid) in i.pairs {
                 if let min = lastMax {
                     if between.1 >= min && between.0 <= max {
@@ -878,7 +878,7 @@ public enum TreeNode<T: BufferSerializable & Comparable, U: BufferSerializable> 
             try callback(l)
         case .internalNode(let i):
             var lastMax: T? = nil
-            // TODO: use firstIndexNotMatching(_:) instead of the linear scan here
+            // OPTIMIZE: use firstIndexNotMatching(_:) instead of the linear scan here
             for (max, pid) in i.pairs {
                 if let min = lastMax {
                     if range.upperBound > min && range.lowerBound <= max {
@@ -916,7 +916,7 @@ public enum TreeNode<T: BufferSerializable & Comparable, U: BufferSerializable> 
             return l.contains(key: key)
         case .internalNode(let i):
             var lastMax: T? = nil
-            // TODO: use firstIndexNotMatching(_:) instead of the linear scan here
+            // OPTIMIZE: use firstIndexNotMatching(_:) instead of the linear scan here
             for (max, pid) in i.pairs {
                 if let min = lastMax {
                     if key >= min && key <= max {
