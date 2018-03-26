@@ -590,17 +590,33 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
         for (f, comparators, name) in functions {
             let results = groups.map { (results) -> [TermResult] in
                 var newResults = [TermResult]()
-                for (n, result) in _sortResults(results, comparators: comparators).enumerated() {
-                    var r = result
-                    switch f {
-                    case .rowNumber:
+                
+                if case .rowNumber = f {
+                    for (n, result) in _sortResults(results, comparators: comparators).enumerated() {
+                        var r = result
                         try? r.extend(variable: name, value: Term(integer: n))
-                    case .rank:
-                        // TODO: assign the same rank to rows with equal comparator values
-                        try? r.extend(variable: name, value: Term(integer: n))
+                        newResults.append(r)
                     }
-                    newResults.append(r)
+                } else if case .rank = f {
+                    let sorted = _sortResults(results, comparators: comparators)
+                    if sorted.count > 0 {
+                        var last = sorted.first!
+                        var n = 0
+                        
+                        try? last.extend(variable: name, value: Term(integer: n))
+                        newResults.append(last)
+                        
+                        for result in sorted.dropFirst() {
+                            var r = result
+                            if !_resultsEqual(r, last, comparators: comparators) {
+                                n += 1
+                            }
+                            try? r.extend(variable: name, value: Term(integer: n))
+                            newResults.append(r)
+                        }
+                    }
                 }
+                
                 return newResults
             }
             groups = results
@@ -742,9 +758,9 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
         let predicate = self.freshVariable()
         let quad = QuadPattern(subject: subject, predicate: predicate, object: object, graph: graph)
         let i = try store.results(matching: quad)
-        // TODO: this can be made more efficient by adding an NPS function to the store,
-        //       and allowing it to do the filtering based on a IDResult objects before
-        //       materializing the terms
+        // OPTIMIZE: this can be made more efficient by adding an NPS function to the store,
+        //           and allowing it to do the filtering based on a IDResult objects before
+        //           materializing the terms
         let set = Set(iris)
         var keys = [String]()
         for node in [subject, object] {
@@ -834,6 +850,22 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
         }
     }
 
+    private func _resultsEqual(_ a : TermResult, _ b : TermResult, comparators: [Algebra.SortComparator]) -> Bool {
+        for (ascending, expr) in comparators {
+            guard var lhs = try? self.ee.evaluate(expression: expr, result: a) else { return true }
+            guard var rhs = try? self.ee.evaluate(expression: expr, result: b) else { return false }
+            if !ascending {
+                (lhs, rhs) = (rhs, lhs)
+            }
+            if lhs < rhs {
+                return false
+            } else if lhs > rhs {
+                return false
+            }
+        }
+        return true
+    }
+    
     private func _sortResults(_ results: [TermResult], comparators: [Algebra.SortComparator]) -> [TermResult] {
         let s = results.sorted { (a, b) -> Bool in
             for (ascending, expr) in comparators {
