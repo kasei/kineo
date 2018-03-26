@@ -295,21 +295,22 @@ public struct Term: CustomStringConvertible {
     }
     
     public init(float value: Double) {
-        self.value = "\(value)"
-        // TODO: fix the lexical form for xsd:float
+        self.value = String(format: "%E", value)
+        // TODO: fix the lexical form for xsd:float to be canonical
         self.type = .datatype("http://www.w3.org/2001/XMLSchema#float")
         computeNumericValue()
     }
     
     public init(double value: Double) {
-        self.value = "\(value)"
-        // TODO: fix the lexical form for xsd:double
+        self.value = String(format: "%E", value)
+        // TODO: fix the lexical form for xsd:double to be canonical
         self.type = .datatype("http://www.w3.org/2001/XMLSchema#double")
         computeNumericValue()
     }
     
     public init(decimal value: Double) {
         self.value = String(format: "%f", value)
+        // TODO: fix the lexical form for xsd:decimal to be canonical
         self.type = .datatype("http://www.w3.org/2001/XMLSchema#decimal")
         computeNumericValue()
     }
