@@ -92,11 +92,16 @@ class QueryEvaluationTest: XCTestCase {
         }
     }
 
+    private func eval(query: Query) throws -> AnyIterator<TermResult> {
+        let e = SimpleQueryEvaluator(store: store, defaultGraph: self.graph)
+        return try e.evaluate(query: query, activeGraph: self.graph)
+    }
+    
     private func eval(algebra: Algebra) throws -> AnyIterator<TermResult> {
         let e = SimpleQueryEvaluator(store: store, defaultGraph: self.graph)
         return try e.evaluate(algebra: algebra, activeGraph: self.graph)
     }
-
+    
     private func eval(query: String) throws -> AnyIterator<TermResult> {
         guard let algebra = parse(query: query) else { XCTFail(); fatalError() }
         return try eval(algebra: algebra)
@@ -310,5 +315,116 @@ class QueryEvaluationTest: XCTestCase {
         let values = results.compactMap { $0["value"] }.compactMap { $0.numeric }
         XCTAssertTrue(values[0] === .integer(-117))
         XCTAssertTrue(values[1] === .integer(33))
+    }
+    
+    func testHashFunctions() {
+        let sparql = """
+            SELECT * WHERE {
+                BIND(MD5("abc") AS ?md5)
+                BIND(SHA1("abc") AS ?sha1)
+                BIND(SHA256("abc") AS ?sha256)
+                BIND(SHA384("abc") AS ?sha384)
+                BIND(SHA512("abc") AS ?sha512)
+            }
+        """
+        guard let data = sparql.data(using: .utf8) else { XCTFail(); return }
+        guard var p = SPARQLParser(data: data) else { fatalError("Failed to construct SPARQL parser") }
+        do {
+            let q = try p.parseQuery()
+            let results = try Array(eval(query: q))
+            XCTAssertEqual(results.count, 1)
+            guard let result = results.first else {
+                XCTFail()
+                return
+            }
+            
+            let expected = [
+                "md5": "900150983cd24fb0d6963f7d28e17f72",
+                "sha1": "a9993e364706816aba3e25717850c26c9cd0d89d",
+                "sha256": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+                "sha384": "cb00753f45a35e8bb5a03d699ac65007272c32ab0eded1631a8b605a43ff5bed8086072ba1e7cc2358baeca134c825a7",
+                "sha512": "ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a2192992a274fc1a836ba3c23a3feebbd454d4423643ce80e2a9ac94fa54ca49f",
+                ]
+            
+            for (varName, expectedHashValue) in expected {
+                guard let term = result[varName] else {
+                    XCTFail()
+                    return
+                }
+                XCTAssertEqual(term.value, expectedHashValue, "Expected value for \(varName) hash")
+            }
+        } catch {
+            XCTFail()
+        }
+    }
+    
+    func testTermAccessors() {
+        let sparql = """
+            SELECT * WHERE {
+                BIND(LANG("abc"@en-US) AS ?lang)
+                BIND(LANGMATCHES("en", "en") AS ?langmatches1)
+                BIND(LANGMATCHES("en", "en-us") AS ?langmatches2)
+                BIND(LANGMATCHES("en-us", "en") AS ?langmatches3)
+                BIND(LANGMATCHES("en-us", "en-gb") AS ?langmatches4)
+            }
+        """
+        guard let data = sparql.data(using: .utf8) else { XCTFail(); return }
+        guard var p = SPARQLParser(data: data) else { fatalError("Failed to construct SPARQL parser") }
+        do {
+            let q = try p.parseQuery()
+            let results = try Array(eval(query: q))
+            XCTAssertEqual(results.count, 1)
+            guard let result = results.first else {
+                XCTFail()
+                return
+            }
+            
+            let expected = [
+                "lang": "en-us",
+                "langmatches1": "true",
+                "langmatches2": "false",
+                "langmatches3": "true",
+                "langmatches4": "false",
+                ]
+            
+            for (varName, expectedValue) in expected {
+                guard let term = result[varName] else {
+                    XCTFail()
+                    return
+                }
+                XCTAssertEqual(term.value, expectedValue, "Expected value for \(varName) accessor")
+            }
+        } catch {
+            XCTFail()
+        }
+    }
+
+    
+    func testAggregationProjection() {
+        let sparql = """
+            SELECT * WHERE {
+                BIND(1 AS ?z)
+                {
+                    SELECT ?s (MIN(?p) AS ?x) WHERE {
+                        ?s ?p ?o
+                    }
+                    GROUP BY ?s
+                }
+            }
+        """
+        guard let data = sparql.data(using: .utf8) else { XCTFail(); return }
+        guard var p = SPARQLParser(data: data) else { fatalError("Failed to construct SPARQL parser") }
+        do {
+            let q = try p.parseQuery()
+            print(q.serialize())
+            let results = try Array(eval(query: q))
+            XCTAssertEqual(results.count, 2)
+
+            for r in results {
+                print("-> \(r)")
+            }
+        } catch {
+            XCTFail()
+        }
     }
 }

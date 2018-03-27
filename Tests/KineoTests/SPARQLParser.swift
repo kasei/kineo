@@ -160,7 +160,8 @@ class SPARQLParserTest: XCTestCase {
             }
 
             XCTAssertEqual(variables, ["x"])
-            guard case .project(_, let subvariables) = algebra else {
+            
+            guard case .subselect(.project(_, let subvariables)) = algebra else {
                 XCTFail("Unexpected algebra: \(algebra.serialize())")
                 return
             }
@@ -562,12 +563,50 @@ class SPARQLParserTest: XCTestCase {
                 XCTFail("Unexpected algebra: \(a.serialize())")
                 return
             }
-
+            
             XCTAssertEqual(triple.subject, .variable("s", binding: true))
             XCTAssertEqual(triple.predicate, .bound(Term(value: "http://example.org/foo/p", type: .iri)))
             XCTAssertEqual(triple.object, .bound(Term(value: "http://example.org/bar", type: .iri)))
         } catch let e {
             XCTFail("\(e)")
+        }
+    }
+
+    func testAggregationProjection() {
+        guard var p = SPARQLParser(string: "SELECT * WHERE { ?s <p> 'o' } GROUP BY ?s") else { XCTFail(); return }
+        XCTAssertThrowsError(try p.parseAlgebra()) { (e) -> Void in
+            if case .some(.parsingError(let m)) = e as? SPARQLParsingError {
+                XCTAssertTrue(m.contains("Aggregation queries cannot use a `SELECT *`"))
+            } else {
+                XCTFail()
+            }
+        }
+    }
+
+    func testSubSelectAggregationProjection() {
+        guard var p = SPARQLParser(string: "SELECT ?s WHERE { { SELECT * WHERE { ?s <p> 'o' } GROUP BY ?s } }") else { XCTFail(); return }
+        XCTAssertThrowsError(try p.parseAlgebra()) { (e) -> Void in
+            if case .some(.parsingError(let m)) = e as? SPARQLParsingError {
+                XCTAssertTrue(m.contains("Aggregation subqueries cannot use a `SELECT *`"))
+            } else {
+                XCTFail()
+            }
+        }
+    }
+
+    func testSubSelectAggregationAcceptableProjection() {
+        guard var p = SPARQLParser(string: "SELECT * WHERE { { SELECT ?s (MAX(?o) AS ?mx) WHERE { ?s <p> ?o } GROUP BY ?s } }") else { XCTFail(); return }
+        XCTAssertNoThrow(try p.parseAlgebra(), "Can project * when subquery properly projects aggregated variables")
+    }
+
+    func testBadReuseOfBlankNodeIdentifier() {
+        guard var p = SPARQLParser(string: "SELECT * WHERE { { _:a ?p ?o . FILTER(ISIRI(?p)) _:a ?p 2 } OPTIONAL { _:a ?y ?z ; <q> 'qq' } }") else { XCTFail(); return }
+        XCTAssertThrowsError(try p.parseAlgebra()) { (e) -> Void in
+            if case .some(.parsingError(let m)) = e as? SPARQLParsingError {
+                XCTAssertTrue(m.contains("Blank node label"))
+            } else {
+                XCTFail()
+            }
         }
     }
 }

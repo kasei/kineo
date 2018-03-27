@@ -83,7 +83,7 @@ public class RDFParser {
     let end_sink : @convention(c) (UnsafeMutableRawPointer?, UnsafePointer<SerdNode>?) -> SerdStatus = { (handle, node) -> SerdStatus in return SERD_SUCCESS }
     
     let error_sink : @convention(c) (UnsafeMutableRawPointer?, UnsafePointer<SerdError>?) -> SerdStatus = { (reader, error) in
-        print("error: \(error)")
+        print("error: \(String(describing: error))")
         return SERD_SUCCESS
     }
     

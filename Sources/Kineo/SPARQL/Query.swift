@@ -108,6 +108,10 @@ public enum QueryForm {
 public struct Dataset {
     var defaultGraphs: [Term]
     var namedGraphs: [Term]
+    
+    var isEmpty : Bool {
+        return defaultGraphs.count == 0 && namedGraphs.count == 0
+    }
 }
 
 public struct Query {
@@ -140,6 +144,7 @@ public indirect enum Algebra {
     case path(Node, PropertyPath, Node)
     case aggregate(Algebra, [Expression], [(Aggregation, String)])
     case window(Algebra, [Expression], [(WindowFunction, [SortComparator], String)])
+    case subselect(Algebra)
 }
 
 public extension Query {
@@ -276,6 +281,10 @@ public extension Algebra {
                 d += "\(indent)  \(result)\n"
             }
             return d
+        case .subselect(let a):
+            var d = "\(indent)Sub-select\n"
+            d += a.serialize(depth: depth+1)
+            return d
         }
     }
 }
@@ -293,7 +302,7 @@ public extension Algebra {
         }
         return vars.popLast()!
     }
-
+    
     public var inscope: Set<String> {
         var variables = Set<String>()
         switch self {
@@ -336,7 +345,7 @@ public extension Algebra {
             var variables = child.inscope
             variables.insert(v)
             return variables
-        case .filter(let child, _), .minus(let child, _), .distinct(let child), .slice(let child, _, _), .namedGraph(let child, .bound(_)), .order(let child, _), .service(_, let child, _):
+        case .subselect(let child), .filter(let child, _), .minus(let child, _), .distinct(let child), .slice(let child, _, _), .namedGraph(let child, .bound(_)), .order(let child, _), .service(_, let child, _):
             return child.inscope
         case .namedGraph(let child, .variable(let v, let bind)):
             var variables = child.inscope
@@ -377,11 +386,34 @@ public extension Algebra {
             return variables
         }
     }
+
+    public var isAggregation: Bool {
+        switch self {
+        case .joinIdentity, .unionIdentity, .triple(_), .quad(_), .bgp(_), .path(_), .window(_), .table(_), .subselect(_):
+            return false
+            
+        case .project(let child, _), .minus(let child, _), .distinct(let child), .slice(let child, _, _), .namedGraph(let child, _), .order(let child, _), .service(_, let child, _):
+            return child.isAggregation
+            
+        case .innerJoin(let lhs, let rhs), .union(let lhs, let rhs), .leftOuterJoin(let lhs, let rhs, _):
+            return lhs.isAggregation || rhs.isAggregation
+            
+        case .aggregate(_):
+            return true
+        case .extend(let child, let expr, _), .filter(let child, let expr):
+            if child.isAggregation {
+                return true
+            }
+            return expr.hasAggregation
+        }
+    }
 }
 
 public extension Algebra {
     func replace(_ map: (Expression) -> Expression?) -> Algebra {
         switch self {
+        case .subselect(let a):
+            return .subselect(a.replace(map))
         case .unionIdentity, .joinIdentity, .triple(_), .quad(_), .path(_), .bgp(_), .table(_):
             return self
         case .distinct(let a):
@@ -435,6 +467,8 @@ public extension Algebra {
             return r
         } else {
             switch self {
+            case .subselect(let a):
+                return .subselect(a.replace(map))
             case .unionIdentity, .joinIdentity, .triple(_), .quad(_), .path(_), .bgp(_), .table(_):
                 return self
             case .distinct(let a):
@@ -821,6 +855,8 @@ extension QuadPattern {
 extension Algebra {
     var serializableEquivalent: Algebra {
         switch self {
+        case .subselect(let child):
+            return .subselect(child.serializableEquivalent)
         case .project(let lhs, let names):
             return .project(lhs.serializableEquivalent, names)
         case .aggregate(let lhs, let groups, let aggs):
@@ -1108,6 +1144,8 @@ extension Algebra {
             }
             tokens.append(contentsOf: append)
             return AnySequence(tokens)
+        case .subselect(let lhs):
+            fatalError("implement")
         case .aggregate(let lhs, let groups, let aggs):
             fatalError("implement")
 

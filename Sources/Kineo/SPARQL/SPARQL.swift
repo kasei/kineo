@@ -1464,11 +1464,14 @@ public struct SPARQLParser {
         let values = try parseValuesClause()
         algebra = try parseSolutionModifier(algebra: algebra, distinct: distinct, projection: projection, projectExpressions: projectExpressions, aggregation: aggregationExpressions, valuesBlock: values)
 
+        let query = Query(form: .select, algebra: algebra, dataset: dataset)
         if star {
-            // TODO: verify that the query does not perform aggregation
+            if algebra.isAggregation {
+                throw parseError("Aggregation queries cannot use a `SELECT *`")
+            }
         }
 
-        return Query(form: .select, algebra: algebra, dataset: dataset)
+        return query
     }
 
     private mutating func parseConstructQuery() throws -> Query {
@@ -1599,6 +1602,7 @@ public struct SPARQLParser {
         }
 
         try expect(token: .rbrace)
+        _ = try algebra.blankNodeLabels()
         return algebra
     }
 
@@ -1653,10 +1657,12 @@ public struct SPARQLParser {
         algebra = try parseSolutionModifier(algebra: algebra, distinct: distinct, projection: projection, projectExpressions: projectExpressions, aggregation: aggregationExpressions, valuesBlock: values)
 
         if star {
-            // TODO: verify that the query does not perform aggregation
+            if algebra.isAggregation {
+                throw parseError("Aggregation subqueries cannot use a `SELECT *`")
+            }
         }
 
-        return algebra
+        return .subselect(algebra)
     }
 
     private mutating func parseGroupCondition(_ algebra: inout Algebra) throws -> Node? {
@@ -1864,7 +1870,7 @@ public struct SPARQLParser {
         }
 
         let reordered = args // TODO: try reorderTrees(args)
-        // TODO: try checkForSharedBlanksInPatterns(reordered)
+        
         // TODO: the algebra should allow n-ary groups, not just binary joins
 
         return reordered.reduce(.joinIdentity, joinReduction)
@@ -2629,8 +2635,15 @@ public struct SPARQLParser {
                 }
                 try expect(token: .rparen)
             }
-            // TODO: parse built-in functions into native Expression enum cases, not generic .call(_)s
-            return .call(kw, args)
+            
+            switch kw {
+            case "LANG":
+                return .lang(args[0])
+            case "LANGMATCHES":
+                return .langmatches(args[0], args[1])
+            default:
+                return .call(kw, args)
+            }
         default:
             throw parseError("Expected built-in function call but found \(t)")
         }
@@ -3303,4 +3316,80 @@ extension String {
         return pn
     }()
 
+}
+
+extension Algebra {
+    func blankNodeLabels() throws -> Set<String> {
+        switch self {
+
+        case .joinIdentity, .unionIdentity, .table(_, _):
+            return Set()
+
+        case .subselect(let child), .filter(let child, _), .minus(let child, _), .distinct(let child), .slice(let child, _, _), .namedGraph(let child, _), .order(let child, _), .service(_, let child, _), .project(let child, _), .extend(let child, _, _), .aggregate(let child, _, _), .window(let child, _, _):
+            return try child.blankNodeLabels()
+
+
+        case .triple(let t):
+            var b = Set<String>()
+            for node in [t.subject, t.predicate, t.object] {
+                if case .bound(let term) = node {
+                    if case .blank = term.type {
+                        b.insert(term.value)
+                    }
+                }
+            }
+            return b
+        case .quad(let q):
+            var b = Set<String>()
+            for node in [q.subject, q.predicate, q.object, q.graph] {
+                if case .bound(let term) = node {
+                    if case .blank = term.type {
+                        b.insert(term.value)
+                    }
+                }
+            }
+            return b
+        case .bgp(let triples):
+            if triples.count == 0 {
+                return Set()
+            }
+            var b = Set<String>()
+            for t in triples {
+                for node in [t.subject, t.predicate, t.object] {
+                    if case .bound(let term) = node {
+                        if case .blank = term.type {
+                            b.insert(term.value)
+                        }
+                    }
+                }
+            }
+            return b
+        case .path(let subject, _, let object):
+            var b = Set<String>()
+            for node in [subject, object] {
+                if case .bound(let term) = node {
+                    if case .blank = term.type {
+                        b.insert(term.value)
+                    }
+                }
+            }
+            return b
+
+        case .leftOuterJoin(let lhs, let rhs, _), .innerJoin(let lhs, let rhs), .union(let lhs, let rhs):
+            let l = try lhs.blankNodeLabels()
+            let r = try rhs.blankNodeLabels()
+            let i = l.intersection(r)
+            if i.count > 0 {
+                if i.count == 1 {
+                    let label = i.first!
+                    throw SPARQLParsingError.parsingError("Blank node label _:\(label) cannot be used in multiple BGPs")
+                } else {
+                    let labels = i.map { "_:\($0)" }
+                    throw SPARQLParsingError.parsingError("Blank node labels cannot be used in multiple BGPs: \(labels.joined(separator: ", "))")
+                }
+            }
+        }
+        
+        fatalError()
+    }
 }

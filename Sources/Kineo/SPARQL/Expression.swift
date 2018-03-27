@@ -108,6 +108,7 @@ public indirect enum Expression: CustomStringConvertible {
     case isliteral(Expression)
     case isnumeric(Expression)
     case lang(Expression)
+    case langmatches(Expression, Expression)
     case datatype(Expression)
     case bound(Expression)
     case intCast(Expression)
@@ -128,8 +129,6 @@ public indirect enum Expression: CustomStringConvertible {
     case between(Expression, Expression, Expression)
     case valuein(Expression, [Expression])
     case call(String, [Expression])
-    //    case langmatches(Expression, String)
-    // TODO: add other expression functions
 
     var hasAggregation: Bool {
         switch self {
@@ -139,7 +138,7 @@ public indirect enum Expression: CustomStringConvertible {
             return false
         case .not(let expr), .isiri(let expr), .isblank(let expr), .isliteral(let expr), .isnumeric(let expr), .lang(let expr), .datatype(let expr), .bound(let expr), .intCast(let expr), .floatCast(let expr), .doubleCast(let expr), .neg(let expr):
             return expr.hasAggregation
-        case .eq(let lhs, let rhs), .ne(let lhs, let rhs), .lt(let lhs, let rhs), .le(let lhs, let rhs), .gt(let lhs, let rhs), .ge(let lhs, let rhs), .add(let lhs, let rhs), .sub(let lhs, let rhs), .div(let lhs, let rhs), .mul(let lhs, let rhs), .and(let lhs, let rhs), .or(let lhs, let rhs):
+        case .eq(let lhs, let rhs), .ne(let lhs, let rhs), .lt(let lhs, let rhs), .le(let lhs, let rhs), .gt(let lhs, let rhs), .ge(let lhs, let rhs), .add(let lhs, let rhs), .sub(let lhs, let rhs), .div(let lhs, let rhs), .mul(let lhs, let rhs), .and(let lhs, let rhs), .or(let lhs, let rhs), .langmatches(let lhs, let rhs):
             return lhs.hasAggregation || rhs.hasAggregation
         case .between(let a, let b, let c):
             return a.hasAggregation || b.hasAggregation || c.hasAggregation
@@ -168,6 +167,8 @@ public indirect enum Expression: CustomStringConvertible {
             return .isnumeric(expr.removeAggregations(counter, mapping: &mapping))
         case .lang(let expr):
             return .lang(expr.removeAggregations(counter, mapping: &mapping))
+        case .langmatches(let expr, let pattern):
+            return .langmatches(expr.removeAggregations(counter, mapping: &mapping), pattern.removeAggregations(counter, mapping: &mapping))
         case .datatype(let expr):
             return .datatype(expr.removeAggregations(counter, mapping: &mapping))
         case .bound(let expr):
@@ -285,6 +286,8 @@ public indirect enum Expression: CustomStringConvertible {
             return "<\(iri)>(\(strings.joined(separator: ",")))"
         case .lang(let expr):
             return "LANG(\(expr))"
+        case .langmatches(let expr, let m):
+            return "LANGMATCHES(\(expr), \"\(m)\")"
         case .datatype(let expr):
             return "DATATYPE(\(expr))"
         case .bound(let expr):
@@ -422,6 +425,8 @@ public extension Expression {
                 return .call(iri, exprs.map { $0.replace(map) })
             case .lang(let expr):
                 return .lang(expr.replace(map))
+            case .langmatches(let expr, let m):
+                return .langmatches(expr.replace(map), m)
             case .datatype(let expr):
                 return .datatype(expr.replace(map))
             case .bound(let expr):
@@ -617,14 +622,12 @@ class ExpressionEvaluator {
         case lcase = "LCASE"
         case ucase = "UCASE"
         case encode_for_uri = "ENCODE_FOR_URI"
-        case lang = "LANG"
         case datatype = "DATATYPE"
         case contains = "CONTAINS"
         case strstarts = "STRSTARTS"
         case strends = "STRENDS"
         case strbefore = "STRBEFORE"
         case strafter = "STRAFTER"
-        case langmatches = "LANGMATCHES"
         case replace = "REPLACE"
         case regex = "REGEX"
     }
@@ -822,7 +825,7 @@ class ExpressionEvaluator {
             } else {
                 return Term(string: string)
             }
-        case .str, .strlen, .lcase, .ucase, .encode_for_uri, .lang, .datatype:
+        case .str, .strlen, .lcase, .ucase, .encode_for_uri, .datatype:
             guard terms.count == 1 else { throw QueryError.evaluationError("Wrong argument count for \(stringFunction) call") }
             guard let string = terms[0] else { throw QueryError.evaluationError("Not all arguments are bound in \(stringFunction) call") }
             if stringFunction == .str {
@@ -833,12 +836,6 @@ class ExpressionEvaluator {
                 return Term(value: string.value.lowercased(), type: string.type)
             } else if stringFunction == .ucase {
                 return Term(value: string.value.uppercased(), type: string.type)
-            } else if stringFunction == .lang {
-                if case .language(let l) = string.type {
-                    return Term(string: l)
-                } else {
-                    return Term(string: "")
-                }
             } else if stringFunction == .datatype {
                 if case .datatype(let d) = string.type {
                     return Term(value: d, type: .iri)
@@ -851,7 +848,7 @@ class ExpressionEvaluator {
                 }
                 return Term(string: encoded)
             }
-        case .contains, .strstarts, .strends, .strbefore, .strafter, .langmatches:
+        case .contains, .strstarts, .strends, .strbefore, .strafter:
             guard terms.count == 2 else { throw QueryError.evaluationError("Wrong argument count for \(stringFunction) call") }
             guard let string = terms[0], let pattern = terms[1] else { throw QueryError.evaluationError("Not all arguments are bound in \(stringFunction) call") }
             if stringFunction == .contains {
@@ -875,12 +872,6 @@ class ExpressionEvaluator {
                     return Term(value: suffix, type: string.type)
                 } else {
                     return Term(string: "")
-                }
-            } else if stringFunction == .langmatches {
-                if pattern.value == "*" {
-                    return Term(boolean: string.value.count > 0 ? true : false)
-                } else {
-                    return Term(boolean: string.value.lowercased().hasPrefix(pattern.value.lowercased()))
                 }
             }
         case .replace:
@@ -1103,13 +1094,6 @@ class ExpressionEvaluator {
             } else {
                 throw QueryError.typeError("DATATYPE called with non-literal")
             }
-        case .lang(let expr):
-            let val = try evaluate(expression: expr, result: result)
-            if case .language(let l) = val.type {
-                return Term(value: l, type: .datatype("http://www.w3.org/2001/XMLSchema#string"))
-            } else {
-                throw QueryError.typeError("LANG called with non-language-literal")
-            }
         case .bound(let expr):
             if let _ = try? evaluate(expression: expr, result: result) {
                 return Term.trueValue
@@ -1128,6 +1112,23 @@ class ExpressionEvaluator {
             let term = try evaluate(expression: expr, result: result)
             guard let n = term.numeric else { throw QueryError.typeError("Cannot coerce term to a numeric value") }
             return Term(float: n.value)
+        case .lang(let expr):
+            let val = try evaluate(expression: expr, result: result)
+            if case .language(let l) = val.type {
+                return Term(value: l, type: .datatype("http://www.w3.org/2001/XMLSchema#string"))
+            } else if case .datatype("http://www.w3.org/2001/XMLSchema#string") = val.type {
+                return Term(string: "")
+            } else {
+                throw QueryError.typeError("LANG called with non-language-literal")
+            }
+        case .langmatches(let expr, let m):
+            let string = try evaluate(expression: expr, result: result)
+            let pattern = try evaluate(expression: m, result: result)
+            if pattern.value == "*" {
+                return Term(boolean: string.value.count > 0 ? true : false)
+            } else {
+                return Term(boolean: string.value.lowercased().hasPrefix(pattern.value.lowercased()))
+            }
         case .call(let iri, let exprs):
             let terms = exprs.map { try? evaluate(expression: $0, result: result) }
             if let strFunc = StringFunction(rawValue: iri) {

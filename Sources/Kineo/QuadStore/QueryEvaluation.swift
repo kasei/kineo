@@ -40,6 +40,8 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
     public func evaluate(algebra: Algebra, activeGraph: Term) throws -> AnyIterator<TermResult> {
         switch algebra {
         // don't require access to the underlying store:
+        case .subselect(let a):
+            return try evaluate(algebra: a, activeGraph: activeGraph)
         case .unionIdentity:
             let results = [TermResult]()
             return AnyIterator(results.makeIterator())
@@ -550,7 +552,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
         // TODO: handle special case where there are no groups (no input rows led to no groups being created);
         //       in this case, counts should return a single result with { $name=0 }
         var a = numericGroups.makeIterator()
-        return AnyIterator {
+        let numericIterator : AnyIterator<TermResult> = AnyIterator {
             guard let pair = a.next() else { return nil }
             let (groupKey, v) = pair
             var value = v
@@ -562,6 +564,22 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
             guard var bindings = groupBindings[groupKey] else { fatalError("Unexpected missing aggregation group template") }
             bindings[name] = value.term
             return TermResult(bindings: bindings)
+        }
+        var b = termGroups.makeIterator()
+        let termIterator : AnyIterator<TermResult> = AnyIterator {
+            guard let pair = b.next() else { return nil }
+            let (groupKey, term) = pair
+            guard var bindings = groupBindings[groupKey] else { fatalError("Unexpected missing aggregation group template") }
+            bindings[name] = term
+            return TermResult(bindings: bindings)
+        }
+        
+        return AnyIterator {
+            if let r = numericIterator.next() {
+                return r
+            } else {
+                return termIterator.next()
+            }
         }
     }
 
