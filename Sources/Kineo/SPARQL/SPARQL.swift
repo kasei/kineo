@@ -1787,7 +1787,12 @@ public struct SPARQLParser {
         }
 
         if let projection = projection {
-            // TODO: verify that we're not projecting a non-grouped variable when using aggregation
+            if algebra.isAggregation {
+                if !(Set(projection).isSubset(of: algebra.projectableVariables)) {
+                    throw parseError("Cannot project non-grouped variable in aggregation query")
+                }
+            }
+            
             // TODO: verify that we're not projecting a variable more than once
             // TODO: add projection for aggregate variables
             algebra = .project(algebra, projection)
@@ -1871,8 +1876,6 @@ public struct SPARQLParser {
 
         let reordered = args // TODO: try reorderTrees(args)
         
-        // TODO: the algebra should allow n-ary groups, not just binary joins
-
         return reordered.reduce(.joinIdentity, joinReduction)
     }
 
@@ -2013,7 +2016,7 @@ public struct SPARQLParser {
         if t.isTermOrVar {
             let subject = try parseVarOrTerm()
             let propertyObjectTriples = try parsePropertyListPathNotEmpty(for: subject)
-            // TODO: should propertyObjectTriples be able to be nil here? It could in the original code...
+            // NOTE: in the original code, propertyObjectTriples could be nil here. not sure why this changed, but haven't found cases where this new code is wrong...
             return propertyObjectTriples
         } else {
             var triples = [Algebra]()
@@ -3375,6 +3378,17 @@ extension Algebra {
             }
             return b
 
+        case .innerJoin(.triple(let u), .triple(let v)):
+            var b = Set<String>()
+            for t in [u, v] {
+                let a : Algebra = .triple(t)
+                let tripleBlanks : Set<String> = try a.blankNodeLabels()
+                for label in tripleBlanks {
+                    b.insert(label)
+                }
+            }
+            return b
+            
         case .leftOuterJoin(let lhs, let rhs, _), .innerJoin(let lhs, let rhs), .union(let lhs, let rhs):
             let l = try lhs.blankNodeLabels()
             let r = try rhs.blankNodeLabels()
@@ -3382,14 +3396,17 @@ extension Algebra {
             if i.count > 0 {
                 if i.count == 1 {
                     let label = i.first!
+                    print("shared blank node algebra:")
+                    print("- \(self)")
                     throw SPARQLParsingError.parsingError("Blank node label _:\(label) cannot be used in multiple BGPs")
                 } else {
                     let labels = i.map { "_:\($0)" }
                     throw SPARQLParsingError.parsingError("Blank node labels cannot be used in multiple BGPs: \(labels.joined(separator: ", "))")
                 }
             }
+            return l.union(r)
+            
         }
         
-        fatalError()
     }
 }

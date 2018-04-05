@@ -387,6 +387,25 @@ public extension Algebra {
         }
     }
 
+    public var projectableVariables : Set<String> {
+        switch self {
+        case .aggregate(_, let groups, _):
+            var vars = Set<String>()
+            for g in groups {
+                if case .node(.variable(let v, _)) = g {
+                    vars.insert(v)
+                }
+            }
+            return vars
+
+        case .extend(let child, _, let v):
+            return Set([v]).union(child.projectableVariables)
+            
+        default:
+            return self.inscope
+        }
+    }
+    
     public var isAggregation: Bool {
         switch self {
         case .joinIdentity, .unionIdentity, .triple(_), .quad(_), .bgp(_), .path(_), .window(_), .table(_), .subselect(_):
@@ -526,8 +545,6 @@ public extension Algebra {
                 return .path(subj, pp, obj)
             case .bgp(let triples):
                 return .bgp(triples.map { $0.bind(variable, to: replacement) })
-            case .table(_):
-                fatalError("TODO: semantics of binding a variable for a values table are unclear")
             case .project(let a, let p):
                 let child = a.bind(variable, to: replacement)
                 if preservingProjection {

@@ -572,7 +572,7 @@ class SPARQLParserTest: XCTestCase {
         }
     }
 
-    func testAggregationProjection() {
+    func testAggregationProjection1() {
         guard var p = SPARQLParser(string: "SELECT * WHERE { ?s <p> 'o' } GROUP BY ?s") else { XCTFail(); return }
         XCTAssertThrowsError(try p.parseAlgebra()) { (e) -> Void in
             if case .some(.parsingError(let m)) = e as? SPARQLParsingError {
@@ -582,7 +582,18 @@ class SPARQLParserTest: XCTestCase {
             }
         }
     }
-
+    
+    func testAggregationProjection2() {
+        guard var p = SPARQLParser(string: "SELECT ?s (MIN(?p) AS ?minpred) ?o WHERE { ?s ?p ?o } GROUP BY ?s") else { XCTFail(); return }
+        XCTAssertThrowsError(try p.parseAlgebra()) { (e) -> Void in
+            if case .some(.parsingError(let m)) = e as? SPARQLParsingError {
+                XCTAssertTrue(m.contains("Cannot project non-grouped variable in aggregation query"))
+            } else {
+                XCTFail()
+            }
+        }
+    }
+    
     func testSubSelectAggregationProjection() {
         guard var p = SPARQLParser(string: "SELECT ?s WHERE { { SELECT * WHERE { ?s <p> 'o' } GROUP BY ?s } }") else { XCTFail(); return }
         XCTAssertThrowsError(try p.parseAlgebra()) { (e) -> Void in
