@@ -820,12 +820,13 @@ extension PersistentTermIdentityMap {
     private func unpack(decimal: UInt64) -> Item? {
         let scale = Int((decimal & 0x00ff000000000000) >> 48)
         let value = decimal & 0x0000ffffffffffff
-        let hb = (decimal & 0x0000ff0000000000) >> 40
-        if (hb & UInt64(0x80)) > 0 {
-            print("TODO:")
+        let highByte = (decimal & 0x0000ff0000000000) >> 40
+        let highBit = highByte & UInt64(0x80)
+        if highBit > 0 {
+            print("TODO: unpack negative decimal value")
             return nil
         } else {
-            guard scale >= 0 else { print("TODO:"); return nil }
+            guard scale >= 0 else { return nil }
             let combined = "\(value)"
             var string = ""
             let breakpoint = combined.count - scale
@@ -856,7 +857,7 @@ extension PersistentTermIdentityMap {
         let c = stringValue.components(separatedBy: ".")
         guard c.count == 2 else { return nil }
         if c[0].hasPrefix("-") {
-            print("TODO:")
+            print("TODO: pack negative decimal value")
             return nil
         } else {
             let combined = c.joined(separator: "")
