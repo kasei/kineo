@@ -52,6 +52,7 @@
 		372AE7701D582D9F001D72DF /* QueryParser.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = QueryParser.swift; sourceTree = "<group>"; };
 		372C154E1D500FD6005AD596 /* kineo-test.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "kineo-test.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		372C8E781DB482D200C200F4 /* SPARQL.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SPARQL.swift; sourceTree = "<group>"; };
+		373FE886207688DE00D59577 /* XSD.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XSD.swift; sourceTree = "<group>"; };
 		37559FA71DC9417600B103DD /* kineo-parse */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "kineo-parse"; sourceTree = BUILT_PRODUCTS_DIR; };
 		37559FAF1DC941CB00B103DD /* main.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		375BE53C1D9459D500E7E919 /* Plan.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Plan.swift; sourceTree = "<group>"; };
@@ -234,6 +235,7 @@
 				37B839A01D1E06B500BE718B /* LRUCache.swift */,
 				37B839A11D1E06B500BE718B /* Util.swift */,
 				378904FE1E16CE1500FF3D30 /* Date.swift */,
+				373FE886207688DE00D59577 /* XSD.swift */,
 			);
 			path = Util;
 			sourceTree = "<group>";
