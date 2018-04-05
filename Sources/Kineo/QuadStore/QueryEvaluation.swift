@@ -549,8 +549,14 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
                 groupBindings[groupKey] = bindings
             }
         }
-        // TODO: handle special case where there are no groups (no input rows led to no groups being created);
-        //       in this case, counts should return a single result with { $name=0 }
+        
+        if numericGroups.count == 0 && termGroups.count == 0 {
+            // special case where there are no groups (no input rows led to no groups being created);
+            // in this case, counts should return a single result with { $name=0 }
+            let result = TermResult(bindings: [name: Term(integer: 0)])
+            return AnyIterator([result].makeIterator())
+        }
+        
         var a = numericGroups.makeIterator()
         let numericIterator : AnyIterator<TermResult> = AnyIterator {
             guard let pair = a.next() else { return nil }
