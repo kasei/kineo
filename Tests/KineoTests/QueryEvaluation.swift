@@ -399,7 +399,6 @@ class QueryEvaluationTest: XCTestCase {
         }
     }
 
-    
     func testAggregationProjection() {
         let sparql = """
             SELECT * WHERE {
@@ -419,9 +418,41 @@ class QueryEvaluationTest: XCTestCase {
             print(q.serialize())
             let results = try Array(eval(query: q))
             XCTAssertEqual(results.count, 2)
+        } catch {
+            XCTFail()
+        }
+    }
 
-            for r in results {
-                print("-> \(r)")
+    func testEmptyAggregation() {
+        let sparql = """
+            SELECT (SUM(?x) AS ?sum) WHERE {
+                BIND(1 AS ?x)
+                FILTER(?x > 1)
+            }
+        """
+        guard let data = sparql.data(using: .utf8) else { XCTFail(); return }
+        guard var p = SPARQLParser(data: data) else { fatalError("Failed to construct SPARQL parser") }
+        do {
+            let q = try p.parseQuery()
+            print(q.serialize())
+            let results = try Array(eval(query: q))
+            XCTAssertEqual(results.count, 1)
+            
+            guard let result = results.first else {
+                XCTFail()
+                return
+            }
+            
+            let expected = [
+                "sum": "0",
+                ]
+            
+            for (varName, expectedValue) in expected {
+                guard let term = result[varName] else {
+                    XCTFail()
+                    return
+                }
+                XCTAssertEqual(term.value, expectedValue, "Expected value for \(varName) over empty group")
             }
         } catch {
             XCTFail()
