@@ -10,16 +10,18 @@ import Foundation
 
 public enum NumericValue: CustomStringConvertible {
     case integer(Int)
-    case decimal(Double)
-    case float(Double)
-    case double(Double)
+    case decimal(Decimal)
+    case float(mantissa: Double, exponent: Int)
+    case double(mantissa: Double, exponent: Int)
     
     var value: Double {
         switch self {
         case .integer(let value):
             return Double(value)
-        case .decimal(let value), .float(let value), .double(let value):
-            return value
+        case .decimal(let d):
+            return Double(d as NSNumber)
+        case .float(let mantissa, let exponent), .double(let mantissa, let exponent):
+            return mantissa * pow(10.0, Double(exponent))
         }
     }
     
@@ -39,11 +41,11 @@ public enum NumericValue: CustomStringConvertible {
         v.round(.toNearestOrAwayFromZero)
         switch self {
         case .decimal(_):
-            return .decimal(v)
+            return .decimal(Decimal(v))
         case .float(_):
-            return .float(v)
+            return .float(mantissa: v, exponent: 0)
         case .double(_):
-            return .double(v)
+            return .double(mantissa: v, exponent: 0)
         default:
             return self
         }
@@ -54,11 +56,11 @@ public enum NumericValue: CustomStringConvertible {
         v.round(.up)
         switch self {
         case .decimal(_):
-            return .decimal(v)
+            return .decimal(Decimal(v))
         case .float(_):
-            return .float(v)
+            return .float(mantissa: v, exponent: 0)
         case .double(_):
-            return .double(v)
+            return .float(mantissa: v, exponent: 0)
         default:
             return self
         }
@@ -69,11 +71,11 @@ public enum NumericValue: CustomStringConvertible {
         v.round(.down)
         switch self {
         case .decimal(_):
-            return .decimal(v)
+            return .decimal(Decimal(v))
         case .float(_):
-            return .float(v)
+            return .float(mantissa: v, exponent: 0)
         case .double(_):
-            return .double(v)
+            return .double(mantissa: v, exponent: 0)
         default:
             return self
         }
@@ -83,11 +85,11 @@ public enum NumericValue: CustomStringConvertible {
         switch self {
         case .integer(let value):
             return Term(integer: value)
-        case .float(let value):
+        case .float(_):
             return Term(float: value)
-        case .decimal(let value):
+        case .decimal(_):
             return Term(decimal: value)
-        case .double(let value):
+        case .double(_):
             return Term(double: value)
         }
     }
@@ -131,10 +133,8 @@ public enum NumericValue: CustomStringConvertible {
             return .integer(-value)
         case .decimal(let value):
             return .decimal(-value)
-        case .float(let value):
-            return .float(-value)
-        case .double(let value):
-            return .double(-value)
+        case .float(let mantissa, let exponent), .double(let mantissa, let exponent):
+            return .float(mantissa: -mantissa, exponent: exponent)
         }
     }
 }
@@ -161,36 +161,36 @@ private func nonDivResultingNumeric(_ value: Double, _ lhs: NumericValue, _ rhs:
     case (.integer(_), .integer(_)):
         return .integer(Int(value))
     case (.decimal(_), .decimal(_)):
-        return .decimal(value)
+        return .decimal(Decimal(value))
     case (.float(_), .float(_)):
-        return .float(value)
+        return .float(mantissa: value, exponent: 0)
     case (.double(_), .double(_)):
-        return .double(value)
+        return .double(mantissa: value, exponent: 0)
     case (.integer(_), .decimal(_)), (.decimal(_), .integer(_)):
-        return .decimal(value)
+        return .decimal(Decimal(value))
     case (.integer(_), .float(_)), (.float(_), .integer(_)), (.decimal(_), .float(_)), (.float(_), .decimal(_)):
-        return .float(value)
+        return .float(mantissa: value, exponent: 0)
     //    case (.integer(_), .double(_)), (.double(_), .integer(_)), (.decimal(_), .double(_)), (.double(_), .decimal(_)):
     default:
-        return .double(value)
+        return .double(mantissa: value, exponent: 0)
     }
 }
 
 private func divResultingNumeric(_ value: Double, _ lhs: NumericValue, _ rhs: NumericValue) -> NumericValue {
     switch (lhs, rhs) {
     case (.integer(_), .integer(_)), (.decimal(_), .decimal(_)):
-        return .decimal(value)
+        return .decimal(Decimal(value))
     case (.float(_), .float(_)):
-        return .float(value)
+        return .float(mantissa: value, exponent: 0)
     case (.double(_), .double(_)):
-        return .double(value)
+        return .double(mantissa: value, exponent: 0)
     case (.integer(_), .decimal(_)), (.decimal(_), .integer(_)):
-        return .decimal(value)
+        return .decimal(Decimal(value))
     case (.integer(_), .float(_)), (.float(_), .integer(_)), (.decimal(_), .float(_)), (.float(_), .decimal(_)):
-        return .float(value)
+        return .float(mantissa: value, exponent: 0)
     //    case (.integer(_), .double(_)), (.double(_), .integer(_)), (.decimal(_), .double(_)), (.double(_), .decimal(_)):
     default:
-        return .double(value)
+        return .double(mantissa: value, exponent: 0)
     }
 }
 

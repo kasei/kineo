@@ -564,7 +564,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
             var value = v
             if case .avg(_) = agg {
                 guard let count = groupCount[groupKey] else { fatalError("Failed to find expected group data during aggregation") }
-                value = v / NumericValue.double(Double(count))
+                value = v / NumericValue.double(mantissa: Double(count), exponent: 0)
             }
 
             guard var bindings = groupBindings[groupKey] else { fatalError("Unexpected missing aggregation group template") }

@@ -27,12 +27,27 @@ class RDFTest: XCTestCase {
     
     func testConstructorFloat() {
         let t = Term(float: -70.1)
-        XCTAssertEqual(t.value, "-7.010000E+01")
+        XCTAssertEqual(t.value, "-7.01E1")
+    }
+    
+    func testConstructorFloat2() {
+        let t = Term(float: -0.701, exponent: 1)
+        XCTAssertEqual(t.value, "-7.01E0")
     }
     
     func testConstructorDouble() {
         let t = Term(double: 700.1)
-        XCTAssertEqual(t.value, "7.001000E+02")
+        XCTAssertEqual(t.value, "7.001E2")
+    }
+    
+    func testConstructorDouble2() {
+        let t = Term(double: 7001.0, exponent: -1)
+        XCTAssertEqual(t.value, "7.001E2")
+    }
+    
+    func testConstructorDouble3() {
+        let t = Term(double: 0.00123)
+        XCTAssertEqual(t.value, "1.23E-3")
     }
 
 }

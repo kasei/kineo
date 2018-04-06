@@ -1209,10 +1209,10 @@ class ExpressionEvaluator {
             return .integer(Int(val.value))
         case .floatCast(let expr):
             let val = try numericEvaluate(expression: expr, result: result)
-            return .float(val.value)
+            return .float(mantissa: val.value, exponent: 0)
         case .doubleCast(let expr):
             let val = try numericEvaluate(expression: expr, result: result)
-            return .double(val.value)
+            return .double(mantissa: val.value, exponent: 0)
         default:
             throw QueryError.evaluationError("Failed to numerically evaluate \(self) with result \(result)")
         }

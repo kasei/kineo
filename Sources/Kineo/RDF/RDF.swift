@@ -251,13 +251,39 @@ public struct Term: CustomStringConvertible {
     public var type: TermType
     public var _doubleValue: Double?
         
+    internal func floatingPointComponents() -> (Double, Int) {
+        let parts = value.uppercased().components(separatedBy: "E")
+        let mantissa = Double(parts[0]) ?? 0.0
+        var exponent = 0
+        if parts.count > 1 {
+            exponent = Int(parts[1]) ?? 0
+        }
+        return (mantissa, exponent)
+    }
+
+    internal func canonicalFloatingPointComponents() -> (Double, Int) {
+        var (mantissa, exponent) = floatingPointComponents()
+        while abs(mantissa) >= 10.0 {
+            mantissa /= 10.0
+            exponent += 1
+        }
+        while abs(mantissa) < 1.0 {
+            mantissa *= 10.0
+            exponent -= 1
+        }
+        return (mantissa, exponent)
+    }
+    
     private mutating func computeNumericValue() {
         switch type {
         case .datatype("http://www.w3.org/2001/XMLSchema#integer"):
             _doubleValue = Double(value) ?? 0.0
-        case .datatype("http://www.w3.org/2001/XMLSchema#decimal"),
-             .datatype("http://www.w3.org/2001/XMLSchema#float"),
+        case .datatype("http://www.w3.org/2001/XMLSchema#decimal"):
+            _doubleValue = Double(value) ?? 0.0
+        case .datatype("http://www.w3.org/2001/XMLSchema#float"),
              .datatype("http://www.w3.org/2001/XMLSchema#double"):
+            let (mantissa, exponent) = canonicalFloatingPointComponents()
+            self.value = String(format: "%lgE%d", mantissa, exponent)
             _doubleValue = Double(value) ?? 0.0
         default:
             break
@@ -296,14 +322,24 @@ public struct Term: CustomStringConvertible {
     
     public init(float value: Double) {
         self.value = String(format: "%E", value)
-        // TODO: fix the lexical form for xsd:float to be canonical
+        self.type = .datatype("http://www.w3.org/2001/XMLSchema#float")
+        computeNumericValue()
+    }
+    
+    public init(float mantissa: Double, exponent: Int) {
+        self.value = String(format: "%fE%d", mantissa, exponent)
         self.type = .datatype("http://www.w3.org/2001/XMLSchema#float")
         computeNumericValue()
     }
     
     public init(double value: Double) {
         self.value = String(format: "%E", value)
-        // TODO: fix the lexical form for xsd:double to be canonical
+        self.type = .datatype("http://www.w3.org/2001/XMLSchema#double")
+        computeNumericValue()
+    }
+    
+    public init(double mantissa: Double, exponent: Int) {
+        self.value = String(format: "%lfE%d", mantissa, exponent)
         self.type = .datatype("http://www.w3.org/2001/XMLSchema#double")
         computeNumericValue()
     }
@@ -484,11 +520,13 @@ extension Term {
                 return nil
             }
         case .datatype("http://www.w3.org/2001/XMLSchema#decimal"):
-            return .decimal(numericValue)
+            return .decimal(Decimal(numericValue))
         case .datatype("http://www.w3.org/2001/XMLSchema#float"):
-            return .float(numericValue)
+            let (mantissa, exponent) = canonicalFloatingPointComponents()
+            return .float(mantissa: mantissa, exponent: exponent)
         case .datatype("http://www.w3.org/2001/XMLSchema#double"):
-            return .double(numericValue)
+            let (mantissa, exponent) = canonicalFloatingPointComponents()
+            return .double(mantissa: mantissa, exponent: exponent)
         default:
             return nil
         }
