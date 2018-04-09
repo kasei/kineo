@@ -3392,6 +3392,21 @@ extension Algebra {
         case .leftOuterJoin(let lhs, let rhs, _), .innerJoin(let lhs, let rhs), .union(let lhs, let rhs):
             let l = try lhs.blankNodeLabels()
             let r = try rhs.blankNodeLabels()
+            
+            switch lhs {
+            case .triple(_), .quad(_), .bgp(_), .path(_):
+                switch rhs {
+                case .triple(_), .quad(_), .bgp(_), .path(_):
+                    // reuse of bnode labels should be acceptable when in adjacent BGPs and property paths
+                    // https://www.w3.org/2013/sparql-errata#errata-query-17
+                    return l.union(r)
+                default:
+                    break
+                }
+            default:
+                break
+            }
+            
             let i = l.intersection(r)
             if i.count > 0 {
                 if i.count == 1 {
@@ -3405,7 +3420,6 @@ extension Algebra {
                 }
             }
             return l.union(r)
-            
         }
         
     }

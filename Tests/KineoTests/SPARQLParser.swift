@@ -620,4 +620,11 @@ class SPARQLParserTest: XCTestCase {
             }
         }
     }
+
+    func testAcceptableReuseOfBlankNodeIdentifier() {
+        // reuse of bnode labels should be acceptable when in adjacent BGPs and property paths
+        // https://www.w3.org/2013/sparql-errata#errata-query-17
+        guard var p = SPARQLParser(string: "SELECT * WHERE { _:a ?p ?o ; <q>* 1 }") else { XCTFail(); return }
+        XCTAssertNoThrow(try p.parseAlgebra(), "Can use blank node labels in adjacet BGPs and property paths")
+    }
 }
