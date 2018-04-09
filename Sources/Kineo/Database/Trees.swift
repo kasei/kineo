@@ -846,7 +846,7 @@ public enum TreeNode<T: BufferSerializable & Comparable, U: BufferSerializable> 
         }
     }
 
-    // TODO: make an Iterator version of this method
+    // FUTURE: make an Iterator version of this method
     func walk(mediator: RMediator, between: (T, T), onEachLeaf callback: (TreeLeaf<T, U>) throws -> ()) throws {
         switch self {
         case .leafNode(let l):
@@ -871,7 +871,7 @@ public enum TreeNode<T: BufferSerializable & Comparable, U: BufferSerializable> 
         }
     }
 
-    // TODO: make an Iterator version of this method
+    // FUTURE: make an Iterator version of this method
     func walk(mediator: RMediator, in range: Range<T>, onEachLeaf callback: (TreeLeaf<T, U>) throws -> ()) throws {
         switch self {
         case .leafNode(let l):
@@ -896,7 +896,7 @@ public enum TreeNode<T: BufferSerializable & Comparable, U: BufferSerializable> 
         }
     }
 
-    // TODO: make an Iterator version of this method
+    // FUTURE: make an Iterator version of this method
     func walk(mediator: RMediator, onEachLeaf callback: (TreeLeaf<T, U>) throws -> ()) throws {
         switch self {
         case .leafNode(let l):

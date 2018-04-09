@@ -106,10 +106,6 @@ func parseQuery<D : Database>(_ database: D, filename: String) throws -> Query? 
     return try qp.parse()
 }
 
-func planQuery<D : Database>(_ database: D, algebra: Algebra, graph: Term? = nil) throws -> ResultPlan {
-    fatalError("implement")
-}
-
 func query2<D : Database>(_ database: D, query: Query, graph: Term? = nil, verbose: Bool) throws -> Int {
     var count       = 0
     try database.read { (m) in

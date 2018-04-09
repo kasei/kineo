@@ -869,42 +869,56 @@ extension QuadPattern {
     }
 }
 
+extension PropertyPath {
+    public var sparqlTokens: AnySequence<SPARQLToken> {
+        var tokens = [SPARQLToken]()
+        switch self {
+        case .link(let term):
+            tokens.append(contentsOf: term.sparqlTokens)
+        case .inv(let path):
+            tokens.append(.hat)
+            tokens.append(contentsOf: path.sparqlTokens)
+        case .nps(let terms):
+            tokens.append(.bang)
+            tokens.append(.lparen)
+            for (n, term) in terms.enumerated() {
+                if n > 0 {
+                    tokens.append(.or)
+                }
+                tokens.append(contentsOf: term.sparqlTokens)
+            }
+            tokens.append(.rparen)
+        case .alt(let lhs, let rhs):
+            tokens.append(contentsOf: lhs.sparqlTokens)
+            tokens.append(.or)
+            tokens.append(contentsOf: rhs.sparqlTokens)
+        case .seq(let lhs, let rhs):
+            tokens.append(contentsOf: lhs.sparqlTokens)
+            tokens.append(.slash)
+            tokens.append(contentsOf: rhs.sparqlTokens)
+        case .plus(let path):
+            tokens.append(.lparen)
+            tokens.append(contentsOf: path.sparqlTokens)
+            tokens.append(.rparen)
+            tokens.append(.plus)
+        case .star(let path):
+            tokens.append(.lparen)
+            tokens.append(contentsOf: path.sparqlTokens)
+            tokens.append(.rparen)
+            tokens.append(.star)
+        case .zeroOrOne(let path):
+            tokens.append(.lparen)
+            tokens.append(contentsOf: path.sparqlTokens)
+            tokens.append(.rparen)
+            tokens.append(.question)
+        }
+        return AnySequence(tokens)
+    }
+}
+
 extension Algebra {
     var serializableEquivalent: Algebra {
         switch self {
-        case .subselect(let child):
-            return .subselect(child.serializableEquivalent)
-        case .project(let lhs, let names):
-            return .project(lhs.serializableEquivalent, names)
-        case .aggregate(let lhs, let groups, let aggs):
-            switch lhs {
-            case .project(_):
-                return .aggregate(lhs.serializableEquivalent, groups, aggs)
-            default:
-                fatalError()
-            }
-        case .order(let lhs, let cmps):
-            switch lhs {
-            case .aggregate(_), .project(_):
-                return .order(lhs.serializableEquivalent, cmps)
-            default:
-                return .order(.project(lhs.serializableEquivalent, lhs.inscope.sorted()), cmps)
-            }
-        case .slice(let lhs, let offset, let limit):
-            switch lhs {
-            case .order(_), .aggregate(_), .project(_):
-                return .slice(lhs.serializableEquivalent, offset, limit)
-            default:
-                return .slice(.project(lhs.serializableEquivalent, lhs.inscope.sorted()), offset, limit)
-            }
-        case .distinct(let lhs):
-            switch lhs {
-            case .slice(_), .order(_), .aggregate(_), .project(_):
-                return .distinct(lhs.serializableEquivalent)
-            default:
-                return .distinct(.project(lhs.serializableEquivalent, lhs.inscope.sorted()))
-            }
-
         case .unionIdentity:
             fatalError("cannot serialize the union identity in SPARQL")
         case .joinIdentity:
@@ -915,27 +929,56 @@ extension Algebra {
             return .innerJoin(lhs.serializableEquivalent, rhs.serializableEquivalent)
         case .leftOuterJoin(let lhs, let rhs, let expr):
             return .leftOuterJoin(lhs.serializableEquivalent, rhs.serializableEquivalent, expr)
-        case .minus(let lhs, let rhs):
-            return .minus(lhs.serializableEquivalent, rhs.serializableEquivalent)
-        case .union(let lhs, let rhs):
-            return .union(lhs.serializableEquivalent, rhs.serializableEquivalent)
         case .filter(let lhs, let expr):
             return .filter(lhs.serializableEquivalent, expr)
+        case .union(let lhs, let rhs):
+            return .union(lhs.serializableEquivalent, rhs.serializableEquivalent)
         case .namedGraph(let lhs, let graph):
             return .namedGraph(lhs.serializableEquivalent, graph)
+        case .extend(let lhs, let expr, let name):
+            return .extend(lhs.serializableEquivalent, expr, name)
+        case .minus(let lhs, let rhs):
+            return .minus(lhs.serializableEquivalent, rhs.serializableEquivalent)
+        case .project(let lhs, let names):
+            return .project(lhs.serializableEquivalent, names)
+        case .distinct(let lhs):
+            switch lhs {
+            case .slice(_), .order(_), .aggregate(_), .project(_):
+                return .distinct(lhs.serializableEquivalent)
+            default:
+                return .distinct(.project(lhs.serializableEquivalent, lhs.inscope.sorted()))
+            }
         case .service(let endpoint, let lhs, let silent):
             return .service(endpoint, lhs.serializableEquivalent, silent)
-
-            /**
-    case .path(Node, PropertyPath, Node)
-    case .aggregate(Algebra, [Expression], [(Aggregation, String)])
-    case .window(Algebra, [Expression], [(WindowFunction, [SortComparator], String)])
-    case .construct(Algebra, [TriplePattern])
-    case .describe(Algebra, [Node])
-    case .ask(Algebra)
-**/
-        default:
-            fatalError("Implement Algebra.sparqlTokens for \(self)")
+        case .slice(let lhs, let offset, let limit):
+            switch lhs {
+            case .order(_), .aggregate(_), .project(_):
+                return .slice(lhs.serializableEquivalent, offset, limit)
+            default:
+                return .slice(.project(lhs.serializableEquivalent, lhs.inscope.sorted()), offset, limit)
+            }
+        case .order(let lhs, let cmps):
+            switch lhs {
+            case .aggregate(_), .project(_):
+                return .order(lhs.serializableEquivalent, cmps)
+            default:
+                return .order(.project(lhs.serializableEquivalent, lhs.inscope.sorted()), cmps)
+            }
+        case .path(_):
+            return self
+        case .aggregate(let lhs, let groups, let aggs):
+            switch lhs {
+            case .project(_):
+                return .aggregate(lhs.serializableEquivalent, groups, aggs)
+            default:
+                fatalError("cannot serialize an aggregation whose child is not a projection operator")
+            }
+        case .window(let lhs, let exprs, let funcs):
+            return .window(lhs.serializableEquivalent, exprs, funcs)
+        case .subselect(.project(let lhs, let vars)):
+            return .subselect(.project(lhs.serializableEquivalent, vars))
+        case .subselect(let lhs):
+            return .subselect(.project(lhs.serializableEquivalent, Array(lhs.projectableVariables)))
         }
     }
 
@@ -1161,21 +1204,36 @@ extension Algebra {
             }
             tokens.append(contentsOf: append)
             return AnySequence(tokens)
-        case .subselect(let lhs):
-            fatalError("implement")
+        case .path(let lhs, let path, let rhs):
+            var tokens = [SPARQLToken]()
+            tokens.append(contentsOf: lhs.sparqlTokens)
+            tokens.append(contentsOf: path.sparqlTokens)
+            tokens.append(contentsOf: rhs.sparqlTokens)
+            tokens.append(.dot)
+            return AnySequence(tokens)
+        case .subselect(.project(let lhs, let vars)):
+            var tokens = [SPARQLToken]()
+            tokens.append(.lbrace)
+            tokens.append(.keyword("SELECT"))
+            let v = Set(vars)
+            if v == lhs.projectableVariables {
+                tokens.append(.star)
+            } else {
+                for name in vars {
+                    let n : Node = .variable(name, binding: true)
+                    tokens.append(contentsOf: n.sparqlTokens)
+                }
+            }
+            tokens.append(.keyword("WHERE"))
+            tokens.append(contentsOf: lhs.sparqlTokens(depth: depth+1))
+            tokens.append(.rbrace)
+            return AnySequence(tokens)
+        case .subselect(_):
+            fatalError("Cannot serialize a sub-select whose child is not a project operator")
         case .aggregate(let lhs, let groups, let aggs):
-            fatalError("implement")
-
-            /**
-    case .path(Node, PropertyPath, Node)
-    case .aggregate(Algebra, [Expression], [(Aggregation, String)])
-    case .window(Algebra, [Expression], [(WindowFunction, [SortComparator], String)])
-    case .construct(Algebra, [TriplePattern])
-    case .describe(Algebra, [Node])
-    case .ask(Algebra)
-**/
-        default:
-            fatalError("implement Algebra.sparqlTokens for \(self)")
+            fatalError("TODO: implement sparqlTokens() on aggregate: \(lhs) \(groups) \(aggs)")
+        case .window(let lhs, let groups, let funcs):
+            fatalError("TODO: implement sparqlTokens() on window: \(lhs) \(groups) \(funcs)")
         }
     }
 }

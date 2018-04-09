@@ -599,7 +599,7 @@ extension Expression {
         case .node(let n):
             return n.sparqlTokens
         default:
-            fatalError("implement")
+            fatalError("TODO: implement sparqlTokens() on Expression: \(self)")
         }
     }
 }
