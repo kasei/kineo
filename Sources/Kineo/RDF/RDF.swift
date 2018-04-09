@@ -274,11 +274,25 @@ public struct Term: CustomStringConvertible {
         return (mantissa, exponent)
     }
     
+    internal func canonicalDecimalComponents() -> (Int, Int) {
+        let parts = value.components(separatedBy: ".")
+        let v = Int(parts[0]) ?? 0
+        var frac = 0
+        if parts.count > 1 {
+            let range = parts[1].startIndex..<parts[1].endIndex
+            let fracPart = parts[1].replacingOccurrences(of: "0+$", with: "", options: .regularExpression, range: range) // remove trailing zeros
+            frac = abs(Int(fracPart) ?? 0)
+        }
+        return (v, frac)
+    }
+    
     private mutating func computeNumericValue() {
         switch type {
         case .datatype("http://www.w3.org/2001/XMLSchema#integer"):
             _doubleValue = Double(value) ?? 0.0
         case .datatype("http://www.w3.org/2001/XMLSchema#decimal"):
+            let (v, frac) = canonicalDecimalComponents()
+            self.value = String(format: "%d.%d", v, frac)
             _doubleValue = Double(value) ?? 0.0
         case .datatype("http://www.w3.org/2001/XMLSchema#float"),
              .datatype("http://www.w3.org/2001/XMLSchema#double"):
@@ -346,7 +360,6 @@ public struct Term: CustomStringConvertible {
     
     public init(decimal value: Double) {
         self.value = String(format: "%f", value)
-        // TODO: fix the lexical form for xsd:decimal to be canonical
         self.type = .datatype("http://www.w3.org/2001/XMLSchema#decimal")
         computeNumericValue()
     }

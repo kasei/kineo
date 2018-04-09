@@ -22,7 +22,12 @@ class RDFTest: XCTestCase {
     
     func testConstructorDecimal() {
         let t = Term(decimal: 7.1)
-        XCTAssertEqual(t.value, "7.100000")
+        XCTAssertEqual(t.value, "7.1")
+    }
+    
+    func testConstructorDecimal2() {
+        let t = Term(value: "-017.10", type: .datatype("http://www.w3.org/2001/XMLSchema#decimal"))
+        XCTAssertEqual(t.value, "-17.1")
     }
     
     func testConstructorFloat() {
