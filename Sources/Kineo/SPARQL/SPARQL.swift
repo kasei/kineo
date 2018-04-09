@@ -419,7 +419,8 @@ public class SPARQLLexer: IteratorProtocol {
         return r
     }()
 
-    private static let pnCharSet: CharacterSet = {
+    // PN_CHARS_BASE
+    private static let pnCharsBase: CharacterSet = {
         var pn = CharacterSet()
         pn.insert(charactersIn: "a"..."z")
         pn.insert(charactersIn: "A"..."Z")
@@ -446,6 +447,31 @@ public class SPARQLLexer: IteratorProtocol {
         }
         return pn
     }()
+
+    private static let pnCharsU: CharacterSet = {
+        var pn = pnCharsBase
+        pn.insert("_")
+        return pn
+    }()
+    
+    private static let pnChars: CharacterSet = {
+        var pn = pnCharsU
+        pn.insert("-")
+        pn.insert(charactersIn: "0"..."9")
+        pn.insert(UnicodeScalar(0x00B7))
+        let ranges: [(Int, Int)] = [
+            (0x0300, 0x036F),
+            (0x203F, 0x2040),
+            ]
+        for bounds in ranges {
+            guard let mn = UnicodeScalar(bounds.0) else { fatalError("Failed to construct built-in CharacterSet") }
+            guard let mx = UnicodeScalar(bounds.1) else { fatalError("Failed to construct built-in CharacterSet") }
+            let range = mn...mx
+            pn.insert(charactersIn: range)
+        }
+        return pn
+    }()
+    
 
     public init(source: InputStream, includeComments: Bool = false) {
         self.source = source
@@ -681,7 +707,7 @@ public class SPARQLLexer: IteratorProtocol {
             }
 
             let us = UnicodeScalar("\(c)")!
-            if SPARQLLexer.pnCharSet.contains(us) {
+            if SPARQLLexer.pnCharsBase.contains(us) {
                 if let t = try getPName() {
                     return packageToken(t)
                 }
@@ -1793,7 +1819,7 @@ public struct SPARQLParser {
                 }
             }
             
-            // TODO: verify that we're not projecting a variable more than once
+            // TODO: verify that we're not projecting a variable more than once; projection is on a Set of variables, though we preserve the ordering for API convenience
             // TODO: add projection for aggregate variables
             algebra = .project(algebra, projection)
         }
@@ -3263,14 +3289,78 @@ extension String {
                 return self
             }
         case .prefixedLocalName:
-            let begin = String.pnCharsU.union(CharacterSet(charactersIn: "0123456789:"))
-            let rest = String.pnChars.union(CharacterSet(charactersIn: ".:"))
-            let last = String.pnChars.union(CharacterSet(charactersIn: ":"))
-
-            return self // TODO
+            var v = ""
+            /**
+             
+             prefixed name first character:
+             - leave untouched characters in pnCharsU, ':', or [0-9]
+             - backslash escape these characters: ( '_' | '~' | '.' | '-' | '!' | '$' | '&' | "'" | '(' | ')' | '*' | '+' | ',' | ';' | '=' | '/' | '?' | '#' | '@' | '%' )
+             - percent encode anything else
+             **/
+            
+            let okFirst = String.pnCharsU.union(CharacterSet(charactersIn: "0123456789:"))
+            guard let first = self.first else { return "" }
+            let fcs = CharacterSet(first.unicodeScalars)
+            if fcs.isStrictSubset(of: okFirst) {
+                v += String(first)
+            } else if let escaped = String(first).sparqlBackslashEscape {
+                v += escaped
+            } else {
+                v += String(first).sparqlPercentEncoded
+            }
+            
+            /**
+             prefixed name local part (non-first character):
+             - cannot end in a '.'
+             - backslash escape these characters: ( '_' | '~' | '.' | '-' | '!' | '$' | '&' | "'" | '(' | ')' | '*' | '+' | ',' | ';' | '=' | '/' | '?' | '#' | '@' | '%' )
+             - leave untouched characters in pnChars
+             - percent encode anything else
+             
+             **/
+            for c in self.dropFirst(1) {
+                let cs = CharacterSet(c.unicodeScalars)
+                if let escaped = String(c).sparqlBackslashEscape {
+                    v += String(escaped)
+                } else if cs.isStrictSubset(of: String.pnChars) {
+                    v += String(c)
+                } else {
+                    v += String(c).sparqlPercentEncoded
+                }
+            }
+            
+            guard let last = v.last else { return v }
+            if last == "." {
+                v = v.substring(to: v.index(before: v.endIndex))
+                v += ".".sparqlPercentEncoded
+            }
+            
+            return v
         }
     }
 
+    private var sparqlPercentEncoded : String {
+        var v = ""
+        for u in self.utf8 {
+            v += String(format: "%%%02d", u)
+        }
+        return v
+    }
+    
+    private var sparqlBackslashEscape : String? {
+        let needsEscaping = CharacterSet(charactersIn: "_~.-!$('()*+,;=/?#@%")
+        var v = ""
+        for c in self {
+            let cs = CharacterSet(c.unicodeScalars)
+            if cs.isStrictSubset(of: needsEscaping) {
+                v += "\\"
+                v += String(c)
+            } else {
+                v += String(c)
+            }
+        }
+        return v
+    }
+    
     private static let pnChars: CharacterSet = {
         var pn = pnCharsU
         pn.insert(charactersIn: "0123456789-")
