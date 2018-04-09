@@ -170,7 +170,6 @@ private func nonDivResultingNumeric(_ value: Double, _ lhs: NumericValue, _ rhs:
         return .decimal(Decimal(value))
     case (.integer(_), .float(_)), (.float(_), .integer(_)), (.decimal(_), .float(_)), (.float(_), .decimal(_)):
         return .float(mantissa: value, exponent: 0)
-    //    case (.integer(_), .double(_)), (.double(_), .integer(_)), (.decimal(_), .double(_)), (.double(_), .decimal(_)):
     default:
         return .double(mantissa: value, exponent: 0)
     }
@@ -188,7 +187,6 @@ private func divResultingNumeric(_ value: Double, _ lhs: NumericValue, _ rhs: Nu
         return .decimal(Decimal(value))
     case (.integer(_), .float(_)), (.float(_), .integer(_)), (.decimal(_), .float(_)), (.float(_), .decimal(_)):
         return .float(mantissa: value, exponent: 0)
-    //    case (.integer(_), .double(_)), (.double(_), .integer(_)), (.decimal(_), .double(_)), (.double(_), .decimal(_)):
     default:
         return .double(mantissa: value, exponent: 0)
     }
