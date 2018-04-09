@@ -9,7 +9,7 @@
 import Foundation
 import Kineo
 
-func setup(_ database: FilePageDatabase, startTime: UInt64) throws {
+func setup<D : Database>(_ database: D, startTime: UInt64) throws {
     try database.update(version: Version(startTime)) { (m) in
         do {
             _ = try QuadStore.create(mediator: m)
@@ -67,7 +67,7 @@ func sortParse(files: [String], startTime: UInt64, graph defaultGraphTerm: Term?
     return (count, mapping)
 }
 
-func parse(_ database: FilePageDatabase, files: [String], startTime: UInt64, graph defaultGraphTerm: Term? = nil) throws -> Int {
+func parse<D : Database>(_ database: D, files: [String], startTime: UInt64, graph defaultGraphTerm: Term? = nil) throws -> Int {
     var count   = 0
     let version = Version(startTime)
     try database.update(version: version) { (m) in
@@ -100,17 +100,17 @@ func parse(_ database: FilePageDatabase, files: [String], startTime: UInt64, gra
     return count
 }
 
-func parseQuery(_ database: FilePageDatabase, filename: String) throws -> Query? {
+func parseQuery<D : Database>(_ database: D, filename: String) throws -> Query? {
     let reader      = FileReader(filename: filename)
     let qp          = QueryParser(reader: reader)
     return try qp.parse()
 }
 
-func planQuery(_ database: FilePageDatabase, algebra: Algebra, graph: Term? = nil) throws -> ResultPlan {
+func planQuery<D : Database>(_ database: D, algebra: Algebra, graph: Term? = nil) throws -> ResultPlan {
     fatalError("implement")
 }
 
-func query2(_ database: FilePageDatabase, query: Query, graph: Term? = nil, verbose: Bool) throws -> Int {
+func query2<D : Database>(_ database: D, query: Query, graph: Term? = nil, verbose: Bool) throws -> Int {
     var count       = 0
     try database.read { (m) in
         do {
@@ -150,7 +150,7 @@ func query2(_ database: FilePageDatabase, query: Query, graph: Term? = nil, verb
     return count
 }
 
-func query(_ database: FilePageDatabase, query: Query, graph: Term? = nil, verbose: Bool) throws -> Int {
+func query<D : Database>(_ database: D, query: Query, graph: Term? = nil, verbose: Bool) throws -> Int {
     var count       = 0
     let startTime = getCurrentTime()
     try database.read { (m) in
@@ -200,7 +200,7 @@ private func printQuad(quad: Quad, lastGraph: Term?) {
     print("\(s) \(p) \(o) .")
 }
 
-func serialize(_ database: FilePageDatabase, index: String? = nil) throws -> Int {
+func serialize<D : Database>(_ database: D, index: String? = nil) throws -> Int {
     var count = 0
     try database.read { (m) in
         do {
@@ -227,7 +227,7 @@ func serialize(_ database: FilePageDatabase, index: String? = nil) throws -> Int
     return count
 }
 
-func info(_ database: FilePageDatabase) throws {
+func info<D : Database>(_ database: D) throws {
     try database.read { (m) in
         guard let store = try? QuadStore(mediator: m) else { return }
         print("Quad Store")
@@ -257,7 +257,7 @@ func info(_ database: FilePageDatabase) throws {
     
 }
 
-func terms(_ database: FilePageDatabase) throws -> Int {
+func terms<D : Database>(_ database: D) throws -> Int {
     var count = 0
     try database.read { (m) in
         let t2iMapTreeName = "t2i_tree"
@@ -270,7 +270,7 @@ func terms(_ database: FilePageDatabase) throws -> Int {
     return count
 }
 
-func graphs(_ database: FilePageDatabase) throws -> Int {
+func graphs<D : Database>(_ database: D) throws -> Int {
     var count = 0
     try database.read { (m) in
         guard let store = try? QuadStore(mediator: m) else { return }
@@ -282,7 +282,7 @@ func graphs(_ database: FilePageDatabase) throws -> Int {
     return count
 }
 
-func indexes(_ database: FilePageDatabase) throws -> Int {
+func indexes<D : Database>(_ database: D) throws -> Int {
     var count = 0
     try database.read { (m) in
         guard let store = try? QuadStore(mediator: m) else { return }
@@ -294,7 +294,7 @@ func indexes(_ database: FilePageDatabase) throws -> Int {
     return count
 }
 
-func output(_ database: FilePageDatabase) throws -> Int {
+func output<D : Database>(_ database: D) throws -> Int {
     try database.read { (m) in
         guard let store = try? QuadStore(mediator: m) else { return }
         for (k, v) in store.id {
@@ -304,7 +304,7 @@ func output(_ database: FilePageDatabase) throws -> Int {
     return try serialize(database)
 }
 
-func match(_ database: FilePageDatabase) throws -> Int {
+func match<D : Database>(_ database: D) throws -> Int {
     var count = 0
     let parser = NTriplesPatternParser(reader: "")
     try database.read { (m) in

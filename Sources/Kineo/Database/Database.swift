@@ -52,8 +52,8 @@ public protocol RWMediator: RMediator {
 }
 
 public protocol Database {
-    associatedtype ReadMediator
-    associatedtype UpdateMediator
+    associatedtype ReadMediator : RMediator
+    associatedtype UpdateMediator : RWMediator
     var pageSize: Int { get }
     var pageCount: Int { get }
     func read(cb callback: (ReadMediator) -> ()) throws
