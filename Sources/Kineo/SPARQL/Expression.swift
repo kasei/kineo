@@ -840,7 +840,7 @@ class ExpressionEvaluator {
         case .concat:
             var types = Set<TermType>()
             var string = ""
-            for term in terms.flatMap({ $0 }) {
+            for term in terms.compactMap({ $0 }) {
                 types.insert(term.type)
                 string.append(term.value)
             }
@@ -884,7 +884,7 @@ class ExpressionEvaluator {
             } else if stringFunction == .strbefore {
                 if let range = string.value.range(of: pattern.value) {
                     let index = range.lowerBound
-                    let prefix = string.value.substring(to: index)
+                    let prefix = String(string.value[..<index])
                     return Term(value: prefix, type: string.type)
                 } else {
                     return Term(string: "")
@@ -892,7 +892,7 @@ class ExpressionEvaluator {
             } else if stringFunction == .strafter {
                 if let range = string.value.range(of: pattern.value) {
                     let index = range.upperBound
-                    let suffix = string.value.substring(from: index)
+                    let suffix = String(string.value[index...])
                     return Term(value: suffix, type: string.type)
                 } else {
                     return Term(string: "")
@@ -1176,7 +1176,7 @@ class ExpressionEvaluator {
             let contains = terms.index(of: term) == terms.startIndex
             return contains ? Term.trueValue: Term.falseValue
         case .exists(let lhs):
-            print("*** Implement evaluation of EXISTS expressions")
+            print("*** Implement evaluation of EXISTS expression: \(lhs)")
         }
         throw QueryError.evaluationError("Failed to evaluate \(self) with result \(result)")
     }

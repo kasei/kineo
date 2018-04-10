@@ -19,7 +19,7 @@ public enum NumericValue: CustomStringConvertible {
         case .integer(let value):
             return Double(value)
         case .decimal(let d):
-            return Double(d as NSNumber)
+            return Double(truncating: d as NSNumber)
         case .float(let mantissa, let exponent), .double(let mantissa, let exponent):
             return mantissa * pow(10.0, Double(exponent))
         }

@@ -1147,7 +1147,7 @@ public class SPARQLLexer: IteratorProtocol {
     @discardableResult
     func getChar() -> Character {
         let c = buffer.first!
-        buffer = buffer.substring(from: buffer.index(buffer.startIndex, offsetBy: 1))
+        buffer = String(buffer[buffer.index(buffer.startIndex, offsetBy: 1)...])
         self.character += 1
         if c == "\n" {
             self.line += 1
@@ -1163,7 +1163,7 @@ public class SPARQLLexer: IteratorProtocol {
         guard let c = buffer.first else {
             throw lexError("Unexpected EOF")
         }
-        buffer = buffer.substring(from: buffer.index(buffer.startIndex, offsetBy: 1))
+        buffer = String(buffer[buffer.index(buffer.startIndex, offsetBy: 1)...])
         self.character += 1
         if c == "\n" {
             self.line += 1
@@ -1187,7 +1187,7 @@ public class SPARQLLexer: IteratorProtocol {
         try fillBuffer()
         guard buffer.count > 0 else { return nil }
         let c = buffer.first!
-        buffer = buffer.substring(from: buffer.index(buffer.startIndex, offsetBy: 1))
+        buffer = String(buffer[buffer.index(buffer.startIndex, offsetBy: 1)...])
         self.character += 1
         if c == "\n" {
             self.line += 1
@@ -1206,10 +1206,10 @@ public class SPARQLLexer: IteratorProtocol {
 
         let index = buffer.index(buffer.startIndex, offsetBy: word.count)
         guard buffer.hasPrefix(word) else {
-            throw lexError("Expecting '\(word)' but found '\(buffer.substring(to: index))'")
+            throw lexError("Expecting '\(word)' but found '\(buffer[..<index])'")
         }
 
-        buffer = buffer.substring(from: index)
+        buffer = String(buffer[index...])
         self.character += UInt(word.count)
         for c in word {
             if c == "\n" {
@@ -1229,8 +1229,8 @@ public class SPARQLLexer: IteratorProtocol {
         }
 
         let index = buffer.index(buffer.startIndex, offsetBy: length)
-        let s = buffer.substring(to: index)
-        buffer = buffer.substring(from: index)
+        let s = String(buffer[..<index])
+        buffer = String(buffer[index...])
         self.character += UInt(length)
         for c in s {
             if c == "\n" {
@@ -1937,7 +1937,7 @@ public struct SPARQLParser {
             let values = try parseDataBlockValues()
             try expect(token: .rbrace)
 
-            let results = values.flatMap { $0 }.map {
+            let results = values.compactMap { $0 }.map {
                 TermResult(bindings: [name: $0])
             }
             return .table([node], results)
@@ -2792,7 +2792,7 @@ public struct SPARQLParser {
     private mutating func parseIRI() throws -> Term {
         let t = try nextExpectedToken()
         let node = try tokenAsTerm(t)
-        guard case .bound(let term) = node, case .iri(_) = term.type else {
+        guard case .bound(let term) = node, case .iri = term.type else {
             throw parseError("Bad path IRI: \(node)")
         }
         return term
@@ -3330,7 +3330,7 @@ extension String {
             
             guard let last = v.last else { return v }
             if last == "." {
-                v = v.substring(to: v.index(before: v.endIndex))
+                v = String(v[..<v.endIndex])
                 v += ".".sparqlPercentEncoded
             }
             

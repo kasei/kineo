@@ -448,7 +448,7 @@ public func getDateString(seconds: UInt64) -> String {
     let b = UnsafeMutablePointer<Int8>.allocate(capacity: size)
     defer {
         b.deinitialize(count: size)
-        b.deallocate(capacity: size)
+        b.deallocate()
     }
     strftime(b, 32, "%Y-%m-%dT%H:%M:%SZ", tm)
     let date = String(validatingUTF8: b) ?? ""

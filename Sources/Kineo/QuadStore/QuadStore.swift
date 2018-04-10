@@ -176,11 +176,11 @@ open class QuadStore: Sequence, QuadStoreProtocol {
             mapping($0.0)
             }.map { (idquad) in
                 idquad[3]
-            }.flatMap { $0 }.filter { (gid) -> Bool in
+            }.compactMap { $0 }.filter { (gid) -> Bool in
                 let s = seen.contains(gid)
                 seen.insert(gid)
                 return !s
-            }.flatMap { $0 }
+            }.compactMap { $0 }
 
         return AnyIterator(graphs.makeIterator())
     }
@@ -190,7 +190,7 @@ open class QuadStore: Sequence, QuadStoreProtocol {
         let ids = self.graphIDs()
         let graphs = ids.map { (gid) -> Term? in
             return idmap.term(for: gid)
-        }.flatMap { $0 }
+        }.compactMap { $0 }
 
         return AnyIterator(graphs.makeIterator())
     }
@@ -224,7 +224,7 @@ open class QuadStore: Sequence, QuadStoreProtocol {
         let ids = graphNodeIDs()
         let nodes = ids.map { (gid) -> Term? in
                 return idmap.term(for: gid)
-            }.flatMap { $0 }
+            }.compactMap { $0 }
 
         return AnyIterator(nodes.makeIterator())
     }
@@ -1297,7 +1297,7 @@ open class LanguageQuadStore: QuadStore {
         case .language(let l):
             let pattern = QuadPattern(subject: .bound(quad.subject), predicate: .bound(quad.predicate), object: .variable(".o", binding: true), graph: .bound(quad.graph))
             guard let quads = try? super.idquads(matching: pattern) else { return false }
-            let langs = quads.flatMap { (idquad) -> String? in
+            let langs = quads.compactMap { (idquad) -> String? in
                 guard let object = self.id.term(for: idquad[2]) else { return nil }
                 if case .language(let lang) = object.type {
                     return lang

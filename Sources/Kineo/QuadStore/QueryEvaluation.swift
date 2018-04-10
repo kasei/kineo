@@ -331,7 +331,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
 
     func evaluateCount<S: Sequence>(results: S, expression keyExpr: Expression, distinct: Bool) -> Term? where S.Iterator.Element == TermResult {
         if distinct {
-            let terms = results.map { try? self.ee.evaluate(expression: keyExpr, result: $0) }.flatMap { $0 }
+            let terms = results.map { try? self.ee.evaluate(expression: keyExpr, result: $0) }.compactMap { $0 }
             let unique = Set(terms)
             return Term(integer: unique.count)
         } else {
@@ -364,7 +364,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
         var resultingType: TermType? = integer
         var count = 0
 
-        var terms = results.map { try? self.ee.evaluate(expression: keyExpr, result: $0) }.flatMap { $0 }
+        var terms = results.map { try? self.ee.evaluate(expression: keyExpr, result: $0) }.compactMap { $0 }
         if distinct {
             terms = Array(Set(terms))
         }
@@ -394,7 +394,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
     func evaluateSum<S: Sequence>(results: S, expression keyExpr: Expression, distinct: Bool) -> Term? where S.Iterator.Element == TermResult {
         var runningSum = NumericValue.integer(0)
         if distinct {
-            let terms = results.map { try? self.ee.evaluate(expression: keyExpr, result: $0) }.flatMap { $0 }.sorted()
+            let terms = results.map { try? self.ee.evaluate(expression: keyExpr, result: $0) }.compactMap { $0 }.sorted()
             let unique = Set(terms)
             if unique.count == 0 {
                 return nil
@@ -423,7 +423,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
     }
 
     func evaluateGroupConcat<S: Sequence>(results: S, expression keyExpr: Expression, separator: String, distinct: Bool) -> Term? where S.Iterator.Element == TermResult {
-        var terms = results.map { try? self.ee.evaluate(expression: keyExpr, result: $0) }.flatMap { $0 }
+        var terms = results.map { try? self.ee.evaluate(expression: keyExpr, result: $0) }.compactMap { $0 }
         if distinct {
             terms = Array(Set(terms))
         }
@@ -889,19 +889,19 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
                         bindings[name] = n
                     }
                 case .min(let keyExpr):
-                    let terms = results.map { try? self.ee.evaluate(expression: keyExpr, result: $0) }.flatMap { $0 }
+                    let terms = results.map { try? self.ee.evaluate(expression: keyExpr, result: $0) }.compactMap { $0 }
                     if terms.count > 0 {
                         let n = terms.reduce(terms.first!) { min($0, $1) }
                         bindings[name] = n
                     }
                 case .max(let keyExpr):
-                    let terms = results.map { try? self.ee.evaluate(expression: keyExpr, result: $0) }.flatMap { $0 }
+                    let terms = results.map { try? self.ee.evaluate(expression: keyExpr, result: $0) }.compactMap { $0 }
                     if terms.count > 0 {
                         let n = terms.reduce(terms.first!) { max($0, $1) }
                         bindings[name] = n
                     }
                 case .sample(let keyExpr):
-                    let terms = results.map { try? self.ee.evaluate(expression: keyExpr, result: $0) }.flatMap { $0 }
+                    let terms = results.map { try? self.ee.evaluate(expression: keyExpr, result: $0) }.compactMap { $0 }
                     if let n = terms.first {
                         bindings[name] = n
                     }

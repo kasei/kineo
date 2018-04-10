@@ -307,7 +307,7 @@ public class Tree<T: BufferSerializable & Comparable, U: BufferSerializable> : S
             let status = x.status
 
             let totalCount = node.totalCount + 1
-            try node.addPairs(newPairs, replacingIndex: index, totalCount: totalCount, version: m.version) // TODO: this look suspicious; probably a copy-paste error from add(pair:); should be removing instead
+            try node.addPairs(newPairs, replacingIndex: index, totalCount: totalCount, version: m.version)
 
             newPairs = []
             var internalNode: TreeNode<T, U> = .internalNode(node)

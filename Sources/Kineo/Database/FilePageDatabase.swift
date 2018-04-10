@@ -108,7 +108,7 @@ public final class FilePageDatabase: Database {
         if size == 0 {
             let version: Version = 0
             pageSize = preferredPageSize
-            let b = UnsafeMutableRawPointer.allocate(bytes: pageSize, alignedTo: 0)
+            let b = UnsafeMutableRawPointer.allocate(byteCount: pageSize, alignment: 0)
             do {
                 let header = DatabaseHeaderPage(version: version, roots: [("sys", 0)])
                 try header.serialize(to: b, status: .unassigned, pageSize: pageSize)
@@ -117,12 +117,12 @@ public final class FilePageDatabase: Database {
             size = pageSize
             pageCount = 1
 //            b.deinitialize(count: pageSize)
-            b.deallocate(bytes: pageSize, alignedTo: 0)
+            b.deallocate()
         } else {
-            let b = UnsafeMutableRawPointer.allocate(bytes: 16, alignedTo: 4)
+            let b = UnsafeMutableRawPointer.allocate(byteCount: 16, alignment: 4)
             defer {
 //                b.deinitialize(count: 16)
-                b.deallocate(bytes: 16, alignedTo: 0)
+                b.deallocate()
             }
             let sr = pread(fd, b, 16, off_t(0))
             guard sr == 16 else { return nil }
@@ -194,12 +194,11 @@ open class FilePageRMediator: RMediator {
     init(database: FilePageDatabase) {
         self.database = database
         pageObjects = [:]
-        readBuffer = UnsafeMutableRawPointer.allocate(bytes: database.pageSize, alignedTo: 0)
+        readBuffer = UnsafeMutableRawPointer.allocate(byteCount: database.pageSize, alignment: 0)
     }
 
     deinit {
-//        readBuffer.deinitialize(count: pageSize)
-        readBuffer.deallocate(bytes: pageSize, alignedTo: 0)
+        readBuffer.deallocate()
     }
 
     public var rootNames: [String] {
@@ -302,10 +301,10 @@ open class FilePageRWMediator: FilePageRMediator, RWMediator {
 
     internal func commit() throws {
         var maxPage = database.pageCount-1
-        let writeBuffer = UnsafeMutableRawPointer.allocate(bytes: pageSize, alignedTo: 0)
+        let writeBuffer = UnsafeMutableRawPointer.allocate(byteCount: pageSize, alignment: 0)
         defer {
 //            writeBuffer.deinitialize(count: pageSize)
-            writeBuffer.deallocate(bytes: pageSize, alignedTo: 0)
+            writeBuffer.deallocate()
         }
         for (page, object) in dirty {
             pageObjects.removeValue(forKey: page)
