@@ -1,26 +1,31 @@
+// swift-tools-version:4.0
 import PackageDescription
 
 let package = Package(
     name: "Kineo",
-    targets: [
-        Target(
-            name: "kineo-cli",
-            dependencies: [
-                .Target(name: "Kineo")
-            ]
-        ),
-        Target(
-            name: "kineo-parse",
-            dependencies: [
-                .Target(name: "Kineo")
-            ]
-        )
-    ],
+	products: [
+		.library(name: "Kineo", targets: ["Kineo"]),
+	],    
     dependencies: [
-		.Package(url: "https://github.com/kasei/swift-serd.git", majorVersion: 0),
-		.Package(url: "https://github.com/krzyzanowskim/CryptoSwift.git", majorVersion: 0, minor: 8)
+		.package(url: "https://github.com/kasei/swift-serd.git", from: "0.0.0"),
+		.package(url: "https://github.com/krzyzanowskim/CryptoSwift.git", from: "0.8.0")
+    ],
+    targets: [
+    	.target(
+    		name: "Kineo",
+			dependencies: ["CryptoSwift"]
+    	),
+        .target(
+            name: "kineo-cli",
+            dependencies: ["Kineo"]
+        ),
+        .target(
+            name: "kineo-parse",
+            dependencies: ["Kineo"]
+        ),
+        .testTarget(name: "KineoTests", dependencies: ["Kineo"])
     ]
 )
 
-let lib = Product(name: "Kineo", type: .Library(.Dynamic), modules: "Kineo")
-products.append(lib)
+//let lib = Product(name: "Kineo", type: .Library(.Dynamic), modules: "Kineo")
+//products.append(lib)
