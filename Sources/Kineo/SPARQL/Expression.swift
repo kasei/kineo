@@ -129,12 +129,13 @@ public indirect enum Expression: CustomStringConvertible {
     case between(Expression, Expression, Expression)
     case valuein(Expression, [Expression])
     case call(String, [Expression])
+    case exists(Algebra)
 
     var hasAggregation: Bool {
         switch self {
         case .aggregate(_):
             return true
-        case .node(_):
+        case .node(_), .exists(_):
             return false
         case .not(let expr), .isiri(let expr), .isblank(let expr), .isliteral(let expr), .isnumeric(let expr), .lang(let expr), .datatype(let expr), .bound(let expr), .intCast(let expr), .floatCast(let expr), .doubleCast(let expr), .neg(let expr):
             return expr.hasAggregation
@@ -151,7 +152,7 @@ public indirect enum Expression: CustomStringConvertible {
 
     func removeAggregations(_ counter: AnyIterator<Int>, mapping: inout [String:Aggregation]) -> Expression {
         switch self {
-        case .node(_):
+        case .node(_), .exists(_):
             return self
         case .neg(let expr):
             return .neg(expr.removeAggregations(counter, mapping: &mapping))
@@ -298,8 +299,12 @@ public indirect enum Expression: CustomStringConvertible {
         case .valuein(let expr, let exprs):
             let strings = exprs.map { $0.description }
             return "\(expr) IN (\(strings.joined(separator: ",")))"
+        case .not(.exists(let child)):
+            return "NOT EXISTS { \(child) }"
         case .not(let expr):
             return "NOT(\(expr))"
+        case .exists(let child):
+            return "EXISTS { \(child) }"
         }
     }
 }
@@ -362,6 +367,8 @@ extension Expression: Equatable {
         case (.datatype(let l), .datatype(let r)) where l == r:
             return true
         case (.bound(let l), .bound(let r)) where l == r:
+            return true
+        case (.exists(let l), .exists(let r)) where l == r:
             return true
         default:
             return false
@@ -435,6 +442,8 @@ public extension Expression {
                 return .valuein(expr.replace(map), exprs.map { $0.replace(map) })
             case .not(let expr):
                 return .not(expr.replace(map))
+            case .exists(_):
+                return self
             }
         }
     }
@@ -598,6 +607,21 @@ extension Expression {
         switch self {
         case .node(let n):
             return n.sparqlTokens
+        case .not(.exists(let lhs)):
+            var tokens = [SPARQLToken]()
+            tokens.append(.keyword("NOT"))
+            tokens.append(.keyword("EXISTS"))
+            tokens.append(.lbrace)
+            tokens.append(contentsOf: lhs.sparqlTokens(depth: 0))
+            tokens.append(.rbrace)
+            return AnySequence(tokens)
+        case .exists(let lhs):
+            var tokens = [SPARQLToken]()
+            tokens.append(.keyword("EXISTS"))
+            tokens.append(.lbrace)
+            tokens.append(contentsOf: lhs.sparqlTokens(depth: 0))
+            tokens.append(.rbrace)
+            return AnySequence(tokens)
         default:
             fatalError("TODO: implement sparqlTokens() on Expression: \(self)")
         }
@@ -1151,6 +1175,8 @@ class ExpressionEvaluator {
             let terms = try exprs.map { try evaluate(expression: $0, result: result) }
             let contains = terms.index(of: term) == terms.startIndex
             return contains ? Term.trueValue: Term.falseValue
+        case .exists(let lhs):
+            print("*** Implement evaluation of EXISTS expressions")
         }
         throw QueryError.evaluationError("Failed to evaluate \(self) with result \(result)")
     }

@@ -2646,11 +2646,11 @@ public struct SPARQLParser {
             try expect(token: t)
             try expect(token: .keyword("EXISTS"))
             let ggp = try parseGroupGraphPattern()
-            fatalError("TODO: implement parsing of NOT EXISTS on: \(ggp)")
+            return .not(.exists(ggp))
         case .keyword("EXISTS"):
             try expect(token: t)
             let ggp = try parseGroupGraphPattern()
-            fatalError("TODO: implement parsing of EXISTS on: \(ggp)")
+            return .exists(ggp)
         case .keyword(let kw) where SPARQLLexer.validFunctionNames.contains(kw):
             try expect(token: t)
             var args = [Expression]()

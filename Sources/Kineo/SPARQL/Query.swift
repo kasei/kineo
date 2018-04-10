@@ -37,6 +37,16 @@ public struct TriplePattern: CustomStringConvertible {
     }
 }
 
+extension TriplePattern : Equatable {
+    public static func == (lhs: TriplePattern, rhs: TriplePattern) -> Bool {
+        guard lhs.subject == rhs.subject else { return false }
+        guard lhs.predicate == rhs.predicate else { return false }
+        guard lhs.object == rhs.object else { return false }
+        return true
+    }
+}
+
+
 public struct QuadPattern: CustomStringConvertible {
     public var subject: Node
     public var predicate: Node
@@ -82,6 +92,16 @@ public struct QuadPattern: CustomStringConvertible {
     }
 }
 
+extension QuadPattern : Equatable {
+    public static func == (lhs: QuadPattern, rhs: QuadPattern) -> Bool {
+        guard lhs.subject == rhs.subject else { return false }
+        guard lhs.predicate == rhs.predicate else { return false }
+        guard lhs.object == rhs.object else { return false }
+        guard lhs.graph == rhs.graph else { return false }
+        return true
+    }
+}
+
 public enum WindowFunction {
     case rowNumber
     case rank
@@ -98,6 +118,30 @@ public indirect enum PropertyPath {
     case zeroOrOne(PropertyPath)
 }
 
+extension PropertyPath : Equatable {
+    public static func == (lhs: PropertyPath, rhs: PropertyPath) -> Bool {
+        switch (lhs, rhs) {
+        case (.link(let l), .link(let r)) where l == r:
+            return true
+        case (.inv(let l), .inv(let r)) where l == r:
+            return true
+        case (.nps(let l), .nps(let r)) where l == r:
+            return true
+        case (.alt(let ll, let lr), .alt(let rl, let rr)) where ll == rl && lr == rr:
+            return true
+        case (.seq(let ll, let lr), .seq(let rl, let rr)) where ll == rl && lr == rr:
+            return true
+        case (.plus(let l), .plus(let r)) where l == r:
+            return true
+        case (.star(let l), .star(let r)) where l == r:
+            return true
+        case (.zeroOrOne(let l), .zeroOrOne(let r)) where l == r:
+            return true
+        default:
+            return false
+        }
+    }
+}
 public enum QueryForm {
     case select
     case ask
@@ -145,6 +189,77 @@ public indirect enum Algebra {
     case aggregate(Algebra, [Expression], [(Aggregation, String)])
     case window(Algebra, [Expression], [(WindowFunction, [SortComparator], String)])
     case subselect(Algebra)
+}
+
+extension Algebra : Equatable {
+    public static func == (lhs: Algebra, rhs: Algebra) -> Bool {
+        switch (lhs, rhs) {
+        case (.unionIdentity, .unionIdentity), (.joinIdentity, .joinIdentity):
+            return true
+        case (.table(let ln, let lr), .table(let rn, let rr)) where ln == rn && lr == rr:
+            return true
+        case (.quad(let l), .quad(let r)) where l == r:
+            return true
+        case (.triple(let l), .triple(let r)) where l == r:
+            return true
+        case (.bgp(let l), .bgp(let r)) where l == r:
+            return true
+        case (.innerJoin(let l), .innerJoin(let r)) where l == r:
+            return true
+        case (.leftOuterJoin(let l), .leftOuterJoin(let r)) where l == r:
+            return true
+        case (.union(let l), .union(let r)) where l == r:
+            return true
+        case (.minus(let l), .minus(let r)) where l == r:
+            return true
+        case (.distinct(let l), .distinct(let r)) where l == r:
+            return true
+        case (.subselect(let l), .subselect(let r)) where l == r:
+            return true
+        case (.filter(let la, let le), .filter(let ra, let re)) where la == ra && le == re:
+            return true
+        case (.namedGraph(let la, let ln), .namedGraph(let ra, let rn)) where la == ra && ln == rn:
+            return true
+        case (.extend(let la, let le, let ln), .extend(let ra, let re, let rn)) where la == ra && le == re && ln == rn:
+            return true
+        case (.project(let la, let lv), .project(let ra, let rv)) where la == ra && lv == rv:
+            return true
+        case (.service(let ln, let la, let ls), .service(let rn, let ra, let rs)) where la == ra && ln == rn && ls == rs:
+            return true
+        case (.slice(let la, let ll, let lo), .slice(let ra, let rl, let ro)) where la == ra && ll == rl && lo == ro:
+            return true
+        case (.order(let la, let lc), .order(let ra, let rc)) where la == ra:
+            guard lc.count == rc.count else { return false }
+            for (lcmp, rcmp) in zip(lc, rc) {
+                guard lcmp.0 == rcmp.0 else { return false }
+                guard lcmp.1 == rcmp.1 else { return false }
+            }
+            return true
+        case (.path(let ls, let lp, let lo), .path(let rs, let rp, let ro)) where ls == rs && lp == rp && lo == ro:
+            return true
+        case (.aggregate(let ls, let lp, let lo), .aggregate(let rs, let rp, let ro)) where ls == rs && lp == rp:
+            guard lo.count == ro.count else { return false }
+            for (l, r) in zip(lo, ro) {
+                guard l.0 == r.0 else { return false }
+                guard l.1 == r.1 else { return false }
+            }
+            return true
+        case (.window(let ls, let lp, let lo), .window(let rs, let rp, let ro)) where ls == rs && lp == rp:
+            guard lo.count == ro.count else { return false }
+            for (l, r) in zip(lo, ro) {
+                guard l.0 == r.0 else { return false }
+                guard l.2 == r.2 else { return false }
+                guard l.1.count == r.1.count else { return false }
+                for (lcmp, rcmp) in zip(l.1 ,r.1) {
+                    guard lcmp.0 == rcmp.0 else { return false }
+                    guard lcmp.1 == rcmp.1 else { return false }
+                }
+            }
+            return true
+        default:
+            return false
+        }
+    }
 }
 
 public extension Query {
