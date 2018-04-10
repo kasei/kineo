@@ -698,6 +698,50 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
             let i = try evaluatePath(subject: subject, object: jvar, graph: graph, path: lhs)
             let j = try evaluatePath(subject: jvar, object: object, graph: graph, path: rhs)
             return pipelinedHashJoin(joinVariables: [jvarname], lhs: i, rhs: j)
+        case .plus(let pp):
+            switch (subject, object) {
+            case (.bound(_), .variable(let oname, binding: _)):
+                let pvar = freshVariable()
+                var v = Set<Term>()
+                for result in try evaluatePath(subject: subject, object: pvar, graph: graph, path: pp) {
+                    if let n = result[pvar] {
+                        try alp(term: n, path: path, seen: &v, graph: graph)
+                    }
+                }
+                
+                var i = v.makeIterator()
+                return AnyIterator {
+                    guard let t = i.next() else { return nil }
+                    return TermResult(bindings: [oname: t])
+                }
+            case (.variable(_), .bound(_)):
+                let ipath: PropertyPath = .plus(.inv(pp))
+                return try evaluatePath(subject: object, object: subject, graph: graph, path: ipath)
+            case (.bound(_), .bound(let oterm)):
+                let pvar = freshVariable()
+                var v = Set<Term>()
+                for result in try evaluatePath(subject: subject, object: pvar, graph: graph, path: pp) {
+                    if let n = result[pvar] {
+                        try alp(term: n, path: path, seen: &v, graph: graph)
+                    }
+                }
+                
+                var results = [TermResult]()
+                if v.contains(oterm) {
+                    results.append(TermResult(bindings: [:]))
+                }
+                return AnyIterator(results.makeIterator())
+            case (.variable(let sname, binding: _), .variable(_)):
+                var results = [TermResult]()
+                for t in store.graphNodeTerms() {
+                    let i = try evaluatePath(subject: .bound(t), object: object, graph: graph, path: pp)
+                    let j = i.map {
+                        $0.extended(variable: sname, value: t) ?? $0
+                    }
+                    results.append(contentsOf: j)
+                }
+                return AnyIterator(results.makeIterator())
+            }
         case .star(let pp):
             switch (subject, object) {
             case (.bound(let t), .variable(let oname, binding: _)):
@@ -729,52 +773,49 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
                 }
                 return AnyIterator(results.makeIterator())
             }
-        case .plus(let pp):
+        case .zeroOrOne(let pp):
             switch (subject, object) {
             case (.bound(_), .variable(let oname, binding: _)):
-                let pvar = freshVariable()
-                var v = Set<Term>()
-                for result in try evaluatePath(subject: subject, object: pvar, graph: graph, path: pp) {
-                    if let n = result[pvar] {
-                        try alp(term: n, path: path, seen: &v, graph: graph)
-                    }
-                }
-
-                var i = v.makeIterator()
-                return AnyIterator {
-                    guard let t = i.next() else { return nil }
-                    return TermResult(bindings: [oname: t])
-                }
-            case (.variable(_), .bound(_)):
-                let ipath: PropertyPath = .plus(.inv(pp))
-                return try evaluatePath(subject: object, object: subject, graph: graph, path: ipath)
-            case (.bound(_), .bound(let oterm)):
-                let pvar = freshVariable()
-                var v = Set<Term>()
-                for result in try evaluatePath(subject: subject, object: pvar, graph: graph, path: pp) {
-                    if let n = result[pvar] {
-                        try alp(term: n, path: path, seen: &v, graph: graph)
-                    }
-                }
-
+                // eval(Path(X:term, ZeroOrOnePath(P), Y:var)) = { (Y, yn) | yn = X or {(Y, yn)} in eval(Path(X,P,Y)) }
                 var results = [TermResult]()
-                if v.contains(oterm) {
+                for t in store.graphNodeTerms() {
+                    results.append(TermResult(bindings: [oname: t]))
+                }
+                let i = try evaluatePath(subject: subject, object: object, graph: graph, path: pp)
+                results.append(contentsOf: i)
+                return AnyIterator(results.makeIterator())
+            case (.variable(let sname, binding: _), .bound(_)):
+                // eval(Path(X:var, ZeroOrOnePath(P), Y:term)) = { (X, xn) | xn = Y or {(X, xn)} in eval(Path(X,P,Y)) }
+                var results = [TermResult]()
+                for t in store.graphNodeTerms() {
+                    results.append(TermResult(bindings: [sname: t]))
+                }
+                let i = try evaluatePath(subject: subject, object: object, graph: graph, path: pp)
+                results.append(contentsOf: i)
+                return AnyIterator(results.makeIterator())
+            case (.bound(let s), .bound(let o)) where s == o:
+                let results = [TermResult(bindings: [:])]
+                return AnyIterator(results.makeIterator())
+            case (.bound(_), .bound(_)):
+                // eval(Path(X:term, ZeroOrOnePath(P), Y:term)) =
+                //     { {} } if X = Y or eval(Path(X,P,Y)) is not empty
+                //     { } othewise
+                var results = [TermResult]()
+                let i = try evaluatePath(subject: subject, object: object, graph: graph, path: pp)
+                if let _ = i.next() {
                     results.append(TermResult(bindings: [:]))
                 }
                 return AnyIterator(results.makeIterator())
-            case (.variable(let sname, binding: _), .variable(_)):
+            case (.variable(let sname, binding: _), .variable(let oname, binding: _)):
+                // eval(Path(X:var, ZeroOrOnePath(P), Y:var)) = { (X, xn) (Y, yn) | either (yn in nodes(G) and xn = yn) or {(X,xn), (Y,yn)} in eval(Path(X,P,Y)) }
                 var results = [TermResult]()
                 for t in store.graphNodeTerms() {
-                    let i = try evaluatePath(subject: .bound(t), object: object, graph: graph, path: pp)
-                    let j = i.map {
-                        $0.extended(variable: sname, value: t) ?? $0
-                    }
-                    results.append(contentsOf: j)
+                    results.append(TermResult(bindings: [sname: t, oname: t]))
                 }
+                let i = try evaluatePath(subject: subject, object: object, graph: graph, path: pp)
+                results.append(contentsOf: i)
                 return AnyIterator(results.makeIterator())
             }
-        case .zeroOrOne(_):
-            fatalError("TODO: ZeroOrOne paths are not implemented yet")
         }
     }
 
