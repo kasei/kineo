@@ -78,6 +78,10 @@
          </CommandLineArgument>
          <CommandLineArgument
             argument = "/Users/greg/data/prog/git/sparql/kineo/new.db"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "/tmp/test.db"
             isEnabled = "YES">
          </CommandLineArgument>
          <CommandLineArgument
@@ -113,8 +117,16 @@
             isEnabled = "YES">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "/Users/greg/data/prog/git/sparql/kineo/test.rq"
+            argument = "parse"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "/tmp/test.rq"
             isEnabled = "YES">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "/Users/greg/data/prog/git/sparql/kineo/test.rq"
+            isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
             argument = "/Users/greg/data/prog/git/sparql/kineo/crash.rq"

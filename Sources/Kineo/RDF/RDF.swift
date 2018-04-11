@@ -274,16 +274,23 @@ public struct Term: CustomStringConvertible {
         return (mantissa, exponent)
     }
     
-    internal func canonicalDecimalComponents() -> (Int, Int) {
-        let parts = value.components(separatedBy: ".")
-        let v = Int(parts[0]) ?? 0
-        var frac = 0
-        if parts.count > 1 {
-            let range = parts[1].startIndex..<parts[1].endIndex
-            let fracPart = parts[1].replacingOccurrences(of: "0+$", with: "", options: .regularExpression, range: range) // remove trailing zeros
-            frac = abs(Int(fracPart) ?? 0)
+    internal func canonicalDecimalComponents() -> (FloatingPointSign, Int, [UInt8]) {
+        var parts = value.components(separatedBy: ".")
+        var sign : FloatingPointSign = .plus
+        if parts[0].hasPrefix("-") {
+            sign = .minus
+            parts[0] = String(parts[0][parts[0].index(parts[0].startIndex, offsetBy: 1)...])
         }
-        return (v, frac)
+        let v = Int(parts[0]) ?? 0
+        var bytes : [UInt8] = [0]
+        if parts.count > 1 {
+            let zero = UInt8("0".unicodeScalars.first!.value)
+            bytes = Array(parts[1].utf8.map { $0 - zero })
+            while bytes.count > 0 && bytes.last! == 0 {
+                bytes.removeLast()
+            }
+        }
+        return (sign, v, bytes)
     }
     
     private mutating func computeNumericValue() {
@@ -291,8 +298,10 @@ public struct Term: CustomStringConvertible {
         case .datatype("http://www.w3.org/2001/XMLSchema#integer"):
             _doubleValue = Double(value) ?? 0.0
         case .datatype("http://www.w3.org/2001/XMLSchema#decimal"):
-            let (v, frac) = canonicalDecimalComponents()
-            self.value = String(format: "%d.%d", v, frac)
+            let (sign, v, bytes) = canonicalDecimalComponents()
+            let frac = bytes.compactMap { "\($0)" }.joined(separator: "")
+            let signChar = (sign == .minus) ? "-" : ""
+            self.value = "\(signChar)\(v).\(frac)"
             _doubleValue = Double(value) ?? 0.0
         case .datatype("http://www.w3.org/2001/XMLSchema#float"),
              .datatype("http://www.w3.org/2001/XMLSchema#double"):
@@ -316,6 +325,11 @@ public struct Term: CustomStringConvertible {
         self.value  = value
         self.type   = type
         computeNumericValue()
+    }
+    
+    public init(iri value: String) {
+        self.value  = value
+        self.type   = .iri
     }
     
     public init(string value: String) {
@@ -362,6 +376,17 @@ public struct Term: CustomStringConvertible {
         self.value = String(format: "%f", value)
         self.type = .datatype("http://www.w3.org/2001/XMLSchema#decimal")
         computeNumericValue()
+    }
+    
+    public init(decimal value: Decimal) {
+        self.value = "\(value)"
+        self.type = .datatype("http://www.w3.org/2001/XMLSchema#decimal")
+        computeNumericValue()
+    }
+    
+    public init(year: Int, month: Int, day: Int) {
+        self.value = String(format: "%04d-%02d-%02d", year, month, day)
+        self.type = .datatype("http://www.w3.org/2001/XMLSchema#date")
     }
     
     public init?(numeric value: Double, type: TermType) {

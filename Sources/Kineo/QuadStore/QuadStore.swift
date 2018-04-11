@@ -522,46 +522,8 @@ open class QuadStore: Sequence, QuadStoreProtocol {
     }
 }
 
-public protocol IdentityMap {
-    associatedtype Item: Hashable
-    associatedtype Result: Comparable, DefinedTestable
-    func id(for value: Item) -> Result?
-    func getOrSetID(for value: Item) throws -> Result
-}
-
-public class PersistentTermIdentityMap: IdentityMap, Sequence {
-    /**
-
-     Term ID type byte:
-
-     01	0000 0001	Blank
-     02	0000 0010	IRI
-     03	0000 0011		common IRIs
-     16	0001 0000	Language
-     17	0001 0001	Datatype
-     18	0001 0010		inlined xsd:string
-     19	0001 0011       xsd:boolean
-     20	0001 0100       xsd:date
-     21	0001 0101       xsd:dateTime
-     22 0001 0110       xsd:string
-     24	0001 1000		xsd:integer
-     25	0001 1001		xsd:int
-     26	0001 1010		xsd:decimal
-
-     Prefixes:
-
-     0000 0001  blank
-     0000 001	iri
-     0001		literal
-     0001 001	date (with optional time)
-     0001 1	 	numeric
-
-     **/
-    static let blankTypeByte: UInt8       = 0x01
-    static let iriTypeByte: UInt8         = 0x02
-    static let languageTypeByte: UInt8    = 0x10
-    static let datatypeTypeByte: UInt8    = 0x11
-
+public class PersistentTermIdentityMap: PackedIdentityMap, Sequence {
+    
     public typealias Item = Term
     public typealias Result = UInt64
 
@@ -611,38 +573,12 @@ public class PersistentTermIdentityMap: IdentityMap, Sequence {
         self.t2icache = LRUCache(capacity: 4096)
     }
 
-    internal class func isIRI(id: Result) -> Bool {
-        let typebyte = UInt8(UInt64(id) >> 56)
-        return typebyte == iriTypeByte
-    }
-
-    internal class func isBlank(id: Result) -> Bool {
-        let typebyte = UInt8(UInt64(id) >> 56)
-        return typebyte == blankTypeByte
-    }
-
-    internal class func isLanguageLiteral(id: Result) -> Bool {
-        let typebyte = UInt8(UInt64(id) >> 56)
-        return typebyte == languageTypeByte
-    }
-
-    internal class func isDatatypeLiteral(id: Result) -> Bool {
-        let typebyte = UInt8(UInt64(id) >> 56)
-        return typebyte == datatypeTypeByte
-    }
-
-    private static func idRange(for type: UInt8) -> Range<Result> {
-        let min = (UInt64(type) << 56)
-        let max = (UInt64(type+1) << 56)
-        return min..<max
-    }
-
     private static func loadMaxIDs(from tree: Tree<Result, Item>, mediator: RMediator) -> (UInt64, UInt64, UInt64, UInt64) {
         let mask        = UInt64(0x00ffffffffffffff)
-        let blankMax    = (tree.maxKey(in: idRange(for: blankTypeByte)) ?? 0) & mask
-        let iriMax      = (tree.maxKey(in: idRange(for: iriTypeByte)) ?? 0) & mask
-        let languageMax = (tree.maxKey(in: idRange(for: languageTypeByte)) ?? 0) & mask
-        let datatypeMax = (tree.maxKey(in: idRange(for: datatypeTypeByte)) ?? 0) & mask
+        let blankMax    = (tree.maxKey(in: PackedTermType.blank.idRange) ?? 0) & mask
+        let iriMax      = (tree.maxKey(in: PackedTermType.iri.idRange) ?? 0) & mask
+        let languageMax = (tree.maxKey(in: PackedTermType.language.idRange) ?? 0) & mask
+        let datatypeMax = (tree.maxKey(in: PackedTermType.datatype.idRange) ?? 0) & mask
 //        print("# Max term IDs: \(blankMax) \(iriMax) \(languageMax) \(datatypeMax)")
         return (iri: iriMax+1, blank: blankMax+1, datatype: datatypeMax+1, langauge: languageMax+1)
     }
@@ -690,28 +626,28 @@ public class PersistentTermIdentityMap: IdentityMap, Sequence {
             return id
         } else {
             var value: UInt64
-            var type: UInt8 = 0
+            var type: UInt64 = 0
             switch term.type {
             case .blank:
-                type = PersistentTermIdentityMap.blankTypeByte
+                type = PackedTermType.blank.typedEmptyValue
                 value = next.blank
                 next.blank += 1
             case .iri:
-                type = PersistentTermIdentityMap.iriTypeByte
+                type = PackedTermType.iri.typedEmptyValue
                 value = next.iri
                 next.iri += 1
             case .language(_):
-                type = PersistentTermIdentityMap.languageTypeByte
+                type = PackedTermType.language.typedEmptyValue
                 value = next.language
                 next.language += 1
             case .datatype(_):
-                type = PersistentTermIdentityMap.datatypeTypeByte
+                type = PackedTermType.datatype.typedEmptyValue
                 value = next.datatype
                 next.datatype += 1
             }
 
             guard value < UInt64(0x00ffffffffffffff) else { throw DatabaseError.DataError("Term ID overflows the 56 bits available") }
-            let id = (UInt64(type) << 56) + value
+            let id = type + value
 
             guard let m = mediator as? RWMediator else { throw DatabaseError.PermissionError("Cannot create new term IDs in a read-only transaction") }
             guard let i2t: Tree<Result, Item> = m.tree(name: i2tMapTreeName) else { throw DatabaseError.DataError("Failed to get the ID to term tree") }
@@ -722,242 +658,6 @@ public class PersistentTermIdentityMap: IdentityMap, Sequence {
 
             return id
         }
-    }
-}
-
-extension PersistentTermIdentityMap {
-    fileprivate func unpack(id: Result) -> Item? {
-        let byte = id >> 56
-        let value = id & 0x00ffffffffffffff
-        switch byte {
-        case 0x03:
-            return unpack(iri: value)
-        case 0x13:
-            fatalError("TODO: unpack xsd:boolean")
-        case 0x14:
-            return unpack(date: value)
-        case 0x15:
-            fatalError("TODO: unpack xsd:dateTime")
-        case 0x16:
-            return unpack(string: value)
-        case 0x18:
-            return unpack(integer: value)
-        case 0x19:
-            return unpack(int: value)
-        case 0x1a:
-            return unpack(decimal: value)
-        default:
-            return nil
-        }
-    }
-
-    fileprivate func pack(value: Item) -> Result? {
-        switch (value.type, value.value) {
-        case (.iri, let v):
-            return pack(iri: v)
-        case (.datatype("http://www.w3.org/2001/XMLSchema#boolean"), _):
-            fatalError("TODO: pack xsd:boolean")
-        case (.datatype("http://www.w3.org/2001/XMLSchema#dateTime"), _):
-            fatalError("TODO: pack xsd:dateTime")
-        case (.datatype("http://www.w3.org/2001/XMLSchema#date"), let v):
-            return pack(date: v)
-        case (.datatype("http://www.w3.org/2001/XMLSchema#string"), let v):
-            return pack(string: v)
-        case (.datatype("http://www.w3.org/2001/XMLSchema#integer"), let v):
-            return pack(integer: v)
-        case (.datatype("http://www.w3.org/2001/XMLSchema#int"), let v):
-            return pack(int: v)
-        case (.datatype("http://www.w3.org/2001/XMLSchema#decimal"), let v):
-            return pack(decimal: v)
-        default:
-            return nil
-        }
-    }
-
-    private func pack(string: String) -> Result? {
-        guard string.utf8.count <= 7 else { return nil }
-        var id: UInt64 = UInt64(0x16) << 56
-        for (i, u) in string.utf8.enumerated() {
-            let shift = UInt64(8 * (6 - i))
-            let b: UInt64 = UInt64(u) << shift
-            id += b
-        }
-        return id
-    }
-
-    private func unpack(string value: UInt64) -> Item? {
-        var buffer = value.bigEndian
-        var string: String? = nil
-        withUnsafePointer(to: &buffer) { (p) in
-            var chars = [CChar]()
-            p.withMemoryRebound(to: CChar.self, capacity: 8) { (charsptr) in
-                for i in 1...7 {
-                    chars.append(charsptr[i])
-                }
-            }
-            chars.append(0)
-            chars.withUnsafeBufferPointer { (q) in
-                if let p = q.baseAddress {
-                    string = String(utf8String: p)
-                }
-            }
-        }
-
-        if let string = string {
-            return Term(value: string, type: .datatype("http://www.w3.org/2001/XMLSchema#string"))
-        }
-        return nil
-    }
-
-    private func unpack(integer value: UInt64) -> Item? {
-        return Term(value: "\(value)", type: .datatype("http://www.w3.org/2001/XMLSchema#integer"))
-    }
-
-    private func unpack(int value: UInt64) -> Item? {
-        return Term(value: "\(value)", type: .datatype("http://www.w3.org/2001/XMLSchema#int"))
-    }
-
-    private func unpack(decimal: UInt64) -> Item? {
-        let scale = Int((decimal & 0x00ff000000000000) >> 48)
-        let value = decimal & 0x0000ffffffffffff
-        let highByte = (decimal & 0x0000ff0000000000) >> 40
-        let highBit = highByte & UInt64(0x80)
-        if highBit > 0 {
-            print("TODO: unpack negative decimal value")
-            return nil
-        } else {
-            guard scale >= 0 else { return nil }
-            let combined = "\(value)"
-            var string = ""
-            let breakpoint = combined.count - scale
-            for (i, c) in combined.enumerated() {
-                if i == breakpoint {
-                    if i == 0 {
-                        string += "0."
-                    } else {
-                        string += "."
-                    }
-                }
-                string += String(c)
-            }
-            return Term(value: string, type: .datatype("http://www.w3.org/2001/XMLSchema#decimal"))
-        }
-    }
-
-    private func unpack(date value: UInt64) -> Item? {
-        let day     = value & 0x000000000000001f
-        let months  = (value & 0x00000000001fffe0) >> 5
-        let month   = months % 12
-        let year    = months / 12
-        let date    = String(format: "%04d-%02d-%02d", year, month, day)
-        return Term(value: date, type: .datatype("http://www.w3.org/2001/XMLSchema#date"))
-    }
-
-    private func pack(decimal stringValue: String) -> Result? {
-        let c = stringValue.components(separatedBy: ".")
-        guard c.count == 2 else { return nil }
-        if c[0].hasPrefix("-") {
-            print("TODO: pack negative decimal value")
-            return nil
-        } else {
-            let combined = c.joined(separator: "")
-            guard let value = UInt64(combined) else { return nil }
-            let scale = UInt8(c[1].count)
-            guard value <= 0x007fffffffffff else { return nil }
-            guard scale >= 0 else { return nil }
-            let id = (UInt64(0x19) << 56) + (UInt64(scale) << 48) + value
-            return id
-        }
-    }
-
-    private func pack(integer stringValue: String) -> Result? {
-        guard let i = UInt64(stringValue) else { return nil }
-        guard i < 0x00ffffffffffffff else { return nil }
-        let value: UInt64 = 0x18 << 56
-        return value + i
-    }
-
-    private func pack(int stringValue: String) -> Result? {
-        guard let i = UInt64(stringValue) else { return nil }
-        guard i <= 2147483647 else { return nil }
-        let value: UInt64 = 0x19 << 56
-        return value + i
-    }
-
-    private func pack(date stringValue: String) -> Result? {
-        let values = stringValue.components(separatedBy: "-").map { Int($0) }
-        guard values.count == 3 else { return nil }
-        if let y = values[0], let m = values[1], let d = values[2] {
-            guard y <= 5000 else { return nil }
-            let months  = 12 * y + m
-            var value   = UInt64(0x14) << 56
-            value       += UInt64(months << 5)
-            value       += UInt64(d)
-            return value
-        } else {
-            return nil
-        }
-    }
-
-    private func unpack(iri value: UInt64) -> Item? {
-        switch value {
-        case 1:
-            return Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type", type: .iri)
-        case 2:
-            return Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#List", type: .iri)
-        case 3:
-            return Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#Resource", type: .iri)
-        case 4:
-            return Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#first", type: .iri)
-        case 5:
-            return Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#rest", type: .iri)
-        case 6:
-            return Term(value: "http://www.w3.org/2000/01/rdf-schema#comment", type: .iri)
-        case 7:
-            return Term(value: "http://www.w3.org/2000/01/rdf-schema#label", type: .iri)
-        case 8:
-            return Term(value: "http://www.w3.org/2000/01/rdf-schema#seeAlso", type: .iri)
-        case 9:
-            return Term(value: "http://www.w3.org/2000/01/rdf-schema#isDefinedBy", type: .iri)
-        case 256..<512:
-            return Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#_\(value-256)", type: .iri)
-        default:
-            return nil
-        }
-    }
-
-    private func pack(iri: String) -> Result? {
-        let mask    = UInt64(0x03) << 56
-        switch iri {
-        case "http://www.w3.org/1999/02/22-rdf-syntax-ns#type":
-            return mask + 1
-        case "http://www.w3.org/1999/02/22-rdf-syntax-ns#List":
-            return mask + 2
-        case "http://www.w3.org/1999/02/22-rdf-syntax-ns#Resource":
-            return mask + 3
-        case "http://www.w3.org/1999/02/22-rdf-syntax-ns#first":
-            return mask + 4
-        case "http://www.w3.org/1999/02/22-rdf-syntax-ns#rest":
-            return mask + 5
-        case "http://www.w3.org/2000/01/rdf-schema#comment":
-            return mask + 6
-        case "http://www.w3.org/2000/01/rdf-schema#label":
-            return mask + 7
-        case "http://www.w3.org/2000/01/rdf-schema#seeAlso":
-            return mask + 8
-        case "http://www.w3.org/2000/01/rdf-schema#isDefinedBy":
-            return mask + 9
-        case _ where iri.hasPrefix("http://www.w3.org/1999/02/22-rdf-syntax-ns#_"):
-            let c = iri.components(separatedBy: "_")
-            guard c.count == 2 else { return nil }
-            guard let value = UInt64(c[1]) else { return nil }
-            if value >= 0 && value < 256 {
-                return mask + 0x100 + value
-            }
-        default:
-            break
-        }
-        return nil
     }
 }
 
