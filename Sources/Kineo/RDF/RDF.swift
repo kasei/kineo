@@ -668,31 +668,3 @@ extension Node: CustomStringConvertible {
         }
     }
 }
-
-extension Term {
-    public var sparqlTokens: AnySequence<SPARQLToken> {
-        switch self.type {
-        case .blank:
-            return AnySequence([.bnode(self.value)])
-        case .iri:
-            return AnySequence([.iri(self.value)])
-        case .datatype("http://www.w3.org/2001/XMLSchema#string"):
-            return AnySequence<SPARQLToken>([.string1d(self.value)])
-        case .datatype(let d):
-            return AnySequence<SPARQLToken>([.string1d(self.value), .hathat, .iri(d)])
-        case .language(let l):
-            return AnySequence<SPARQLToken>([.string1d(self.value), .lang(l)])
-        }
-    }
-}
-
-extension Node {
-    public var sparqlTokens: AnySequence<SPARQLToken> {
-        switch self {
-        case .variable(let name, _):
-            return AnySequence([._var(name)])
-        case .bound(let term):
-            return term.sparqlTokens
-        }
-    }
-}

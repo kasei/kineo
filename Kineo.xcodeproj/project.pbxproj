@@ -79,6 +79,7 @@
 		37B839A11D1E06B500BE718B /* Util.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Util.swift; sourceTree = "<group>"; };
 		37B839A31D1E06B500BE718B /* main.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		37C3B71D1DB6B6C300CF5E81 /* SPARQLParser.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SPARQLParser.swift; sourceTree = "<group>"; };
+		37FD499D207FBAC20088A945 /* SPARQLSerialization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SPARQLSerialization.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -137,6 +138,7 @@
 			isa = PBXGroup;
 			children = (
 				372C8E781DB482D200C200F4 /* SPARQL.swift */,
+				37FD499D207FBAC20088A945 /* SPARQLSerialization.swift */,
 				376CEB731DD3C207004CFDE9 /* Expression.swift */,
 				376CEB711DD3C159004CFDE9 /* Query.swift */,
 			);
