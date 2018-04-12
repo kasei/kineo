@@ -523,37 +523,36 @@ open class QuadStore: Sequence, QuadStoreProtocol {
 }
 
 public class PersistentTermIdentityMap: PackedIdentityMap, Sequence {
-    
     public typealias Item = Term
     public typealias Result = UInt64
 
     var mediator: RMediator
     var next: (iri: UInt64, blank: UInt64, datatype: UInt64, language: UInt64)
-    let t2iMapTreeName = "t2i_tree"
-    let i2tMapTreeName = "i2t_tree"
+    public static let t2iMapTreeName = "t2i_tree"
+    public static let i2tMapTreeName = "i2t_tree"
     var i2tcache: LRUCache<Result, Term>
     var t2icache: LRUCache<Term, Result>
 
     public init (mediator: RMediator, readonly: Bool = false) throws {
         self.mediator = mediator
-        var t2i: Tree<Item, Result>? = mediator.tree(name: t2iMapTreeName)
+        var t2i: Tree<Item, Result>? = mediator.tree(name: PersistentTermIdentityMap.t2iMapTreeName)
         if t2i == nil {
             guard let m = mediator as? RWMediator else {
                 throw DatabaseError.PermissionError("Cannot create new PersistentTermIdentityMap in a read-only transaction")
             }
             let t2ipairs = [(Item, Result)]()
-            _ = try m.create(tree: t2iMapTreeName, pairs: t2ipairs)
-            t2i = mediator.tree(name: t2iMapTreeName)
+            _ = try m.create(tree: PersistentTermIdentityMap.t2iMapTreeName, pairs: t2ipairs)
+            t2i = mediator.tree(name: PersistentTermIdentityMap.t2iMapTreeName)
         }
 
-        var i2t: Tree<Result, Item>? = mediator.tree(name: i2tMapTreeName)
+        var i2t: Tree<Result, Item>? = mediator.tree(name: PersistentTermIdentityMap.i2tMapTreeName)
         if i2t == nil {
             guard let m = mediator as? RWMediator else {
                 throw DatabaseError.PermissionError("Cannot create new PersistentTermIdentityMap in a read-only transaction")
             }
             let i2tpairs = [(Result, Item)]()
-            _ = try m.create(tree: i2tMapTreeName, pairs: i2tpairs)
-            i2t = mediator.tree(name: i2tMapTreeName)
+            _ = try m.create(tree: PersistentTermIdentityMap.i2tMapTreeName, pairs: i2tpairs)
+            i2t = mediator.tree(name: PersistentTermIdentityMap.i2tMapTreeName)
         }
 
         if readonly {
@@ -589,12 +588,12 @@ public class PersistentTermIdentityMap: PackedIdentityMap, Sequence {
         } else if let term = self.unpack(id: id) {
             return term
         }
-        if let node: Tree<Result, Item> = mediator.tree(name: i2tMapTreeName) {
+        if let node: Tree<Result, Item> = mediator.tree(name: PersistentTermIdentityMap.i2tMapTreeName) {
             let term = node.getAny(key: id)
             self.i2tcache[id] = term
             return term
         } else {
-            warn("*** No node found for tree \(i2tMapTreeName)")
+            warn("*** No node found for tree \(PersistentTermIdentityMap.i2tMapTreeName)")
         }
         return nil
     }
@@ -605,7 +604,7 @@ public class PersistentTermIdentityMap: PackedIdentityMap, Sequence {
         } else if let id = self.pack(value: value) {
             return id
         }
-        if let node: Tree<Item, Result> = mediator.tree(name: t2iMapTreeName) {
+        if let node: Tree<Item, Result> = mediator.tree(name: PersistentTermIdentityMap.t2iMapTreeName) {
             guard let id = node.getAny(key: value) else { return nil }
             self.t2icache[value] = id
             return id
@@ -614,7 +613,7 @@ public class PersistentTermIdentityMap: PackedIdentityMap, Sequence {
     }
 
     public func makeIterator() -> AnyIterator<(Result, Item)> {
-        if let node: Tree<Result, Item> = mediator.tree(name: i2tMapTreeName) {
+        if let node: Tree<Result, Item> = mediator.tree(name: PersistentTermIdentityMap.i2tMapTreeName) {
             return node.makeIterator()
         } else {
             return AnyIterator { return nil }
@@ -650,8 +649,8 @@ public class PersistentTermIdentityMap: PackedIdentityMap, Sequence {
             let id = type + value
 
             guard let m = mediator as? RWMediator else { throw DatabaseError.PermissionError("Cannot create new term IDs in a read-only transaction") }
-            guard let i2t: Tree<Result, Item> = m.tree(name: i2tMapTreeName) else { throw DatabaseError.DataError("Failed to get the ID to term tree") }
-            guard let t2i: Tree<Item, Result> = m.tree(name: t2iMapTreeName) else { throw DatabaseError.DataError("Failed to get the term to ID tree") }
+            guard let i2t: Tree<Result, Item> = m.tree(name: PersistentTermIdentityMap.i2tMapTreeName) else { throw DatabaseError.DataError("Failed to get the ID to term tree") }
+            guard let t2i: Tree<Item, Result> = m.tree(name: PersistentTermIdentityMap.t2iMapTreeName) else { throw DatabaseError.DataError("Failed to get the term to ID tree") }
 
             try i2t.add(pair: (id, term))
             try t2i.add(pair: (term, id))

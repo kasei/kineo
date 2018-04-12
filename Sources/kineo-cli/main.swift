@@ -9,6 +9,9 @@
 import Foundation
 import Kineo
 
+/**
+ If necessary, create a new quadstore in the supplied database.
+ */
 func setup<D : Database>(_ database: D, startTime: UInt64) throws {
     try database.update(version: Version(startTime)) { (m) in
         do {
@@ -20,6 +23,10 @@ func setup<D : Database>(_ database: D, startTime: UInt64) throws {
     }
 }
 
+/**
+ Parse the supplied RDF files and assign each unique RDF term an integer ID such that the
+ ordering of IDs corresponds to the terms' ordering according to the sorting rules of SPARQL.
+ */
 func sortParse(files: [String], startTime: UInt64, graph defaultGraphTerm: Term? = nil) throws -> (Int, [Int:Term]) {
     var count   = 0
     var blanks = Set<Term>()
@@ -67,6 +74,11 @@ func sortParse(files: [String], startTime: UInt64, graph defaultGraphTerm: Term?
     return (count, mapping)
 }
 
+/**
+ Parse the supplied RDF files and load the resulting RDF triples into the database's
+ QuadStore in the supplied named graph (or into a graph named with the corresponding
+ filename, if no graph name is given).
+ */
 func parse<D : Database>(_ database: D, files: [String], startTime: UInt64, graph defaultGraphTerm: Term? = nil) throws -> Int {
     var count   = 0
     let version = Version(startTime)
@@ -106,6 +118,12 @@ func parseQuery<D : Database>(_ database: D, filename: String) throws -> Query? 
     return try qp.parse()
 }
 
+/**
+ Parse a SPARQL query from the supplied file, produce a query plan for it in the context
+ of the database's QuadStore, and print a serialized form of the resulting query plan.
+ QuadStore in the supplied named graph (or into a graph named with the corresponding
+ filename, if no graph name is given).
+ */
 func explain<D : Database>(_ database: D, query: Query, graph: Term? = nil, verbose: Bool) throws {
     print("- explaining query")
     try database.read { (m) in
@@ -127,46 +145,10 @@ func explain<D : Database>(_ database: D, query: Query, graph: Term? = nil, verb
     }
 }
 
-func query2<D : Database>(_ database: D, query: Query, graph: Term? = nil, verbose: Bool) throws -> Int {
-    var count       = 0
-    database.read { (m) in
-        do {
-            let store       = try LanguageQuadStore(mediator: m, acceptLanguages: [("en", 1.0), ("", 0.5)])
-            var defaultGraph: Term
-            if let g = graph {
-                defaultGraph = g
-            } else {
-                guard let g = store.graphs().next() else { return }
-                defaultGraph = g
-                warn("Using default graph \(defaultGraph)")
-            }
-            let e           = SimpleQueryEvaluator(store: store, defaultGraph: defaultGraph)
-            for result in try e.evaluate(query: query, activeGraph: defaultGraph) {
-                count += 1
-                print("\(count)\t\(result.description)")
-            }
-
-            if let mtime = try e.effectiveVersion(matching: query, activeGraph: defaultGraph) {
-                let date = getDateString(seconds: mtime)
-                if verbose {
-                    print("# Last-Modified: \(date)")
-                }
-            }
-
-//            let planner     = QuadStorePlanner(store: store, defaultGraph: defaultGraph)
-//            let plan        = try planner.plan(query)
-//            let e           = ResultPlanEvaluator(store: store)
-//            for result in try e.evaluate(plan) {
-//                count += 1
-//                print("\(count)\t\(result.description)")
-//            }
-        } catch let e {
-            warn("*** \(e)")
-        }
-    }
-    return count
-}
-
+/**
+ Evaluate the supplied Query against the database's QuadStore and print the results.
+ If a graph argument is given, use it as the initial active graph.
+ */
 func query<D : Database>(_ database: D, query: Query, graph: Term? = nil, verbose: Bool) throws -> Int {
     var count       = 0
     let startTime = getCurrentTime()
@@ -178,8 +160,8 @@ func query<D : Database>(_ database: D, query: Query, graph: Term? = nil, verbos
         if let g = graph {
             defaultGraph = g
         } else {
-            guard let g = store.graphs().next() else { return }
-            defaultGraph = g
+            // if there are no graphs in the database, it doesn't matter what the default graph is.
+            defaultGraph = store.graphs().next() ?? Term(iri: "tag:kasei.us,2018:default-graph")
             warn("Using default graph \(defaultGraph)")
         }
         let e           = SimpleQueryEvaluator(store: store, defaultGraph: defaultGraph, verbose: verbose)
@@ -203,7 +185,7 @@ func query<D : Database>(_ database: D, query: Query, graph: Term? = nil, verbos
     return count
 }
 
-private func printQuad(quad: Quad, lastGraph: Term?) {
+private func print(quad: Quad, lastGraph: Term?) {
     let s = quad.subject
     let p = quad.predicate
     let o = quad.object
@@ -213,6 +195,10 @@ private func printQuad(quad: Quad, lastGraph: Term?) {
     print("\(s) \(p) \(o) .")
 }
 
+/**
+ Print all the quads present in the database's QuadStore. If an index name is supplied,
+ use it to print quads in its native order.
+ */
 func serialize<D : Database>(_ database: D, index: String? = nil) throws -> Int {
     var count = 0
     database.read { (m) in
@@ -222,13 +208,13 @@ func serialize<D : Database>(_ database: D, index: String? = nil) throws -> Int 
             if let index = index {
                 let i = try store.iterator(usingIndex: index)
                 for quad in i {
-                    printQuad(quad: quad, lastGraph: lastGraph)
+                    print(quad: quad, lastGraph: lastGraph)
                     count += 1
                     lastGraph = quad.graph
                 }
             } else {
                 for quad in store {
-                    printQuad(quad: quad, lastGraph: lastGraph)
+                    print(quad: quad, lastGraph: lastGraph)
                     count += 1
                     lastGraph = quad.graph
                 }
@@ -240,7 +226,11 @@ func serialize<D : Database>(_ database: D, index: String? = nil) throws -> Int 
     return count
 }
 
-func info<D : Database>(_ database: D) throws {
+/**
+ Print basic information about the database's QuadStore including the last-modified time,
+ the number of quads, the available indexes, and the count of triples in each graph.
+ */
+func printSummary<D : Database>(of database: D) throws {
     database.read { (m) in
         guard let store = try? QuadStore(mediator: m) else { return }
         print("Quad Store")
@@ -250,9 +240,8 @@ func info<D : Database>(_ database: D) throws {
         }
         print("Quads: \(store.count)")
 
-        for idx in store.availableQuadIndexes {
-            print("Index: \(idx)")
-        }
+        let indexes = store.availableQuadIndexes.joined(separator: ", ")
+        print("Indexes: \(indexes)")
         
         for graph in store.graphs() {
             let pattern = QuadPattern(
@@ -270,10 +259,10 @@ func info<D : Database>(_ database: D) throws {
     
 }
 
-func terms<D : Database>(_ database: D) throws -> Int {
+func printTerms<D : Database>(from database: D) throws -> Int {
     var count = 0
     database.read { (m) in
-        let t2iMapTreeName = "t2i_tree"
+        let t2iMapTreeName = PersistentTermIdentityMap.t2iMapTreeName
         guard let t2i: Tree<Term, UInt64> = m.tree(name: t2iMapTreeName) else { print("*** no term map"); return }
         for (term, id) in t2i {
             count += 1
@@ -283,7 +272,7 @@ func terms<D : Database>(_ database: D) throws -> Int {
     return count
 }
 
-func graphs<D : Database>(_ database: D) throws -> Int {
+func printGraphs<D : Database>(from database: D) throws -> Int {
     var count = 0
     database.read { (m) in
         guard let store = try? QuadStore(mediator: m) else { return }
@@ -295,38 +284,13 @@ func graphs<D : Database>(_ database: D) throws -> Int {
     return count
 }
 
-func indexes<D : Database>(_ database: D) throws -> Int {
+func printIndexes<D : Database>(from database: D) throws -> Int {
     var count = 0
     database.read { (m) in
         guard let store = try? QuadStore(mediator: m) else { return }
         for idx in store.availableQuadIndexes {
             count += 1
             print("\(idx)")
-        }
-    }
-    return count
-}
-
-func output<D : Database>(_ database: D) throws -> Int {
-    database.read { (m) in
-        guard let store = try? QuadStore(mediator: m) else { return }
-        for (k, v) in store.id {
-            print("\(k) -> \(v)")
-        }
-    }
-    return try serialize(database)
-}
-
-func match<D : Database>(_ database: D) throws -> Int {
-    var count = 0
-    let parser = NTriplesPatternParser(reader: "")
-    database.read { (m) in
-        guard let store = try? QuadStore(mediator: m) else { return }
-        guard let pattern = parser.parseQuadPattern(line: "?s <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> ?name ?graph") else { return }
-        guard let quads = try? store.quads(matching: pattern) else { return }
-        for quad in quads {
-            count += 1
-            print("- \(quad)")
         }
     }
     return count
@@ -408,11 +372,11 @@ if let op = args.next() {
         }
         count = c
     } else if op == "terms" {
-        count = try terms(database)
+        count = try printTerms(from: database)
     } else if op == "graphs" {
-        count = try graphs(database)
+        count = try printGraphs(from: database)
     } else if op == "indexes" {
-        count = try indexes(database)
+        count = try printIndexes(from: database)
     } else if op == "parse", let qfile = args.next() {
         //        guard let qfile = args.next() else { fatalError("No query file given") }
         let url = URL(fileURLWithPath: qfile)
@@ -472,16 +436,6 @@ if let op = args.next() {
         guard let qfile = args.next() else { fatalError("No query file given") }
         guard let q = try parseQuery(database, filename: qfile) else { fatalError("Failed to parse query") }
         count = try query(database, query: q, graph: graph, verbose: verbose)
-    } else if op == "plan" {
-        var graph: Term? = nil
-        if let next = args.peek(), next == "-g" {
-            _ = args.next()
-            guard let iri = args.next() else { fatalError("No IRI value given after -g") }
-            graph = Term(value: iri, type: .iri)
-        }
-        guard let qfile = args.next() else { fatalError("No query file given") }
-        guard let q = try parseQuery(database, filename: qfile) else { fatalError("Failed to parse query") }
-        count = try query2(database, query: q, graph: graph, verbose: verbose)
     } else if op == "qparse", let qfile = args.next() {
         guard let query = try parseQuery(database, filename: qfile) else { fatalError("Failed to parse query") }
         let s = query.serialize()
@@ -541,7 +495,7 @@ if let op = args.next() {
         exit(1)
     }
 } else {
-    try info(database)
+    try printSummary(of: database)
 }
 
 let endTime = getCurrentTime()

@@ -1816,9 +1816,6 @@ public struct SPARQLParser {
                     throw parseError("Cannot project non-grouped variable in aggregation query")
                 }
             }
-            
-            // TODO: verify that we're not projecting a variable more than once; projection is on a Set of variables, though we preserve the ordering for API convenience
-            // TODO: add projection for aggregate variables
             algebra = .project(algebra, projection)
         }
 
