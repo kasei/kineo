@@ -110,7 +110,7 @@ public extension PackedIdentityMap where Item == Term, Result == UInt64 {
         case .date:
             return unpack(date: value)
         case .dateTime:
-            fatalError("TODO: unpack xsd:dateTime")
+            return unpack(dateTime: value)
         case .inlinedString:
             return unpack(string: value)
         case .integer:
@@ -133,7 +133,7 @@ public extension PackedIdentityMap where Item == Term, Result == UInt64 {
         case (.datatype("http://www.w3.org/2001/XMLSchema#boolean"), "false"), (.datatype("http://www.w3.org/2001/XMLSchema#boolean"), "0"):
             return pack(boolean: false)
         case (.datatype("http://www.w3.org/2001/XMLSchema#dateTime"), _):
-            fatalError("TODO: pack xsd:dateTime")
+            return pack(dateTime: value)
         case (.datatype("http://www.w3.org/2001/XMLSchema#date"), let v):
             return pack(date: v)
         case (.datatype("http://www.w3.org/2001/XMLSchema#string"), let v):
@@ -235,6 +235,32 @@ public extension PackedIdentityMap where Item == Term, Result == UInt64 {
         return Term(value: date, type: .datatype("http://www.w3.org/2001/XMLSchema#date"))
     }
     
+    private func unpack(dateTime value: UInt64) -> Item? {
+        // ZZZZ ZZZY YYYY YYYY YYYY MMMM DDDD Dhhh hhmm mmmm ssss ssss ssss ssss
+        let tzSign  = (value & 0x0080000000000000) >> 55
+        let tz      = (value & 0x007e000000000000) >> 49
+        let year    = (value & 0x0001fff000000000) >> 36
+        let month   = (value & 0x0000000f00000000) >> 32
+        let day     = (value & 0x00000000f8000000) >> 27
+        let hours   = (value & 0x0000000007c00000) >> 22
+        let minutes = (value & 0x00000000003f0000) >> 16
+        let msecs   = (value & 0x000000000000ffff)
+        let seconds = Double(msecs) / 1_000.0
+        var dateTime = String(format: "%04d-%02d-%02dT%02d:%02d:%02g", year, month, day, hours, minutes, seconds)
+        if tz == 0 {
+            dateTime = "\(dateTime)Z"
+        } else {
+            let offset  = tz * 15
+            var hours   = Int(offset) / 60
+            let minutes = Int(offset) % 60
+            if tzSign == 1 {
+                hours   *= -1
+            }
+            dateTime = dateTime + String(format: "%+03d:%02d", hours, minutes)
+        }
+        return Term(value: dateTime, type: .datatype("http://www.w3.org/2001/XMLSchema#dateTime"))
+    }
+    
     private func pack(decimal stringValue: String) -> Result? {
         var c = stringValue.components(separatedBy: ".")
         guard c.count == 2 else { return nil }
@@ -286,6 +312,46 @@ public extension PackedIdentityMap where Item == Term, Result == UInt64 {
         } else {
             return nil
         }
+    }
+    
+    private func pack(dateTime term: Term) -> Result? {
+        // ZZZZ ZZZY YYYY YYYY YYYY MMMM DDDD Dhhh hhmm mmmm ssss ssss ssss ssss
+        guard let date = term.dateValue else { return nil }
+        guard let tz = term.timeZone else { return nil }
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = tz
+        let year : UInt64 = UInt64(calendar.component(.year, from: date))
+        let month : UInt64 = UInt64(calendar.component(.month, from: date))
+        let day : UInt64 = UInt64(calendar.component(.day, from: date))
+        let hours : UInt64 = UInt64(calendar.component(.hour, from: date))
+        let minutes : UInt64 = UInt64(calendar.component(.minute, from: date))
+        let seconds : UInt64 = UInt64(calendar.component(.second, from: date))
+        let msecs : UInt64   = seconds * 1_000
+        let offsetSeconds = tz.secondsFromGMT()
+        let tzSign : UInt64 = (offsetSeconds < 0) ? 1 : 0
+        let offsetMinutes : UInt64 = UInt64(abs(offsetSeconds) / 60)
+        let offset : UInt64  = offsetMinutes / 15
+
+        // guard against overflow values
+        guard offset >= 0 && offset < 0x7f else { return nil }
+        guard year >= 0 && year < 0x1fff else { return nil }
+        guard month >= 0 && month < 0xf else { return nil }
+        guard day >= 0 && day < 0x1f else { return nil }
+        guard hours >= 0 && hours < 0xf else { return nil }
+        guard minutes >= 0 && minutes < 0x3f else { return nil }
+        guard seconds >= 0 && seconds < 0xffff else { return nil }
+
+        var value   = PackedTermType.dateTime.typedEmptyValue
+        value       |= (tzSign << 55)
+        value       |= (offset << 49)
+        value       |= (year << 36)
+        value       |= (month << 32)
+        value       |= (day << 27)
+        value       |= (hours << 22)
+        value       |= (minutes << 16)
+        value       |= (msecs)
+        
+        return value
     }
     
     private func unpack(iri value: UInt64) -> Item? {

@@ -389,6 +389,19 @@ public struct Term: CustomStringConvertible {
         self.type = .datatype("http://www.w3.org/2001/XMLSchema#date")
     }
     
+    public init(year: Int, month: Int, day: Int, hours: Int, minutes: Int, seconds: Double, offset: Int) {
+        var v = String(format: "%04d-%02d-%02dT%02d:%02d:%02g", year, month, day, hours, minutes, seconds)
+        if offset == 0 {
+            v = "\(v)Z"
+        } else {
+            let hours = offset / 60
+            let minutes = offset % 60
+            v = String(format: "\(v)%+03d:%02d", hours, minutes)
+        }
+        self.value = v
+        self.type = .datatype("http://www.w3.org/2001/XMLSchema#dateTime")
+    }
+    
     public init?(numeric value: Double, type: TermType) {
         self.type = type
         switch type {

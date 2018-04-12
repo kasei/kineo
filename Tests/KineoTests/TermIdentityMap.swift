@@ -31,7 +31,8 @@ class TermIdentityMapTest: XCTestCase {
     let inlined_string_base = PackedTermType.inlinedString.typedEmptyValue
     let boolean_base        = PackedTermType.boolean.typedEmptyValue
     let decimal_base        = PackedTermType.decimal.typedEmptyValue
-    let APRIL_22_2018_ID : UInt64   = PackedTermType.date.typedEmptyValue + 0xbd396 // 0xbd396 == ((2018*12 + 4) << 5) + 22
+    let APRIL_22_2018_ID    = PackedTermType.date.typedEmptyValue + 0xbd396 // 0xbd396 == ((2018*12 + 4) << 5) + 22
+    let APRIL_22_2018_03_19_01_EST = PackedTermType.dateTime.typedEmptyValue + 0xa87e24b0d303e8 // 2018-04-22T03:19:01-05:00
 
     override func setUp() {
         self.map = MockTermIdentityMap()
@@ -169,6 +170,17 @@ class TermIdentityMapTest: XCTestCase {
         XCTAssertEqual(term!.value, "2018-04-22")
     }
     
+    func testDateTimeToID() {
+        let id = map.id(for: Term(year: 2018, month: 4, day: 22, hours: 3, minutes: 19, seconds: 1.0, offset: (-5 * 60)))
+        XCTAssertEqual(id, APRIL_22_2018_03_19_01_EST)
+    }
+    
+    func testIDToDateTime() {
+        let term = map.term(for: APRIL_22_2018_03_19_01_EST)
+        XCTAssertNotNil(term)
+        XCTAssertEqual(term!.value, "2018-04-22T03:19:01-05:00")
+    }
+    
     let expectedDecimals : [UInt64:String] = [
         0x0200000000007b: "1.23",
         0x00000000000313: "787.0",
@@ -193,8 +205,6 @@ class TermIdentityMapTest: XCTestCase {
         }
     }
     
-    // TODO: test dateTime       = 0x15
-
     // not testable without a persistent identitymap (these are not generally inlined):
     //  blank          = 0x01
     //  iri            = 0x02
