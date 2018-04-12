@@ -604,27 +604,162 @@ class ExpressionParser {
 
 extension Expression {
     public func sparqlTokens() -> AnySequence<SPARQLToken> {
+        var tokens = [SPARQLToken]()
         switch self {
         case .node(let n):
             return n.sparqlTokens
+/**
+             case aggregate(Aggregation)
+             **/
+        case .neg(let e):
+            tokens.append(.minus)
+            tokens.append(contentsOf: e.sparqlTokens())
         case .not(.exists(let lhs)):
-            var tokens = [SPARQLToken]()
             tokens.append(.keyword("NOT"))
             tokens.append(.keyword("EXISTS"))
             tokens.append(.lbrace)
             tokens.append(contentsOf: lhs.sparqlTokens(depth: 0))
             tokens.append(.rbrace)
-            return AnySequence(tokens)
+        case .not(let e):
+            tokens.append(.bang)
+            tokens.append(contentsOf: e.sparqlTokens())
+        case .isiri(let e):
+            tokens.append(.keyword("ISIRI"))
+            tokens.append(.lparen)
+            tokens.append(contentsOf: e.sparqlTokens())
+            tokens.append(.rparen)
+        case .isblank(let e):
+            tokens.append(.keyword("ISBLANK"))
+            tokens.append(.lparen)
+            tokens.append(contentsOf: e.sparqlTokens())
+            tokens.append(.rparen)
+        case .isliteral(let e):
+            tokens.append(.keyword("ISLITERAL"))
+            tokens.append(.lparen)
+            tokens.append(contentsOf: e.sparqlTokens())
+            tokens.append(.rparen)
+        case .isnumeric(let e):
+            tokens.append(.keyword("ISNUMERIC"))
+            tokens.append(.lparen)
+            tokens.append(contentsOf: e.sparqlTokens())
+            tokens.append(.rparen)
+        case .lang(let e):
+            tokens.append(.keyword("LANG"))
+            tokens.append(.lparen)
+            tokens.append(contentsOf: e.sparqlTokens())
+            tokens.append(.rparen)
+        case .langmatches(let e, let p):
+            tokens.append(.keyword("LANGMATCHES"))
+            tokens.append(.lparen)
+            tokens.append(contentsOf: e.sparqlTokens())
+            tokens.append(.comma)
+            tokens.append(contentsOf: p.sparqlTokens())
+            tokens.append(.rparen)
+        case .datatype(let e):
+            tokens.append(.keyword("DATATYPE"))
+            tokens.append(.lparen)
+            tokens.append(contentsOf: e.sparqlTokens())
+            tokens.append(.rparen)
+        case .bound(let e):
+            tokens.append(.keyword("BOUND"))
+            tokens.append(.lparen)
+            tokens.append(contentsOf: e.sparqlTokens())
+            tokens.append(.rparen)
+        case .intCast(let e):
+            tokens.append(contentsOf: Term.xsd("integer").sparqlTokens)
+            tokens.append(.lparen)
+            tokens.append(contentsOf: e.sparqlTokens())
+            tokens.append(.rparen)
+        case .floatCast(let e):
+            tokens.append(contentsOf: Term.xsd("float").sparqlTokens)
+            tokens.append(.lparen)
+            tokens.append(contentsOf: e.sparqlTokens())
+            tokens.append(.rparen)
+        case .doubleCast(let e):
+            tokens.append(contentsOf: Term.xsd("double").sparqlTokens)
+            tokens.append(.lparen)
+            tokens.append(contentsOf: e.sparqlTokens())
+            tokens.append(.rparen)
+        case .eq(let lhs, let rhs):
+            tokens.append(contentsOf: lhs.sparqlTokens())
+            tokens.append(.equals)
+            tokens.append(contentsOf: rhs.sparqlTokens())
+        case .ne(let lhs, let rhs):
+            tokens.append(contentsOf: lhs.sparqlTokens())
+            tokens.append(.notequals)
+            tokens.append(contentsOf: rhs.sparqlTokens())
+        case .lt(let lhs, let rhs):
+            tokens.append(contentsOf: lhs.sparqlTokens())
+            tokens.append(.lt)
+            tokens.append(contentsOf: rhs.sparqlTokens())
+        case .le(let lhs, let rhs):
+            tokens.append(contentsOf: lhs.sparqlTokens())
+            tokens.append(.le)
+            tokens.append(contentsOf: rhs.sparqlTokens())
+        case .gt(let lhs, let rhs):
+            tokens.append(contentsOf: lhs.sparqlTokens())
+            tokens.append(.gt)
+            tokens.append(contentsOf: rhs.sparqlTokens())
+        case .ge(let lhs, let rhs):
+            tokens.append(contentsOf: lhs.sparqlTokens())
+            tokens.append(.ge)
+            tokens.append(contentsOf: rhs.sparqlTokens())
+        case .add(let lhs, let rhs):
+            tokens.append(contentsOf: lhs.sparqlTokens())
+            tokens.append(.plus)
+            tokens.append(contentsOf: rhs.sparqlTokens())
+        case .sub(let lhs, let rhs):
+            tokens.append(contentsOf: lhs.sparqlTokens())
+            tokens.append(.minus)
+            tokens.append(contentsOf: rhs.sparqlTokens())
+        case .div(let lhs, let rhs):
+            tokens.append(contentsOf: lhs.sparqlTokens())
+            tokens.append(.slash)
+            tokens.append(contentsOf: rhs.sparqlTokens())
+        case .mul(let lhs, let rhs):
+            tokens.append(contentsOf: lhs.sparqlTokens())
+            tokens.append(.star)
+            tokens.append(contentsOf: rhs.sparqlTokens())
+        case .and(let lhs, let rhs):
+            tokens.append(contentsOf: lhs.sparqlTokens())
+            tokens.append(.andand)
+            tokens.append(contentsOf: rhs.sparqlTokens())
+        case .or(let lhs, let rhs):
+            tokens.append(contentsOf: lhs.sparqlTokens())
+            tokens.append(.oror)
+            tokens.append(contentsOf: rhs.sparqlTokens())
+        case .between(let e, let lhs, let rhs):
+            let expr : Expression = .and(.ge(e, lhs), .le(e, rhs))
+            return expr.sparqlTokens()
+        case .valuein(let e, let values):
+            tokens.append(contentsOf: e.sparqlTokens())
+            tokens.append(.keyword("IN"))
+            tokens.append(.lparen)
+            for (i, v) in values.enumerated() {
+                if i > 0 {
+                    tokens.append(.comma)
+                }
+                tokens.append(contentsOf: v.sparqlTokens())
+            }
+            tokens.append(.rparen)
+        case .call(let f, let values):
+            let term = Term(iri: f)
+            tokens.append(contentsOf: term.sparqlTokens)
+            tokens.append(.lparen)
+            for (i, v) in values.enumerated() {
+                if i > 0 {
+                    tokens.append(.comma)
+                }
+                tokens.append(contentsOf: v.sparqlTokens())
+            }
+            tokens.append(.rparen)
         case .exists(let lhs):
-            var tokens = [SPARQLToken]()
             tokens.append(.keyword("EXISTS"))
             tokens.append(.lbrace)
             tokens.append(contentsOf: lhs.sparqlTokens(depth: 0))
             tokens.append(.rbrace)
-            return AnySequence(tokens)
-        default:
-            fatalError("TODO: implement sparqlTokens() on Expression: \(self)")
         }
+        return AnySequence(tokens)
     }
 }
 
