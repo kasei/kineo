@@ -395,9 +395,8 @@ extension Expression {
         switch self {
         case .node(let n):
             return n.sparqlTokens
-            /**
-             TODO: implement sparqlTokens() for .aggregate(Aggregation)
-             **/
+        case .aggregate(let a):
+            return a.sparqlTokens()
         case .neg(let e):
             tokens.append(.minus)
             tokens.append(contentsOf: e.sparqlTokens())
@@ -545,6 +544,76 @@ extension Expression {
             tokens.append(.lbrace)
             tokens.append(contentsOf: lhs.sparqlTokens(depth: 0))
             tokens.append(.rbrace)
+        }
+        return AnySequence(tokens)
+    }
+}
+
+extension Aggregation {
+    public func sparqlTokens() -> AnySequence<SPARQLToken> {
+        var tokens = [SPARQLToken]()
+        switch self {
+        case .countAll:
+            tokens.append(.keyword("COUNT"))
+            tokens.append(.lparen)
+            tokens.append(.star)
+            tokens.append(.rparen)
+        case .count(let e, let distinct):
+            tokens.append(.keyword("COUNT"))
+            tokens.append(.lparen)
+            if distinct {
+                tokens.append(.keyword("DISTINCT"))
+            }
+            tokens.append(contentsOf: e.sparqlTokens())
+            tokens.append(.rparen)
+        case .sum(let e, let distinct):
+            tokens.append(.keyword("SUM"))
+            tokens.append(.lparen)
+            if distinct {
+                tokens.append(.keyword("DISTINCT"))
+            }
+            tokens.append(contentsOf: e.sparqlTokens())
+            tokens.append(.rparen)
+        case .avg(let e, let distinct):
+            tokens.append(.keyword("AVG"))
+            tokens.append(.lparen)
+            if distinct {
+                tokens.append(.keyword("DISTINCT"))
+            }
+            tokens.append(contentsOf: e.sparqlTokens())
+            tokens.append(.rparen)
+        case .min(let e):
+            tokens.append(.keyword("MIN"))
+            tokens.append(.lparen)
+            tokens.append(contentsOf: e.sparqlTokens())
+            tokens.append(.rparen)
+        case .max(let e):
+            tokens.append(.keyword("MAX"))
+            tokens.append(.lparen)
+            tokens.append(contentsOf: e.sparqlTokens())
+            tokens.append(.rparen)
+        case .sample(let e):
+            tokens.append(.keyword("SAMPLE"))
+            tokens.append(.lparen)
+            tokens.append(contentsOf: e.sparqlTokens())
+            tokens.append(.rparen)
+        case .groupConcat(let e, let sep, let distinct):
+            tokens.append(.keyword("GROUP_CONCAT"))
+            tokens.append(.lparen)
+            if distinct {
+                tokens.append(.keyword("DISTINCT"))
+            }
+            tokens.append(contentsOf: e.sparqlTokens())
+            if sep != " " {
+                tokens.append(.semicolon)
+                tokens.append(.keyword("GROUP_CONCAT"))
+                tokens.append(.semicolon)
+                tokens.append(.keyword("SEPARATOR"))
+                tokens.append(.equals)
+                let t = Term(string: sep)
+                tokens.append(contentsOf: t.sparqlTokens)
+            }
+            tokens.append(.rparen)
         }
         return AnySequence(tokens)
     }
