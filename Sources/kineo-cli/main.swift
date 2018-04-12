@@ -26,8 +26,11 @@ func setup<D : Database>(_ database: D, startTime: UInt64) throws {
 /**
  Parse the supplied RDF files and assign each unique RDF term an integer ID such that the
  ordering of IDs corresponds to the terms' ordering according to the sorting rules of SPARQL.
+ 
+ - parameter files: Filenames of Turtle or N-Triples files to parse.
+ - parameter graph: An optional graph name to be included in the list of terms.
  */
-func sortParse(files: [String], startTime: UInt64, graph defaultGraphTerm: Term? = nil) throws -> (Int, [Int:Term]) {
+func sortParse(files: [String], graph defaultGraphTerm: Term? = nil) throws -> (Int, [Int:Term]) {
     var count   = 0
     var blanks = Set<Term>()
     var iris = Set<Term>()
@@ -43,7 +46,7 @@ func sortParse(files: [String], startTime: UInt64, graph defaultGraphTerm: Term?
         iris.insert(graph)
         
         let parser = RDFParser()
-        count = try parser.parse(file: filename) { (s, p, o) in
+        count = try parser.parse(file: filename, base: graph.value) { (s, p, o) in
             for term in [s, p, o] {
                 switch term.type {
                 case .iri:
@@ -78,6 +81,10 @@ func sortParse(files: [String], startTime: UInt64, graph defaultGraphTerm: Term?
  Parse the supplied RDF files and load the resulting RDF triples into the database's
  QuadStore in the supplied named graph (or into a graph named with the corresponding
  filename, if no graph name is given).
+ 
+ - parameter files: Filenames of Turtle or N-Triples files to parse.
+ - parameter startTime: The timestamp to use as the database transaction version number.
+ - parameter graph: The graph into which parsed triples should be load.
  */
 func parse<D : Database>(_ database: D, files: [String], startTime: UInt64, graph defaultGraphTerm: Term? = nil) throws -> Int {
     var count   = 0
@@ -95,7 +102,7 @@ func parse<D : Database>(_ database: D, files: [String], startTime: UInt64, grap
                 let parser = RDFParser()
                 var quads = [Quad]()
                 print("Parsing RDF...")
-                count = try parser.parse(file: filename) { (s, p, o) in
+                count = try parser.parse(file: filename, base: graph.value) { (s, p, o) in
                     let q = Quad(subject: s, predicate: p, object: o, graph: graph)
                     quads.append(q)
                 }
@@ -121,8 +128,9 @@ func parseQuery<D : Database>(_ database: D, filename: String) throws -> Query? 
 /**
  Parse a SPARQL query from the supplied file, produce a query plan for it in the context
  of the database's QuadStore, and print a serialized form of the resulting query plan.
- QuadStore in the supplied named graph (or into a graph named with the corresponding
- filename, if no graph name is given).
+ 
+ - parameter query: The query to plan.
+ - parameter graph: The graph name to use as the initial active graph.
  */
 func explain<D : Database>(_ database: D, query: Query, graph: Term? = nil, verbose: Bool) throws {
     print("- explaining query")
@@ -148,6 +156,10 @@ func explain<D : Database>(_ database: D, query: Query, graph: Term? = nil, verb
 /**
  Evaluate the supplied Query against the database's QuadStore and print the results.
  If a graph argument is given, use it as the initial active graph.
+
+ - parameter query: The query to evaluate.
+ - parameter graph: The graph name to use as the initial active graph.
+ - parameter verbose: A flag indicating whether verbose debugging should be emitted during query evaluation.
  */
 func query<D : Database>(_ database: D, query: Query, graph: Term? = nil, verbose: Bool) throws -> Int {
     var count       = 0
@@ -198,6 +210,8 @@ private func print(quad: Quad, lastGraph: Term?) {
 /**
  Print all the quads present in the database's QuadStore. If an index name is supplied,
  use it to print quads in its native order.
+
+ - parameter index: The name of an index to use to sort the resulting output.
  */
 func serialize<D : Database>(_ database: D, index: String? = nil) throws -> Int {
     var count = 0
@@ -259,6 +273,14 @@ func printSummary<D : Database>(of database: D) throws {
     
 }
 
+/**
+ Print the RDF terms encoded in the database's QuadStore.
+ 
+ Note that some RDF terms used in the QuadStore's indexes may not show up in this list
+ if they are directly encoded in the internal IDs. This will be true for many common
+ numeric and date types (integer, decimal, date, dateTime) as well as terms with small
+ values (short strings, blank nodes, etc.).
+ */
 func printTerms<D : Database>(from database: D) throws -> Int {
     var count = 0
     database.read { (m) in
@@ -321,14 +343,17 @@ guard argscount >= 2 else {
     print("Usage: \(pname) [-v] database.db COMMAND [ARGUMENTS]")
     print("       \(pname) database.db load [-g GRAPH-IRI] rdf.nt ...")
     print("       \(pname) database.db sort [-g GRAPH-IRI] rdf.nt")
-//    print("       \(pname) database.db query [-g DEFAULT-GRAPH-IRI] query.q")
-    print("       \(pname) database.db sparql query.rq")
     print("       \(pname) database.db parse query.rq")
-//    print("       \(pname) database.db qparse query.q")
+    print("       \(pname) database.db sparql query.rq")
+    print("       \(pname) database.db terms")
     print("       \(pname) database.db graphs")
     print("       \(pname) database.db indexes")
     print("       \(pname) database.db index INDEXNAME")
     print("       \(pname) database.db dump [INDEXNAME]")
+    print("")
+    print("       \(pname) database.db roots")
+    print("       \(pname) database.db pages")
+    print("       \(pname) database.db dot")
     print("       \(pname) database.db")
     print("")
     exit(1)
@@ -364,7 +389,7 @@ if let op = args.next() {
             graph = Term(value: iri, type: .iri)
         }
         
-        let (c, terms) = try sortParse(files: args.elements(), startTime: startSecond, graph: graph)
+        let (c, terms) = try sortParse(files: args.elements(), graph: graph)
         for i in terms.keys.sorted() {
             if let term = terms[i] {
                 print("\(i)\t\(term)")
@@ -436,11 +461,9 @@ if let op = args.next() {
         guard let qfile = args.next() else { fatalError("No query file given") }
         guard let q = try parseQuery(database, filename: qfile) else { fatalError("Failed to parse query") }
         count = try query(database, query: q, graph: graph, verbose: verbose)
-    } else if op == "qparse", let qfile = args.next() {
-        guard let query = try parseQuery(database, filename: qfile) else { fatalError("Failed to parse query") }
-        let s = query.serialize()
-        count = 1
-        print(s)
+    } else if op == "dump" {
+        let index = args.next() ?? QuadStore.defaultIndex
+        count = try serialize(database, index: index)
     } else if op == "index", let index = args.next() {
         try database.update(version: startSecond) { (m) in
             do {
@@ -487,9 +510,6 @@ if let op = args.next() {
             let indexName = args.next() ?? QuadStore.defaultIndex
             m.printTreeDOT(name: indexName)
         }
-    } else if op == "dump" {
-        let index = args.next() ?? QuadStore.defaultIndex
-        count = try serialize(database, index: index)
     } else {
         warn("Unrecognized operation: '\(op)'")
         exit(1)

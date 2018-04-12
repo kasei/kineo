@@ -7,6 +7,7 @@
 //
 
 import serd
+import Foundation
 
 public class RDFParser {
     public enum RDFParserError : Error {
@@ -159,15 +160,19 @@ public class RDFParser {
     }
     
     @discardableResult
-    public func parse(file filename: String, handleTriple: @escaping TripleHandler) throws -> Int {
+    public func parse(file filename: String, base _base: String? = nil, handleTriple: @escaping TripleHandler) throws -> Int {
         guard let input = serd_uri_to_path(filename) else { throw RDFParserError.parseError("no such file") }
         
         var baseUri = SERD_URI_NULL
         var base = SERD_NODE_NULL
+        if let b = _base {
+            base = serd_node_new_uri_from_string(b, &baseUri, nil)
+        } else {
+            base = serd_node_new_file_uri(input, nil, &baseUri, false)
+        }
         
         guard let env = serd_env_new(&base) else { throw RDFParserError.internalError("Failed to construct parser context") }
-        base = serd_node_new_file_uri(input, nil, &baseUri, false)
-        
+
         var context = ParserContext(env: env, handler: handleTriple)
         try withUnsafePointer(to: &context) { (ctx) throws -> Void in
             guard let reader = serd_reader_new(inputSyntax.serdSyntax, UnsafeMutableRawPointer(mutating: ctx), free_handle, base_sink, prefix_sink, statement_sink, end_sink) else { fatalError() }
