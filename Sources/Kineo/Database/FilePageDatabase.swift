@@ -140,12 +140,12 @@ public final class FilePageDatabase: Database {
         nextPageId = pageCount
     }
 
-    public func read(cb callback: (ReadMediator) -> ()) throws {
+    public func read(cb callback: (ReadMediator) throws -> ()) rethrows {
         let r = FilePageRMediator(database: self)
         #if os (OSX)
-            autoreleasepool { callback(r) }
+            try autoreleasepool { try callback(r) }
         #else
-            callback(r)
+            try callback(r)
         #endif
     }
 

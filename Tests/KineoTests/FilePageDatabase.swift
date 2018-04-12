@@ -41,7 +41,7 @@ class FilePageDatabaseTest: XCTestCase {
         }
 
         XCTAssertEqual(database.pageCount, 2)
-        try database.read { (m) in
+        database.read { (m) in
             guard let pid = try? m.getRoot(named: treeName) else { XCTFail(); return }
             XCTAssertEqual(pid, 1, "An empty tree created in a fresh database should appear on page 1")
         }
@@ -55,7 +55,7 @@ class FilePageDatabaseTest: XCTestCase {
         }
 
         XCTAssertEqual(database.pageCount, 3)
-        try database.read { (m) in
+        database.read { (m) in
             guard let pid = try? m.getRoot(named: treeName) else { XCTFail(); return }
             XCTAssertEqual(pid, 2, "After inserting pairs into the tree which all fit in one page, the root should appear on page 2")
         }
@@ -67,7 +67,7 @@ class FilePageDatabaseTest: XCTestCase {
         }
 
         XCTAssertEqual(database.pageCount, 6)
-        try database.read { (m) in
+        database.read { (m) in
             guard let pid = try? m.getRoot(named: treeName) else { XCTFail(); return }
             XCTAssertEqual(pid, 5, "After inserting pairs that cause a root split, the root should appear on page 5")
         }

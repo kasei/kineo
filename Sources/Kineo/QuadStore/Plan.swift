@@ -79,6 +79,41 @@ public indirect enum ResultPlan {
 //    case window(TermGroupPlan, [(WindowFunction, Variable, [(Expression, Bool)])])
 }
 
+extension IDListPlan {
+    public func serialize(depth: Int=0) -> String {
+        let indent = String(repeating: " ", count: (depth*2))
+        var s = ""
+        switch self {
+        case .quad(let subj, let p, let o, let g):
+            s += "\(indent)Quad(\(subj), \(p), \(o), \(g)\n"
+        case .hashJoin(let lhs, let rhs):
+            s += "\(indent)Hash Join:\n"
+            s += lhs.serialize(depth: depth+1)
+            s += rhs.serialize(depth: depth+1)
+        case .graphNames(let v):
+            s += "\(indent)$\(v) <- Graph Names\n"
+        }
+        return s
+    }
+}
+
+extension ResultPlan {
+    public func serialize(depth: Int=0) -> String {
+        let indent = String(repeating: " ", count: (depth*2))
+        var s = ""
+        switch self {
+        case .idListPlan(let p, let vars):
+            s += "\(indent)ID Plan (variables: \(vars)):\n"
+            s += p.serialize(depth: depth+1)
+        case .hashJoin(let lhs, let rhs):
+            s += "\(indent)Hash Join:\n"
+            s += lhs.serialize(depth: depth+1)
+            s += rhs.serialize(depth: depth+1)
+        }
+        return s
+    }
+}
+
 public class ResultPlanEvaluator {
     var store: QuadStore
     var ide: IDPlanEvaluator
@@ -228,7 +263,7 @@ public class QuadStorePlanner {
                 return .hashJoin(l, r)
             }
         default:
-            fatalError("Cannot plan \(algebra)")
+            fatalError("Cannot plan algebra:\n\(algebra.serialize())")
         }
     }
 }
