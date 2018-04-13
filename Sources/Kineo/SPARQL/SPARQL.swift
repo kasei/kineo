@@ -1861,6 +1861,7 @@ public struct SPARQLParser {
         var args = [Algebra]()
         var ok = true
         var allowTriplesBlock = true
+        var filters = [UnfinishedAlgebra]()
         while ok {
             let t = try peekExpectedToken()
             if t.isTermOrVar {
@@ -1884,10 +1885,13 @@ public struct SPARQLParser {
                         throw parseError("Could not parse GraphPatternNotTriples in GroupGraphPatternSub (near \(t))")
                     }
 
-                    // TODO: this isn't right. it needs to be a post-processing step to allow filters to be applied late, but things like BIND and OPTIONAL to close immediately
-                    let algebra = unfinished.finish(&args)
+                    if case .filter(_) = unfinished {
+                        filters.append(unfinished)
+                    } else {
+                        let algebra = unfinished.finish(&args)
+                        args.append(algebra)
+                    }
                     allowTriplesBlock = true
-                    args.append(algebra)
                     try attempt(token: .dot)
                 default:
                     ok = false
@@ -1895,9 +1899,12 @@ public struct SPARQLParser {
             }
         }
 
-        let reordered = args // TODO: try reorderTrees(args)
-        
-        return reordered.reduce(.joinIdentity, joinReduction)
+        for f in filters {
+            let algebra = f.finish(&args)
+            args.append(algebra)
+        }
+        let algebra = args.reduce(.joinIdentity, joinReduction)
+        return algebra
     }
 
     private mutating func parseBind() throws -> UnfinishedAlgebra {
