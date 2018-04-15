@@ -286,7 +286,7 @@ public struct Term: CustomStringConvertible {
         if parts.count > 1 {
             let zero = UInt8("0".unicodeScalars.first!.value)
             bytes = Array(parts[1].utf8.map { $0 - zero })
-            while bytes.count > 0 && bytes.last! == 0 {
+            while bytes.count > 1 && bytes.last! == 0 {
                 bytes.removeLast()
             }
         }

@@ -183,7 +183,7 @@ class TermIdentityMapTest: XCTestCase {
     
     let expectedDecimals : [UInt64:String] = [
         0x0200000000007b: "1.23",
-        0x00000000000313: "787.0",
+        0x01000000001ebe: "787.0",
         0x0280000000007b: "-1.23",
         0x04000000000023: "0.0035",
         0x04800000000023: "-0.0035",
