@@ -390,6 +390,15 @@ extension PropertyPath {
 }
 
 extension Expression {
+    public var needsSurroundingParentheses: Bool {
+        switch self {
+        case .isiri(_), .isblank(_), .isliteral(_), .isnumeric(_), .exists(_), .not(.exists(_)), .call(_):
+            return false
+        default:
+            return true
+        }
+    }
+    
     public func sparqlTokens() -> AnySequence<SPARQLToken> {
         var tokens = [SPARQLToken]()
         switch self {
@@ -724,7 +733,13 @@ extension Algebra {
             tokens.append(contentsOf: rhs.sparqlTokens(depth: depth+1))
             if expr != .node(.bound(Term.trueValue)) {
                 tokens.append(.keyword("FILTER"))
-                tokens.append(contentsOf: expr.sparqlTokens())
+                if expr.needsSurroundingParentheses {
+                    tokens.append(.lparen)
+                    tokens.append(contentsOf: expr.sparqlTokens())
+                    tokens.append(.rparen)
+                } else {
+                    tokens.append(contentsOf: expr.sparqlTokens())
+                }
             }
             tokens.append(.rbrace)
             return AnySequence(tokens)
@@ -742,7 +757,13 @@ extension Algebra {
             var tokens = [SPARQLToken]()
             tokens.append(contentsOf: lhs.sparqlTokens(depth: depth))
             tokens.append(.keyword("FILTER"))
-            tokens.append(contentsOf: expr.sparqlTokens())
+            if expr.needsSurroundingParentheses {
+                tokens.append(.lparen)
+                tokens.append(contentsOf: expr.sparqlTokens())
+                tokens.append(.rparen)
+            } else {
+                tokens.append(contentsOf: expr.sparqlTokens())
+            }
             return AnySequence(tokens)
         case .union(let lhs, let rhs):
             var tokens = [SPARQLToken]()
@@ -938,5 +959,37 @@ extension Algebra {
         case .window(let lhs, let groups, let funcs):
             fatalError("TODO: implement sparqlTokens() on window: \(lhs) \(groups) \(funcs)")
         }
+    }
+}
+
+extension Query {
+    public var sparqlTokens: AnySequence<SPARQLToken> {
+        var tokens = [SPARQLToken]()
+        switch self.form {
+        case .select:
+            tokens.append(.keyword("SELECT"))
+            tokens.append(.star) // TODO: fix serialization of SELECT projection
+            tokens.append(.keyword("WHERE"))
+            tokens.append(.lbrace)
+            tokens.append(contentsOf: self.algebra.sparqlTokens(depth: 0))
+            tokens.append(.rbrace)
+        case .ask:
+            tokens.append(.keyword("ASK"))
+            tokens.append(.lbrace)
+            tokens.append(contentsOf: self.algebra.sparqlTokens(depth: 0))
+            tokens.append(.rbrace)
+        case .describe(let nodes):
+            tokens.append(.keyword("DESCRIBE"))
+            for n in nodes {
+                tokens.append(contentsOf: n.sparqlTokens)
+            }
+            tokens.append(.keyword("WHERE"))
+            tokens.append(.lbrace)
+            tokens.append(contentsOf: self.algebra.sparqlTokens(depth: 0))
+            tokens.append(.rbrace)
+        case .construct(let patterns):
+            fatalError("TODO: implement sparqlTokens for CONSTRUCT query: \(patterns)")
+        }
+        return AnySequence(tokens)
     }
 }
