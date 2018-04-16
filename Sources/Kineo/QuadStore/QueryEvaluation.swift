@@ -40,29 +40,29 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
     public func evaluate(algebra: Algebra, activeGraph: Term) throws -> AnyIterator<TermResult> {
         switch algebra {
         // don't require access to the underlying store:
-        case .subselect(let a):
-            return try evaluate(algebra: a, activeGraph: activeGraph)
+        case let .subquery(q):
+            return try evaluate(query: q, activeGraph: activeGraph)
         case .unionIdentity:
             let results = [TermResult]()
             return AnyIterator(results.makeIterator())
         case .joinIdentity:
             let results = [TermResult(bindings: [:])]
             return AnyIterator(results.makeIterator())
-        case .table(_, let results):
+        case let .table(_, results):
             return AnyIterator(results.makeIterator())
-        case .innerJoin(let lhs, let rhs):
+        case let .innerJoin(lhs, rhs):
             return try self.evaluateJoin(lhs: lhs, rhs: rhs, left: false, activeGraph: activeGraph)
-        case .leftOuterJoin(let lhs, let rhs, let expr):
+        case let .leftOuterJoin(lhs, rhs, expr):
             return try self.evaluateLeftJoin(lhs: lhs, rhs: rhs, expression: expr, activeGraph: activeGraph)
-        case .union(let lhs, let rhs):
+        case let .union(lhs, rhs):
             return try self.evaluateUnion([lhs, rhs], activeGraph: activeGraph)
-        case .project(let child, let vars):
+        case let .project(child, vars):
             let i = try self.evaluate(algebra: child, activeGraph: activeGraph)
             return AnyIterator {
                 guard let result = i.next() else { return nil }
                 return result.projected(variables: vars)
             }
-        case .slice(let child, let offset, let limit):
+        case let .slice(child, offset, limit):
             let i = try self.evaluate(algebra: child, activeGraph: activeGraph)
             if let offset = offset {
                 for _ in 0..<offset {
@@ -81,7 +81,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
             } else {
                 return i
             }
-        case .extend(let child, let expr, let name):
+        case let .extend(child, expr, name):
             let i = try self.evaluate(algebra: child, activeGraph: activeGraph)
             if expr.isNumeric {
                 return AnyIterator {
@@ -110,11 +110,11 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
                     return result
                 }
             }
-        case .order(let child, let orders):
+        case let .order(child, orders):
             let results = try Array(self.evaluate(algebra: child, activeGraph: activeGraph))
             let s = _sortResults(results, comparators: orders)
             return AnyIterator(s.makeIterator())
-        case .aggregate(let child, let groups, let aggs):
+        case let .aggregate(child, groups, aggs):
             if aggs.count == 1 {
                 let (agg, name) = aggs[0]
                 switch agg {
@@ -125,9 +125,9 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
                 }
             }
             return try evaluateAggregation(algebra: child, groups: groups, aggregations: aggs, activeGraph: activeGraph)
-        case .window(let child, let groups, let funcs):
+        case let .window(child, groups, funcs):
             return try evaluateWindow(algebra: child, groups: groups, functions: funcs, activeGraph: activeGraph)
-        case .filter(let child, let expr):
+        case let .filter(child, expr):
             let i = try self.evaluate(algebra: child, activeGraph: activeGraph)
             return AnyIterator {
                 repeat {
@@ -144,7 +144,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
                     }
                 } while true
             }
-        case .distinct(let child):
+        case let .distinct(child):
             let i = try self.evaluate(algebra: child, activeGraph: activeGraph)
             var seen = Set<TermResult>()
             return AnyIterator {
@@ -157,19 +157,19 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
             }
         case .bgp(_), .minus(_, _), .service(_):
             fatalError("Unimplemented: \(algebra)")
-        case .namedGraph(let child, .bound(let g)):
+        case let .namedGraph(child, .bound(g)):
             return try evaluate(algebra: child, activeGraph: g)
-        case .triple(let t):
+        case let .triple(t):
             let quad = QuadPattern(subject: t.subject, predicate: t.predicate, object: t.object, graph: .bound(activeGraph))
             return try evaluate(algebra: .quad(quad), activeGraph: activeGraph)
 
             
         // requires access to the underlying store:
-        case .quad(let quad):
+        case let .quad(quad):
             return try store.results(matching: quad)
-        case .path(let s, let path, let o):
+        case let .path(s, path, o):
             return try evaluatePath(subject: s, object: o, graph: .bound(activeGraph), path: path)
-        case .namedGraph(let child, let graph):
+        case let .namedGraph(child, graph):
             guard case .variable(let gv, let bind) = graph else { fatalError("Unexpected node found where variable required") }
             var iters = try store.graphs().filter { $0 != defaultGraph }.map { ($0, try evaluate(algebra: child, activeGraph: $0)) }
             return AnyIterator {
@@ -212,11 +212,11 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
             return 0
         case .table(_, _):
             return 0
-        case .innerJoin(let lhs, let rhs), .leftOuterJoin(let lhs, let rhs, _), .union(let lhs, let rhs), .minus(let lhs, let rhs):
+        case let .innerJoin(lhs, rhs), let .leftOuterJoin(lhs, rhs, _), let .union(lhs, rhs), let .minus(lhs, rhs):
             guard let lhsmtime = try effectiveVersion(matching: lhs, activeGraph: activeGraph) else { return nil }
             guard let rhsmtime = try effectiveVersion(matching: rhs, activeGraph: activeGraph) else { return lhsmtime }
             return max(lhsmtime, rhsmtime)
-        case .namedGraph(let child, let graph):
+        case let .namedGraph(child, graph):
             if case .bound(let g) = graph {
                 return try effectiveVersion(matching: child, activeGraph: g)
             } else {
@@ -676,7 +676,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
             return try evaluatePath(subject: object, object: subject, graph: graph, path: ipath)
         case .nps(let iris):
             return try evaluateNPS(subject: subject, object: object, graph: graph, not: iris)
-        case .alt(let lhs, let rhs):
+        case let .alt(lhs, rhs):
             let i = try evaluatePath(subject: subject, object: object, graph: graph, path: lhs)
             let j = try evaluatePath(subject: subject, object: object, graph: graph, path: rhs)
             var iters = [i, j]
@@ -691,7 +691,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
                 } while true
             }
 
-        case .seq(let lhs, let rhs):
+        case let .seq(lhs, rhs):
             let jvar = freshVariable()
             guard case .variable(let jvarname, _) = jvar else { fatalError(
                 ) }
