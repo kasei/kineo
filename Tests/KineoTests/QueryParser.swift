@@ -1,6 +1,20 @@
 import XCTest
 import Kineo
 
+#if os(Linux)
+extension QueryParserTest {
+    static var allTests : [(String, (QueryParserTest) -> () throws -> Void)] {
+        return [
+            ("testTriple", testTriple),
+            ("testQuad", testQuad),
+            ("testJoin", testJoin),
+            ("testUnion", testUnion),
+            ("testProject", testProject),
+        ]
+    }
+}
+#endif
+
 class QueryParserTest: XCTestCase {
 
     override func setUp() {

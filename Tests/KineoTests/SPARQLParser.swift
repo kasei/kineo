@@ -2,6 +2,47 @@ import XCTest
 import Foundation
 import Kineo
 
+#if os(Linux)
+extension SPARQLParserTest {
+    static var allTests : [(String, (SPARQLParserTest) -> () throws -> Void)] {
+        return [
+            ("testParser", testParser),
+            ("testLexer", testLexer),
+            ("testLexerPositionedTokens", testLexerPositionedTokens),
+            ("testLexerSingleQuotedStrings", testLexerSingleQuotedStrings),
+            ("testLexerDoubleQuotedStrings", testLexerDoubleQuotedStrings),
+            ("testProjectExpression", testProjectExpression),
+            ("testSubSelect", testSubSelect),
+            ("testBuiltinFunctionCallExpression", testBuiltinFunctionCallExpression),
+            ("testFunctionCallExpression", testFunctionCallExpression),
+            ("testAggregation1", testAggregation1),
+            ("testAggregation2", testAggregation2),
+            ("testAggregationGroupBy", testAggregationGroupBy),
+            ("testAggregationHaving", testAggregationHaving),
+            ("testInlineData1", testInlineData1),
+            ("testInlineData2", testInlineData2),
+            ("testFilterNotIn", testFilterNotIn),
+            ("testList", testList),
+            ("testConstruct", testConstruct),
+            ("testDescribe", testDescribe),
+            ("testNumericLiteral", testNumericLiteral),
+            ("testBind", testBind),
+            ("testConstructCollection1", testConstructCollection1),
+            ("testConstructCollection2", testConstructCollection2),
+            ("testConstructBlank", testConstructBlank),
+            ("testI18N", testI18N),
+            ("testIRIResolution", testIRIResolution),
+            ("testAggregationProjection1", testAggregationProjection1),
+            ("testAggregationProjection2", testAggregationProjection2),
+            ("testSubSelectAggregationProjection", testSubSelectAggregationProjection),
+            ("testSubSelectAggregationAcceptableProjection", testSubSelectAggregationAcceptableProjection),
+            ("testBadReuseOfBlankNodeIdentifier", testBadReuseOfBlankNodeIdentifier),
+            ("testAcceptableReuseOfBlankNodeIdentifier", testAcceptableReuseOfBlankNodeIdentifier),
+        ]
+    }
+}
+#endif
+
 // swiftlint:disable type_body_length
 class SPARQLParserTest: XCTestCase {
 

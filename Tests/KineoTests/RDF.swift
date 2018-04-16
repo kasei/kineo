@@ -2,6 +2,23 @@ import XCTest
 import Foundation
 import Kineo
 
+#if os(Linux)
+extension RDFTest {
+    static var allTests : [(String, (RDFTest) -> () throws -> Void)] {
+        return [
+            ("testConstructorInteger", testConstructorInteger),
+            ("testConstructorDecimal", testConstructorDecimal),
+            ("testConstructorDecimal2", testConstructorDecimal2),
+            ("testConstructorFloat", testConstructorFloat),
+            ("testConstructorFloat2", testConstructorFloat2),
+            ("testConstructorDouble", testConstructorDouble),
+            ("testConstructorDouble2", testConstructorDouble2),
+            ("testConstructorDouble3", testConstructorDouble3),
+        ]
+    }
+}
+#endif
+
 // swiftlint:disable type_body_length
 class RDFTest: XCTestCase {
     

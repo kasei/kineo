@@ -2,6 +2,17 @@ import Foundation
 import XCTest
 import Kineo
 
+#if os(Linux)
+extension TreesTest {
+    static var allTests : [(String, (TreesTest) -> () throws -> Void)] {
+        return [
+            ("testTreeData", testTreeData),
+            ("testTreeMtimes", testTreeMtimes),
+        ]
+    }
+}
+#endif
+
 class TreesTest: XCTestCase {
     var tempFilename: String!
 

@@ -3,6 +3,31 @@ import Foundation
 @testable import Kineo
 
 
+#if os(Linux)
+extension TermIdentityMapTest {
+    static var allTests : [(String, (TermIdentityMapTest) -> () throws -> Void)] {
+        return [
+            ("testIntegerToID", testIntegerToID),
+            ("testIDToInteger", testIDToInteger),
+            ("testIntToID", testIntToID),
+            ("testIDToInt", testIDToInt),
+            ("testCommonIRIToID", testCommonIRIToID),
+            ("testIDToCommonIRI", testIDToCommonIRI),
+            ("testInlinedStringToID", testInlinedStringToID),
+            ("testIDToInlinedString", testIDToInlinedString),
+            ("testBooleanToID", testBooleanToID),
+            ("testIDToBoolean", testIDToBoolean),
+            ("testDateToID", testDateToID),
+            ("testIDToDate", testIDToDate),
+            ("testDateTimeToID", testDateTimeToID),
+            ("testIDToDateTime", testIDToDateTime),
+            ("testDecimalToID", testDecimalToID),
+            ("testIDToDecimal", testIDToDecimal),
+        ]
+    }
+}
+#endif
+
 class MockTermIdentityMap: PackedIdentityMap {
     public typealias Item = Term
     public typealias Result = UInt64

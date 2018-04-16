@@ -2,6 +2,17 @@ import Foundation
 import XCTest
 import Kineo
 
+#if os(Linux)
+extension FilePageDatabaseTest {
+    static var allTests : [(String, (FilePageDatabaseTest) -> () throws -> Void)] {
+        return [
+            ("testOpen", testOpen),
+            ("testTreeData", testTreeData),
+        ]
+    }
+}
+#endif
+
 class FilePageDatabaseTest: XCTestCase {
     var tempFilename: String!
 

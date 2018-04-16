@@ -2,6 +2,17 @@ import XCTest
 import Foundation
 import Kineo
 
+#if os(Linux)
+extension SPARQLSerializationTest {
+    static var allTests : [(String, (SPARQLSerializationTest) -> () throws -> Void)] {
+        return [
+            ("testQuerySerializedTokens_1", testQuerySerializedTokens_1),
+            ("testQuerySerializedTokens_2", testQuerySerializedTokens_2),
+        ]
+    }
+}
+#endif
+
 // swiftlint:disable type_body_length
 class SPARQLSerializationTest: XCTestCase {
     
@@ -42,7 +53,7 @@ class SPARQLSerializationTest: XCTestCase {
 //            .rbrace,
 //            ])
 //    }
-//    
+//
 //    func testNonProjectedSPARQLTokens() {
 //        let subj: Node = .bound(Term(value: "b", type: .blank))
 //        let type: Node = .bound(Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type", type: .iri))
@@ -52,7 +63,7 @@ class SPARQLSerializationTest: XCTestCase {
 //        let t1 = TriplePattern(subject: subj, predicate: type, object: vtype)
 //        let t2 = TriplePattern(subject: subj, predicate: name, object: vname)
 //        let algebra: Algebra = .innerJoin(.triple(t1), .triple(t2))
-//        
+//
 //        let tokens = Array(algebra.sparqlTokens(depth: 0))
 //        XCTAssertEqual(tokens, [
 //            .bnode("b"),
@@ -64,7 +75,7 @@ class SPARQLSerializationTest: XCTestCase {
 //            ._var("name"),
 //            .dot,
 //            ])
-//        
+//
 //        let qtokens = Array(algebra.sparqlQueryTokens())
 //        XCTAssertEqual(qtokens, [
 //            .keyword("SELECT"),
@@ -83,7 +94,7 @@ class SPARQLSerializationTest: XCTestCase {
 //            .rbrace,
 //            ])
 //    }
-//    
+//
 //    func testQueryModifiedSPARQLSerialization1() {
 //        let subj: Node = .bound(Term(value: "b", type: .blank))
 //        let type: Node = .bound(Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type", type: .iri))
@@ -93,7 +104,7 @@ class SPARQLSerializationTest: XCTestCase {
 //        let t1 = TriplePattern(subject: subj, predicate: type, object: vtype)
 //        let t2 = TriplePattern(subject: subj, predicate: name, object: vname)
 //        let algebra: Algebra = .slice(.order(.innerJoin(.triple(t1), .triple(t2)), [(false, .node(.variable("name", binding: false)))]), nil, 5)
-//        
+//
 //        let qtokens = Array(algebra.sparqlQueryTokens())
 //        XCTAssertEqual(qtokens, [
 //            .keyword("SELECT"),
@@ -119,21 +130,21 @@ class SPARQLSerializationTest: XCTestCase {
 //            .keyword("LIMIT"),
 //            .integer("5")
 //            ])
-//        
+//
 //        let s = SPARQLSerializer()
 //        let sparql = s.serialize(algebra.sparqlQueryTokens())
 //        let expected = "SELECT ?name ?type WHERE { _:b a ?type . _:b <http://xmlns.com/foaf/0.1/name> ?name . } ORDER BY DESC ( ?name ) LIMIT 5"
-//        
+//
 //        XCTAssertEqual(sparql, expected)
 //    }
-//    
+//
 //    func testQueryModifiedSPARQLSerialization2() {
 //        let subj: Node = .bound(Term(value: "b", type: .blank))
 //        let name: Node = .bound(Term(value: "http://xmlns.com/foaf/0.1/name", type: .iri))
 //        let vname: Node = .variable("name", binding: true)
 //        let t = TriplePattern(subject: subj, predicate: name, object: vname)
 //        let algebra: Algebra = .order(.slice(.triple(t), nil, 5), [(false, .node(.variable("name", binding: false)))])
-//        
+//
 //        let qtokens = Array(algebra.sparqlQueryTokens())
 //        // SELECT * WHERE { { SELECT * WHERE { _:b foaf:name ?name . } LIMIT 5 } } ORDER BY DESC(?name)
 //        XCTAssertEqual(qtokens, [

@@ -1,6 +1,39 @@
 import XCTest
 import Kineo
 
+#if os(Linux)
+extension QueryEvaluationTest {
+    static var allTests : [(String, (QueryEvaluationTest) -> () throws -> Void)] {
+        return [
+            ("testTripleEval", testTripleEval),
+            ("testQuadEvalNoSuchGraph", testQuadEvalNoSuchGraph),
+            ("testQuadEval", testQuadEval),
+            ("testTripleEvalWithBoundPredicate", testTripleEvalWithBoundPredicate),
+            ("testFilterEval", testFilterEval),
+            ("testUnionEval", testUnionEval),
+            ("testProjectEval", testProjectEval),
+            ("testJoinEval", testJoinEval),
+            ("testLeftJoinEval", testLeftJoinEval),
+            ("testLimitEval", testLimitEval),
+            ("testCountAllEval", testCountAllEval),
+            ("testCountAllEvalWithGroup", testCountAllEvalWithGroup),
+            ("testCountEval", testCountEval),
+            ("testSumEval", testSumEval),
+            ("testAvgEval", testAvgEval),
+            ("testMultiAggEval", testMultiAggEval),
+            ("testSortEval", testSortEval),
+            ("testIRINamedGraphEval", testIRINamedGraphEval),
+            ("testVarNamedGraphEval", testVarNamedGraphEval),
+            ("testExtendEval", testExtendEval),
+            ("testHashFunctions", testHashFunctions),
+            ("testTermAccessors", testTermAccessors),
+            ("testAggregationProjection", testAggregationProjection),
+            ("testEmptyAggregation", testEmptyAggregation),
+        ]
+    }
+}
+#endif
+
 struct TestStore: QuadStoreProtocol {
     typealias IDType = Term
 

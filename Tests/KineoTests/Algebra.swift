@@ -1,6 +1,22 @@
 import XCTest
 import Foundation
-import Kineo
+@testable import Kineo
+
+#if os(Linux)
+extension AlgebraTest {
+    static var allTests : [(String, (AlgebraTest) -> () throws -> Void)] {
+        return [
+            ("testReplacement1", testReplacement1),
+            ("testReplacement2", testReplacement2),
+            ("testJoinIdentityReplacement", testJoinIdentityReplacement),
+            ("testFilterExpressionReplacement", testFilterExpressionReplacement),
+            ("testExpressionReplacement", testExpressionReplacement),
+            ("testNodeBinding", testNodeBinding),
+            ("testNodeBindingWithProjection", testNodeBindingWithProjection),
+        ]
+    }
+}
+#endif
 
 // swiftlint:disable type_body_length
 class AlgebraTest: XCTestCase {
