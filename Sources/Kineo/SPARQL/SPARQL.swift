@@ -1783,7 +1783,7 @@ public struct SPARQLParser {
     // swiftlint:disable:next function_parameter_count
     private mutating func parseSolutionModifier(algebra: Algebra, distinct: Bool, projection: SelectProjection, projectExpressions: [(Expression, String)], aggregation: [String:Aggregation], valuesBlock: Algebra?) throws -> Algebra {
         var algebra = algebra
-        let aggregations = aggregation.map { ($0.1, $0.0) }
+        let aggregations = aggregation.map { ($0.1, $0.0) }.sorted { $0.1 <= $1.1 }
         if try attempt(token: .keyword("GROUP")) {
             try expect(token: .keyword("BY"))
             var groups = [Expression]()
