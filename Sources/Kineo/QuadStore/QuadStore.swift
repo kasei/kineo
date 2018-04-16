@@ -574,6 +574,7 @@ public class PersistentTermIdentityMap: PackedIdentityMap, Sequence {
 
     private static func loadMaxIDs(from tree: Tree<Result, Item>, mediator: RMediator) -> (UInt64, UInt64, UInt64, UInt64) {
         let mask        = UInt64(0x00ffffffffffffff)
+        // OPTIMIZE: store maxKeys for each of these in the database in a way that doesn't require tree walks to initialize the QuadStore
         let blankMax    = (tree.maxKey(in: PackedTermType.blank.idRange) ?? 0) & mask
         let iriMax      = (tree.maxKey(in: PackedTermType.iri.idRange) ?? 0) & mask
         let languageMax = (tree.maxKey(in: PackedTermType.language.idRange) ?? 0) & mask
