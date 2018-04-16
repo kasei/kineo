@@ -833,50 +833,6 @@ extension Algebra {
             // Projection, ordering, distinct, and slice serialization happens in Query.sparqlTokens, so this just serializes the child algebra
             tokens.append(contentsOf: lhs.sparqlTokens(depth: depth+1))
             return AnySequence(tokens)
-//        case .slice(let lhs, let offset, let limit):
-//            var tokens = [SPARQLToken]()
-//            tokens.append(contentsOf: lhs.sparqlTokens(depth: depth))
-//            var append = [SPARQLToken]()
-//            if depth > 0 {
-//                if let t = tokens.popLast() {
-//                    guard case .rbrace = t else { fatalError("Expected closing brace but found \(t)") }
-//                    append.append(t)
-//                }
-//            }
-//            if let offset = offset {
-//                tokens.append(.keyword("OFFSET"))
-//                tokens.append(.integer("\(offset)"))
-//            }
-//            if let limit = limit {
-//                tokens.append(.keyword("LIMIT"))
-//                tokens.append(.integer("\(limit)"))
-//            }
-//            tokens.append(contentsOf: append)
-//            return AnySequence(tokens)
-//        case .order(let lhs, let cmps):
-//            //(Bool, Expression)
-//            var tokens = Array(lhs.sparqlTokens(depth: depth))
-//            var append = [SPARQLToken]()
-//            if depth > 0 {
-//                if let t = tokens.popLast() {
-//                    guard case .rbrace = t else { fatalError("Expected closing brace but found \(t)") }
-//                    append.append(t)
-//                }
-//            }
-//            tokens.append(.keyword("ORDER"))
-//            tokens.append(.keyword("BY"))
-//            for (asc, expr) in cmps {
-//                if asc {
-//                    tokens.append(contentsOf: expr.sparqlTokens())
-//                } else {
-//                    tokens.append(.keyword("DESC"))
-//                    tokens.append(.lparen)
-//                    tokens.append(contentsOf: expr.sparqlTokens())
-//                    tokens.append(.rparen)
-//                }
-//            }
-//            tokens.append(contentsOf: append)
-//            return AnySequence(tokens)
         case .path(let lhs, let path, let rhs):
             var tokens = [SPARQLToken]()
             tokens.append(contentsOf: lhs.sparqlTokens)
@@ -900,11 +856,13 @@ extension Algebra {
 
 extension Query {
     public var sparqlTokens: AnySequence<SPARQLToken> {
-        // TODO: handle serialization for DISTINCT, ORDER BY, LIMIT, and OFFSET
         var tokens = [SPARQLToken]()
         switch self.form {
         case .select(.star):
             tokens.append(.keyword("SELECT"))
+            if self.algebra.distinct {
+                tokens.append(.keyword("DISTINCT"))
+            }
             tokens.append(.star)
             tokens.append(.keyword("WHERE"))
             tokens.append(.lbrace)
@@ -912,6 +870,9 @@ extension Query {
             tokens.append(.rbrace)
         case .select(.variables(let vars)):
             tokens.append(.keyword("SELECT"))
+            if self.algebra.distinct {
+                tokens.append(.keyword("DISTINCT"))
+            }
             for v in vars {
                 let v : Node = .variable(v, binding: true)
                 tokens.append(contentsOf: v.sparqlTokens)
@@ -946,6 +907,102 @@ extension Query {
             tokens.append(contentsOf: self.algebra.sparqlTokens(depth: 0))
             tokens.append(.rbrace)
         }
+        
+        switch self.form {
+        case .select(_):
+            if let cmps = self.algebra.sortComparators {
+                tokens.append(.keyword("ORDER"))
+                tokens.append(.keyword("BY"))
+                for (asc, expr) in cmps {
+                    if asc {
+                        tokens.append(contentsOf: expr.sparqlTokens())
+                    } else {
+                        tokens.append(.keyword("DESC"))
+                        tokens.append(.lparen)
+                        tokens.append(contentsOf: expr.sparqlTokens())
+                        tokens.append(.rparen)
+                    }
+                }
+            }
+        default:
+            break
+        }
+
+        switch self.form {
+        case .select(_), .construct(_):
+            if let offset = self.algebra.offset {
+                tokens.append(.keyword("OFFSET"))
+                tokens.append(.integer("\(offset)"))
+            }
+            if let limit = self.algebra.limit {
+                tokens.append(.keyword("LIMIT"))
+                tokens.append(.integer("\(limit)"))
+            }
+        default:
+            break
+        }
         return AnySequence(tokens)
+    }
+}
+
+public extension Algebra {
+    var sortComparators: [SortComparator]? {
+        switch self {
+        case .unionIdentity, .joinIdentity:
+            return nil
+        case .table(_, _), .quad(_), .triple(_), .bgp(_), .innerJoin(_, _), .leftOuterJoin(_, _, _),
+             .union(_, _), .minus(_, _), .service(_, _, _), .path(_, _, _),
+             .aggregate(_, _, _), .window(_, _, _), .subquery(_):
+            return nil
+        case .filter(let child, _), .namedGraph(let child, _), .extend(let child, _, _), .project(let child, _), .slice(let child, _, _), .distinct(let child):
+            return child.sortComparators
+        case .order(_, let cmps):
+            return cmps
+        }
+    }
+    
+    var distinct: Bool {
+        switch self {
+        case .distinct(_):
+            return true
+        case .unionIdentity, .joinIdentity:
+            return false
+        case .table(_, _), .quad(_), .triple(_), .bgp(_), .innerJoin(_, _), .leftOuterJoin(_, _, _),
+             .filter(_, _), .union(_, _), .minus(_, _), .service(_, _, _), .path(_, _, _), .namedGraph(_, _),
+             .aggregate(_, _, _), .window(_, _, _), .subquery(_), .project(_, _):
+            return false
+        case .extend(let child, _, _), .order(let child, _), .slice(let child, _, _):
+            return child.distinct
+        }
+    }
+    
+    var limit: Int? {
+        switch self {
+        case .unionIdentity, .joinIdentity:
+            return nil
+        case .table(_, _), .quad(_), .triple(_), .bgp(_), .innerJoin(_, _), .leftOuterJoin(_, _, _),
+             .filter(_, _), .union(_, _), .minus(_, _), .distinct(_), .service(_, _, _), .path(_, _, _),
+             .aggregate(_, _, _), .window(_, _, _), .subquery(_):
+            return nil
+        case .namedGraph(let child, _), .extend(let child, _, _), .project(let child, _), .order(let child, _):
+            return child.limit
+        case .slice(_, _, let l):
+            return l
+        }
+    }
+    
+    var offset: Int? {
+        switch self {
+        case .unionIdentity, .joinIdentity:
+            return nil
+        case .table(_, _), .quad(_), .triple(_), .bgp(_), .innerJoin(_, _), .leftOuterJoin(_, _, _),
+             .filter(_, _), .union(_, _), .minus(_, _), .distinct(_), .service(_, _, _), .path(_, _, _),
+             .aggregate(_, _, _), .window(_, _, _), .subquery(_):
+            return nil
+        case .namedGraph(let child, _), .extend(let child, _, _), .project(let child, _), .order(let child, _):
+            return child.offset
+        case .slice(_, let o, _):
+            return o
+        }
     }
 }

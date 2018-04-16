@@ -168,6 +168,12 @@ public struct Query : Equatable {
     public var form: QueryForm
     public var algebra: Algebra
     public var dataset: Dataset?
+    
+    init(form: QueryForm, algebra: Algebra, dataset: Dataset? = nil) {
+        self.form = form
+        self.algebra = algebra
+        self.dataset = dataset
+    }
 }
 
 public indirect enum Algebra {
