@@ -160,8 +160,13 @@ class SPARQLParserTest: XCTestCase {
             }
 
             XCTAssertEqual(variables, ["x"])
+
+            guard case .subquery(let q) = algebra else {
+                XCTFail("Unexpected algebra: \(algebra.serialize())")
+                return
+            }
             
-            guard case .subselect(.project(_, let subvariables)) = algebra else {
+            guard case .project(_, let subvariables) = q.algebra else {
                 XCTFail("Unexpected algebra: \(algebra.serialize())")
                 return
             }

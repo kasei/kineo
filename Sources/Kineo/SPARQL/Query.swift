@@ -143,19 +143,19 @@ extension PropertyPath : Equatable {
     }
 }
 
-public enum SelectProjection {
+public enum SelectProjection : Equatable {
     case star
     case variables([String])
 }
 
-public enum QueryForm {
+public enum QueryForm : Equatable {
     case select(SelectProjection)
     case ask
     case construct([TriplePattern])
     case describe([Node])
 }
 
-public struct Dataset {
+public struct Dataset : Equatable {
     var defaultGraphs: [Term]
     var namedGraphs: [Term]
     
@@ -164,7 +164,7 @@ public struct Dataset {
     }
 }
 
-public struct Query {
+public struct Query : Equatable {
     public var form: QueryForm
     public var algebra: Algebra
     public var dataset: Dataset?
@@ -194,7 +194,7 @@ public indirect enum Algebra {
     case path(Node, PropertyPath, Node)
     case aggregate(Algebra, [Expression], [(Aggregation, String)])
     case window(Algebra, [Expression], [(WindowFunction, [SortComparator], String)])
-    case subselect(Algebra)
+    case subquery(Query)
 }
 
 extension Algebra : Equatable {
@@ -220,7 +220,7 @@ extension Algebra : Equatable {
             return true
         case (.distinct(let l), .distinct(let r)) where l == r:
             return true
-        case (.subselect(let l), .subselect(let r)) where l == r:
+        case (.subquery(let l), .subquery(let r)) where l == r:
             return true
         case (.filter(let la, let le), .filter(let ra, let re)) where la == ra && le == re:
             return true
@@ -402,7 +402,7 @@ public extension Algebra {
                 d += "\(indent)  \(result)\n"
             }
             return d
-        case .subselect(let a):
+        case .subquery(let a):
             var d = "\(indent)Sub-select\n"
             d += a.serialize(depth: depth+1)
             return d
@@ -410,6 +410,11 @@ public extension Algebra {
     }
 }
 
+public extension Query {
+    public var inscope: Set<String> {
+        return self.algebra.inscope
+    }
+}
 public extension Algebra {
     private func inscopeUnion(children: [Algebra]) -> Set<String> {
         if children.count == 0 {
@@ -466,7 +471,9 @@ public extension Algebra {
             var variables = child.inscope
             variables.insert(v)
             return variables
-        case .subselect(let child), .filter(let child, _), .minus(let child, _), .distinct(let child), .slice(let child, _, _), .namedGraph(let child, .bound(_)), .order(let child, _), .service(_, let child, _):
+        case .subquery(let q):
+            return q.inscope
+        case .filter(let child, _), .minus(let child, _), .distinct(let child), .slice(let child, _, _), .namedGraph(let child, .bound(_)), .order(let child, _), .service(_, let child, _):
             return child.inscope
         case .namedGraph(let child, .variable(let v, let bind)):
             var variables = child.inscope
@@ -529,7 +536,7 @@ public extension Algebra {
     
     public var isAggregation: Bool {
         switch self {
-        case .joinIdentity, .unionIdentity, .triple(_), .quad(_), .bgp(_), .path(_), .window(_), .table(_), .subselect(_):
+        case .joinIdentity, .unionIdentity, .triple(_), .quad(_), .bgp(_), .path(_), .window(_), .table(_), .subquery(_):
             return false
             
         case .project(let child, _), .minus(let child, _), .distinct(let child), .slice(let child, _, _), .namedGraph(let child, _), .order(let child, _), .service(_, let child, _):
@@ -549,11 +556,23 @@ public extension Algebra {
     }
 }
 
+public extension Query {
+    func replace(_ map: (Expression) -> Expression?) -> Query {
+        let algebra = self.algebra.replace(map)
+        return Query(form: self.form, algebra: algebra, dataset: self.dataset)
+    }
+
+    func replace(_ map: (Algebra) -> Algebra?) -> Query {
+        let algebra = self.algebra.replace(map)
+        return Query(form: self.form, algebra: algebra, dataset: self.dataset)
+    }
+}
+
 public extension Algebra {
     func replace(_ map: (Expression) -> Expression?) -> Algebra {
         switch self {
-        case .subselect(let a):
-            return .subselect(a.replace(map))
+        case .subquery(let q):
+            return .subquery(q.replace(map))
         case .unionIdentity, .joinIdentity, .triple(_), .quad(_), .path(_), .bgp(_), .table(_):
             return self
         case .distinct(let a):
@@ -607,8 +626,8 @@ public extension Algebra {
             return r
         } else {
             switch self {
-            case .subselect(let a):
-                return .subselect(a.replace(map))
+            case .subquery(let q):
+                return .subquery(q.replace(map))
             case .unionIdentity, .joinIdentity, .triple(_), .quad(_), .path(_), .bgp(_), .table(_):
                 return self
             case .distinct(let a):

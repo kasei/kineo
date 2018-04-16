@@ -670,6 +670,14 @@ class ExpressionEvaluator {
         self.bnodes = [:]
     }
     
+    private func _random() -> UInt32 {
+        #if os(Linux)
+        return UInt32(random() % Int(UInt32.max))
+        #else
+        return arc4random()
+        #endif
+    }
+    
     private func evaluate(dateFunction: DateFunction, terms: [Term?]) throws -> Term {
         if dateFunction == .now {
             if #available (OSX 10.12, *) {
@@ -895,7 +903,7 @@ class ExpressionEvaluator {
     private func evaluate(expression: Expression, numericFunction: NumericFunction, terms: [Term?]) throws -> Term {
         switch numericFunction {
         case .rand:
-            let v = Double(arc4random()) / Double(UINT32_MAX)
+            let v = Double(_random()) / Double(UINT32_MAX)
             return Term(double: v)
         case .abs, .round, .ceil, .floor:
             guard terms.count == 1 else { throw QueryError.evaluationError("Wrong argument count for \(numericFunction) call") }
@@ -921,7 +929,7 @@ class ExpressionEvaluator {
     private func evaluate(numericFunction: NumericFunction, terms: [Term?]) throws -> Term {
         switch numericFunction {
         case .rand:
-            let v = Double(arc4random()) / Double(UINT32_MAX)
+            let v = Double(_random()) / Double(UINT32_MAX)
             return Term(double: v)
         case .abs, .round, .ceil, .floor:
             guard terms.count == 1 else { throw QueryError.evaluationError("Wrong argument count for \(numericFunction) call") }

@@ -1693,7 +1693,7 @@ public struct SPARQLParser {
             }
         }
 
-        return .subselect(algebra)
+        return .subquery(Query(form: .select(projection), algebra: algebra, dataset: nil))
     }
 
     private mutating func parseGroupCondition(_ algebra: inout Algebra) throws -> Node? {
@@ -3152,7 +3152,10 @@ extension Algebra {
         case .joinIdentity, .unionIdentity, .table(_, _):
             return Set()
 
-        case .subselect(let child), .filter(let child, _), .minus(let child, _), .distinct(let child), .slice(let child, _, _), .namedGraph(let child, _), .order(let child, _), .service(_, let child, _), .project(let child, _), .extend(let child, _, _), .aggregate(let child, _, _), .window(let child, _, _):
+        case .subquery(let q):
+            return try q.algebra.blankNodeLabels()
+            
+        case .filter(let child, _), .minus(let child, _), .distinct(let child), .slice(let child, _, _), .namedGraph(let child, _), .order(let child, _), .service(_, let child, _), .project(let child, _), .extend(let child, _, _), .aggregate(let child, _, _), .window(let child, _, _):
             return try child.blankNodeLabels()
 
 

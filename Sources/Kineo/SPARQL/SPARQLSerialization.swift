@@ -687,10 +687,8 @@ extension Algebra {
             }
         case .window(let lhs, let exprs, let funcs):
             return .window(lhs.serializableEquivalent, exprs, funcs)
-        case .subselect(.project(let lhs, let vars)):
-            return .subselect(.project(lhs.serializableEquivalent, vars))
-        case .subselect(let lhs):
-            return .subselect(.project(lhs.serializableEquivalent, Array(lhs.projectableVariables)))
+        case .subquery(_):
+            return self
         }
     }
     
@@ -804,26 +802,6 @@ extension Algebra {
             tokens.append(._var(name))
             tokens.append(.rparen)
             return AnySequence(tokens)
-        case .slice(let lhs, let offset, let limit):
-            var tokens = [SPARQLToken]()
-            tokens.append(contentsOf: lhs.sparqlTokens(depth: depth))
-            var append = [SPARQLToken]()
-            if depth > 0 {
-                if let t = tokens.popLast() {
-                    guard case .rbrace = t else { fatalError("Expected closing brace but found \(t)") }
-                    append.append(t)
-                }
-            }
-            if let offset = offset {
-                tokens.append(.keyword("OFFSET"))
-                tokens.append(.integer("\(offset)"))
-            }
-            if let limit = limit {
-                tokens.append(.keyword("LIMIT"))
-                tokens.append(.integer("\(limit)"))
-            }
-            tokens.append(contentsOf: append)
-            return AnySequence(tokens)
         case .table(let nodes, let results):
             var tokens = [SPARQLToken]()
             tokens.append(.keyword("VALUES"))
@@ -850,84 +828,55 @@ extension Algebra {
             }
             tokens.append(.rbrace)
             return AnySequence(tokens)
-        case .project(let lhs, let names):
+        case .project(let lhs, _), .distinct(let lhs), .slice(let lhs, _, _), .order(let lhs, _):
             var tokens = [SPARQLToken]()
-            if depth > 0 {
-                tokens.append(.lbrace)
-            }
-            tokens.append(.keyword("SELECT"))
-            /**
-             if Set(names) == lhs.inscope {
-             tokens.append(.star)
-             } else {
-             tokens.append(contentsOf: names.map { ._var($0) })
-             }
-             **/
-            tokens.append(contentsOf: names.map { ._var($0) })
-            tokens.append(.keyword("WHERE"))
-            tokens.append(.lbrace)
+            // Projection, ordering, distinct, and slice serialization happens in Query.sparqlTokens, so this just serializes the child algebra
             tokens.append(contentsOf: lhs.sparqlTokens(depth: depth+1))
-            tokens.append(.rbrace)
-            if depth > 0 {
-                tokens.append(.rbrace)
-            }
             return AnySequence(tokens)
-        case .distinct(.project(let lhs, let names)):
-            var tokens = [SPARQLToken]()
-            if depth > 0 {
-                tokens.append(.lbrace)
-            }
-            tokens.append(.keyword("SELECT"))
-            tokens.append(.keyword("DISTINCT"))
-            tokens.append(contentsOf: names.map { ._var($0) })
-            tokens.append(.keyword("WHERE"))
-            tokens.append(.lbrace)
-            tokens.append(contentsOf: lhs.sparqlTokens(depth: depth+1))
-            tokens.append(.rbrace)
-            if depth > 0 {
-                tokens.append(.rbrace)
-            }
-            return AnySequence(tokens)
-        case .distinct(let lhs):
-            var tokens = [SPARQLToken]()
-            if depth > 0 {
-                tokens.append(.lbrace)
-            }
-            tokens.append(.keyword("SELECT"))
-            tokens.append(.keyword("DISTINCT"))
-            tokens.append(.star)
-            tokens.append(.keyword("WHERE"))
-            tokens.append(.lbrace)
-            tokens.append(contentsOf: lhs.sparqlTokens(depth: depth+1))
-            tokens.append(.rbrace)
-            if depth > 0 {
-                tokens.append(.rbrace)
-            }
-            return AnySequence(tokens)
-        case .order(let lhs, let cmps):
-            //(Bool, Expression)
-            var tokens = Array(lhs.sparqlTokens(depth: depth))
-            var append = [SPARQLToken]()
-            if depth > 0 {
-                if let t = tokens.popLast() {
-                    guard case .rbrace = t else { fatalError("Expected closing brace but found \(t)") }
-                    append.append(t)
-                }
-            }
-            tokens.append(.keyword("ORDER"))
-            tokens.append(.keyword("BY"))
-            for (asc, expr) in cmps {
-                if asc {
-                    tokens.append(contentsOf: expr.sparqlTokens())
-                } else {
-                    tokens.append(.keyword("DESC"))
-                    tokens.append(.lparen)
-                    tokens.append(contentsOf: expr.sparqlTokens())
-                    tokens.append(.rparen)
-                }
-            }
-            tokens.append(contentsOf: append)
-            return AnySequence(tokens)
+//        case .slice(let lhs, let offset, let limit):
+//            var tokens = [SPARQLToken]()
+//            tokens.append(contentsOf: lhs.sparqlTokens(depth: depth))
+//            var append = [SPARQLToken]()
+//            if depth > 0 {
+//                if let t = tokens.popLast() {
+//                    guard case .rbrace = t else { fatalError("Expected closing brace but found \(t)") }
+//                    append.append(t)
+//                }
+//            }
+//            if let offset = offset {
+//                tokens.append(.keyword("OFFSET"))
+//                tokens.append(.integer("\(offset)"))
+//            }
+//            if let limit = limit {
+//                tokens.append(.keyword("LIMIT"))
+//                tokens.append(.integer("\(limit)"))
+//            }
+//            tokens.append(contentsOf: append)
+//            return AnySequence(tokens)
+//        case .order(let lhs, let cmps):
+//            //(Bool, Expression)
+//            var tokens = Array(lhs.sparqlTokens(depth: depth))
+//            var append = [SPARQLToken]()
+//            if depth > 0 {
+//                if let t = tokens.popLast() {
+//                    guard case .rbrace = t else { fatalError("Expected closing brace but found \(t)") }
+//                    append.append(t)
+//                }
+//            }
+//            tokens.append(.keyword("ORDER"))
+//            tokens.append(.keyword("BY"))
+//            for (asc, expr) in cmps {
+//                if asc {
+//                    tokens.append(contentsOf: expr.sparqlTokens())
+//                } else {
+//                    tokens.append(.keyword("DESC"))
+//                    tokens.append(.lparen)
+//                    tokens.append(contentsOf: expr.sparqlTokens())
+//                    tokens.append(.rparen)
+//                }
+//            }
+//            tokens.append(contentsOf: append)
+//            return AnySequence(tokens)
         case .path(let lhs, let path, let rhs):
             var tokens = [SPARQLToken]()
             tokens.append(contentsOf: lhs.sparqlTokens)
@@ -935,25 +884,12 @@ extension Algebra {
             tokens.append(contentsOf: rhs.sparqlTokens)
             tokens.append(.dot)
             return AnySequence(tokens)
-        case .subselect(.project(let lhs, let vars)):
+        case .subquery(let q):
             var tokens = [SPARQLToken]()
             tokens.append(.lbrace)
-            tokens.append(.keyword("SELECT"))
-            let v = Set(vars)
-            if v == lhs.projectableVariables {
-                tokens.append(.star)
-            } else {
-                for name in vars {
-                    let n : Node = .variable(name, binding: true)
-                    tokens.append(contentsOf: n.sparqlTokens)
-                }
-            }
-            tokens.append(.keyword("WHERE"))
-            tokens.append(contentsOf: lhs.sparqlTokens(depth: depth+1))
+            tokens.append(contentsOf: q.sparqlTokens)
             tokens.append(.rbrace)
             return AnySequence(tokens)
-        case .subselect(_):
-            fatalError("Cannot serialize a sub-select whose child is not a project operator")
         case .aggregate(let lhs, let groups, let aggs):
             fatalError("TODO: implement sparqlTokens() on aggregate: \(lhs) \(groups) \(aggs)")
         case .window(let lhs, let groups, let funcs):
@@ -964,6 +900,7 @@ extension Algebra {
 
 extension Query {
     public var sparqlTokens: AnySequence<SPARQLToken> {
+        // TODO: handle serialization for DISTINCT, ORDER BY, LIMIT, and OFFSET
         var tokens = [SPARQLToken]()
         switch self.form {
         case .select(.star):

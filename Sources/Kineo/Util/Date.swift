@@ -25,7 +25,7 @@ public class W3CDTFLocatedDateFormatter : ISO8601DateFormatter {
             guard let hours = Int(parts[0]) else { return nil }
             guard let minutes = Int(parts[1]) else { return nil }
             seconds = 60 * ((60 * hours) + minutes)
-            if tz.hasPrefix("-") {
+            if String(tz).hasPrefix("-") {
                 seconds = seconds * -1
             }
         }
