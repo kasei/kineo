@@ -267,9 +267,11 @@ public struct Term: CustomStringConvertible {
             mantissa /= 10.0
             exponent += 1
         }
-        while abs(mantissa) < 1.0 {
-            mantissa *= 10.0
-            exponent -= 1
+        if abs(mantissa) > 0.0 {
+            while abs(mantissa) < 1.0 {
+                mantissa *= 10.0
+                exponent -= 1
+            }
         }
         return (mantissa, exponent)
     }
