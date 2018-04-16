@@ -297,8 +297,12 @@ public extension Query {
             var d = "\(indent)Ask\n"
             d += algebra.serialize(depth: depth+1)
             return d
-        case .select:
-            var d = "\(indent)Select\n"
+        case .select(.star):
+            var d = "\(indent)Select { * }\n"
+            d += algebra.serialize(depth: depth+1)
+            return d
+        case .select(.variables(let v)):
+            var d = "\(indent)Select { \(v.joined(separator: ", ")) }\n"
             d += algebra.serialize(depth: depth+1)
             return d
         }
