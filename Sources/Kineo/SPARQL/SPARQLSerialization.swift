@@ -966,9 +966,19 @@ extension Query {
     public var sparqlTokens: AnySequence<SPARQLToken> {
         var tokens = [SPARQLToken]()
         switch self.form {
-        case .select:
+        case .select(.star):
             tokens.append(.keyword("SELECT"))
-            tokens.append(.star) // TODO: fix serialization of SELECT projection
+            tokens.append(.star)
+            tokens.append(.keyword("WHERE"))
+            tokens.append(.lbrace)
+            tokens.append(contentsOf: self.algebra.sparqlTokens(depth: 0))
+            tokens.append(.rbrace)
+        case .select(.variables(let vars)):
+            tokens.append(.keyword("SELECT"))
+            for v in vars {
+                let v : Node = .variable(v, binding: true)
+                tokens.append(contentsOf: v.sparqlTokens)
+            }
             tokens.append(.keyword("WHERE"))
             tokens.append(.lbrace)
             tokens.append(contentsOf: self.algebra.sparqlTokens(depth: 0))
@@ -988,7 +998,16 @@ extension Query {
             tokens.append(contentsOf: self.algebra.sparqlTokens(depth: 0))
             tokens.append(.rbrace)
         case .construct(let patterns):
-            fatalError("TODO: implement sparqlTokens for CONSTRUCT query: \(patterns)")
+            tokens.append(.keyword("CONSTRUCT"))
+            tokens.append(.lbrace)
+            for p in patterns {
+                tokens.append(contentsOf: p.sparqlTokens)
+            }
+            tokens.append(.rbrace)
+            tokens.append(.keyword("WHERE"))
+            tokens.append(.lbrace)
+            tokens.append(contentsOf: self.algebra.sparqlTokens(depth: 0))
+            tokens.append(.rbrace)
         }
         return AnySequence(tokens)
     }

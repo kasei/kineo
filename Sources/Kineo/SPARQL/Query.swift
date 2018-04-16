@@ -142,8 +142,14 @@ extension PropertyPath : Equatable {
         }
     }
 }
+
+public enum SelectProjection {
+    case star
+    case variables([String])
+}
+
 public enum QueryForm {
-    case select
+    case select(SelectProjection)
     case ask
     case construct([TriplePattern])
     case describe([Node])
@@ -945,6 +951,7 @@ open class QueryParser<T: LineReadable> {
         guard let algebra = stack.popLast() else {
             return nil
         }
-        return Query(form: .select, algebra: algebra, dataset: nil)
+        let proj = Array(algebra.projectableVariables)
+        return Query(form: .select(.variables(proj)), algebra: algebra, dataset: nil)
     }
 }

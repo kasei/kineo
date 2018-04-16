@@ -1445,7 +1445,6 @@ public struct SPARQLParser {
         try expect(token: .keyword("SELECT"))
         var distinct = false
         var star = false
-        var projection: [String]? = nil
         var aggregationExpressions = [String:Aggregation]()
         var projectExpressions = [(Expression, String)]()
 
@@ -1453,10 +1452,13 @@ public struct SPARQLParser {
             distinct = true
         }
 
+        
+        var projection: SelectProjection
         if try attempt(token: .star) {
+            projection = .star
             star = true
         } else {
-            projection = []
+            var projectionVariables = [String]()
             LOOP: while true {
                 let t = try peekExpectedToken()
                 switch t {
@@ -1473,14 +1475,15 @@ public struct SPARQLParser {
                     }
                     try expect(token: .rparen)
                     projectExpressions.append((expression, name))
-                    projection?.append(name)
+                    projectionVariables.append(name)
                 case ._var(let name):
                     nextToken()
-                    projection?.append(name)
+                    projectionVariables.append(name)
                 default:
                     break LOOP
                 }
             }
+            projection = .variables(projectionVariables)
         }
 
         let dataset = try parseDatasetClauses()
@@ -1490,7 +1493,7 @@ public struct SPARQLParser {
         let values = try parseValuesClause()
         algebra = try parseSolutionModifier(algebra: algebra, distinct: distinct, projection: projection, projectExpressions: projectExpressions, aggregation: aggregationExpressions, valuesBlock: values)
 
-        let query = Query(form: .select, algebra: algebra, dataset: dataset)
+        let query = Query(form: .select(projection), algebra: algebra, dataset: dataset)
         if star {
             if algebra.isAggregation {
                 throw parseError("Aggregation queries cannot use a `SELECT *`")
@@ -1523,7 +1526,7 @@ public struct SPARQLParser {
             }
         }
 
-        algebra = try parseSolutionModifier(algebra: algebra, distinct: true, projection: nil, projectExpressions: [], aggregation: [:], valuesBlock: nil)
+        algebra = try parseSolutionModifier(algebra: algebra, distinct: true, projection: .star, projectExpressions: [], aggregation: [:], valuesBlock: nil)
         return Query(form: .construct(pattern), algebra: algebra, dataset: dataset)
     }
 
@@ -1561,7 +1564,7 @@ public struct SPARQLParser {
 
         }
 
-        let algebra = try parseSolutionModifier(algebra: ggp, distinct: true, projection: nil, projectExpressions: [], aggregation: [:], valuesBlock: nil)
+        let algebra = try parseSolutionModifier(algebra: ggp, distinct: true, projection: .star, projectExpressions: [], aggregation: [:], valuesBlock: nil)
         return Query(form: .describe(describe), algebra: algebra, dataset: dataset)
     }
 
@@ -1637,7 +1640,6 @@ public struct SPARQLParser {
 
         var distinct = false
         var star = false
-        var projection: [String]? = nil
         var aggregationExpressions = [String:Aggregation]()
         var projectExpressions = [(Expression, String)]()
 
@@ -1645,10 +1647,12 @@ public struct SPARQLParser {
             distinct = true
         }
 
+        var projection: SelectProjection
         if try attempt(token: .star) {
+            projection = .star
             star = true
         } else {
-            projection = []
+            var projectionVariables = [String]()
             LOOP: while true {
                 let t = try peekExpectedToken()
                 switch t {
@@ -1665,14 +1669,15 @@ public struct SPARQLParser {
                     }
                     try expect(token: .rparen)
                     projectExpressions.append((expression, name))
-                    projection?.append(name)
+                    projectionVariables.append(name)
                 case ._var(let name):
                     nextToken()
-                    projection?.append(name)
+                    projectionVariables.append(name)
                 default:
                     break LOOP
                 }
             }
+            projection = .variables(projectionVariables)
         }
 
         try attempt(token: .keyword("WHERE"))
@@ -1776,7 +1781,7 @@ public struct SPARQLParser {
     }
 
     // swiftlint:disable:next function_parameter_count
-    private mutating func parseSolutionModifier(algebra: Algebra, distinct: Bool, projection: [String]?, projectExpressions: [(Expression, String)], aggregation: [String:Aggregation], valuesBlock: Algebra?) throws -> Algebra {
+    private mutating func parseSolutionModifier(algebra: Algebra, distinct: Bool, projection: SelectProjection, projectExpressions: [(Expression, String)], aggregation: [String:Aggregation], valuesBlock: Algebra?) throws -> Algebra {
         var algebra = algebra
         let aggregations = aggregation.map { ($0.1, $0.0) }
         if try attempt(token: .keyword("GROUP")) {
@@ -1810,7 +1815,7 @@ public struct SPARQLParser {
             }
         }
 
-        if let projection = projection {
+        if case .variables(let projection) = projection {
             if algebra.isAggregation {
                 if !(Set(projection).isSubset(of: algebra.projectableVariables)) {
                     throw parseError("Cannot project non-grouped variable in aggregation query")
