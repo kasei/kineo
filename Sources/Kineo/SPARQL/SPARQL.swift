@@ -1821,7 +1821,7 @@ public struct SPARQLParser {
                     throw parseError("Cannot project non-grouped variable in aggregation query")
                 }
             }
-            algebra = .project(algebra, projection)
+            algebra = .project(algebra, Set(projection))
         }
 
         if distinct {

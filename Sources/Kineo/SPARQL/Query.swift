@@ -192,7 +192,7 @@ public indirect enum Algebra {
     case namedGraph(Algebra, Node)
     case extend(Algebra, Expression, String)
     case minus(Algebra, Algebra)
-    case project(Algebra, [String])
+    case project(Algebra, Set<String>)
     case distinct(Algebra)
     case service(Node, Algebra, Bool)
     case slice(Algebra, Int?, Int?)
@@ -737,7 +737,7 @@ open class QueryParser<T: LineReadable> {
             guard let child = stack.popLast() else { throw QueryError.parseError("Not enough operands for \(op)") }
             let vars = Array(parts.suffix(from: 1))
             guard vars.count > 0 else { throw QueryError.parseError("No projection variables supplied") }
-            return .project(child, vars)
+            return .project(child, Set(vars))
         } else if op == "join" {
             guard stack.count >= 2 else { throw QueryError.parseError("Not enough operands for \(op)") }
             guard let rhs = stack.popLast() else { return nil }

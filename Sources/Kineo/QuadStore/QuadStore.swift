@@ -755,7 +755,7 @@ public protocol ResultProtocol: Hashable {
     subscript(key: String) -> Element? { get }
     mutating func extend(variable: String, value: Element) throws
     func extended(variable: String, value: Element) -> Self?
-    func projected(variables: [String]) -> Self
+    func projected(variables: Set<String>) -> Self
     var hashValue: Int { get }
 }
 
@@ -793,7 +793,7 @@ public struct TermResult: CustomStringConvertible, ResultProtocol {
         return result
     }
 
-    public func projected(variables: [String]) -> TermResult {
+    public func projected(variables: Set<String>) -> TermResult {
         var bindings = [String:Element]()
         for name in variables {
             if let term = self[name] {
@@ -886,7 +886,7 @@ public struct IDResult: CustomStringConvertible, ResultProtocol {
         return IDResult(bindings: b)
     }
 
-    public func projected(variables: [String]) -> IDResult {
+    public func projected(variables: Set<String>) -> IDResult {
         var bindings = [String:Element]()
         for name in variables {
             if let term = self[name] {

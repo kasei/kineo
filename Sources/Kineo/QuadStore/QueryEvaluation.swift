@@ -291,7 +291,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
 //            warn("# using hash join on: \(intersection)")
 //            warn("### \(lhsAlgebra)")
 //            warn("### \(rhsAlgebra)")
-            let joinVariables = Array(intersection)
+            let joinVariables = intersection
             let lhs = try self.evaluate(algebra: lhsAlgebra, activeGraph: activeGraph)
             let rhs = try self.evaluate(algebra: rhsAlgebra, activeGraph: activeGraph)
             return pipelinedHashJoin(joinVariables: joinVariables, lhs: lhs, rhs: rhs, left: left)
@@ -827,10 +827,10 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
         //           and allowing it to do the filtering based on a IDResult objects before
         //           materializing the terms
         let set = Set(iris)
-        var keys = [String]()
+        var keys = Set<String>()
         for node in [subject, object] {
             if case .variable(let name, true) = node {
-                keys.append(name)
+                keys.insert(name)
             }
         }
         return AnyIterator {
@@ -951,7 +951,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
     }
 }
 
-public func pipelinedHashJoin<R: ResultProtocol>(joinVariables: [String], lhs: AnyIterator<R>, rhs: AnyIterator<R>, left: Bool = false) -> AnyIterator<R> {
+public func pipelinedHashJoin<R: ResultProtocol>(joinVariables: Set<String>, lhs: AnyIterator<R>, rhs: AnyIterator<R>, left: Bool = false) -> AnyIterator<R> {
     var table = [R:[R]]()
 //    warn(">>> filling hash table")
     var count = 0

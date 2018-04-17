@@ -658,7 +658,7 @@ extension Algebra {
             case .slice(_), .order(_), .aggregate(_), .project(_):
                 return .distinct(lhs.serializableEquivalent)
             default:
-                return .distinct(.project(lhs.serializableEquivalent, lhs.inscope.sorted()))
+                return .distinct(.project(lhs.serializableEquivalent, lhs.inscope))
             }
         case .service(let endpoint, let lhs, let silent):
             return .service(endpoint, lhs.serializableEquivalent, silent)
@@ -667,14 +667,14 @@ extension Algebra {
             case .order(_), .aggregate(_), .project(_):
                 return .slice(lhs.serializableEquivalent, offset, limit)
             default:
-                return .slice(.project(lhs.serializableEquivalent, lhs.inscope.sorted()), offset, limit)
+                return .slice(.project(lhs.serializableEquivalent, lhs.inscope), offset, limit)
             }
         case .order(let lhs, let cmps):
             switch lhs {
             case .aggregate(_), .project(_):
                 return .order(lhs.serializableEquivalent, cmps)
             default:
-                return .order(.project(lhs.serializableEquivalent, lhs.inscope.sorted()), cmps)
+                return .order(.project(lhs.serializableEquivalent, lhs.inscope), cmps)
             }
         case .path(_):
             return self
@@ -699,7 +699,7 @@ extension Algebra {
         case .project(_), .aggregate(_), .order(.project(_), _), .slice(.project(_), _, _), .slice(.order(.project(_), _), _, _), .distinct(_):
             return a.sparqlTokens(depth: 0)
         default:
-            let wrapped: Algebra = .project(a, a.inscope.sorted())
+            let wrapped: Algebra = .project(a, a.inscope)
             return wrapped.sparqlTokens(depth: 0)
         }
     }
@@ -857,6 +857,8 @@ extension Algebra {
 extension Query {
     public var sparqlTokens: AnySequence<SPARQLToken> {
         var tokens = [SPARQLToken]()
+        // TODO: handle projection of aggregate/window functions
+        // TODO: handle projection of select expressions
         switch self.form {
         case .select(.star):
             tokens.append(.keyword("SELECT"))
