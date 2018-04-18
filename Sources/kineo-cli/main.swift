@@ -136,7 +136,8 @@ func explain<D : Database>(_ database: D, query: Query, graph: Term? = nil, verb
     print("- explaining query")
     try database.read { (m) in
         print("- mediator: \(m)")
-        let store       = try LanguageQuadStore(mediator: m, acceptLanguages: [("en", 1.0), ("", 0.5)])
+//        let store       = try LanguageQuadStore(mediator: m, acceptLanguages: [("en", 1.0), ("", 0.5)])
+        let store       = try QuadStore(mediator: m)
         print("- store: \(store)")
         var defaultGraph: Term
         if let g = graph {
@@ -165,9 +166,9 @@ func query<D : Database>(_ database: D, query: Query, graph: Term? = nil, verbos
     var count       = 0
     let startTime = getCurrentTime()
     try database.read { (m) in
-        let store       = try LanguageQuadStore(mediator: m, acceptLanguages: [("en", 1.0), ("", 0.5)])
-        //            let store       = try QuadStore(mediator: m)
-        
+        //        let store       = try LanguageQuadStore(mediator: m, acceptLanguages: [("en", 1.0), ("", 0.5)])
+        let store       = try QuadStore(mediator: m)
+
         var defaultGraph: Term
         if let g = graph {
             defaultGraph = g
@@ -444,9 +445,12 @@ if let op = args.next() {
         var printAlgebra = false
         var printSPARQL = false
         var pretty = true
-        if let next = args.peek(), next == "-s" {
+        if let next = args.peek(), next.lowercased() == "-s" {
             _ = args.next()
             printSPARQL = true
+            if next == "-S" {
+                pretty = true
+            }
         }
         if let next = args.peek(), next == "-a" {
             _ = args.next()
