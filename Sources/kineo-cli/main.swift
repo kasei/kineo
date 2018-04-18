@@ -14,6 +14,8 @@ import Kineo
  */
 func setup<D : Database>(_ database: D, startTime: UInt64) throws {
     try database.update(version: Version(startTime)) { (m) in
+        Logger.shared.push(name: "QuadStore setup")
+        defer { Logger.shared.pop(printSummary: false) }
         do {
             _ = try QuadStore.create(mediator: m)
         } catch let e {
@@ -518,7 +520,6 @@ if let op = args.next() {
         guard var p = SPARQLParser(data: sparql) else { fatalError("Failed to construct SPARQL parser") }
         do {
             let q = try p.parseQuery()
-            print(q.serialize())
             count = try query(database, query: q, graph: graph, verbose: verbose)
         } catch let e {
             warn("*** Failed to evaluate query:")
@@ -595,5 +596,6 @@ let endTime = getCurrentTime()
 let elapsed = Double(endTime - startTime)
 let tps = Double(count) / elapsed
 if verbose {
+//    Logger.shared.printSummary()
     warn("elapsed time: \(elapsed)s (\(tps)/s)")
 }

@@ -20,6 +20,18 @@ public func warn(_ items: String...) {
     }
 }
 
+public func callStackCallers(_ maxLength: Int, _ skip: Int = 0) -> String {
+    let symbols = Thread.callStackSymbols.map { (v) -> String in
+        let i = v.index(v.startIndex, offsetBy: 59)
+        let f = String(v[i...])
+        let j = f.index(of: " ") ?? f.endIndex
+        let name = String(f[..<j])
+        return name
+    }
+    let callers = symbols.dropFirst(skip).prefix(maxLength).joined(separator: ", ")
+    return callers
+}
+
 public protocol LineReadable {
     func lines() -> AnyIterator<String>
 }
