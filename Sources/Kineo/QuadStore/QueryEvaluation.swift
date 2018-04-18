@@ -958,11 +958,7 @@ public func pipelinedHashJoin<R: ResultProtocol>(joinVariables: Set<String>, lhs
     for result in rhs {
         count += 1
         let key = result.projected(variables: joinVariables)
-        if let results = table[key] {
-            table[key] = results + [result]
-        } else {
-            table[key] = [result]
-        }
+        table[key, default: []].append(result)
     }
 //    warn(">>> done (\(count) results in \(Array(table.keys).count) buckets)")
 

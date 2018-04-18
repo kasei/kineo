@@ -313,7 +313,6 @@ public struct Term: CustomStringConvertible {
             self.value = self.value.uppercased()
             let (mantissa, exponent) = canonicalFloatingPointComponents()
             self.value = "\(mantissa)E\(exponent)"
-//            self.value = String(format: "%lgE%d", mantissa, exponent)
             _doubleValue = Double(value) ?? 0.0
         default:
             break

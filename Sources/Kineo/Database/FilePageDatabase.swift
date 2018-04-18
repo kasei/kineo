@@ -187,6 +187,7 @@ open class FilePageRMediator: RMediator {
     public typealias Database = FilePageDatabase
 
     var database: FilePageDatabase
+    var rootCache : [String:PageId]
     public var pageSize: Int { return database.pageSize }
     public var pageCount: Int { return database.pageCount }
     internal var pageObjects: [PageId:PageMarshalled]
@@ -194,6 +195,7 @@ open class FilePageRMediator: RMediator {
     init(database: FilePageDatabase) {
         self.database = database
         pageObjects = [:]
+        rootCache = [:]
         readBuffer = UnsafeMutableRawPointer.allocate(byteCount: database.pageSize, alignment: 0)
     }
 
@@ -211,12 +213,17 @@ open class FilePageRMediator: RMediator {
     }
 
     public func getRoot(named name: String) throws -> PageId {
+        if let pid = rootCache[name] {
+            return pid
+        }
+//        Logger.shared.increment("FilePageDatabase.RMediator.getRoot:\(name)")
         let pageSize = self.pageSize
         precondition(pageSize >= 16)
         guard let page: (DatabaseHeaderPage, PageStatus) = try? readPage(0) else { fatalError("error while finding root pages") }
         let (header, _) = page
         for (n, pid) in header.roots {
             if name == n {
+                rootCache[name] = pid
                 return pid
             }
         }
@@ -225,9 +232,11 @@ open class FilePageRMediator: RMediator {
 
     public func readPage<M: PageMarshalled>(_ page: PageId) throws -> (M, PageStatus) {
         if let o = pageObjects[page] as? M {
+//            Logger.shared.increment("FilePageDatabase.RMediator.readPage.cache-hit")
             //                print("Got cached page object for pid \(page)")
             return (o, .clean(page))
         } else {
+//            Logger.shared.increment("FilePageDatabase.RMediator.readPage.cache-miss")
             //        print("readPage(\(page))")
             let offset = off_t(pageSize * page)
             let sr = pread(database.fd, readBuffer, pageSize, offset)

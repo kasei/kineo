@@ -872,26 +872,46 @@ public enum TreeNode<T: BufferSerializable & Comparable, U: BufferSerializable> 
     }
 
     // FUTURE: make an Iterator version of this method
-    func walk(mediator: RMediator, in range: Range<T>, onEachLeaf callback: (TreeLeaf<T, U>) throws -> ()) throws {
+    func walk(mediator: RMediator, in range: Range<T>, backwards: Bool = false, onEachLeaf callback: (TreeLeaf<T, U>) throws -> ()) throws {
         switch self {
         case .leafNode(let l):
+//            Logger.shared.increment("Trees.walk(mediator:in:oneachLeaf).leaf")
             try callback(l)
         case .internalNode(let i):
+//            Logger.shared.increment("Trees.walk(mediator:in:oneachLeaf).internal")
             var lastMax: T? = nil
             // OPTIMIZE: use firstIndexNotMatching(_:) instead of the linear scan here
-            for (max, pid) in i.pairs {
-                if let min = lastMax {
+            if backwards {
+                let p = zip(i.pairs.dropFirst(), i.pairs.map { $0.0 }).map { ($1, $0.0, $0.1) }
+                for (min, max, pid) in p.reversed() {
                     if range.upperBound > min && range.lowerBound <= max {
                         let (node, _) : (TreeNode<T, U>, PageStatus) = try mediator.readPage(pid)
                         try node.walk(mediator: mediator, in: range, onEachLeaf: callback)
-                    }
-                } else {
-                    if range.lowerBound <= max {
-                        let (node, _) : (TreeNode<T, U>, PageStatus) = try mediator.readPage(pid)
-                        try node.walk(mediator: mediator, in: range, onEachLeaf: callback)
+                    } else if range.lowerBound > max {
+                        return
                     }
                 }
-                lastMax = max
+                if let pair = i.pairs.first {
+                    let (_, pid) = pair
+                    let (node, _) : (TreeNode<T, U>, PageStatus) = try mediator.readPage(pid)
+                    try node.walk(mediator: mediator, in: range, onEachLeaf: callback)
+                }
+            } else {
+                for (max, pid) in i.pairs {
+                    if let min = lastMax {
+                        if range.upperBound > min && range.lowerBound <= max {
+                            let (node, _) : (TreeNode<T, U>, PageStatus) = try mediator.readPage(pid)
+                            try node.walk(mediator: mediator, in: range, onEachLeaf: callback)
+                        }
+                    } else {
+                        // first pair in the page
+                        if range.lowerBound <= max {
+                            let (node, _) : (TreeNode<T, U>, PageStatus) = try mediator.readPage(pid)
+                            try node.walk(mediator: mediator, in: range, onEachLeaf: callback)
+                        }
+                    }
+                    lastMax = max
+                }
             }
         }
     }
@@ -1001,11 +1021,10 @@ public enum TreeNode<T: BufferSerializable & Comparable, U: BufferSerializable> 
 
     func maxKey(in range: Range<T>, mediator: RMediator) -> T? {
         var maxKey: T? = nil
-        _ = try? self.walk(mediator: mediator, in: range) { (leaf) in
+        _ = try? self.walk(mediator: mediator, in: range, backwards: true) { (leaf) in
             let matchingKeys = leaf.pairs.map({$0.0}).filter { range.contains($0) }
             if let m = matchingKeys.last {
                 maxKey = m
-            } else if maxKey != nil {
                 throw TreeError.stopWalk
             }
         }
