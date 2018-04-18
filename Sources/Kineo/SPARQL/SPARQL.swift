@@ -186,7 +186,7 @@ extension SPARQLToken {
         case .ws:
             return " "
         case .comment(let value):
-            return "# \(value)"
+            return "# \(value)\n"
         case ._nil:
             return "()"
         case .anon:
@@ -3121,7 +3121,7 @@ extension String {
         pn.insert(charactersIn: "A"..."Z")
 
         let ranges: [(Int, Int)] = [
-            (0xF8, 0xD6),
+            (0xC0, 0xD6),
             (0xD8, 0xF6),
             (0xF8, 0x2FF),
             (0x370, 0x37D),
