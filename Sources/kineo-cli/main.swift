@@ -334,6 +334,21 @@ func printPageInfo(mediator: FilePageRMediator, name: String, page: PageId) {
     }
 }
 
+func printSPARQL(_ qfile: String, pretty: Bool = false, silent: Bool = false, includeComments: Bool = false) throws {
+    let url = URL(fileURLWithPath: qfile)
+    let sparql = try Data(contentsOf: url)
+    let stream = InputStream(data: sparql)
+    stream.open()
+    let lexer = SPARQLLexer(source: stream, includeComments: includeComments)
+    let s = SPARQLSerializer()
+    let tokens: UnfoldSequence<SPARQLToken, Int> = sequence(state: 0) { (_) in return lexer.next() }
+    if pretty {
+        print(s.serializePretty(tokens))
+    } else {
+        print(s.serialize(tokens))
+    }
+}
+
 func data(fromFileOrString qfile: String) throws -> Data {
     let url = URL(fileURLWithPath: qfile)
     let data: Data
@@ -358,6 +373,7 @@ guard argscount >= 2 else {
     print("       \(pname) database.db load [-g GRAPH-IRI] rdf.nt ...")
     print("       \(pname) database.db sort [-g GRAPH-IRI] rdf.nt")
     print("       \(pname) database.db parse query.rq")
+    print("       \(pname) database.db lint query.rq")
     print("       \(pname) database.db sparql query.rq")
     print("       \(pname) database.db terms")
     print("       \(pname) database.db graphs")
@@ -424,16 +440,49 @@ if let op = args.next() {
         count = try printGraphs(from: database)
     } else if op == "indexes" {
         count = try printIndexes(from: database)
-    } else if op == "parse", let qfile = args.next() {
+    } else if op == "parse" {
+        var printAlgebra = false
+        var printSPARQL = false
+        var pretty = true
+        if let next = args.peek(), next == "-s" {
+            _ = args.next()
+            printSPARQL = true
+        }
+        if let next = args.peek(), next == "-a" {
+            _ = args.next()
+            printAlgebra = true
+        }
+        if !printAlgebra && !printSPARQL {
+            printAlgebra = true
+        }
+        
+        guard let qfile = args.next() else { fatalError("No query file given") }
         do {
             let sparql = try data(fromFileOrString: qfile)
             guard var p = SPARQLParser(data: sparql) else { fatalError("Failed to construct SPARQL parser") }
             let query = try p.parseQuery()
-            let s = query.serialize()
             count = 1
-            print(s)
+            if printAlgebra {
+                print(query.serialize())
+            }
+            if printSPARQL {
+                let s = SPARQLSerializer()
+                let tokens  = query.sparqlTokens
+                if pretty {
+                    print(s.serializePretty(tokens))
+                } else {
+                    print(s.serialize(tokens))
+                }
+            }
         } catch let e {
             warn("*** Failed to parse query: \(e)")
+        }
+    } else if op == "lint", let qfile = args.next() {
+        do {
+            let pretty = false
+            try printSPARQL(qfile, pretty: pretty, silent: false, includeComments: true)
+        } catch let e {
+            warn("*** Failed to lint query: \(e)")
         }
     } else if op == "explain" {
         var graph: Term? = nil
