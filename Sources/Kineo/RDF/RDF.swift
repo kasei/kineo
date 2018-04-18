@@ -252,11 +252,14 @@ public struct Term: CustomStringConvertible {
     public var _doubleValue: Double?
         
     internal func floatingPointComponents() -> (Double, Int) {
-        let parts = value.uppercased().components(separatedBy: "E")
-        let mantissa = Double(parts[0]) ?? 0.0
+        let eIndex = value.index(of: "E") ?? value.endIndex // value is uppercased for xsd:float and xsd:double in computeNumericValue()
+        let mString = value[..<eIndex]
+        let mantissa = Double(mString) ?? 0.0
         var exponent = 0
-        if parts.count > 1 {
-            exponent = Int(parts[1]) ?? 0
+        if eIndex != value.endIndex {
+            let next = value.index(after: eIndex)
+            let eString = value[next...]
+            exponent = Int(eString) ?? 0
         }
         return (mantissa, exponent)
     }
@@ -307,8 +310,10 @@ public struct Term: CustomStringConvertible {
             _doubleValue = Double(value) ?? 0.0
         case .datatype("http://www.w3.org/2001/XMLSchema#float"),
              .datatype("http://www.w3.org/2001/XMLSchema#double"):
+            self.value = self.value.uppercased()
             let (mantissa, exponent) = canonicalFloatingPointComponents()
-            self.value = String(format: "%lgE%d", mantissa, exponent)
+            self.value = "\(mantissa)E\(exponent)"
+//            self.value = String(format: "%lgE%d", mantissa, exponent)
             _doubleValue = Double(value) ?? 0.0
         default:
             break
