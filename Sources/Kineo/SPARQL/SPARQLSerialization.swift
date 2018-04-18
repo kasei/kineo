@@ -34,38 +34,50 @@ public struct SPARQLSerializer {
         // swiftlint:disable:next nesting
         struct NestingCallback {
             let level: [Int]
-            let code: (ParseState) -> ()
         }
         
         var indentLevel: Int   = 0
         var inSemicolon: Bool  = false
-        var openParens: Int    = 0 {
-            didSet { checkCallbacks() }
-        }
-        var openBraces: Int    = 0 {
-            didSet { checkCallbacks() }
-        }
-        var openBrackets: Int  = 0 {
-            didSet { checkCallbacks() }
-        }
+        var openParens: Int    = 0
+//        {
+//            didSet { checkCallbacks() }
+//        }
+        var openBraces: Int    = 0
+//        {
+//            didSet { checkCallbacks() }
+//        }
+        var openBrackets: Int  = 0
+//        {
+//            didSet { checkCallbacks() }
+//        }
         var callbackStack: [NestingCallback] = []
-        mutating func checkCallbacks() {
+//        mutating func checkCallbacks() {
+//            let currentLevel = [openBraces, openBrackets, openParens]
+//            //        println("current level: \(currentLevel)")
+//            if let top = callbackStack.last {
+//                //            println("-----> callback set for level: \(top.level)")
+//                if top.level == currentLevel {
+//                    //                println("*** MATCHED")
+//                    top.code(self)
+//                    callbackStack.removeLast()
+//                }
+//            }
+//        }
+        
+        mutating func checkBookmark() -> Bool {
             let currentLevel = [openBraces, openBrackets, openParens]
-            //        println("current level: \(currentLevel)")
             if let top = callbackStack.last {
-                //            println("-----> callback set for level: \(top.level)")
                 if top.level == currentLevel {
-                    //                println("*** MATCHED")
-                    top.code(self)
                     callbackStack.removeLast()
+                    return true
                 }
             }
+            return false
         }
         
-        mutating func registerForClose(_ callback: @escaping (ParseState) -> ()) {
+        mutating func registerForClose() {
             let currentLevel = [openBraces, openBrackets, openParens]
-            //        println("registering callback at level: \(currentLevel)")
-            let cb = NestingCallback(level: currentLevel, code: callback)
+            let cb = NestingCallback(level: currentLevel)
             callbackStack.append(cb)
         }
     }
@@ -115,6 +127,9 @@ public struct SPARQLSerializer {
                 pstate.openBraces -= 1
                 pstate.indentLevel -= 1
                 pstate.inSemicolon  = false
+                if pstate.checkBookmark() {
+                    outputArray.append((t, .newline(pstate.indentLevel)))
+                }
             }
             
             //                let value = t.value() as! String
@@ -122,10 +137,7 @@ public struct SPARQLSerializer {
             
             switch state {
             case (_, .keyword("FILTER"), .lparen), (_, .keyword("BIND"), .lparen), (_, .keyword("HAVING"), .lparen):
-                pstate.registerForClose {
-                    s in
-                    outputArray.append((t, .newline(pstate.indentLevel)))
-                }
+                pstate.registerForClose()
             default:
                 break
             }
