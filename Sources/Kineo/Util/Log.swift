@@ -7,7 +7,7 @@
 
 import Foundation
 
-public class Logger {
+final public class Logger {
     struct Frame {
         var number: Int
         var name: String
