@@ -169,10 +169,17 @@ public struct Query : Equatable {
     public var algebra: Algebra
     public var dataset: Dataset?
     
-    init(form: QueryForm, algebra: Algebra, dataset: Dataset? = nil) {
+    init(form: QueryForm, algebra: Algebra, dataset: Dataset? = nil) throws {
         self.form = form
         self.algebra = algebra
         self.dataset = dataset
+        
+        if case .select(.variables(let vars)) = form {
+            let vset = Set(vars)
+            if vars.count != vset.count {
+                throw QueryError.parseError("Cannot project variables more than once in a SELECT query")
+            }
+        }
     }
 }
 
@@ -567,114 +574,114 @@ public extension Algebra {
 }
 
 public extension Query {
-    func replace(_ map: (Expression) -> Expression?) -> Query {
-        let algebra = self.algebra.replace(map)
-        return Query(form: self.form, algebra: algebra, dataset: self.dataset)
+    func replace(_ map: (Expression) throws -> Expression?) throws -> Query {
+        let algebra = try self.algebra.replace(map)
+        return try Query(form: self.form, algebra: algebra, dataset: self.dataset)
     }
 
-    func replace(_ map: (Algebra) -> Algebra?) -> Query {
-        let algebra = self.algebra.replace(map)
-        return Query(form: self.form, algebra: algebra, dataset: self.dataset)
+    func replace(_ map: (Algebra) throws -> Algebra?) throws -> Query {
+        let algebra = try self.algebra.replace(map)
+        return try Query(form: self.form, algebra: algebra, dataset: self.dataset)
     }
 }
 
 public extension Algebra {
-    func replace(_ map: (Expression) -> Expression?) -> Algebra {
+    func replace(_ map: (Expression) throws -> Expression?) throws -> Algebra {
         switch self {
         case .subquery(let q):
-            return .subquery(q.replace(map))
+            return try .subquery(q.replace(map))
         case .unionIdentity, .joinIdentity, .triple(_), .quad(_), .path(_), .bgp(_), .table(_):
             return self
         case .distinct(let a):
-            return .distinct(a.replace(map))
+            return try .distinct(a.replace(map))
         case .project(let a, let p):
-            return .project(a.replace(map), p)
+            return try .project(a.replace(map), p)
         case .minus(let a, let b):
-            return .minus(a.replace(map), b.replace(map))
+            return try .minus(a.replace(map), b.replace(map))
         case .union(let a, let b):
-            return .union(a.replace(map), b.replace(map))
+            return try .union(a.replace(map), b.replace(map))
         case .innerJoin(let a, let b):
-            return .innerJoin(a.replace(map), b.replace(map))
+            return try .innerJoin(a.replace(map), b.replace(map))
         case .namedGraph(let a, let node):
-            return .namedGraph(a.replace(map), node)
+            return try .namedGraph(a.replace(map), node)
         case .slice(let a, let offset, let limit):
-            return .slice(a.replace(map), offset, limit)
+            return try .slice(a.replace(map), offset, limit)
         case .service(let endpoint, let a, let silent):
-            return .service(endpoint, a.replace(map), silent)
+            return try .service(endpoint, a.replace(map), silent)
         case .filter(let a, let expr):
-            return .filter(a.replace(map), expr.replace(map))
+            return try .filter(a.replace(map), expr.replace(map))
         case .leftOuterJoin(let a, let b, let expr):
-            return .leftOuterJoin(a.replace(map), b.replace(map), expr.replace(map))
+            return try .leftOuterJoin(a.replace(map), b.replace(map), expr.replace(map))
         case .extend(let a, let expr, let v):
-            return .extend(a.replace(map), expr.replace(map), v)
+            return try .extend(a.replace(map), expr.replace(map), v)
         case .order(let a, let cmps):
-            return .order(a.replace(map), cmps.map { (asc, expr) in (asc, expr.replace(map)) })
+            return try .order(a.replace(map), cmps.map { (asc, expr) in try (asc, expr.replace(map)) })
         case .aggregate(let a, let exprs, let aggs):
             // case aggregate(Algebra, [Expression], [(Aggregation, String)])
-            let exprs = exprs.map { (expr) in
-                return expr.replace(map)
+            let exprs = try exprs.map { (expr) in
+                return try expr.replace(map)
             }
-            let aggs = aggs.map { (agg, name) in
-                return (agg.replace(map), name)
+            let aggs = try aggs.map { (agg, name) in
+                return try (agg.replace(map), name)
             }
-            return .aggregate(a.replace(map), exprs, aggs)
+            return try .aggregate(a.replace(map), exprs, aggs)
         case .window(let a, let exprs, let funcs):
             //     case window(Algebra, [Expression], [(WindowFunction, [SortComparator], String)])
-            let exprs = exprs.map { (expr) in
-                return expr.replace(map)
+            let exprs = try exprs.map { (expr) in
+                return try expr.replace(map)
             }
-            let funcs = funcs.map { (f, cmps, name) -> (WindowFunction, [SortComparator], String) in
-                let e = cmps.map { (asc, expr) in (asc, expr.replace(map)) }
+            let funcs = try funcs.map { (f, cmps, name) -> (WindowFunction, [SortComparator], String) in
+                let e = try cmps.map { (asc, expr) in try (asc, expr.replace(map)) }
                 return (f, e, name)
             }
-            return .window(a.replace(map), exprs, funcs)
+            return try .window(a.replace(map), exprs, funcs)
         }
     }
 
-    func replace(_ map: (Algebra) -> Algebra?) -> Algebra {
-        if let r = map(self) {
+    func replace(_ map: (Algebra) throws -> Algebra?) throws -> Algebra {
+        if let r = try map(self) {
             return r
         } else {
             switch self {
             case .subquery(let q):
-                return .subquery(q.replace(map))
+                return try .subquery(q.replace(map))
             case .unionIdentity, .joinIdentity, .triple(_), .quad(_), .path(_), .bgp(_), .table(_):
                 return self
             case .distinct(let a):
-                return .distinct(a.replace(map))
+                return try .distinct(a.replace(map))
             case .project(let a, let p):
-                return .project(a.replace(map), p)
+                return try .project(a.replace(map), p)
             case .order(let a, let cmps):
-                return .order(a.replace(map), cmps)
+                return try .order(a.replace(map), cmps)
             case .minus(let a, let b):
-                return .minus(a.replace(map), b.replace(map))
+                return try .minus(a.replace(map), b.replace(map))
             case .union(let a, let b):
-                return .union(a.replace(map), b.replace(map))
+                return try .union(a.replace(map), b.replace(map))
             case .innerJoin(let a, let b):
-                return .innerJoin(a.replace(map), b.replace(map))
+                return try .innerJoin(a.replace(map), b.replace(map))
             case .leftOuterJoin(let a, let b, let expr):
-                return .leftOuterJoin(a.replace(map), b.replace(map), expr)
+                return try .leftOuterJoin(a.replace(map), b.replace(map), expr)
             case .extend(let a, let expr, let v):
-                return .extend(a.replace(map), expr, v)
+                return try .extend(a.replace(map), expr, v)
             case .filter(let a, let expr):
-                return .filter(a.replace(map), expr)
+                return try .filter(a.replace(map), expr)
             case .namedGraph(let a, let node):
-                return .namedGraph(a.replace(map), node)
+                return try .namedGraph(a.replace(map), node)
             case .slice(let a, let offset, let limit):
-                return .slice(a.replace(map), offset, limit)
+                return try .slice(a.replace(map), offset, limit)
             case .service(let endpoint, let a, let silent):
-                return .service(endpoint, a.replace(map), silent)
+                return try .service(endpoint, a.replace(map), silent)
             case .aggregate(let a, let exprs, let aggs):
-                return .aggregate(a.replace(map), exprs, aggs)
+                return try .aggregate(a.replace(map), exprs, aggs)
             case .window(let a, let exprs, let funcs):
-                return .window(a.replace(map), exprs, funcs)
+                return try .window(a.replace(map), exprs, funcs)
             }
         }
     }
 
-    func bind(_ variable: String, to replacement: Node, preservingProjection: Bool = false) -> Algebra {
+    func bind(_ variable: String, to replacement: Node, preservingProjection: Bool = false) throws -> Algebra {
         var r = self
-        r = r.replace { (expr: Expression) in
+        r = try r.replace { (expr: Expression) -> Expression? in
             if case .node(.variable(let name, _)) = expr {
                 if name == variable {
                     return .node(replacement)
@@ -683,7 +690,7 @@ public extension Algebra {
             return nil
         }
 
-        r = r.replace { (algebra: Algebra) in
+        r = try r.replace { (algebra: Algebra) throws -> Algebra? in
             switch algebra {
             case .triple(let t):
                 return .triple(t.bind(variable, to: replacement))
@@ -696,7 +703,7 @@ public extension Algebra {
             case .bgp(let triples):
                 return .bgp(triples.map { $0.bind(variable, to: replacement) })
             case .project(let a, let p):
-                let child = a.bind(variable, to: replacement)
+                let child = try a.bind(variable, to: replacement)
                 if preservingProjection {
                     let extend: Algebra = .extend(child, .node(replacement), variable)
                     return .project(extend, p)
@@ -704,7 +711,7 @@ public extension Algebra {
                     return .project(child, p.filter { $0 != variable })
                 }
             case .namedGraph(let a, let node):
-                return .namedGraph(
+                return try .namedGraph(
                     a.bind(variable, to: replacement),
                     node.bind(variable, to: replacement)
                 )
@@ -981,6 +988,6 @@ open class QueryParser<T: LineReadable> {
             return nil
         }
         let proj = Array(algebra.projectableVariables)
-        return Query(form: .select(.variables(proj)), algebra: algebra, dataset: nil)
+        return try Query(form: .select(.variables(proj)), algebra: algebra, dataset: nil)
     }
 }

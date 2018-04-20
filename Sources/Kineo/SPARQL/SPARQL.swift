@@ -498,6 +498,17 @@ public class SPARQLLexer: IteratorProtocol {
             return nil
         }
     }
+    
+    var hasRemainingContent: Bool {
+        do {
+            guard let c = try peekChar() else { return false }
+            print("has remaining content: <\(c)>")
+            return true
+        } catch {
+            return false
+        }
+
+    }
     public func next() -> SPARQLToken? {
         do {
             if let pt : PositionedToken = try getToken() {
@@ -1244,11 +1255,20 @@ public class SPARQLLexer: IteratorProtocol {
     }
 }
 
-private func joinReduction(lhs: Algebra, rhs: Algebra) -> Algebra {
-    if case .joinIdentity = lhs {
-        return rhs
-    } else {
-        return .innerJoin(lhs, rhs)
+private func joinReduction(coalesceBGPs: Bool = false) -> (Algebra, Algebra) -> Algebra {
+    return { (lhs, rhs) in
+        switch (lhs, rhs) {
+        case (.joinIdentity, _):
+            return rhs
+        case let (.bgp(triples), .triple(t)) where coalesceBGPs:
+            return .bgp(triples + [t])
+        case let (.triple(t), .bgp(triples)) where coalesceBGPs:
+            return .bgp([t] + triples)
+        case let (.triple(lt), .triple(rt)) where coalesceBGPs:
+            return .bgp([lt, rt])
+        default:
+            return .innerJoin(lhs, rhs)
+        }
     }
 }
 
@@ -1259,27 +1279,30 @@ private enum UnfinishedAlgebra {
     case bind(Expression, String)
     case finished(Algebra)
 
-    func finish(_ args: inout [Algebra]) -> Algebra {
+    func finish(_ args: inout [Algebra]) throws -> Algebra {
         switch self {
         case .bind(let e, let name):
-            let algebra: Algebra = args.reduce(.joinIdentity, joinReduction)
+            let algebra: Algebra = args.reduce(.joinIdentity, joinReduction(coalesceBGPs: true))
             args = []
+            if algebra.inscope.contains(name) {
+                throw SPARQLParsingError.parsingError("Cannot BIND to an already in-scope variable (?\(name)") // TODO: can the line:col be included in this exception?
+            }
             return .extend(algebra, e, name)
         case .filter(let e):
-            let algebra: Algebra = args.reduce(.joinIdentity, joinReduction)
+            let algebra: Algebra = args.reduce(.joinIdentity, joinReduction(coalesceBGPs: true))
             args = []
             return .filter(algebra, e)
         case .minus(let a):
-            let algebra: Algebra = args.reduce(.joinIdentity, joinReduction)
+            let algebra: Algebra = args.reduce(.joinIdentity, joinReduction(coalesceBGPs: true))
             args = []
             return .minus(algebra, a)
         case .optional(.filter(let a, let e)):
-            let algebra: Algebra = args.reduce(.joinIdentity, joinReduction)
+            let algebra: Algebra = args.reduce(.joinIdentity, joinReduction(coalesceBGPs: true))
             args = []
             return .leftOuterJoin(algebra, a, e)
         case .optional(let a):
             let e: Expression = .node(.bound(Term.trueValue))
-            let algebra: Algebra = args.reduce(.joinIdentity, joinReduction)
+            let algebra: Algebra = args.reduce(.joinIdentity, joinReduction(coalesceBGPs: true))
             args = []
             return .leftOuterJoin(algebra, a, e)
         case .finished(let a):
@@ -1404,18 +1427,25 @@ public struct SPARQLParser {
         let t = try peekExpectedToken()
         guard case .keyword(let kw) = t else { throw parseError("Expected query method not found") }
         
+        var query: Query
         switch kw {
         case "SELECT":
-            return try parseSelectQuery()
+            query = try parseSelectQuery()
         case "CONSTRUCT":
-            return try parseConstructQuery()
+            query = try parseConstructQuery()
         case "DESCRIBE":
-            return try parseDescribeQuery()
+            query = try parseDescribeQuery()
         case "ASK":
-            return try parseAskQuery()
+            query = try parseAskQuery()
         default:
             throw parseError("Expected query method not found: \(kw)")
         }
+        if let extra = peekToken() {
+            throw parseError("Expected EOF, but found: \(extra)")
+        } else if lexer.hasRemainingContent {
+            throw parseError("Expected EOF, but found extra content: <<\(lexer.buffer)>>")
+        }
+        return query
     }
     
     public mutating func parseAlgebra() throws -> Algebra {
@@ -1493,7 +1523,7 @@ public struct SPARQLParser {
         let values = try parseValuesClause()
         algebra = try parseSolutionModifier(algebra: algebra, distinct: distinct, projection: projection, projectExpressions: projectExpressions, aggregation: aggregationExpressions, valuesBlock: values)
 
-        let query = Query(form: .select(projection), algebra: algebra, dataset: dataset)
+        let query = try Query(form: .select(projection), algebra: algebra, dataset: dataset)
         if star {
             if algebra.isAggregation {
                 throw parseError("Aggregation queries cannot use a `SELECT *`")
@@ -1527,7 +1557,7 @@ public struct SPARQLParser {
         }
 
         algebra = try parseSolutionModifier(algebra: algebra, distinct: true, projection: .star, projectExpressions: [], aggregation: [:], valuesBlock: nil)
-        return Query(form: .construct(pattern), algebra: algebra, dataset: dataset)
+        return try Query(form: .construct(pattern), algebra: algebra, dataset: dataset)
     }
 
     private mutating func parseDescribeQuery() throws -> Query {
@@ -1565,7 +1595,7 @@ public struct SPARQLParser {
         }
 
         let algebra = try parseSolutionModifier(algebra: ggp, distinct: true, projection: .star, projectExpressions: [], aggregation: [:], valuesBlock: nil)
-        return Query(form: .describe(describe), algebra: algebra, dataset: dataset)
+        return try Query(form: .describe(describe), algebra: algebra, dataset: dataset)
     }
 
     private mutating func parseConstructTemplate() throws -> [TriplePattern] {
@@ -1601,7 +1631,7 @@ public struct SPARQLParser {
         let dataset = try parseDatasetClauses()
         try attempt(token: .keyword("WHERE"))
         let ggp = try parseGroupGraphPattern()
-        return Query(form: .ask, algebra: ggp, dataset: dataset)
+        return try Query(form: .ask, algebra: ggp, dataset: dataset)
     }
 
     private mutating func parseDatasetClauses() throws -> Dataset? {
@@ -1693,7 +1723,7 @@ public struct SPARQLParser {
             }
         }
 
-        return .subquery(Query(form: .select(projection), algebra: algebra, dataset: nil))
+        return try .subquery(Query(form: .select(projection), algebra: algebra, dataset: nil))
     }
 
     private mutating func parseGroupCondition(_ algebra: inout Algebra) throws -> Node? {
@@ -1795,6 +1825,12 @@ public struct SPARQLParser {
             algebra = .aggregate(algebra, [], aggregations)
         }
 
+        let inScope = algebra.inscope
+        for (_, name) in projectExpressions {
+            if inScope.contains(name) {
+                throw parseError("Cannot bind an already used variable (?\(name) in a select expression")
+            }
+        }
         algebra = projectExpressions.reduce(algebra) { .extend($0, $1.0, $1.1) }
 
         if try attempt(token: .keyword("HAVING")) {
@@ -1867,6 +1903,7 @@ public struct SPARQLParser {
         var ok = true
         var allowTriplesBlock = true
         var filters = [UnfinishedAlgebra]()
+
         while ok {
             let t = try peekExpectedToken()
             if t.isTermOrVar {
@@ -1893,7 +1930,7 @@ public struct SPARQLParser {
                     if case .filter(_) = unfinished {
                         filters.append(unfinished)
                     } else {
-                        let algebra = unfinished.finish(&args)
+                        let algebra = try unfinished.finish(&args)
                         args.append(algebra)
                     }
                     allowTriplesBlock = true
@@ -1905,10 +1942,10 @@ public struct SPARQLParser {
         }
 
         for f in filters {
-            let algebra = f.finish(&args)
+            let algebra = try f.finish(&args)
             args.append(algebra)
         }
-        let algebra = args.reduce(.joinIdentity, joinReduction)
+        let algebra = args.reduce(.joinIdentity, joinReduction(coalesceBGPs: false))
         return algebra
     }
 
@@ -2105,6 +2142,12 @@ public struct SPARQLParser {
             }
         }
 
+        // push paths to the end
+        propertyObjects.sort { (l, r) in if case .path(_) = l { return false } else { return true } }
+        let algebra: Algebra = propertyObjects.reduce(.joinIdentity, joinReduction(coalesceBGPs: true))
+        propertyObjects = [algebra]
+
+        
         LOOP: while try attempt(token: .semicolon) {
             t = try peekExpectedToken()
             var verb: PropertyPath? = nil
@@ -3146,7 +3189,12 @@ extension String {
 }
 
 extension Algebra {
-    func blankNodeLabels() throws -> Set<String> {
+    /**
+     This is used internally to throw exceptions on queries that use blank node labels in more than one BGP.
+     It is not entirely accurate, as we exempt property paths from returning blank node labels so that they
+     do not conflict with adjacent BGPs <https://www.w3.org/2013/sparql-errata#errata-query-17>
+     */
+    internal func blankNodeLabels() throws -> Set<String> {
         switch self {
 
         case .joinIdentity, .unionIdentity, .table(_, _):
@@ -3195,41 +3243,29 @@ extension Algebra {
             }
             return b
         case .path(let subject, _, let object):
-            var b = Set<String>()
-            for node in [subject, object] {
-                if case .bound(let term) = node {
-                    if case .blank = term.type {
-                        b.insert(term.value)
-                    }
-                }
-            }
+            let b = Set<String>()
             return b
+//            for node in [subject, object] {
+//                if case .bound(let term) = node {
+//                    if case .blank = term.type {
+//                        b.insert(term.value)
+//                    }
+//                }
+//            }
+//            return b
 
-        case .innerJoin(.triple(let u), .triple(let v)):
-            var b = Set<String>()
-            for t in [u, v] {
-                let a : Algebra = .triple(t)
-                let tripleBlanks : Set<String> = try a.blankNodeLabels()
-                for label in tripleBlanks {
-                    b.insert(label)
-                }
-            }
-            return b
-            
         case .leftOuterJoin(let lhs, let rhs, _), .innerJoin(let lhs, let rhs), .union(let lhs, let rhs):
             let l = try lhs.blankNodeLabels()
             let r = try rhs.blankNodeLabels()
             
-            switch lhs {
-            case .triple(_), .quad(_), .bgp(_), .path(_):
-                switch rhs {
-                case .triple(_), .quad(_), .bgp(_), .path(_):
-                    // reuse of bnode labels should be acceptable when in adjacent BGPs and property paths
-                    // https://www.w3.org/2013/sparql-errata#errata-query-17
-                    return l.union(r)
-                default:
-                    break
-                }
+            switch (lhs, rhs) {
+            case (.bgp(_), .path(_)), (.path(_), .bgp(_)),
+                 (.triple(_), .path(_)), (.path(_), .triple(_)),
+                 (.quad(_), .path(_)), (.path(_), .quad(_)),
+                 (.path(_), .path(_)):
+                // reuse of bnode labels should be acceptable when in adjacent BGPs and property paths
+                // https://www.w3.org/2013/sparql-errata#errata-query-17
+                return l.union(r)
             default:
                 break
             }
@@ -3240,10 +3276,10 @@ extension Algebra {
                     let label = i.first!
                     print("shared blank node algebra:")
                     print("- \(self)")
-                    throw SPARQLParsingError.parsingError("Blank node label _:\(label) cannot be used in multiple BGPs")
+                    throw SPARQLParsingError.parsingError("Blank node label _:\(label) cannot be used in multiple BGPs\n\(self)")
                 } else {
                     let labels = i.map { "_:\($0)" }
-                    throw SPARQLParsingError.parsingError("Blank node labels cannot be used in multiple BGPs: \(labels.joined(separator: ", "))")
+                    throw SPARQLParsingError.parsingError("Blank node labels cannot be used in multiple BGPs: \(labels.joined(separator: ", "))\n\(self)")
                 }
             }
             return l.union(r)

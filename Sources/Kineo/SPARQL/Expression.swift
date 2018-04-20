@@ -377,71 +377,71 @@ extension Expression: Equatable {
 }
 
 public extension Expression {
-    func replace(_ map: (Expression) -> Expression?) -> Expression {
-        if let e = map(self) {
+    func replace(_ map: (Expression) throws -> Expression?) throws -> Expression {
+        if let e = try map(self) {
             return e
         } else {
             switch self {
             case .node(_):
                 return self
             case .aggregate(let a):
-                return .aggregate(a.replace(map))
+                return try .aggregate(a.replace(map))
             case .neg(let expr):
-                return .neg(expr.replace(map))
+                return try .neg(expr.replace(map))
             case .eq(let lhs, let rhs):
-                return .eq(lhs.replace(map), rhs.replace(map))
+                return try .eq(lhs.replace(map), rhs.replace(map))
             case .ne(let lhs, let rhs):
-                return .ne(lhs.replace(map), rhs.replace(map))
+                return try .ne(lhs.replace(map), rhs.replace(map))
             case .gt(let lhs, let rhs):
-                return .gt(lhs.replace(map), rhs.replace(map))
+                return try .gt(lhs.replace(map), rhs.replace(map))
             case .lt(let lhs, let rhs):
-                return .lt(lhs.replace(map), rhs.replace(map))
+                return try .lt(lhs.replace(map), rhs.replace(map))
             case .ge(let lhs, let rhs):
-                return .ge(lhs.replace(map), rhs.replace(map))
+                return try .ge(lhs.replace(map), rhs.replace(map))
             case .le(let lhs, let rhs):
-                return .le(lhs.replace(map), rhs.replace(map))
+                return try .le(lhs.replace(map), rhs.replace(map))
             case .add(let lhs, let rhs):
-                return .add(lhs.replace(map), rhs.replace(map))
+                return try .add(lhs.replace(map), rhs.replace(map))
             case .sub(let lhs, let rhs):
-                return .sub(lhs.replace(map), rhs.replace(map))
+                return try .sub(lhs.replace(map), rhs.replace(map))
             case .mul(let lhs, let rhs):
-                return .mul(lhs.replace(map), rhs.replace(map))
+                return try .mul(lhs.replace(map), rhs.replace(map))
             case .div(let lhs, let rhs):
-                return .div(lhs.replace(map), rhs.replace(map))
+                return try .div(lhs.replace(map), rhs.replace(map))
             case .between(let val, let lower, let upper):
-                return .between(val.replace(map), lower.replace(map), upper.replace(map))
+                return try .between(val.replace(map), lower.replace(map), upper.replace(map))
             case .and(let lhs, let rhs):
-                return .and(lhs.replace(map), rhs.replace(map))
+                return try .and(lhs.replace(map), rhs.replace(map))
             case .or(let lhs, let rhs):
-                return .or(lhs.replace(map), rhs.replace(map))
+                return try .or(lhs.replace(map), rhs.replace(map))
             case .isiri(let expr):
-                return .isiri(expr.replace(map))
+                return try .isiri(expr.replace(map))
             case .isblank(let expr):
-                return .isblank(expr.replace(map))
+                return try .isblank(expr.replace(map))
             case .isliteral(let expr):
-                return .isliteral(expr.replace(map))
+                return try .isliteral(expr.replace(map))
             case .isnumeric(let expr):
-                return .isnumeric(expr.replace(map))
+                return try .isnumeric(expr.replace(map))
             case .intCast(let expr):
-                return .intCast(expr.replace(map))
+                return try .intCast(expr.replace(map))
             case .floatCast(let expr):
-                return .floatCast(expr.replace(map))
+                return try .floatCast(expr.replace(map))
             case .doubleCast(let expr):
-                return .doubleCast(expr.replace(map))
+                return try .doubleCast(expr.replace(map))
             case .call(let iri, let exprs):
-                return .call(iri, exprs.map { $0.replace(map) })
+                return try .call(iri, exprs.map { try $0.replace(map) })
             case .lang(let expr):
-                return .lang(expr.replace(map))
+                return try .lang(expr.replace(map))
             case .langmatches(let expr, let m):
-                return .langmatches(expr.replace(map), m)
+                return try .langmatches(expr.replace(map), m)
             case .datatype(let expr):
-                return .datatype(expr.replace(map))
+                return try .datatype(expr.replace(map))
             case .bound(let expr):
-                return .bound(expr.replace(map))
+                return try .bound(expr.replace(map))
             case .valuein(let expr, let exprs):
-                return .valuein(expr.replace(map), exprs.map { $0.replace(map) })
+                return try .valuein(expr.replace(map), exprs.map { try $0.replace(map) })
             case .not(let expr):
-                return .not(expr.replace(map))
+                return try .not(expr.replace(map))
             case .exists(_):
                 return self
             }
@@ -450,24 +450,24 @@ public extension Expression {
 }
 
 public extension Aggregation {
-    func replace(_ map: (Expression) -> Expression?) -> Aggregation {
+    func replace(_ map: (Expression) throws -> Expression?) throws -> Aggregation {
         switch self {
         case .countAll:
             return self
         case .count(let expr, let distinct):
-            return .count(expr.replace(map), distinct)
+            return try .count(expr.replace(map), distinct)
         case .sum(let expr, let distinct):
-            return .sum(expr.replace(map), distinct)
+            return try .sum(expr.replace(map), distinct)
         case .avg(let expr, let distinct):
-            return .avg(expr.replace(map), distinct)
+            return try .avg(expr.replace(map), distinct)
         case .min(let expr):
-            return .min(expr.replace(map))
+            return try .min(expr.replace(map))
         case .max(let expr):
-            return .max(expr.replace(map))
+            return try .max(expr.replace(map))
         case .sample(let expr):
-            return .sample(expr.replace(map))
+            return try .sample(expr.replace(map))
         case .groupConcat(let expr, let sep, let distinct):
-            return .groupConcat(expr.replace(map), sep, distinct)
+            return try .groupConcat(expr.replace(map), sep, distinct)
         }
     }
 }
