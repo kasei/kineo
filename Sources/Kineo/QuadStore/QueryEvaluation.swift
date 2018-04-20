@@ -693,11 +693,12 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
 
         case let .seq(lhs, rhs):
             let jvar = freshVariable()
-            guard case .variable(let jvarname, _) = jvar else { fatalError(
-                ) }
-            let i = try evaluatePath(subject: subject, object: jvar, graph: graph, path: lhs)
-            let j = try evaluatePath(subject: jvar, object: object, graph: graph, path: rhs)
-            return pipelinedHashJoin(joinVariables: [jvarname], lhs: i, rhs: j)
+            guard case .variable(let jvarname, _) = jvar else { fatalError() }
+            let lhsIter = try evaluatePath(subject: subject, object: jvar, graph: graph, path: lhs)
+            let rhsIter = try evaluatePath(subject: jvar, object: object, graph: graph, path: rhs)
+            let i = pipelinedHashJoin(joinVariables: [jvarname], lhs: lhsIter, rhs: rhsIter)
+                .map { $0.removing(variables: Set([jvarname])) }
+            return AnyIterator(i.makeIterator())
         case .plus(let pp):
             switch (subject, object) {
             case (.bound(_), .variable(let oname, binding: _)):
@@ -712,7 +713,8 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
                 var i = v.makeIterator()
                 return AnyIterator {
                     guard let t = i.next() else { return nil }
-                    return TermResult(bindings: [oname: t])
+                    let r = TermResult(bindings: [oname: t])
+                    return r
                 }
             case (.variable(_), .bound(_)):
                 let ipath: PropertyPath = .plus(.inv(pp))
@@ -745,10 +747,11 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
         case .star(let pp):
             switch (subject, object) {
             case (.bound(let t), .variable(let oname, binding: _)):
-                let i = try alp(term: t, path: path, graph: graph)
+                let i = try alp(term: t, path: pp, graph: graph)
                 return AnyIterator {
-                    guard let t = i.next() else { return nil }
-                    return TermResult(bindings: [oname: t])
+                    guard let o = i.next() else { return nil }
+                    let r = TermResult(bindings: [oname: o])
+                    return r
                 }
             case (.variable(_), .bound(_)):
                 let ipath: PropertyPath = .star(.inv(pp))
@@ -762,10 +765,10 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
                     results.append(TermResult(bindings: [:]))
                 }
                 return AnyIterator(results.makeIterator())
-            case (.variable(let sname, binding: _), .variable(_)):
+            case let (.variable(sname, binding: _), .variable(_)):
                 var results = [TermResult]()
                 for t in store.graphNodeTerms() {
-                    let i = try evaluatePath(subject: .bound(t), object: object, graph: graph, path: pp)
+                    let i = try evaluatePath(subject: .bound(t), object: object, graph: graph, path: path)
                     let j = i.map {
                         $0.extended(variable: sname, value: t) ?? $0
                     }
@@ -958,7 +961,11 @@ public func pipelinedHashJoin<R: ResultProtocol>(joinVariables: Set<String>, lhs
     for result in rhs {
         count += 1
         let key = result.projected(variables: joinVariables)
-        table[key, default: []].append(result)
+        if let results = table[key] {
+            table[key] = results + [result]
+        } else {
+            table[key] = [result]
+        }
     }
 //    warn(">>> done (\(count) results in \(Array(table.keys).count) buckets)")
 
@@ -966,7 +973,8 @@ public func pipelinedHashJoin<R: ResultProtocol>(joinVariables: Set<String>, lhs
     return AnyIterator {
         repeat {
             if buffer.count > 0 {
-                return buffer.remove(at: 0)
+                let r = buffer.remove(at: 0)
+                return r
             }
             guard let result = lhs.next() else { return nil }
             var joined = false

@@ -802,7 +802,17 @@ public struct TermResult: CustomStringConvertible, ResultProtocol {
         }
         return TermResult(bindings: bindings)
     }
-
+    
+    public func removing(variables: Set<String>) -> TermResult {
+        var bindings = [String:Element]()
+        for (k, v) in self.bindings {
+            if !variables.contains(k) {
+                bindings[k] = v
+            }
+        }
+        return TermResult(bindings: bindings)
+    }
+    
     public subscript(key: Node) -> Element? {
         get {
             switch key {
@@ -847,6 +857,7 @@ public struct TermResult: CustomStringConvertible, ResultProtocol {
         var b = bindings
         if let existing = b[variable] {
             if existing != value {
+                print("*** cannot extend result with new term: (\(variable) <- \(value); \(self)")
                 return nil
             }
         }
