@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import SPARQLParser
 
 public protocol QuadStoreProtocol: Sequence {
     associatedtype IDType

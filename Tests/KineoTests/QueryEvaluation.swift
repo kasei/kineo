@@ -1,5 +1,6 @@
 import XCTest
 import Kineo
+import SPARQLParser
 
 #if os(Linux)
 extension QueryEvaluationTest {

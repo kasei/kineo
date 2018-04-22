@@ -8,6 +8,7 @@
 
 import Foundation
 import Kineo
+import SPARQLParser
 
 func prettyPrint(_ qfile: String, silent: Bool = false, includeComments: Bool = false) throws {
     let url = URL(fileURLWithPath: qfile)

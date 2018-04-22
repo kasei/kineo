@@ -7,13 +7,14 @@ let package = Package(
 		.library(name: "Kineo", targets: ["Kineo"]),
 	],    
     dependencies: [
+		.package(url: "https://github.com/kasei/swift-sparql-parser.git", .branch("master")),
 		.package(url: "https://github.com/kasei/swift-serd.git", from: "0.0.0"),
 		.package(url: "https://github.com/krzyzanowskim/CryptoSwift.git", from: "0.8.0")
     ],
     targets: [
     	.target(
     		name: "Kineo",
-			dependencies: ["CryptoSwift"]
+			dependencies: ["CryptoSwift", "SPARQLParser"]
     	),
         .target(
             name: "kineo-cli",

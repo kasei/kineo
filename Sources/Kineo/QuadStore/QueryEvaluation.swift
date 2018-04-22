@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import SPARQLParser
 
 // swiftlint:disable cyclomatic_complexity
 // swiftlint:disable:next type_body_length
@@ -48,7 +49,19 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
         case .joinIdentity:
             let results = [TermResult(bindings: [:])]
             return AnyIterator(results.makeIterator())
-        case let .table(_, results):
+        case let .table(names, rows):
+            var results = [TermResult]()
+            for row in rows {
+                var bindings = [String:Term]()
+                for (node, term) in zip(names, row) {
+                    guard case .variable(let name, _) = node else { fatalError() }
+                    if let term = term {
+                        bindings[name] = term
+                    }
+                }
+                let result = TermResult(bindings: bindings)
+                results.append(result)
+            }
             return AnyIterator(results.makeIterator())
         case let .innerJoin(lhs, rhs):
             return try self.evaluateJoin(lhs: lhs, rhs: rhs, left: false, activeGraph: activeGraph)

@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import SPARQLParser
 
 public struct SPARQLSerializer {
     public init() {}
@@ -814,7 +815,7 @@ extension Algebra {
             tokens.append(._var(name))
             tokens.append(.rparen)
             return AnySequence(tokens)
-        case .table(let nodes, let results):
+        case .table(let nodes, let rows):
             var tokens = [SPARQLToken]()
             tokens.append(.keyword("VALUES"))
             tokens.append(.lparen)
@@ -827,10 +828,10 @@ extension Algebra {
             tokens.append(contentsOf: nodes.map { $0.sparqlTokens }.flatMap { $0 })
             tokens.append(.rparen)
             tokens.append(.lbrace)
-            for result in results {
+            for row in rows {
                 tokens.append(.lparen)
-                for n in names {
-                    if let term = result[n] {
+                for n in row {
+                    if let term = n {
                         tokens.append(contentsOf: term.sparqlTokens)
                     } else {
                         tokens.append(.keyword("UNDEF"))

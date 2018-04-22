@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import SPARQLParser
 
 open class NTriplesParser<T: LineReadable> : Sequence {
     var blanks: [String:Term]

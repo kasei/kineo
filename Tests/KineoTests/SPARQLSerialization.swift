@@ -1,5 +1,6 @@
 import XCTest
 import Foundation
+import SPARQLParser
 @testable import Kineo
 
 #if os(Linux)

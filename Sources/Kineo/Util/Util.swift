@@ -8,6 +8,7 @@
 
 import Foundation
 import CoreFoundation
+import SPARQLParser
 
 public func _sizeof<T>(_ value: T.Type) -> Int {
     return MemoryLayout<T>.size

@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import SPARQLParser
 import Kineo
 
 /**
