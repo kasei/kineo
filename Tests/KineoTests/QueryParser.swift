@@ -1,6 +1,6 @@
 import XCTest
 import Kineo
-import SPARQLParser
+import SPARQLSyntax
 
 #if os(Linux)
 extension QueryParserTest {

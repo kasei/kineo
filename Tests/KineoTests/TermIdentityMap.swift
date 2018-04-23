@@ -1,6 +1,6 @@
 import XCTest
 import Foundation
-import SPARQLParser
+import SPARQLSyntax
 @testable import Kineo
 
 #if os(Linux)

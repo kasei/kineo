@@ -8,7 +8,7 @@
 
 import serd
 import Foundation
-import SPARQLParser
+import SPARQLSyntax
 
 public class RDFParser {
     public enum RDFParserError : Error {

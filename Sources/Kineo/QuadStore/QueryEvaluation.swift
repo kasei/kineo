@@ -7,7 +7,7 @@
 //
 
 import Foundation
-import SPARQLParser
+import SPARQLSyntax
 
 // swiftlint:disable cyclomatic_complexity
 // swiftlint:disable:next type_body_length

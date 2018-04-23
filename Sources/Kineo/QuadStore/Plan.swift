@@ -7,7 +7,7 @@
 //
 
 import Foundation
-import SPARQLParser
+import SPARQLSyntax
 
 public typealias IDType = UInt64
 public typealias IDListResult = [IDType]

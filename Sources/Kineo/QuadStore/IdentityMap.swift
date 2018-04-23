@@ -7,7 +7,7 @@
 //
 
 import Foundation
-import SPARQLParser
+import SPARQLSyntax
 
 public protocol IdentityMap {
     associatedtype Item: Hashable

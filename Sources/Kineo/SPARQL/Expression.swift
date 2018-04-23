@@ -8,7 +8,7 @@
 
 import Foundation
 import CryptoSwift
-import SPARQLParser
+import SPARQLSyntax
 
 extension Term {
     func ebv() throws -> Bool {
