@@ -39,7 +39,7 @@ final public class Logger {
         let f = self.stack.last!
         print("Popped logger frame '\(f.name)' {")
         for (item, count) in f.counts.sorted(by: { $0.value > $1.value }) {
-            print(String(format: "%9d: %@", count, item))
+            print(String(format: "%9d: \(item)", count))
         }
         print("}")
     }
