@@ -110,17 +110,17 @@ open class QuadStore: Sequence, QuadStoreProtocol {
         let defaultIndex = QuadStore.defaultIndex
         guard let m = self.mediator as? RWMediator else { throw DatabaseError.PermissionError("Cannot load quads into a read-only quadstore") }
         do {
-            print("Adding RDF terms to database...")
+//            print("Adding RDF terms to database...")
             let idquads = try generateIDQuadsAddingTerms(quads: quads)
 
-            print("Adding RDF triples to database...")
+//            print("Adding RDF triples to database...")
             let empty = Empty()
 
             let toIndex = quadMapping(toOrder: defaultIndex)
             guard let defaultQuadsIndex: Tree<IDQuad<UInt64>, Empty> = m.tree(name: defaultIndex) else { throw DatabaseError.DataError("Missing default index \(defaultIndex)") }
 
             let spog = idquads.sorted()
-            print("Loading quads into primary index \(defaultIndex)")
+//            print("Loading quads into primary index \(defaultIndex)")
             for spogquad in spog {
                 let indexOrder = toIndex(spogquad)
                 let pair = (indexOrder, empty)
@@ -128,7 +128,7 @@ open class QuadStore: Sequence, QuadStoreProtocol {
             }
 
             for secondaryIndex in self.availableQuadIndexes.filter({ $0 != QuadStore.defaultIndex }) {
-                print("Loading quads into secondary index \(secondaryIndex)")
+//                print("Loading quads into secondary index \(secondaryIndex)")
                 guard let secondaryQuadIndex: Tree<IDQuad<UInt64>, Empty> = m.tree(name: secondaryIndex) else { throw DatabaseError.DataError("Missing secondary index \(secondaryIndex)") }
                 let toSecondaryIndex = quadMapping(toOrder: secondaryIndex)
                 let indexOrdered = spog.map { toSecondaryIndex($0) }.sorted()

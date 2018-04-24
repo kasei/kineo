@@ -449,7 +449,7 @@ class QueryEvaluationTest: XCTestCase {
         guard var p = SPARQLParser(data: data) else { fatalError("Failed to construct SPARQL parser") }
         do {
             let q = try p.parseQuery()
-            print(q.serialize())
+//            print(q.serialize())
             let results = try Array(eval(query: q))
             XCTAssertEqual(results.count, 2)
         } catch {
@@ -468,7 +468,7 @@ class QueryEvaluationTest: XCTestCase {
         guard var p = SPARQLParser(data: data) else { fatalError("Failed to construct SPARQL parser") }
         do {
             let q = try p.parseQuery()
-            print(q.serialize())
+//            print(q.serialize())
             let results = try Array(eval(query: q))
             XCTAssertEqual(results.count, 1)
             

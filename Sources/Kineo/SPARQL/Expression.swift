@@ -311,7 +311,7 @@ class ExpressionEvaluator {
             throw QueryError.evaluationError("Hash function operand not valid utf8 data")
         }
         
-        print("Computing hash of \(data.debugDescription)")
+//        print("Computing hash of \(data.debugDescription)")
         
         let hashData : Data!
         switch hashFunction {
