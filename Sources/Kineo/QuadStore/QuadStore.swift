@@ -749,13 +749,13 @@ public struct IDQuad<T: DefinedTestable & Equatable & Comparable & BufferSeriali
     }
 }
 
-public protocol ResultProtocol: Hashable {
-    associatedtype Element: Hashable
+public protocol ResultProtocol: Hashable, Sequence {
+    associatedtype TermType: Hashable
     var keys: [String] { get }
     func join(_ rhs: Self) -> Self?
-    subscript(key: String) -> Element? { get }
-    mutating func extend(variable: String, value: Element) throws
-    func extended(variable: String, value: Element) -> Self?
+    subscript(key: String) -> TermType? { get }
+    mutating func extend(variable: String, value: TermType) throws
+    func extended(variable: String, value: TermType) -> Self?
     func projected(variables: Set<String>) -> Self
     var hashValue: Int { get }
 }
@@ -769,14 +769,19 @@ extension ResultProtocol {
 }
 
 public struct TermResult: CustomStringConvertible, ResultProtocol {
-    public typealias Element = Term
-    private var bindings: [String:Element]
+    public typealias TermType = Term
+    private var bindings: [String:TermType]
     public var keys: [String] { return Array(bindings.keys) }
 
-    public init(bindings: [String:Element]) {
+    public init(bindings: [String:TermType]) {
         self.bindings = bindings
     }
 
+    public func makeIterator() -> DictionaryIterator<String, TermType> {
+        let i = bindings.makeIterator()
+        return i
+    }
+    
     public func join(_ rhs: TermResult) -> TermResult? {
         let lvars = Set(bindings.keys)
         let rvars = Set(rhs.bindings.keys)
@@ -795,7 +800,7 @@ public struct TermResult: CustomStringConvertible, ResultProtocol {
     }
 
     public func projected(variables: Set<String>) -> TermResult {
-        var bindings = [String:Element]()
+        var bindings = [String:TermType]()
         for name in variables {
             if let term = self[name] {
                 bindings[name] = term
@@ -805,7 +810,7 @@ public struct TermResult: CustomStringConvertible, ResultProtocol {
     }
     
     public func removing(variables: Set<String>) -> TermResult {
-        var bindings = [String:Element]()
+        var bindings = [String:TermType]()
         for (k, v) in self.bindings {
             if !variables.contains(k) {
                 bindings[k] = v
@@ -814,7 +819,7 @@ public struct TermResult: CustomStringConvertible, ResultProtocol {
         return TermResult(bindings: bindings)
     }
     
-    public subscript(key: Node) -> Element? {
+    public subscript(key: Node) -> TermType? {
         get {
             switch key {
             case .variable(let name, _):
@@ -831,7 +836,7 @@ public struct TermResult: CustomStringConvertible, ResultProtocol {
         }
     }
 
-    public subscript(key: String) -> Element? {
+    public subscript(key: String) -> TermType? {
         get {
             return bindings[key]
         }
@@ -845,7 +850,7 @@ public struct TermResult: CustomStringConvertible, ResultProtocol {
         return "Result\(bindings.description)"
     }
 
-    public mutating func extend(variable: String, value: Element) throws {
+    public mutating func extend(variable: String, value: TermType) throws {
         if let existing = self.bindings[variable] {
             if existing != value {
                 throw QueryError.compatabilityError("Cannot extend solution mapping due to existing incompatible term value")
@@ -854,7 +859,7 @@ public struct TermResult: CustomStringConvertible, ResultProtocol {
         self.bindings[variable] = value
     }
 
-    public func extended(variable: String, value: Element) -> TermResult? {
+    public func extended(variable: String, value: TermType) -> TermResult? {
         var b = bindings
         if let existing = b[variable] {
             if existing != value {
@@ -881,8 +886,8 @@ public struct TermResult: CustomStringConvertible, ResultProtocol {
 }
 
 public struct IDResult: CustomStringConvertible, ResultProtocol {
-    public typealias Element = UInt64
-    var bindings: [String:Element]
+    public typealias TermType = UInt64
+    var bindings: [String:TermType]
     public var keys: [String] { return Array(bindings.keys) }
     public func join(_ rhs: IDResult) -> IDResult? {
         let lvars = Set(bindings.keys)
@@ -898,8 +903,13 @@ public struct IDResult: CustomStringConvertible, ResultProtocol {
         return IDResult(bindings: b)
     }
 
+    public func makeIterator() -> DictionaryIterator<String, TermType> {
+        let i = bindings.makeIterator()
+        return i
+    }
+
     public func projected(variables: Set<String>) -> IDResult {
-        var bindings = [String:Element]()
+        var bindings = [String:TermType]()
         for name in variables {
             if let term = self[name] {
                 bindings[name] = term
@@ -908,7 +918,7 @@ public struct IDResult: CustomStringConvertible, ResultProtocol {
         return IDResult(bindings: bindings)
     }
 
-    public subscript(key: String) -> Element? {
+    public subscript(key: String) -> TermType? {
         return bindings[key]
     }
 
@@ -916,7 +926,7 @@ public struct IDResult: CustomStringConvertible, ResultProtocol {
         return "Result\(bindings.description)"
     }
 
-    public mutating func extend(variable: String, value: Element) throws {
+    public mutating func extend(variable: String, value: TermType) throws {
         if let existing = self.bindings[variable] {
             if existing != value {
                 throw QueryError.compatabilityError("Cannot extend solution mapping due to existing incompatible term value")
@@ -925,7 +935,7 @@ public struct IDResult: CustomStringConvertible, ResultProtocol {
         self.bindings[variable] = value
     }
 
-    public func extended(variable: String, value: Element) -> IDResult? {
+    public func extended(variable: String, value: TermType) -> IDResult? {
         var b = bindings
         if let existing = b[variable] {
             if existing != value {
