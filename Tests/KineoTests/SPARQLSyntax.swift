@@ -193,8 +193,9 @@ extension Query {
         try database.read { (m) in
             let store       = try QuadStore(mediator: m)
             let e       = SimpleQueryEvaluator(store: store, defaultGraph: defaultGraph, verbose: false)
-            let results = try Array(e.evaluate(query: query, activeGraph: defaultGraph))
-            for result in results {
+            let results = try e.evaluate(query: query, activeGraph: defaultGraph)
+            guard case let .bindings(_, iter) = results else { fatalError() }
+            for result in iter {
                 try cb(result)
             }
         }

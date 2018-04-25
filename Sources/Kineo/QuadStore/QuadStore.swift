@@ -749,6 +749,12 @@ public struct IDQuad<T: DefinedTestable & Equatable & Comparable & BufferSeriali
     }
 }
 
+public enum QueryResult<R: ResultProtocol> {
+    case boolean(Bool)
+    case triples(AnyIterator<Triple>)
+    case bindings([String], AnyIterator<R>)
+}
+
 public protocol ResultProtocol: Hashable, Sequence {
     associatedtype TermType: Hashable
     var keys: [String] { get }

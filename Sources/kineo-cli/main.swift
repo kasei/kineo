@@ -188,9 +188,20 @@ func query<D : Database>(_ database: D, query: Query, graph: Term? = nil, verbos
             }
         }
         
-        for result in try e.evaluate(query: query, activeGraph: defaultGraph) {
-            count += 1
-            print("\(count)\t\(result.description)")
+        let results = try e.evaluate(query: query, activeGraph: defaultGraph)
+        switch results {
+        case .bindings(_, let iter):
+            for result in iter {
+                count += 1
+                print("\(count)\t\(result.description)")
+            }
+        case .boolean(let v):
+            print("\(v)")
+        case .triples(let iter):
+            for triple in iter {
+                count += 1
+                print("\(count)\t\(triple.description)")
+            }
         }
     }
     if verbose {

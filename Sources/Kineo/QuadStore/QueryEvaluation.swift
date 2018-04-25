@@ -33,16 +33,30 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
     }
     
 
-    public func evaluate(query: Query, activeGraph: Term) throws -> AnyIterator<TermResult> {
+    public func evaluate(query: Query, activeGraph: Term) throws -> QueryResult<TermResult> {
         let algebra = query.algebra
-        return try self.evaluate(algebra: algebra, activeGraph: activeGraph)
+        let iter = try self.evaluate(algebra: algebra, activeGraph: activeGraph)
+        switch query.form {
+        case .ask:
+            if let _ = iter.next() {
+                return QueryResult.boolean(true)
+            } else {
+                return QueryResult.boolean(false)
+            }
+        case .select(_):
+            return QueryResult.bindings(query.projectedVariables, iter)
+        default:
+            fatalError("evaluate(query) not implemented for \(query.form)")
+        }
     }
     
     public func evaluate(algebra: Algebra, activeGraph: Term) throws -> AnyIterator<TermResult> {
         switch algebra {
         // don't require access to the underlying store:
         case let .subquery(q):
-            return try evaluate(query: q, activeGraph: activeGraph)
+            let result = try evaluate(query: q, activeGraph: activeGraph)
+            guard case let .bindings(_, i) = result else { throw QueryError.evaluationError("Unexpected results type from subquery: \(result)") }
+            return i
         case .unionIdentity:
             let results = [TermResult]()
             return AnyIterator(results.makeIterator())
