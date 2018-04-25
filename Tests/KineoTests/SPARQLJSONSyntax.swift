@@ -49,9 +49,9 @@ class SPARQLJSONSyntaxTest: XCTestCase {
     func testJSON1() throws {
         let serializer = SPARQLJSONSerializer<TermResult>()
         
-        var i = self.uniformResults.makeIterator()
-        let q = try Query(form: .select(.variables(["name", "value"])), algebra: .joinIdentity)
-        let j = try serializer.serialize(&i, for: q)
+        let i = self.uniformResults.makeIterator()
+        let results = QueryResult.bindings(["name", "value"], AnyIterator(i))
+        let j = try serializer.serialize(results)
         let s = String(data: j, encoding: .utf8)!
         let expected = """
         {"head":{"vars":["name","value"]},"results":{"bindings":[{"name":{"type":"literal","value":"Berlin","datatype":"http:\\/\\/www.w3.org\\/2001\\/XMLSchema#string"},"value":{"type":"literal","value":"1.2E0","datatype":"http:\\/\\/www.w3.org\\/2001\\/XMLSchema#double"}},{"name":{"type":"literal","value":"Berlin","datatype":"http:\\/\\/www.w3.org\\/2001\\/XMLSchema#string"},"value":{"type":"literal","value":"7","datatype":"http:\\/\\/www.w3.org\\/2001\\/XMLSchema#integer"}}]}}
@@ -62,9 +62,9 @@ class SPARQLJSONSyntaxTest: XCTestCase {
     func testJSON2() throws {
         let serializer = SPARQLJSONSerializer<TermResult>()
         
-        var i = self.nonUniformResults.makeIterator()
-        let q = try Query(form: .select(.variables(["name", "value", "boolean", "blank", "iri"])), algebra: .joinIdentity)
-        let j = try serializer.serialize(&i, for: q)
+        let i = self.nonUniformResults.makeIterator()
+        let results = QueryResult.bindings(["name", "value", "boolean", "blank", "iri"], AnyIterator(i))
+        let j = try serializer.serialize(results)
         let s = String(data: j, encoding: .utf8)!
         let expected = """
         {"head":{"vars":["name","value","boolean","blank","iri"]},"results":{"bindings":[{"name":{"type":"literal","value":"Berlin","datatype":"http:\\/\\/www.w3.org\\/2001\\/XMLSchema#string"},"value":{"type":"literal","value":"1.2E0","datatype":"http:\\/\\/www.w3.org\\/2001\\/XMLSchema#double"}},{"iri":{"type":"uri","value":"http:\\/\\/example.org\\/Berlin"},"blank":{"type":"bnode","value":"b1"},"boolean":{"type":"literal","value":"true","datatype":"http:\\/\\/www.w3.org\\/2001\\/XMLSchema#boolean"}},{"name":{"type":"literal","value":"Berlin","datatype":"http:\\/\\/www.w3.org\\/2001\\/XMLSchema#string"},"value":{"type":"literal","value":"7","datatype":"http:\\/\\/www.w3.org\\/2001\\/XMLSchema#integer"}}]}}
@@ -76,9 +76,9 @@ class SPARQLJSONSyntaxTest: XCTestCase {
         let serializer = SPARQLJSONSerializer<TermResult>()
         serializer.encoder.outputFormatting = .prettyPrinted
 
-        var i = self.uniformLanguageResults.makeIterator()
-        let q = try Query(form: .select(.variables(["name", "value"])), algebra: .joinIdentity)
-        let j = try serializer.serialize(&i, for: q)
+        let i = self.uniformLanguageResults.makeIterator()
+        let results = QueryResult.bindings(["name", "value"], AnyIterator(i))
+        let j = try serializer.serialize(results)
         let s = String(data: j, encoding: .utf8)!
         let expected = """
         {

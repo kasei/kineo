@@ -52,25 +52,23 @@ public struct SPARQLJSONSerializer<T: ResultProtocol> where T.TermType == Term {
         }
     }
     
-    
-    public func serialize<I: IteratorProtocol>(_ iter: inout I, for query: Query) throws -> Data where I.Element == T {
-        var results = [[String:Term]]()
-        while let result = iter.next() {
-            var d = [String:Term]()
-            for k in result.keys {
-                d[k] = result[k]
-            }
-            results.append(d)
-        }
-        
+    public func serialize(_ results: QueryResult<T>) throws -> Data {
         var r : ResultValue
-        switch query.form {
-        case .select(.variables(let vars)):
+        switch results {
+        case .boolean(_):
+            throw SerializationError.encodingError("TODO: Encoding non-bindings results not implemented")
+        case .triples(_):
+            throw SerializationError.encodingError("TODO: Encoding non-bindings results not implemented")
+        case let .bindings(vars, iter):
+            var results = [[String:Term]]()
+            while let result = iter.next() {
+                var d = [String:Term]()
+                for k in result.keys {
+                    d[k] = result[k]
+                }
+                results.append(d)
+            }
             r = ResultValue.bindings(vars, results)
-        case .select(.star):
-            r = ResultValue.bindings(query.algebra.inscope.sorted(), results)
-        default:
-            throw SerializationError.encodingError("Encoding non-bindings results not implemented")
         }
         return try encoder.encode(r)
     }
