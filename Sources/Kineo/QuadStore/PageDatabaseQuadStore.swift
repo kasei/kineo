@@ -9,7 +9,7 @@ import Foundation
 import SPARQLSyntax
 
 // swiftlint:disable:next type_body_length
-open class QuadStore: Sequence, QuadStoreProtocol {
+open class PageQuadStore: Sequence, QuadStoreProtocol {
     public typealias IDType = UInt64
     static public let defaultIndex = "pogs"
     internal var mediator: PageRMediator
@@ -46,17 +46,17 @@ open class QuadStore: Sequence, QuadStoreProtocol {
         return count
     }
     
-    public static func create(mediator: PageRWMediator) throws -> QuadStore {
+    public static func create(mediator: PageRWMediator) throws -> PageQuadStore {
         do {
             _ = try PersistentTermIdentityMap(mediator: mediator)
             _ = try mediator.getRoot(named: defaultIndex)
             // all the trees seem to be set up
-            return try QuadStore(mediator: mediator)
+            return try PageQuadStore(mediator: mediator)
         } catch {
             // empty database; set up the trees and tables
             do {
                 _ = try PersistentTermIdentityMap(mediator: mediator)
-                let store = try QuadStore(mediator: mediator)
+                let store = try PageQuadStore(mediator: mediator)
                 let pairs: [(IDQuad<UInt64>, Empty)] = []
                 _ = try mediator.create(tree: defaultIndex, pairs: pairs)
                 return store
@@ -81,7 +81,7 @@ open class QuadStore: Sequence, QuadStoreProtocol {
     }
     
     public func load<S: Sequence>(quads: S) throws where S.Iterator.Element == Quad {
-        let defaultIndex = QuadStore.defaultIndex
+        let defaultIndex = PageQuadStore.defaultIndex
         guard let m = self.mediator as? PageRWMediator else { throw DatabaseError.PermissionError("Cannot load quads into a read-only quadstore") }
         do {
             //            print("Adding RDF terms to database...")
@@ -101,7 +101,7 @@ open class QuadStore: Sequence, QuadStoreProtocol {
                 try defaultQuadsIndex.insertIgnore(pair: pair)
             }
             
-            for secondaryIndex in self.availableQuadIndexes.filter({ $0 != QuadStore.defaultIndex }) {
+            for secondaryIndex in self.availableQuadIndexes.filter({ $0 != PageQuadStore.defaultIndex }) {
                 //                print("Loading quads into secondary index \(secondaryIndex)")
                 guard let secondaryQuadIndex: Tree<IDQuad<UInt64>, Empty> = m.tree(name: secondaryIndex) else { throw DatabaseError.DataError("Missing secondary index \(secondaryIndex)") }
                 let toSecondaryIndex = quadMapping(toOrder: secondaryIndex)
@@ -118,7 +118,7 @@ open class QuadStore: Sequence, QuadStoreProtocol {
     }
     
     public func addQuadIndex(_ index: String) throws {
-        let defaultIndex = QuadStore.defaultIndex
+        let defaultIndex = PageQuadStore.defaultIndex
         guard let m = self.mediator as? PageRWMediator else { throw DatabaseError.PermissionError("Cannot create a quad index in a read-only quadstore") }
         guard String(index.sorted()) == "gops" else { throw DatabaseError.KeyError("Not a valid quad index name: '\(index)'") }
         guard let defaultQuadsIndex: Tree<IDQuad<UInt64>, Empty> = m.tree(name: defaultIndex) else { throw DatabaseError.DataError("Missing default index \(defaultIndex)") }
@@ -137,12 +137,12 @@ open class QuadStore: Sequence, QuadStoreProtocol {
     }
     
     public func graphIDs() -> AnyIterator<IDType> {
-        guard let mapping = try? quadMapping(fromOrder: QuadStore.defaultIndex) else {
-            warn("Failed to compute mapping for quad index order \(QuadStore.defaultIndex)")
+        guard let mapping = try? quadMapping(fromOrder: PageQuadStore.defaultIndex) else {
+            warn("Failed to compute mapping for quad index order \(PageQuadStore.defaultIndex)")
             return AnyIterator { return nil }
         }
-        guard let quadsTree: Tree<IDQuad<UInt64>, Empty> = mediator.tree(name: QuadStore.defaultIndex) else {
-            warn("Failed to load default index \(QuadStore.defaultIndex)")
+        guard let quadsTree: Tree<IDQuad<UInt64>, Empty> = mediator.tree(name: PageQuadStore.defaultIndex) else {
+            warn("Failed to load default index \(PageQuadStore.defaultIndex)")
             return AnyIterator { return nil }
         }
         
@@ -171,12 +171,12 @@ open class QuadStore: Sequence, QuadStoreProtocol {
     }
     
     public func graphNodeIDs() -> AnyIterator<IDType> {
-        guard let mapping = try? quadMapping(fromOrder: QuadStore.defaultIndex) else {
-            warn("Failed to compute mapping for quad index order \(QuadStore.defaultIndex)")
+        guard let mapping = try? quadMapping(fromOrder: PageQuadStore.defaultIndex) else {
+            warn("Failed to compute mapping for quad index order \(PageQuadStore.defaultIndex)")
             return AnyIterator { return nil }
         }
-        guard let quadsTree: Tree<IDQuad<UInt64>, Empty> = mediator.tree(name: QuadStore.defaultIndex) else {
-            warn("Failed to load default index \(QuadStore.defaultIndex)")
+        guard let quadsTree: Tree<IDQuad<UInt64>, Empty> = mediator.tree(name: PageQuadStore.defaultIndex) else {
+            warn("Failed to load default index \(PageQuadStore.defaultIndex)")
             return AnyIterator { return nil }
         }
         
@@ -233,7 +233,7 @@ open class QuadStore: Sequence, QuadStoreProtocol {
     }
     
     public func makeIterator() -> AnyIterator<Quad> {
-        let treeName = QuadStore.defaultIndex
+        let treeName = PageQuadStore.defaultIndex
         do {
             return try iterator(usingIndex: treeName)
         } catch let e {
@@ -507,7 +507,7 @@ extension UInt64: DefinedTestable {
     }
 }
 
-open class LanguageQuadStore: QuadStore {
+open class LanguagePageQuadStore: PageQuadStore {
     var acceptLanguages: [(String, Double)]
     public init(mediator: PageRMediator, acceptLanguages: [(String, Double)], mutable: Bool = false) throws {
         self.acceptLanguages = acceptLanguages
@@ -647,7 +647,7 @@ public class PersistentTermIdentityMap: PackedIdentityMap, Sequence {
     
     private static func loadMaxIDs(from tree: Tree<Result, Item>, mediator: PageRMediator) -> (UInt64, UInt64, UInt64, UInt64) {
         let mask        = UInt64(0x00ffffffffffffff)
-        // OPTIMIZE: store maxKeys for each of these in the database in a way that doesn't require tree walks to initialize the QuadStore
+        // OPTIMIZE: store maxKeys for each of these in the database in a way that doesn't require tree walks to initialize the PageQuadStore
         let blankMax    = (tree.maxKey(in: PackedTermType.blank.idRange) ?? 0) & mask
         let iriMax      = (tree.maxKey(in: PackedTermType.iri.idRange) ?? 0) & mask
         let languageMax = (tree.maxKey(in: PackedTermType.language.idRange) ?? 0) & mask
