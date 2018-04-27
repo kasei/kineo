@@ -8,19 +8,10 @@
 import Foundation
 import SPARQLSyntax
 
-enum SerializationError: Error {
-    case encodingError(String)
-}
+public struct SPARQLJSONSerializer<T: ResultProtocol> : SPARQLSerializable where T.TermType == Term {
+    typealias ResultType = T
+    let canonicalMediaType = "application/sparql-results+json"
 
-//extension ResultProtocol: Encodable {
-//    public func encode(to encoder: Encoder) throws {
-//        var container = encoder.singleValueContainer
-//        let d = Dictionary(self.makeIterator())
-//        try container.encode(unid)
-//    }
-//
-//}
-public struct SPARQLJSONSerializer<T: ResultProtocol> where T.TermType == Term {
     public var encoder: JSONEncoder
     public init() {
         encoder = JSONEncoder()
@@ -55,10 +46,8 @@ public struct SPARQLJSONSerializer<T: ResultProtocol> where T.TermType == Term {
     public func serialize(_ results: QueryResult<T>) throws -> Data {
         var r : ResultValue
         switch results {
-        case .boolean(_):
-            throw SerializationError.encodingError("TODO: Encoding non-bindings results not implemented")
-        case .triples(_):
-            throw SerializationError.encodingError("TODO: Encoding non-bindings results not implemented")
+        case .boolean(let value):
+            r = ResultValue.boolean(value)
         case let .bindings(vars, iter):
             var results = [[String:Term]]()
             while let result = iter.next() {
@@ -69,6 +58,8 @@ public struct SPARQLJSONSerializer<T: ResultProtocol> where T.TermType == Term {
                 results.append(d)
             }
             r = ResultValue.bindings(vars, results)
+        case .triples(_):
+            throw SerializationError.encodingError("RDF triples cannot be serialized in SPARQL-JSON")
         }
         return try encoder.encode(r)
     }
