@@ -22,8 +22,8 @@ public enum DatabaseError: Error {
 }
 
 public protocol PageMarshalled {
-    static func deserialize(from: UnsafeRawPointer, status: PageStatus, mediator: RMediator) throws -> Self
-    func serialize(to buffer: UnsafeMutableRawPointer, status: PageStatus, mediator: RWMediator) throws
+    static func deserialize(from: UnsafeRawPointer, status: PageStatus, mediator: PageRMediator) throws -> Self
+    func serialize(to buffer: UnsafeMutableRawPointer, status: PageStatus, mediator: PageRWMediator) throws
 }
 
 public typealias PageId = Int
@@ -35,7 +35,7 @@ public enum PageStatus {
     case dirty(PageId)
 }
 
-public protocol RMediator {
+public protocol PageRMediator {
     var pageSize: Int { get }
     var pageCount: Int { get }
     var rootNames: [String] { get }
@@ -43,7 +43,7 @@ public protocol RMediator {
     func readPage<M: PageMarshalled>(_ page: PageId) throws -> (M, PageStatus)
 }
 
-public protocol RWMediator: RMediator {
+public protocol PageRWMediator: PageRMediator {
     var version: Version { get }
     func addRoot(name: String, page: PageId)
     func updateRoot(name: String, page: PageId)
@@ -51,16 +51,16 @@ public protocol RWMediator: RMediator {
     func update<M: PageMarshalled>(page: PageId, with: M) throws
 }
 
-public protocol Database {
-    associatedtype ReadMediator : RMediator
-    associatedtype UpdateMediator : RWMediator
+public protocol PageDatabase {
+    associatedtype ReadMediator : PageRMediator
+    associatedtype UpdateMediator : PageRWMediator
     var pageSize: Int { get }
     var pageCount: Int { get }
     func read(cb callback: (ReadMediator) throws -> ()) rethrows
     func update(version: Version, cb callback: (UpdateMediator) throws -> ()) throws
 }
 
-public class DatabaseInfo {
+public class PageDatabaseInfo {
     public enum Cookie: UInt32 {
         case databaseHeader     = 0x702e4442 // 'p.DB'
         case tablePage          = 0x54426973 // 'TBis'
@@ -69,7 +69,7 @@ public class DatabaseInfo {
     }
 }
 
-extension DatabaseInfo.Cookie: CustomStringConvertible {
+extension PageDatabaseInfo.Cookie: CustomStringConvertible {
     public var description: String {
         switch self {
         case .databaseHeader:

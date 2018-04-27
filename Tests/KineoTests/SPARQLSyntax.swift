@@ -34,7 +34,7 @@ class SPARQLSyntaxTest: XCTestCase {
         super.tearDown()
     }
     
-    func setup<D : Database>(_ database: D) throws {
+    func setup<D : PageDatabase>(_ database: D) throws {
         try database.update(version: Version(0)) { (m) in
             do {
                 _ = try QuadStore.create(mediator: m)
@@ -45,7 +45,7 @@ class SPARQLSyntaxTest: XCTestCase {
         }
     }
 
-    func parse<D : Database>(_ database: D, files: [String], graph defaultGraphTerm: Term? = nil) throws {
+    func parse<D : PageDatabase>(_ database: D, files: [String], graph defaultGraphTerm: Term? = nil) throws {
         let version = Version(1)
         try database.update(version: version) { (m) in
             do {
@@ -115,7 +115,7 @@ class SPARQLSyntaxTest: XCTestCase {
         }
     }
 
-    func manifestItems<D: Database>(_ database: D, manifest: Term, type: Term? = nil) throws -> AnyIterator<TermResult> {
+    func manifestItems<D: PageDatabase>(_ database: D, manifest: Term, type: Term? = nil) throws -> AnyIterator<TermResult> {
         let testType = type ?? Term(iri: "http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#PositiveSyntaxTest")
         let sparql = """
         PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
@@ -180,7 +180,7 @@ class SPARQLSyntaxTest: XCTestCase {
 }
 
 extension Query {
-    func execute<D : Database>(_ database: D, defaultGraph: Term) throws -> AnyIterator<TermResult> {
+    func execute<D : PageDatabase>(_ database: D, defaultGraph: Term) throws -> AnyIterator<TermResult> {
         var results = [TermResult]()
         try self.execute(database, defaultGraph: defaultGraph) { (r) in
             results.append(r)
@@ -188,7 +188,7 @@ extension Query {
         return AnyIterator(results.makeIterator())
     }
     
-    func execute<D : Database>(_ database: D, defaultGraph: Term, _ cb: (TermResult) throws -> ()) throws {
+    func execute<D : PageDatabase>(_ database: D, defaultGraph: Term, _ cb: (TermResult) throws -> ()) throws {
         let query = self
         try database.read { (m) in
             let store       = try QuadStore(mediator: m)

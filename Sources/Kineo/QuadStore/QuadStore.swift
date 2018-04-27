@@ -38,14 +38,14 @@ extension QuadStoreProtocol {
 open class QuadStore: Sequence, QuadStoreProtocol {
     public typealias IDType = UInt64
     static public let defaultIndex = "pogs"
-    internal var mediator: RMediator
+    internal var mediator: PageRMediator
     public let readonly: Bool
     public var id: PersistentTermIdentityMap
-    public init(mediator: RMediator, mutable: Bool = false) throws {
+    public init(mediator: PageRMediator, mutable: Bool = false) throws {
         self.mediator = mediator
         var readonly = !mutable
         if readonly {
-            if let _ = mediator as? RWMediator {
+            if let _ = mediator as? PageRWMediator {
                 readonly = false
             }
         }
@@ -72,7 +72,7 @@ open class QuadStore: Sequence, QuadStoreProtocol {
         return count
     }
     
-    public static func create(mediator: RWMediator) throws -> QuadStore {
+    public static func create(mediator: PageRWMediator) throws -> QuadStore {
         do {
             _ = try PersistentTermIdentityMap(mediator: mediator)
             _ = try mediator.getRoot(named: defaultIndex)
@@ -108,7 +108,7 @@ open class QuadStore: Sequence, QuadStoreProtocol {
 
     public func load<S: Sequence>(quads: S) throws where S.Iterator.Element == Quad {
         let defaultIndex = QuadStore.defaultIndex
-        guard let m = self.mediator as? RWMediator else { throw DatabaseError.PermissionError("Cannot load quads into a read-only quadstore") }
+        guard let m = self.mediator as? PageRWMediator else { throw DatabaseError.PermissionError("Cannot load quads into a read-only quadstore") }
         do {
 //            print("Adding RDF terms to database...")
             let idquads = try generateIDQuadsAddingTerms(quads: quads)
@@ -145,7 +145,7 @@ open class QuadStore: Sequence, QuadStoreProtocol {
 
     public func addQuadIndex(_ index: String) throws {
         let defaultIndex = QuadStore.defaultIndex
-        guard let m = self.mediator as? RWMediator else { throw DatabaseError.PermissionError("Cannot create a quad index in a read-only quadstore") }
+        guard let m = self.mediator as? PageRWMediator else { throw DatabaseError.PermissionError("Cannot create a quad index in a read-only quadstore") }
         guard String(index.sorted()) == "gops" else { throw DatabaseError.KeyError("Not a valid quad index name: '\(index)'") }
         guard let defaultQuadsIndex: Tree<IDQuad<UInt64>, Empty> = m.tree(name: defaultIndex) else { throw DatabaseError.DataError("Missing default index \(defaultIndex)") }
 
@@ -527,18 +527,18 @@ public class PersistentTermIdentityMap: PackedIdentityMap, Sequence {
     public typealias Item = Term
     public typealias Result = UInt64
 
-    var mediator: RMediator
+    var mediator: PageRMediator
     var next: (iri: UInt64, blank: UInt64, datatype: UInt64, language: UInt64)
     public static let t2iMapTreeName = "t2i_tree"
     public static let i2tMapTreeName = "i2t_tree"
     var i2tcache: LRUCache<Result, Term>
     var t2icache: LRUCache<Term, Result>
 
-    public init (mediator: RMediator, readonly: Bool = false) throws {
+    public init (mediator: PageRMediator, readonly: Bool = false) throws {
         self.mediator = mediator
         var t2i: Tree<Item, Result>? = mediator.tree(name: PersistentTermIdentityMap.t2iMapTreeName)
         if t2i == nil {
-            guard let m = mediator as? RWMediator else {
+            guard let m = mediator as? PageRWMediator else {
                 throw DatabaseError.PermissionError("Cannot create new PersistentTermIdentityMap in a read-only transaction")
             }
             let t2ipairs = [(Item, Result)]()
@@ -548,7 +548,7 @@ public class PersistentTermIdentityMap: PackedIdentityMap, Sequence {
 
         var i2t: Tree<Result, Item>? = mediator.tree(name: PersistentTermIdentityMap.i2tMapTreeName)
         if i2t == nil {
-            guard let m = mediator as? RWMediator else {
+            guard let m = mediator as? PageRWMediator else {
                 throw DatabaseError.PermissionError("Cannot create new PersistentTermIdentityMap in a read-only transaction")
             }
             let i2tpairs = [(Result, Item)]()
@@ -573,7 +573,7 @@ public class PersistentTermIdentityMap: PackedIdentityMap, Sequence {
         self.t2icache = LRUCache(capacity: 4096)
     }
 
-    private static func loadMaxIDs(from tree: Tree<Result, Item>, mediator: RMediator) -> (UInt64, UInt64, UInt64, UInt64) {
+    private static func loadMaxIDs(from tree: Tree<Result, Item>, mediator: PageRMediator) -> (UInt64, UInt64, UInt64, UInt64) {
         let mask        = UInt64(0x00ffffffffffffff)
         // OPTIMIZE: store maxKeys for each of these in the database in a way that doesn't require tree walks to initialize the QuadStore
         let blankMax    = (tree.maxKey(in: PackedTermType.blank.idRange) ?? 0) & mask
@@ -650,7 +650,7 @@ public class PersistentTermIdentityMap: PackedIdentityMap, Sequence {
             guard value < UInt64(0x00ffffffffffffff) else { throw DatabaseError.DataError("Term ID overflows the 56 bits available") }
             let id = type + value
 
-            guard let m = mediator as? RWMediator else { throw DatabaseError.PermissionError("Cannot create new term IDs in a read-only transaction") }
+            guard let m = mediator as? PageRWMediator else { throw DatabaseError.PermissionError("Cannot create new term IDs in a read-only transaction") }
             guard let i2t: Tree<Result, Item> = m.tree(name: PersistentTermIdentityMap.i2tMapTreeName) else { throw DatabaseError.DataError("Failed to get the ID to term tree") }
             guard let t2i: Tree<Item, Result> = m.tree(name: PersistentTermIdentityMap.t2iMapTreeName) else { throw DatabaseError.DataError("Failed to get the term to ID tree") }
 
@@ -704,7 +704,7 @@ public struct IDQuad<T: DefinedTestable & Equatable & Comparable & BufferSeriali
     }
 
     public var serializedSize: Int { return 4 * _sizeof(T.self) }
-    public func serialize(to buffer: inout UnsafeMutableRawPointer, mediator: RWMediator?, maximumSize: Int) throws {
+    public func serialize(to buffer: inout UnsafeMutableRawPointer, mediator: PageRWMediator?, maximumSize: Int) throws {
         if serializedSize > maximumSize { throw DatabaseError.OverflowError("Cannot serialize IDQuad in available space") }
         //        print("serializing quad \(subject) \(predicate) \(object) \(graph)")
         try self[0].serialize(to: &buffer)
@@ -713,7 +713,7 @@ public struct IDQuad<T: DefinedTestable & Equatable & Comparable & BufferSeriali
         try self[3].serialize(to: &buffer)
     }
 
-    public static func deserialize(from buffer: inout UnsafeRawPointer, mediator: RMediator?=nil) throws -> IDQuad {
+    public static func deserialize(from buffer: inout UnsafeRawPointer, mediator: PageRMediator?=nil) throws -> IDQuad {
         let v0      = try T.deserialize(from: &buffer, mediator: mediator)
         let v1      = try T.deserialize(from: &buffer, mediator: mediator)
         let v2      = try T.deserialize(from: &buffer, mediator: mediator)
@@ -967,7 +967,7 @@ public struct IDResult: CustomStringConvertible, ResultProtocol {
 
 open class LanguageQuadStore: QuadStore {
     var acceptLanguages: [(String, Double)]
-    public init(mediator: RMediator, acceptLanguages: [(String, Double)], mutable: Bool = false) throws {
+    public init(mediator: PageRMediator, acceptLanguages: [(String, Double)], mutable: Bool = false) throws {
         self.acceptLanguages = acceptLanguages
         try super.init(mediator: mediator, mutable: mutable)
     }

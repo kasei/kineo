@@ -35,10 +35,10 @@ public struct DatabaseHeaderPage: PageMarshalled {
         return (cookie, version, Int(pageSize))
     }
 
-    public static func deserialize(from buffer: UnsafeRawPointer, status: PageStatus, mediator: RMediator) throws -> DatabaseHeaderPage {
+    public static func deserialize(from buffer: UnsafeRawPointer, status: PageStatus, mediator: PageRMediator) throws -> DatabaseHeaderPage {
         let (cookie, version, _) = try self.deserializeHeaderMetadata(from: buffer, status: status)
         let rawMemory = buffer.assumingMemoryBound(to: UInt8.self)
-        guard cookie == DatabaseInfo.Cookie.databaseHeader.rawValue else { throw DatabaseError.DataError("Table page has bad header cookie") }
+        guard cookie == PageDatabaseInfo.Cookie.databaseHeader.rawValue else { throw DatabaseError.DataError("Table page has bad header cookie") }
         let count = UInt32(bigEndian: rawMemory.withMemoryRebound(to: UInt32.self, capacity: 5) { $0[4] })
         var payloadPtr = UnsafeRawPointer(rawMemory+20)
 
@@ -51,7 +51,7 @@ public struct DatabaseHeaderPage: PageMarshalled {
         return DatabaseHeaderPage(version: version, roots: roots)
     }
 
-    public func serialize(to buffer: UnsafeMutableRawPointer, status: PageStatus, mediator: RWMediator) throws {
+    public func serialize(to buffer: UnsafeMutableRawPointer, status: PageStatus, mediator: PageRWMediator) throws {
         let pageSize = mediator.pageSize
         try self.serialize(to: buffer, status: status, pageSize: pageSize)
     }
@@ -63,7 +63,7 @@ public struct DatabaseHeaderPage: PageMarshalled {
             }
         }
         var ptr = buffer
-        try DatabaseInfo.Cookie.databaseHeader.rawValue.serialize(to: &ptr)
+        try PageDatabaseInfo.Cookie.databaseHeader.rawValue.serialize(to: &ptr)
         try version.serialize(to: &ptr)
 
         precondition(pageSize >= _sizeof(UInt32.self))
@@ -89,7 +89,7 @@ public struct DatabaseHeaderPage: PageMarshalled {
     }
 }
 
-public final class FilePageDatabase: Database {
+public final class FilePageDatabase: PageDatabase {
     public typealias ReadMediator = FilePageRMediator
     public typealias UpdateMediator = FilePageRWMediator
 
@@ -128,7 +128,7 @@ public final class FilePageDatabase: Database {
             guard sr == 16 else { return nil }
             do {
                 let (cookie, _, preferredPageSize) = try DatabaseHeaderPage.deserializeHeaderMetadata(from: b, status: .clean(0))
-                guard cookie == DatabaseInfo.Cookie.databaseHeader.rawValue else { return nil }
+                guard cookie == PageDatabaseInfo.Cookie.databaseHeader.rawValue else { return nil }
                 pageSize = preferredPageSize
                 guard size % pageSize == 0 else { return nil }
                 pageCount = (size / pageSize)
@@ -183,7 +183,7 @@ public final class FilePageDatabase: Database {
     }
 }
 
-open class FilePageRMediator: RMediator {
+open class FilePageRMediator: PageRMediator {
     public typealias Database = FilePageDatabase
 
     var database: FilePageDatabase
@@ -281,7 +281,7 @@ open class FilePageRMediator: RMediator {
                 }
 
                 var type: String
-                if let c = DatabaseInfo.Cookie(rawValue: cookie) {
+                if let c = PageDatabaseInfo.Cookie(rawValue: cookie) {
                     type = "\(c)"
                 } else {
                     type = "????"
@@ -293,7 +293,7 @@ open class FilePageRMediator: RMediator {
     }
 }
 
-open class FilePageRWMediator: FilePageRMediator, RWMediator {
+open class FilePageRWMediator: FilePageRMediator, PageRWMediator {
     public typealias Database = FilePageDatabase
     private var roots: [String:PageId]
     private var dirty: [PageId:PageMarshalled]

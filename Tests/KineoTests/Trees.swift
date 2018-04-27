@@ -160,7 +160,7 @@ class TreesTest: XCTestCase {
 
     }
 
-    private func assertValidTreeVersionMtime(_ mediator: RMediator, _ pid: PageId, _ message: String = "") {
+    private func assertValidTreeVersionMtime(_ mediator: PageRMediator, _ pid: PageId, _ message: String = "") {
         if let (node, _) : (TreeNode<UInt32, String>, PageStatus) = try? mediator.readPage(pid) {
             assertValidTreeVersionMtime(mediator, node, node.version, [])
         } else {
@@ -168,7 +168,7 @@ class TreesTest: XCTestCase {
         }
     }
 
-    private func assertValidTreeVersionMtime(_ mediator: RMediator, _ node: TreeNode<UInt32, String>, _ max: UInt64, _ versions: [UInt64], _ message: String = "") {
+    private func assertValidTreeVersionMtime(_ mediator: PageRMediator, _ node: TreeNode<UInt32, String>, _ max: UInt64, _ versions: [UInt64], _ message: String = "") {
         XCTAssertLessThanOrEqual(node.version, max, "Tree mtimes are invalid: \(versions)")
         switch node {
         case .leafNode(_):
@@ -184,7 +184,7 @@ class TreesTest: XCTestCase {
         }
     }
 
-    private func assertTreeVersions(_ mediator: RMediator, _ pid: PageId, _ expected: [UInt64]) {
+    private func assertTreeVersions(_ mediator: PageRMediator, _ pid: PageId, _ expected: [UInt64]) {
         if let (node, _) : (TreeNode<UInt32, String>, PageStatus) = try? mediator.readPage(pid) {
             let versions = walkTreeNode(mediator, node: node) { $0.version }
             XCTAssertEqual(versions, expected)
@@ -193,7 +193,7 @@ class TreesTest: XCTestCase {
         XCTFail()
     }
 
-    private func walkTreeNode<T>(_ mediator: RMediator, node: TreeNode<UInt32, String>, cb callback: (TreeNode<UInt32, String>) -> T) -> [T] {
+    private func walkTreeNode<T>(_ mediator: PageRMediator, node: TreeNode<UInt32, String>, cb callback: (TreeNode<UInt32, String>) -> T) -> [T] {
         switch node {
         case .leafNode(_):
             return [callback(node)]

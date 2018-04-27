@@ -67,7 +67,7 @@ extension TermType: BufferSerializable {
             return 1 + dt.serializedSize
         }
     }
-    public func serialize(to buffer: inout UnsafeMutableRawPointer, mediator: RWMediator?, maximumSize: Int) throws {
+    public func serialize(to buffer: inout UnsafeMutableRawPointer, mediator: PageRWMediator?, maximumSize: Int) throws {
         if serializedSize > maximumSize { throw DatabaseError.OverflowError("Cannot serialize TermType in available space") }
         switch self {
         case .language("de"):
@@ -132,7 +132,7 @@ extension TermType: BufferSerializable {
         }
     }
     
-    public static func deserialize(from buffer: inout UnsafeRawPointer, mediator: RMediator?=nil) throws -> TermType {
+    public static func deserialize(from buffer: inout UnsafeRawPointer, mediator: PageRMediator?=nil) throws -> TermType {
         let type = buffer.assumingMemoryBound(to: UInt8.self).pointee
         buffer += 1
         
@@ -187,13 +187,13 @@ extension Term: BufferSerializable {
     public var serializedSize: Int {
         return type.serializedSize + value.serializedSize
     }
-    public func serialize(to buffer: inout UnsafeMutableRawPointer, mediator: RWMediator?, maximumSize: Int) throws {
+    public func serialize(to buffer: inout UnsafeMutableRawPointer, mediator: PageRWMediator?, maximumSize: Int) throws {
         if serializedSize > maximumSize { throw DatabaseError.OverflowError("Cannot serialize Term in available space") }
         try type.serialize(to: &buffer)
         try value.serialize(to: &buffer)
     }
     
-    public static func deserialize(from buffer: inout UnsafeRawPointer, mediator: RMediator?=nil) throws -> Term {
+    public static func deserialize(from buffer: inout UnsafeRawPointer, mediator: PageRMediator?=nil) throws -> Term {
         do {
             let type    = try TermType.deserialize(from: &buffer)
             let value   = try String.deserialize(from: &buffer)

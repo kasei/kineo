@@ -13,7 +13,7 @@ import Kineo
 /**
  If necessary, create a new quadstore in the supplied database.
  */
-func setup<D : Database>(_ database: D, startTime: UInt64) throws {
+func setup<D : PageDatabase>(_ database: D, startTime: UInt64) throws {
     try database.update(version: Version(startTime)) { (m) in
         Logger.shared.push(name: "QuadStore setup")
         defer { Logger.shared.pop(printSummary: false) }
@@ -89,7 +89,7 @@ func sortParse(files: [String], graph defaultGraphTerm: Term? = nil) throws -> (
  - parameter startTime: The timestamp to use as the database transaction version number.
  - parameter graph: The graph into which parsed triples should be load.
  */
-func parse<D : Database>(_ database: D, files: [String], startTime: UInt64, graph defaultGraphTerm: Term? = nil) throws -> Int {
+func parse<D : PageDatabase>(_ database: D, files: [String], startTime: UInt64, graph defaultGraphTerm: Term? = nil) throws -> Int {
     var count   = 0
     let version = Version(startTime)
     try database.update(version: version) { (m) in
@@ -122,7 +122,7 @@ func parse<D : Database>(_ database: D, files: [String], startTime: UInt64, grap
     return count
 }
 
-func parseQuery<D : Database>(_ database: D, filename: String) throws -> Query? {
+func parseQuery<D : PageDatabase>(_ database: D, filename: String) throws -> Query? {
     let reader      = FileReader(filename: filename)
     let qp          = QueryParser(reader: reader)
     return try qp.parse()
@@ -135,7 +135,7 @@ func parseQuery<D : Database>(_ database: D, filename: String) throws -> Query? 
  - parameter query: The query to plan.
  - parameter graph: The graph name to use as the initial active graph.
  */
-func explain<D : Database>(_ database: D, query: Query, graph: Term? = nil, verbose: Bool) throws {
+func explain<D : PageDatabase>(_ database: D, query: Query, graph: Term? = nil, verbose: Bool) throws {
     print("- explaining query")
     try database.read { (m) in
         print("- mediator: \(m)")
@@ -165,7 +165,7 @@ func explain<D : Database>(_ database: D, query: Query, graph: Term? = nil, verb
  - parameter graph: The graph name to use as the initial active graph.
  - parameter verbose: A flag indicating whether verbose debugging should be emitted during query evaluation.
  */
-func query<D : Database>(_ database: D, query: Query, graph: Term? = nil, verbose: Bool) throws -> Int {
+func query<D : PageDatabase>(_ database: D, query: Query, graph: Term? = nil, verbose: Bool) throws -> Int {
     var count       = 0
     let startTime = getCurrentTime()
     try database.read { (m) in
@@ -228,7 +228,7 @@ private func print(quad: Quad, lastGraph: Term?) {
 
  - parameter index: The name of an index to use to sort the resulting output.
  */
-func serialize<D : Database>(_ database: D, index: String? = nil) throws -> Int {
+func serialize<D : PageDatabase>(_ database: D, index: String? = nil) throws -> Int {
     var count = 0
     database.read { (m) in
         do {
@@ -259,7 +259,7 @@ func serialize<D : Database>(_ database: D, index: String? = nil) throws -> Int 
  Print basic information about the database's QuadStore including the last-modified time,
  the number of quads, the available indexes, and the count of triples in each graph.
  */
-func printSummary<D : Database>(of database: D) throws {
+func printSummary<D : PageDatabase>(of database: D) throws {
     database.read { (m) in
         guard let store = try? QuadStore(mediator: m) else { return }
         print("Quad Store")
@@ -296,7 +296,7 @@ func printSummary<D : Database>(of database: D) throws {
  numeric and date types (integer, decimal, date, dateTime) as well as terms with small
  values (short strings, blank nodes, etc.).
  */
-func printTerms<D : Database>(from database: D) throws -> Int {
+func printTerms<D : PageDatabase>(from database: D) throws -> Int {
     var count = 0
     database.read { (m) in
         let t2iMapTreeName = PersistentTermIdentityMap.t2iMapTreeName
@@ -309,7 +309,7 @@ func printTerms<D : Database>(from database: D) throws -> Int {
     return count
 }
 
-func printGraphs<D : Database>(from database: D) throws -> Int {
+func printGraphs<D : PageDatabase>(from database: D) throws -> Int {
     var count = 0
     database.read { (m) in
         guard let store = try? QuadStore(mediator: m) else { return }
@@ -321,7 +321,7 @@ func printGraphs<D : Database>(from database: D) throws -> Int {
     return count
 }
 
-func printIndexes<D : Database>(from database: D) throws -> Int {
+func printIndexes<D : PageDatabase>(from database: D) throws -> Int {
     var count = 0
     database.read { (m) in
         guard let store = try? QuadStore(mediator: m) else { return }

@@ -23,9 +23,9 @@ import Foundation
 public struct TablePage<T: BufferSerializable & Comparable, U: BufferSerializable> : PageMarshalled {
     public internal(set) var pairs: [(T, U)]
     var previousPage: PageId?
-    var type: DatabaseInfo.Cookie
+    var type: PageDatabaseInfo.Cookie
 
-    init(pairs: [(T, U)], type: DatabaseInfo.Cookie, previousPage: PageId?) {
+    init(pairs: [(T, U)], type: PageDatabaseInfo.Cookie, previousPage: PageId?) {
         self.pairs = pairs
         self.type = type
         self.previousPage = previousPage
@@ -49,7 +49,7 @@ public struct TablePage<T: BufferSerializable & Comparable, U: BufferSerializabl
         self.pairs.append(pair)
     }
 
-    public static func deserialize(from buffer: UnsafeRawPointer, status: PageStatus, mediator: RMediator) throws -> TablePage<T, U> {
+    public static func deserialize(from buffer: UnsafeRawPointer, status: PageStatus, mediator: PageRMediator) throws -> TablePage<T, U> {
         let rawMemory   = UnsafeRawPointer(buffer)
         var ptr         = rawMemory
         let cookie      = try UInt32.deserialize(from: &ptr)
@@ -68,11 +68,11 @@ public struct TablePage<T: BufferSerializable & Comparable, U: BufferSerializabl
         }
 
         let prev: PageId? = (previous == 0) ? nil: PageId(previous)
-        guard let type = DatabaseInfo.Cookie(rawValue: cookie) else { throw DatabaseError.DataError("Bad cookie while deserializing table") }
+        guard let type = PageDatabaseInfo.Cookie(rawValue: cookie) else { throw DatabaseError.DataError("Bad cookie while deserializing table") }
         return TablePage(pairs: pairs, type: type, previousPage: prev)
     }
 
-    public func serialize(to rawMemory: UnsafeMutableRawPointer, status: PageStatus, mediator: RWMediator) throws {
+    public func serialize(to rawMemory: UnsafeMutableRawPointer, status: PageStatus, mediator: PageRWMediator) throws {
         let version = mediator.version
         let pageSize = mediator.pageSize
 
@@ -111,10 +111,10 @@ public struct TablePageIterator<T: BufferSerializable & Comparable, U: BufferSer
     let keyType: T.Type
     let valueType: U.Type
     let table: Table<T, U>
-    let type: DatabaseInfo.Cookie
+    let type: PageDatabaseInfo.Cookie
     private var nextPageId: PageId?
 
-    init (table: Table<T, U>, type: DatabaseInfo.Cookie, keyType: T.Type, valueType: U.Type) {
+    init (table: Table<T, U>, type: PageDatabaseInfo.Cookie, keyType: T.Type, valueType: U.Type) {
         self.table = table
         self.type = type
         self.keyType = keyType
@@ -145,10 +145,10 @@ public struct TableIterator<T: BufferSerializable & Comparable, U: BufferSeriali
     public typealias Element = (T, U)
     let table: Table<T, U>
     var buffer: [Element]
-    let type: DatabaseInfo.Cookie
+    let type: PageDatabaseInfo.Cookie
     private var nextPageId: PageId?
 
-    init (table: Table<T, U>, type: DatabaseInfo.Cookie, keyType: T.Type, valueType: U.Type) {
+    init (table: Table<T, U>, type: PageDatabaseInfo.Cookie, keyType: T.Type, valueType: U.Type) {
         self.table = table
         self.type = type
         self.keyType = keyType
@@ -189,9 +189,9 @@ enum TableError: Error {
 }
 
 public struct Table<T: BufferSerializable & Comparable, U: BufferSerializable> : Sequence {
-    var mediator: RMediator
+    var mediator: PageRMediator
     let name: String
-    let type: DatabaseInfo.Cookie
+    let type: PageDatabaseInfo.Cookie
     let keyType: T.Type
     let valueType: U.Type
 
@@ -243,16 +243,16 @@ public struct Table<T: BufferSerializable & Comparable, U: BufferSerializable> :
     }
 
     public mutating func addPairs<C: Sequence>(pairs: C) throws where C.Iterator.Element == (UInt64, String) {
-        guard let m = mediator as? RWMediator else { throw DatabaseError.PermissionError("Cannot mutate table while in a read-only transaction") }
+        guard let m = mediator as? PageRWMediator else { throw DatabaseError.PermissionError("Cannot mutate table while in a read-only transaction") }
         let _ = try m.append(pairs: pairs, toTable: name)
     }
 }
 
-extension RMediator {
+extension PageRMediator {
     public func table<T: BufferSerializable & Comparable, U: BufferSerializable>(name: String) -> Table<T, U>? {
         do {
             _ = try getRoot(named: name)
-            return Table(mediator: self, name: name, type: DatabaseInfo.Cookie.tablePage, keyType: T.self, valueType: U.self)
+            return Table(mediator: self, name: name, type: PageDatabaseInfo.Cookie.tablePage, keyType: T.self, valueType: U.self)
         } catch let e {
             print("failed to construct a table struct \(e)")
             return nil
@@ -260,8 +260,8 @@ extension RMediator {
     }
 }
 
-extension RWMediator {
-    private func createTablePages<C: Sequence, T: BufferSerializable & Comparable, U: BufferSerializable>(type: DatabaseInfo.Cookie, previous: PageId?, forceCreation: Bool, pairs: C) throws -> PageId? where C.Iterator.Element == (T, U) {
+extension PageRWMediator {
+    private func createTablePages<C: Sequence, T: BufferSerializable & Comparable, U: BufferSerializable>(type: PageDatabaseInfo.Cookie, previous: PageId?, forceCreation: Bool, pairs: C) throws -> PageId? where C.Iterator.Element == (T, U) {
         var previousPage: PageId? = previous
         var tablepage = TablePage<T, U>(pairs: [], type: type, previousPage: previousPage)
         for pair in pairs {
@@ -282,7 +282,7 @@ extension RWMediator {
     public func create<C: Sequence, T: BufferSerializable & Comparable, U: BufferSerializable>(table name: String, pairs: C) throws -> PageId? where C.Iterator.Element == (T, U) {
         guard pageSize > 20 else { throw DatabaseError.DataError("Cannot create table with small page size") }
         let previous: PageId? = nil
-        if let pid = try createTablePages(type: DatabaseInfo.Cookie.tablePage, previous: previous, forceCreation: true, pairs: pairs) {
+        if let pid = try createTablePages(type: PageDatabaseInfo.Cookie.tablePage, previous: previous, forceCreation: true, pairs: pairs) {
             self.updateRoot(name: name, page: pid)
             return pid
         } else {
@@ -293,7 +293,7 @@ extension RWMediator {
 
     public func append<C: Sequence, T: BufferSerializable & Comparable, U: BufferSerializable>(pairs: C, toTable name: String) throws -> PageId? where C.Iterator.Element == (T, U) {
         let previous = try getRoot(named: name)
-        if let pid = try createTablePages(type: DatabaseInfo.Cookie.tablePage, previous: previous, forceCreation: false, pairs: pairs) {
+        if let pid = try createTablePages(type: PageDatabaseInfo.Cookie.tablePage, previous: previous, forceCreation: false, pairs: pairs) {
             self.updateRoot(name: name, page: pid)
             return pid
         } else {
