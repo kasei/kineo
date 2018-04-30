@@ -131,8 +131,13 @@ class SPARQLSyntaxTest: XCTestCase {
         """
         guard var p = SPARQLParser(data: sparql.data(using: .utf8)!) else { fatalError("Failed to construct SPARQL parser") }
         let q = try p.parseQuery()
-        let results = try q.execute(quadstore: quadstore, defaultGraph: manifest)
-        return results
+        let result = try q.execute(quadstore: quadstore, defaultGraph: manifest)
+        var results = [TermResult]()
+        guard case let .bindings(_, iter) = result else { fatalError() }
+        for result in iter {
+            results.append(result)
+        }
+        return AnyIterator(results.makeIterator())
     }
     
     func manifestItems<D: PageDatabase>(_ database: D, manifest: Term, type: Term? = nil) throws -> AnyIterator<TermResult> {

@@ -63,35 +63,69 @@ class SPARQLEvaluationTest: XCTestCase {
         }
     }
     
-    func runEvaluationTests(_ path: URL, testType: Term, expectFailure: Bool = false, skip: Set<String>? = nil) {
+    func datasetDescription(from quadstore: MemoryQuadStore, for term: Term, defaultGraph graph: Term) throws -> Dataset {
+        var d = Dataset()
+        let prefix = "http://www.w3.org/2001/sw/DataAccess/tests/test-query#"
+        let predicates = ["data", "graphData"].map { "\(prefix)\($0)" }
+        let keyPaths : [WritableKeyPath<Dataset, [Term]>] = [\Dataset.defaultGraphs, \Dataset.namedGraphs]
+        
+        for (predicate, keyPath) in zip(predicates, keyPaths) {
+            let pattern = QuadPattern(subject: .bound(term), predicate: .bound(Term(iri: predicate)), object: .variable("term", binding: true), graph: .bound(graph))
+            let quads = try quadstore.quads(matching: pattern)
+            let terms = quads.map { $0.object }
+            d[keyPath: keyPath] = terms
+        }
+        
+        return d
+    }
+    
+    func quadStore(from dataset: Dataset, defaultGraph: Term) throws -> MemoryQuadStore {
+        let q = MemoryQuadStore()
+        do {
+            let urls = dataset.defaultGraphs.compactMap { URL(string: $0.value) }
+            try parse(quadstore: q, files: urls.map{ $0.path }, graph: defaultGraph)
+        } catch let e {
+            print("*** \(e)")
+            throw e
+        }
+        print("TODO: load named graph data")
+        return q
+    }
+    
+    func runEvaluationTests(_ path: URL, testType: Term, skip: Set<String>? = nil) {
         do {
             let manifest = path.appendingPathComponent("manifest.ttl")
             try parse(quadstore: quadstore, files: [manifest.path])
             let manifestTerm = Term(iri: manifest.absoluteString)
-            let items = try Array(manifestItems(quadstore: quadstore, manifest: manifestTerm, type: testType))
-            for item in items {
-                guard let test = item["test"] else { XCTFail("Failed to access test IRI"); continue }
+            let testRecords = try Array(manifestItems(quadstore: quadstore, manifest: manifestTerm, type: testType))
+            for testRecord in testRecords {
+                guard let test = testRecord["test"] else { XCTFail("Failed to access test IRI"); continue }
                 if let skip = skip {
                     if skip.contains(test.value) {
                         continue
                     }
                 }
-                guard let action = item["query"] else { XCTFail("Did not find an mf:action property for this test"); continue }
-                print("Parsing \(action)...")
-                guard let url = URL(string: action.value) else { XCTFail("Failed to construct URL for action: \(action)"); continue }
+                guard let action = testRecord["action"] else { XCTFail("Failed to access action term"); continue }
+                guard let query = testRecord["query"] else { XCTFail("Did not find an mf:action property for this test"); continue }
+                let dataset = try datasetDescription(from: quadstore, for: action, defaultGraph: manifestTerm)
                 
-                if expectFailure {
+                let testDefaultGraph = Term(iri: "tag:kasei.us,2018:default-graph")
+                print("Test dataset: \(dataset)")
+                let testQuadStore = try quadStore(from: dataset, defaultGraph: testDefaultGraph)
+                print("Test quadstore: \(testQuadStore)")
+
+                print("Parsing \(query)...")
+                guard let url = URL(string: query.value) else { XCTFail("Failed to construct URL for action: \(query)"); continue }
+                
+                do {
                     let sparql = try Data(contentsOf: url)
                     guard var p = SPARQLParser(data: sparql) else { XCTFail("Failed to construct SPARQL parser"); continue }
-                    XCTAssertThrowsError(try p.parseQuery(), "Did not find expected syntax error while parsing \(url)")
-                } else {
-                    do {
-                        let sparql = try Data(contentsOf: url)
-                        guard var p = SPARQLParser(data: sparql) else { XCTFail("Failed to construct SPARQL parser"); continue }
-                        _ = try p.parseQuery()
-                    } catch let e {
-                        XCTFail("failed to parse \(url): \(e)")
-                    }
+                    
+                    let query = try p.parseQuery()
+                    let result = try query.execute(quadstore: testQuadStore, defaultGraph: testDefaultGraph)
+                    print("*** RESULT: \(result)")
+                } catch let e {
+                    XCTFail("failed to parse \(url): \(e)")
                 }
             }
         } catch let e {
@@ -117,8 +151,13 @@ class SPARQLEvaluationTest: XCTestCase {
         """
         guard var p = SPARQLParser(data: sparql.data(using: .utf8)!) else { fatalError("Failed to construct SPARQL parser") }
         let q = try p.parseQuery()
-        let results = try q.execute(quadstore: quadstore, defaultGraph: manifest)
-        return results
+        let result = try q.execute(quadstore: quadstore, defaultGraph: manifest)
+        var results = [TermResult]()
+        guard case let .bindings(_, iter) = result else { fatalError() }
+        for result in iter {
+            results.append(result)
+        }
+        return AnyIterator(results.makeIterator())
     }
     
     func manifestItems<D: PageDatabase>(_ database: D, manifest: Term, type: Term? = nil) throws -> AnyIterator<TermResult> {
