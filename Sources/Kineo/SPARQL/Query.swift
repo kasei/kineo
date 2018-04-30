@@ -306,3 +306,37 @@ open class QueryParser<T: LineReadable> {
         return try Query(form: .select(.variables(proj)), algebra: algebra, dataset: nil)
     }
 }
+
+extension Query {
+    func execute<Q: QuadStoreProtocol>(quadstore: Q, defaultGraph: Term) throws -> AnyIterator<TermResult> {
+        var results = [TermResult]()
+        let e       = SimpleQueryEvaluator(store: quadstore, defaultGraph: defaultGraph, verbose: false)
+        let result = try e.evaluate(query: self, activeGraph: defaultGraph)
+        guard case let .bindings(_, iter) = result else { fatalError() }
+        for result in iter {
+            results.append(result)
+        }
+        return AnyIterator(results.makeIterator())
+    }
+    
+    func execute<D : PageDatabase>(_ database: D, defaultGraph: Term) throws -> AnyIterator<TermResult> {
+        var results = [TermResult]()
+        try self.execute(database, defaultGraph: defaultGraph) { (r) in
+            results.append(r)
+        }
+        return AnyIterator(results.makeIterator())
+    }
+    
+    func execute<D : PageDatabase>(_ database: D, defaultGraph: Term, _ cb: (TermResult) throws -> ()) throws {
+        let query = self
+        try database.read { (m) in
+            let store       = try PageQuadStore(mediator: m)
+            let e       = SimpleQueryEvaluator(store: store, defaultGraph: defaultGraph, verbose: false)
+            let results = try e.evaluate(query: query, activeGraph: defaultGraph)
+            guard case let .bindings(_, iter) = results else { fatalError() }
+            for result in iter {
+                try cb(result)
+            }
+        }
+    }
+}

@@ -10,16 +10,17 @@ import Foundation
 import SPARQLSyntax
 
 public protocol QuadStoreProtocol: Sequence {
-    associatedtype IDType
     var count: Int { get }
     func graphs() -> AnyIterator<Term>
-    func graphIDs() -> AnyIterator<IDType>
     func graphNodeTerms() -> AnyIterator<Term>
-    func graphNodeIDs() -> AnyIterator<IDType>
     func makeIterator() -> AnyIterator<Quad>
     func results(matching pattern: QuadPattern) throws -> AnyIterator<TermResult>
     func quads(matching pattern: QuadPattern) throws -> AnyIterator<Quad>
     func effectiveVersion(matching pattern: QuadPattern) throws -> Version?
+}
+
+public protocol MutableQuadStoreProtocol: QuadStoreProtocol {
+    func load<S: Sequence>(quads: S) throws where S.Iterator.Element == Quad
 }
 
 extension QuadStoreProtocol {

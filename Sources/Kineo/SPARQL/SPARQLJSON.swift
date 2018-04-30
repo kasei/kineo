@@ -31,9 +31,9 @@ public struct SPARQLJSONSerializer<T: ResultProtocol> : SPARQLSerializable where
         func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
             var head = container.nestedContainer(keyedBy: CodingKeys.self, forKey: .head)
-            var results = container.nestedContainer(keyedBy: CodingKeys.self, forKey: .results)
             switch self {
             case let .bindings(vars, bindings):
+                var results = container.nestedContainer(keyedBy: CodingKeys.self, forKey: .results)
                 try head.encode(vars, forKey: .vars)
                 try results.encode(bindings, forKey: .bindings)
             case let .boolean(value):

@@ -9,7 +9,7 @@ import Foundation
 import SPARQLSyntax
 
 // swiftlint:disable:next type_body_length
-open class PageQuadStore: Sequence, QuadStoreProtocol {
+open class PageQuadStore: Sequence, QuadStoreProtocol, MutableQuadStoreProtocol {
     public typealias IDType = UInt64
     static public let defaultIndex = "pogs"
     internal var mediator: PageRMediator
@@ -136,7 +136,7 @@ open class PageQuadStore: Sequence, QuadStoreProtocol {
         _ = try m.create(tree: index, pairs: pairs)
     }
     
-    public func graphIDs() -> AnyIterator<IDType> {
+    internal func graphIDs() -> AnyIterator<IDType> {
         guard let mapping = try? quadMapping(fromOrder: PageQuadStore.defaultIndex) else {
             warn("Failed to compute mapping for quad index order \(PageQuadStore.defaultIndex)")
             return AnyIterator { return nil }
@@ -170,7 +170,7 @@ open class PageQuadStore: Sequence, QuadStoreProtocol {
         return AnyIterator(graphs.makeIterator())
     }
     
-    public func graphNodeIDs() -> AnyIterator<IDType> {
+    internal func graphNodeIDs() -> AnyIterator<IDType> {
         guard let mapping = try? quadMapping(fromOrder: PageQuadStore.defaultIndex) else {
             warn("Failed to compute mapping for quad index order \(PageQuadStore.defaultIndex)")
             return AnyIterator { return nil }

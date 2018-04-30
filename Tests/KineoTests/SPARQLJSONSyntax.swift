@@ -36,16 +36,6 @@ class SPARQLJSONSyntaxTest: XCTestCase {
         self.nonUniformResults = [r0, r3, r2]
     }
     
-    private func parse(query: String) -> Algebra? {
-        let qp      = QueryParser(reader: query)
-        do {
-            let query   = try qp.parse()
-            return query?.algebra
-        } catch {
-            return nil
-        }
-    }
-    
     func testJSON1() throws {
         let serializer = SPARQLJSONSerializer<TermResult>()
         
@@ -68,6 +58,18 @@ class SPARQLJSONSyntaxTest: XCTestCase {
         let s = String(data: j, encoding: .utf8)!
         let expected = """
         {"head":{"vars":["name","value","boolean","blank","iri"]},"results":{"bindings":[{"name":{"type":"literal","value":"Berlin","datatype":"http:\\/\\/www.w3.org\\/2001\\/XMLSchema#string"},"value":{"type":"literal","value":"1.2E0","datatype":"http:\\/\\/www.w3.org\\/2001\\/XMLSchema#double"}},{"iri":{"type":"uri","value":"http:\\/\\/example.org\\/Berlin"},"blank":{"type":"bnode","value":"b1"},"boolean":{"type":"literal","value":"true","datatype":"http:\\/\\/www.w3.org\\/2001\\/XMLSchema#boolean"}},{"name":{"type":"literal","value":"Berlin","datatype":"http:\\/\\/www.w3.org\\/2001\\/XMLSchema#string"},"value":{"type":"literal","value":"7","datatype":"http:\\/\\/www.w3.org\\/2001\\/XMLSchema#integer"}}]}}
+        """
+        XCTAssertEqual(s, expected)
+    }
+    
+    func testJSON_boolean() throws {
+        let serializer = SPARQLJSONSerializer<TermResult>()
+        
+        let results = QueryResult<TermResult>.boolean(true)
+        let j = try serializer.serialize(results)
+        let s = String(data: j, encoding: .utf8)!
+        let expected = """
+        {"head":{},"boolean":"true"}
         """
         XCTAssertEqual(s, expected)
     }

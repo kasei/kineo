@@ -13,8 +13,8 @@ import Kineo
 /**
  If necessary, create a new quadstore in the supplied database.
  */
-func setup<D : PageDatabase>(_ database: D, startTime: UInt64) throws {
-    try database.update(version: Version(startTime)) { (m) in
+func setup<D : PageDatabase>(_ database: D, version: Version) throws {
+    try database.update(version: version) { (m) in
         Logger.shared.push(name: "QuadStore setup")
         defer { Logger.shared.pop(printSummary: false) }
         do {
@@ -416,7 +416,7 @@ let startSecond = getCurrentDateSeconds()
 var count = 0
 
 if let op = args.next() {
-    try setup(database, startTime: startSecond)
+    try setup(database, version: Version(startSecond))
     if op == "load" {
         do {
             var graph: Term? = nil
