@@ -49,30 +49,25 @@ class SPARQLEvaluationTest: XCTestCase {
             }
             
             //                    print("Loading RDF...")
-            try quadstore.load(quads: quads)
+            try quadstore.load(version: Version(0), quads: quads)
         }
     }
     
     func parse<D: PageDatabase>(_ database: D, files: [String], graph defaultGraphTerm: Term? = nil) throws {
-        let version = Version(1)
-        try database.update(version: version) { (m) in
-            do {
-                let store = try PageQuadStore.create(mediator: m)
-                try parse(quadstore: store, files: files, graph: defaultGraphTerm)
-            } catch let e {
-                warn("*** Failed during load of RDF; \(e)")
-                throw DatabaseUpdateError.rollback
-            }
+        let store = try PageQuadStore(database: database)
+        do {
+            try parse(quadstore: store, files: files, graph: defaultGraphTerm)
+        } catch let e {
+            warn("*** Failed during load of RDF; \(e)")
+            throw DatabaseUpdateError.rollback
         }
     }
     
     func runEvaluationTests(_ path: URL, testType: Term, expectFailure: Bool = false, skip: Set<String>? = nil) {
         do {
             let manifest = path.appendingPathComponent("manifest.ttl")
-            //            try parse(database, files: [manifest.path])
             try parse(quadstore: quadstore, files: [manifest.path])
             let manifestTerm = Term(iri: manifest.absoluteString)
-            //            let items = try manifestItems(database, manifest: manifestTerm, type: testType)
             let items = try Array(manifestItems(quadstore: quadstore, manifest: manifestTerm, type: testType))
             for item in items {
                 guard let test = item["test"] else { XCTFail("Failed to access test IRI"); continue }
@@ -84,6 +79,7 @@ class SPARQLEvaluationTest: XCTestCase {
                 guard let action = item["query"] else { XCTFail("Did not find an mf:action property for this test"); continue }
                 print("Parsing \(action)...")
                 guard let url = URL(string: action.value) else { XCTFail("Failed to construct URL for action: \(action)"); continue }
+                
                 if expectFailure {
                     let sparql = try Data(contentsOf: url)
                     guard var p = SPARQLParser(data: sparql) else { XCTFail("Failed to construct SPARQL parser"); continue }

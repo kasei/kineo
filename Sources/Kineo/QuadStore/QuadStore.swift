@@ -20,7 +20,7 @@ public protocol QuadStoreProtocol: Sequence {
 }
 
 public protocol MutableQuadStoreProtocol: QuadStoreProtocol {
-    func load<S: Sequence>(quads: S) throws where S.Iterator.Element == Quad
+    func load<S: Sequence>(version: Version, quads: S) throws where S.Iterator.Element == Quad
 }
 
 extension QuadStoreProtocol {

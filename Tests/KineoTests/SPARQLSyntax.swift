@@ -45,18 +45,7 @@ class SPARQLSyntaxTest: XCTestCase {
         super.tearDown()
     }
     
-//    func setup<D : PageDatabase>(_ database: D) throws {
-//        try database.update(version: Version(0)) { (m) in
-//            do {
-//                _ = try PageQuadStore.create(mediator: m)
-//            } catch let e {
-//                warn("*** \(e)")
-//                throw DatabaseUpdateError.rollback
-//            }
-//        }
-//    }
-
-    func parse<Q : MutableQuadStoreProtocol>(quadstore: Q, files: [String], graph defaultGraphTerm: Term? = nil) throws {
+    func parse<Q : MutableQuadStoreProtocol>(version: Version, quadstore: Q, files: [String], graph defaultGraphTerm: Term? = nil) throws {
         for filename in files {
             #if os (OSX)
             guard let path = NSURL(fileURLWithPath: filename).absoluteString else { throw DatabaseError.DataError("Not a valid graph path: \(filename)") }
@@ -74,20 +63,18 @@ class SPARQLSyntaxTest: XCTestCase {
             }
             
             //                    print("Loading RDF...")
-            try quadstore.load(quads: quads)
+            try quadstore.load(version: version, quads: quads)
         }
     }
     
     func parse<D: PageDatabase>(_ database: D, files: [String], graph defaultGraphTerm: Term? = nil) throws {
         let version = Version(1)
-        try database.update(version: version) { (m) in
-            do {
-                let store = try PageQuadStore.create(mediator: m)
-                try parse(quadstore: store, files: files, graph: defaultGraphTerm)
-            } catch let e {
-                warn("*** Failed during load of RDF; \(e)")
-                throw DatabaseUpdateError.rollback
-            }
+        let store = try PageQuadStore(database: database)
+        do {
+            try parse(version: version, quadstore: store, files: files, graph: defaultGraphTerm)
+        } catch let e {
+            warn("*** Failed during load of RDF; \(e)")
+            throw DatabaseUpdateError.rollback
         }
     }
     
@@ -95,7 +82,7 @@ class SPARQLSyntaxTest: XCTestCase {
         do {
             let manifest = path.appendingPathComponent("manifest.ttl")
 //            try parse(database, files: [manifest.path])
-            try parse(quadstore: quadstore, files: [manifest.path])
+            try parse(version: Version(0), quadstore: quadstore, files: [manifest.path])
             let manifestTerm = Term(iri: manifest.absoluteString)
 //            let items = try manifestItems(database, manifest: manifestTerm, type: testType)
             let items = try manifestItems(quadstore: quadstore, manifest: manifestTerm, type: testType)

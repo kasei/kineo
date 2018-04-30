@@ -18,7 +18,7 @@ func setup<D : PageDatabase>(_ database: D, version: Version) throws {
         Logger.shared.push(name: "QuadStore setup")
         defer { Logger.shared.pop(printSummary: false) }
         do {
-            _ = try PageQuadStore.create(mediator: m)
+            _ = try MediatedPageQuadStore.create(mediator: m)
         } catch let e {
             warn("*** \(e)")
             throw DatabaseUpdateError.rollback
@@ -111,7 +111,7 @@ func parse<D : PageDatabase>(_ database: D, files: [String], startTime: UInt64, 
                 }
 
                 print("Loading RDF...")
-                let store = try PageQuadStore.create(mediator: m)
+                let store = try MediatedPageQuadStore.create(mediator: m)
                 try store.load(quads: quads)
             }
         } catch let e {
@@ -139,8 +139,8 @@ func explain<D : PageDatabase>(_ database: D, query: Query, graph: Term? = nil, 
     print("- explaining query")
     try database.read { (m) in
         print("- mediator: \(m)")
-//        let store       = try LanguagePageQuadStore(mediator: m, acceptLanguages: [("en", 1.0), ("", 0.5)])
-        let store       = try PageQuadStore(mediator: m)
+//        let store       = try MediatedLanguagePageQuadStore(mediator: m, acceptLanguages: [("en", 1.0), ("", 0.5)])
+        let store       = try MediatedPageQuadStore(mediator: m)
         print("- store: \(store)")
         var defaultGraph: Term
         if let g = graph {
@@ -168,42 +168,38 @@ func explain<D : PageDatabase>(_ database: D, query: Query, graph: Term? = nil, 
 func query<D : PageDatabase>(_ database: D, query: Query, graph: Term? = nil, verbose: Bool) throws -> Int {
     var count       = 0
     let startTime = getCurrentTime()
-    try database.read { (m) in
-        //        let store       = try LanguagePageQuadStore(mediator: m, acceptLanguages: [("en", 1.0), ("", 0.5)])
-        let store       = try PageQuadStore(mediator: m)
-
-        var defaultGraph: Term
-        if let g = graph {
-            defaultGraph = g
-        } else {
-            // if there are no graphs in the database, it doesn't matter what the default graph is.
-            defaultGraph = store.graphs().next() ?? Term(iri: "tag:kasei.us,2018:default-graph")
-            warn("Using default graph \(defaultGraph)")
-        }
-        let e           = SimpleQueryEvaluator(store: store, defaultGraph: defaultGraph, verbose: verbose)
-        if let mtime = try e.effectiveVersion(matching: query, activeGraph: defaultGraph) {
-            let date = getDateString(seconds: mtime)
-            if verbose {
-                print("# Last-Modified: \(date)")
-            }
-        }
-        
-        let results = try e.evaluate(query: query, activeGraph: defaultGraph)
-        switch results {
-        case .bindings(_, let iter):
-            for result in iter {
-                count += 1
-                print("\(count)\t\(result.description)")
-            }
-        case .boolean(let v):
-            print("\(v)")
-        case .triples(let iter):
-            for triple in iter {
-                count += 1
-                print("\(count)\t\(triple.description)")
-            }
+    let store = try PageQuadStore(database: database)
+    var defaultGraph: Term
+    if let g = graph {
+        defaultGraph = g
+    } else {
+        // if there are no graphs in the database, it doesn't matter what the default graph is.
+        defaultGraph = store.graphs().next() ?? Term(iri: "tag:kasei.us,2018:default-graph")
+        warn("Using default graph \(defaultGraph)")
+    }
+    let e           = SimpleQueryEvaluator(store: store, defaultGraph: defaultGraph, verbose: verbose)
+    if let mtime = try e.effectiveVersion(matching: query, activeGraph: defaultGraph) {
+        let date = getDateString(seconds: mtime)
+        if verbose {
+            print("# Last-Modified: \(date)")
         }
     }
+    let results = try e.evaluate(query: query, activeGraph: defaultGraph)
+    switch results {
+    case .bindings(_, let iter):
+        for result in iter {
+            count += 1
+            print("\(count)\t\(result.description)")
+        }
+    case .boolean(let v):
+        print("\(v)")
+    case .triples(let iter):
+        for triple in iter {
+            count += 1
+            print("\(count)\t\(triple.description)")
+        }
+    }
+
     if verbose {
         let endTime = getCurrentTime()
         let elapsed = endTime - startTime
@@ -232,7 +228,7 @@ func serialize<D : PageDatabase>(_ database: D, index: String? = nil) throws -> 
     var count = 0
     database.read { (m) in
         do {
-            let store = try PageQuadStore(mediator: m)
+            let store = try MediatedPageQuadStore(mediator: m)
             var lastGraph: Term? = nil
             if let index = index {
                 let i = try store.iterator(usingIndex: index)
@@ -261,7 +257,7 @@ func serialize<D : PageDatabase>(_ database: D, index: String? = nil) throws -> 
  */
 func printSummary<D : PageDatabase>(of database: D) throws {
     database.read { (m) in
-        guard let store = try? PageQuadStore(mediator: m) else { return }
+        guard let store = try? MediatedPageQuadStore(mediator: m) else { return }
         print("Quad Store")
         if let v = try? store.effectiveVersion(), let version = v {
             let versionDate = getDateString(seconds: version)
@@ -311,12 +307,10 @@ func printTerms<D : PageDatabase>(from database: D) throws -> Int {
 
 func printGraphs<D : PageDatabase>(from database: D) throws -> Int {
     var count = 0
-    database.read { (m) in
-        guard let store = try? PageQuadStore(mediator: m) else { return }
-        for graph in store.graphs() {
-            count += 1
-            print("\(graph)")
-        }
+    let store = try PageQuadStore(database: database)
+    for graph in store.graphs() {
+        count += 1
+        print("\(graph)")
     }
     return count
 }
@@ -324,7 +318,7 @@ func printGraphs<D : PageDatabase>(from database: D) throws -> Int {
 func printIndexes<D : PageDatabase>(from database: D) throws -> Int {
     var count = 0
     database.read { (m) in
-        guard let store = try? PageQuadStore(mediator: m) else { return }
+        guard let store = try? MediatedPageQuadStore(mediator: m) else { return }
         for idx in store.availableQuadIndexes {
             count += 1
             print("\(idx)")
@@ -548,12 +542,12 @@ if let op = args.next() {
         guard let q = try parseQuery(database, filename: qfile) else { fatalError("Failed to parse query") }
         count = try query(database, query: q, graph: graph, verbose: verbose)
     } else if op == "dump" {
-        let index = args.next() ?? PageQuadStore.defaultIndex
+        let index = args.next() ?? MediatedPageQuadStore.defaultIndex
         count = try serialize(database, index: index)
     } else if op == "index", let index = args.next() {
         try database.update(version: startSecond) { (m) in
             do {
-                let store = try PageQuadStore.create(mediator: m)
+                let store = try MediatedPageQuadStore.create(mediator: m)
                 try store.addQuadIndex(index)
             } catch let e {
                 warn("*** \(e)")
@@ -593,7 +587,7 @@ if let op = args.next() {
         }
     } else if op == "dot" {
         database.read { (m) in
-            let indexName = args.next() ?? PageQuadStore.defaultIndex
+            let indexName = args.next() ?? MediatedPageQuadStore.defaultIndex
             m.printTreeDOT(name: indexName)
         }
     } else {

@@ -116,9 +116,9 @@ extension ResultPlan {
 }
 
 public class ResultPlanEvaluator {
-    var store: PageQuadStore
+    var store: MediatedPageQuadStore
     var ide: IDPlanEvaluator
-    public init(store: PageQuadStore) {
+    public init(store: MediatedPageQuadStore) {
         self.ide = IDPlanEvaluator(store: store)
         self.store = store
     }
@@ -146,8 +146,8 @@ public class ResultPlanEvaluator {
 }
 
 public class IDPlanEvaluator {
-    var store: PageQuadStore
-    public init(store: PageQuadStore) {
+    var store: MediatedPageQuadStore
+    public init(store: MediatedPageQuadStore) {
         self.store = store
     }
 
@@ -191,12 +191,12 @@ public class IDPlanEvaluator {
 }
 
 public class PageQuadStorePlanner {
-    var store: PageQuadStore
+    var store: MediatedPageQuadStore
     var defaultGraph: Term
     var variables: [String]
     var variableNumbers: [String:Int]
 
-    public init(store: PageQuadStore, defaultGraph: Term) {
+    public init(store: MediatedPageQuadStore, defaultGraph: Term) {
         self.store = store
         self.defaultGraph = defaultGraph
         variables = []
