@@ -46,7 +46,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
         case .select(_):
             return QueryResult.bindings(query.projectedVariables, iter)
         default:
-            fatalError("evaluate(query) not implemented for \(query.form)")
+            throw QueryError.evaluationError("TODO: evaluate(query) not implemented for \(query.form)")
         }
     }
     
@@ -182,8 +182,12 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
                     return result
                 } while true
             }
-        case .bgp(_), .minus(_, _), .service(_):
-            fatalError("Unimplemented: \(algebra)")
+        case .bgp(let patterns):
+            let triples : [Algebra] = patterns.map { .triple($0) }
+            let algebra: Algebra = triples.reduce(.joinIdentity) { .innerJoin($0, $1) }
+            return try evaluate(algebra: algebra, activeGraph: activeGraph)
+        case .minus(_, _), .service(_):
+            throw QueryError.evaluationError("TODO: unimplemented evaluate(query) for \(algebra)")
         case let .namedGraph(child, .bound(g)):
             return try evaluate(algebra: child, activeGraph: g)
         case let .triple(t):
@@ -733,7 +737,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
                 var v = Set<Term>()
                 for result in try evaluatePath(subject: subject, object: pvar, graph: graph, path: pp) {
                     if let n = result[pvar] {
-                        try alp(term: n, path: path, seen: &v, graph: graph)
+                        try alp(term: n, path: pp, seen: &v, graph: graph)
                     }
                 }
                 
@@ -751,7 +755,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
                 var v = Set<Term>()
                 for result in try evaluatePath(subject: subject, object: pvar, graph: graph, path: pp) {
                     if let n = result[pvar] {
-                        try alp(term: n, path: path, seen: &v, graph: graph)
+                        try alp(term: n, path: pp, seen: &v, graph: graph)
                     }
                 }
                 
