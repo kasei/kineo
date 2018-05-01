@@ -118,8 +118,153 @@ public enum QueryResult<R: ResultProtocol> {
     case bindings([String], AnyIterator<R>)
 }
 
+extension QueryResult: Equatable where R.TermType == Term {
+    private static func splitTriplesWithBlanks(_ triples: AnyIterator<Triple>) -> ([Triple], [Triple], [String]) {
+        var withBlanks = [Triple]()
+        var withoutBlanks = [Triple]()
+        var blanks = Set<String>()
+        for t in triples {
+            var hasBlanks = false
+            for term in t {
+                if term.type == .blank {
+                    hasBlanks = true
+                    blanks.insert(term.value)
+                }
+            }
+            
+            
+            if hasBlanks {
+                withBlanks.append(t)
+            } else {
+                withoutBlanks.append(t)
+            }
+        }
+        return (withBlanks, withoutBlanks, Array(blanks))
+    }
+    
+    private static func splitBindingsWithBlanks(_ bindings: AnyIterator<R>) -> ([R], [R], [String]) {
+        var withBlanks = [R]()
+        var withoutBlanks = [R]()
+        var blanks = Set<String>()
+        for r in bindings {
+            var hasBlanks = false
+            for v in r.keys {
+                guard let term = r[v] else { continue }
+                if term.type == .blank {
+                    hasBlanks = true
+                    blanks.insert(term.value)
+                }
+            }
+            
+            
+            if hasBlanks {
+                withBlanks.append(r)
+            } else {
+                withoutBlanks.append(r)
+            }
+        }
+        return (withBlanks, withoutBlanks, Array(blanks))
+    }
+    
+    private static func permute<T>(_ a: [T], _ n: Int) -> [[T]] {
+        if n == 0 {
+            return [a]
+        } else {
+            var a = a
+            var results = permute(a, n - 1)
+            for i in 0..<n {
+                a.swapAt(i, n)
+                results += permute(a, n - 1)
+                a.swapAt(i, n)
+            }
+            return results
+        }
+    }
+    
+    private static func triplesAreIsomorphic(_ lhs: AnyIterator<Triple>, _ rhs: AnyIterator<Triple>) -> Bool {
+        let (lb, lnb, lblanks) = splitTriplesWithBlanks(lhs)
+        let (rb, rnb, rblanks) = splitTriplesWithBlanks(rhs)
+        
+        guard lb.count == rb.count else {
+            return false
+        }
+        guard lnb.count == rnb.count else {
+            return false
+        }
+        guard lblanks.count == rblanks.count else {
+            return false
+        }
+        
+        let lset = Set(lnb)
+        let rset = Set(rnb)
+        guard lset == rset else {
+            return false
+        }
+        
+        if lb.count > 1 {
+            let indexes = Array(0..<lb.count)
+            for permutation in permute(indexes, indexes.count-1) {
+                let map = Dictionary(uniqueKeysWithValues: permutation.enumerated().map { (i, j) in
+                    (lblanks[i], rblanks[j])
+                })
+                print("blank node map: \(map)")
+            }
+            fatalError("*** TRIPLE ISOMORPHISM NOT FULLY IMPLEMENTED")
+        }
+        return true
+    }
+    
+    private static func bindingsAreIsomorphic(_ lhs: AnyIterator<R>, _ rhs: AnyIterator<R>) -> Bool {
+        let (lb, lnb, lblanks) = splitBindingsWithBlanks(lhs)
+        let (rb, rnb, rblanks) = splitBindingsWithBlanks(rhs)
+
+        guard lb.count == rb.count else {
+            return false
+        }
+        guard lnb.count == rnb.count else {
+            return false
+        }
+        guard lblanks.count == rblanks.count else {
+            return false
+        }
+        
+        let lset = Set(lnb)
+        let rset = Set(rnb)
+//        print("lhs-non-blank bindings: \(lnb)")
+//        print("rhs-non-blank bindings: \(rnb)")
+        guard lset == rset else {
+            return false
+        }
+        
+        if lb.count > 1 {
+            let indexes = Array(0..<lb.count)
+            for permutation in permute(indexes, indexes.count-1) {
+                let map = Dictionary(uniqueKeysWithValues: permutation.enumerated().map { (i, j) in
+                    (lblanks[i], rblanks[j])
+                })
+                print("blank node map: \(map)")
+            }
+            fatalError("*** BINDING ISOMORPHISM NOT FULLY IMPLEMENTED")
+        }
+        return true
+    }
+    
+    public static func == (lhs: QueryResult, rhs: QueryResult) -> Bool {
+        switch (lhs, rhs) {
+        case let (.boolean(l), .boolean(r)):
+            return l == r
+        case let (.triples(l), .triples(r)):
+            return triplesAreIsomorphic(l, r)
+        case let (.bindings(lproj, liter), .bindings(rproj, riter)) where lproj == rproj:
+            return bindingsAreIsomorphic(liter, riter)
+        default:
+            return false
+        }
+    }
+}
 public protocol ResultProtocol: Hashable, Sequence {
     associatedtype TermType: Hashable
+    init(bindings: [String:TermType])
     var keys: [String] { get }
     func join(_ rhs: Self) -> Self?
     subscript(key: String) -> TermType? { get }
@@ -258,6 +403,9 @@ public struct IDResult: CustomStringConvertible, ResultProtocol {
     public typealias TermType = UInt64
     var bindings: [String:TermType]
     public var keys: [String] { return Array(bindings.keys) }
+    public init(bindings: [String:TermType]) {
+        self.bindings = bindings
+    }
     public func join(_ rhs: IDResult) -> IDResult? {
         let lvars = Set(bindings.keys)
         let rvars = Set(rhs.bindings.keys)

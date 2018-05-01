@@ -32,7 +32,27 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
         return .variable(".v\(n)", binding: true)
     }
     
-
+    private func triples(from results: AnyIterator<TermResult>, with template: [TriplePattern]) -> AnyIterator<Triple> {
+        var triples = [Triple]()
+        for r in results {
+            for tp in template {
+                do {
+                    let replaced = try tp.replace { (n) -> Node? in
+                        guard case .variable(let name, _) = n else { return nil }
+                        if let t = r[name] {
+                            return .bound(t)
+                        }
+                        return nil
+                    }
+                    if let ground = replaced.ground {
+                        triples.append(ground)
+                    }
+                } catch {}
+            }
+        }
+        return AnyIterator(triples.makeIterator())
+    }
+    
     public func evaluate(query: Query, activeGraph: Term) throws -> QueryResult<TermResult> {
         let algebra = query.algebra
         let iter = try self.evaluate(algebra: algebra, activeGraph: activeGraph)
@@ -45,6 +65,9 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
             }
         case .select(_):
             return QueryResult.bindings(query.projectedVariables, iter)
+        case .construct(let template):
+            let t = triples(from: iter, with: template)
+            return QueryResult.triples(t)
         default:
             throw QueryError.evaluationError("TODO: evaluate(query) not implemented for \(query.form)")
         }
@@ -186,7 +209,28 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
             let triples : [Algebra] = patterns.map { .triple($0) }
             let algebra: Algebra = triples.reduce(.joinIdentity) { .innerJoin($0, $1) }
             return try evaluate(algebra: algebra, activeGraph: activeGraph)
-        case .minus(_, _), .service(_):
+        case let .minus(lhs, rhs):
+            let l = try self.evaluate(algebra: lhs, activeGraph: activeGraph)
+            let r = try Array(self.evaluate(algebra: rhs, activeGraph: activeGraph))
+            return AnyIterator {
+                while true {
+                    var candidateOK = true
+                    guard let candidate = l.next() else { return nil }
+                    for result in r {
+                        let domainIntersection = Set(candidate.keys).intersection(result.keys)
+                        let disjoint = (domainIntersection.count == 0)
+                        let compatible = !(candidate.join(result) == nil)
+                        if !(disjoint || !compatible) {
+                            candidateOK = false
+                            break
+                        }
+                    }
+                    if candidateOK {
+                        return candidate
+                    }
+                }
+            }
+        case .service(_):
             throw QueryError.evaluationError("TODO: unimplemented evaluate(query) for \(algebra)")
         case let .namedGraph(child, .bound(g)):
             return try evaluate(algebra: child, activeGraph: g)

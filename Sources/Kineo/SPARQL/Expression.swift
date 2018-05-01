@@ -510,7 +510,7 @@ class ExpressionEvaluator {
     public func evaluate(expression: Expression, result: TermResult) throws -> Term {
         switch expression {
         case .aggregate(_):
-            fatalError("cannot evaluate an aggregate expression without a query context")
+            fatalError("cannot evaluate an aggregate expression without a query context: \(expression)")
         case .node(.bound(let term)):
             return term
         case .node(.variable(let name, _)):

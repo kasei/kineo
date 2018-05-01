@@ -82,14 +82,35 @@ class SPARQLEvaluationTest: XCTestCase {
     func quadStore(from dataset: Dataset, defaultGraph: Term) throws -> MemoryQuadStore {
         let q = MemoryQuadStore()
         do {
-            let urls = dataset.defaultGraphs.compactMap { URL(string: $0.value) }
-            try parse(quadstore: q, files: urls.map{ $0.path }, graph: defaultGraph)
+            let defaultUrls = dataset.defaultGraphs.compactMap { URL(string: $0.value) }
+            try parse(quadstore: q, files: defaultUrls.map{ $0.path }, graph: defaultGraph)
+            
+            let namedUrls = dataset.namedGraphs.compactMap { URL(string: $0.value) }.map { $0.path }
+            for url in namedUrls {
+                try parse(quadstore: q, files: [url], graph: Term(iri: url))
+            }
         } catch let e {
             print("*** \(e)")
             throw e
         }
-        print("TODO: load named graph data")
         return q
+    }
+    
+    func expectedResults(for url: URL) throws -> QueryResult<TermResult> {
+        if url.absoluteString.hasSuffix("srx") {
+            let srxParser = SPARQLXMLParser<TermResult>()
+            return try srxParser.parse(Data(contentsOf: url))
+        } else if url.absoluteString.hasSuffix("ttl") {
+            let parser = RDFParser()
+            var triples = [Triple]()
+            _ = try parser.parse(file: url.path, base: url.absoluteString) { (s, p, o) in
+                triples.append(Triple(subject: s, predicate: p, object: o))
+            }
+            let i = AnyIterator(triples.makeIterator())
+            return QueryResult<TermResult>.triples(i)
+        } else {
+            fatalError("Failed to load expected results from file \(url)")
+        }
     }
     
     func runEvaluationTests(_ path: URL, testType: Term, skip: Set<String>? = nil) {
@@ -106,6 +127,7 @@ class SPARQLEvaluationTest: XCTestCase {
                     }
                 }
                 guard let action = testRecord["action"] else { XCTFail("Failed to access action term"); continue }
+                guard let testResult = testRecord["result"] else { XCTFail("Failed to access result term"); continue }
                 guard let query = testRecord["query"] else { XCTFail("Did not find an mf:action property for this test"); continue }
                 let dataset = try datasetDescription(from: quadstore, for: action, defaultGraph: manifestTerm)
                 
@@ -114,7 +136,11 @@ class SPARQLEvaluationTest: XCTestCase {
                 let testQuadStore = try quadStore(from: dataset, defaultGraph: testDefaultGraph)
                 print("Test quadstore: \(testQuadStore)")
 
-                print("Parsing \(query)...")
+                print("Parsing results: \(testResult)...")
+                guard let testResultUrl = URL(string: testResult.value) else { XCTFail("Failed to construct URL for result: \(testResult)"); continue }
+                let expectedResult = try expectedResults(for: testResultUrl)
+
+                print("Parsing query: \(query)...")
                 guard let url = URL(string: query.value) else { XCTFail("Failed to construct URL for action: \(query)"); continue }
                 
                 do {
@@ -123,7 +149,7 @@ class SPARQLEvaluationTest: XCTestCase {
                     
                     let query = try p.parseQuery()
                     let result = try query.execute(quadstore: testQuadStore, defaultGraph: testDefaultGraph)
-                    print("*** RESULT: \(result)")
+                    XCTAssertEqual(result, expectedResult, "\(test)")
                 } catch let e {
                     XCTFail("failed to parse \(url): \(e)")
                 }
@@ -142,11 +168,12 @@ class SPARQLEvaluationTest: XCTestCase {
         PREFIX dawgt: <http://www.w3.org/2001/sw/DataAccess/tests/test-dawg#>
         SELECT * WHERE {
         <\(manifest.value)> a mf:Manifest ;
-        mf:entries/rdf:rest*/rdf:first ?test .
-        ?test a <\(testType.value)> .
-        ?test mf:action ?action .
+            mf:entries/rdf:rest*/rdf:first ?test .
+        ?test a <\(testType.value)> ;
+            mf:action ?action ;
+            mf:result ?result ;
+            dawgt:approval dawgt:Approved .
         ?action qt:query ?query .
-        ?test dawgt:approval dawgt:Approved .
         }
         """
         guard var p = SPARQLParser(data: sparql.data(using: .utf8)!) else { fatalError("Failed to construct SPARQL parser") }
@@ -169,11 +196,11 @@ class SPARQLEvaluationTest: XCTestCase {
         PREFIX dawgt: <http://www.w3.org/2001/sw/DataAccess/tests/test-dawg#>
         SELECT * WHERE {
         <\(manifest.value)> a mf:Manifest ;
-        mf:entries/rdf:rest*/rdf:first ?test .
-        ?test a <\(testType.value)> .
-        ?test mf:action ?action .
+            mf:entries/rdf:rest*/rdf:first ?test .
+        ?test a <\(testType.value)> ;
+            mf:action ?action ;
+            dawgt:approval dawgt:Approved .
         ?action qt:query ?query .
-        ?test dawgt:approval dawgt:Approved .
         }
         """
         guard var p = SPARQLParser(data: sparql.data(using: .utf8)!) else { fatalError("Failed to construct SPARQL parser") }
