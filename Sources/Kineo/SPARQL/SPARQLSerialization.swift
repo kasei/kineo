@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import SPARQLSyntax
 
 enum SerializationError: Error {
     case encodingError(String)
@@ -14,12 +15,10 @@ enum SerializationError: Error {
 
 protocol SPARQLParsable {
     var mediaTypes: Set<String> { get }
-    associatedtype ResultType: ResultProtocol
-    func parse(_ data: Data) throws -> QueryResult<ResultType>
+    func parse(_ data: Data) throws -> QueryResult<[TermResult], [Triple]>
 }
 
 protocol SPARQLSerializable {
     var canonicalMediaType: String { get }
-    associatedtype ResultType: ResultProtocol
-    func serialize(_ results: QueryResult<ResultType>) throws -> Data
+    func serialize(_ results: QueryResult<[TermResult], [Triple]>) throws -> Data
 }

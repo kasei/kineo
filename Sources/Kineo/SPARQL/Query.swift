@@ -308,7 +308,7 @@ open class QueryParser<T: LineReadable> {
 }
 
 extension Query {
-    func execute<Q: QuadStoreProtocol>(quadstore: Q, defaultGraph: Term) throws -> QueryResult<TermResult> {
+    func execute<Q: QuadStoreProtocol>(quadstore: Q, defaultGraph: Term) throws -> QueryResult<[TermResult], [Triple]> {
         let e       = SimpleQueryEvaluator(store: quadstore, defaultGraph: defaultGraph, verbose: false)
         let result = try e.evaluate(query: self, activeGraph: defaultGraph)
         return result
@@ -322,6 +322,7 @@ extension Query {
         return AnyIterator(results.makeIterator())
     }
     
+    // TODO: is this necessary?
     func execute<D : PageDatabase>(_ database: D, defaultGraph: Term, _ cb: (TermResult) throws -> ()) throws {
         let query = self
         try database.read { (m) in

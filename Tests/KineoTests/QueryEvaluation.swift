@@ -125,8 +125,8 @@ class QueryEvaluationTest: XCTestCase {
     private func eval(query: Query) throws -> AnyIterator<TermResult> {
         let e = SimpleQueryEvaluator(store: store, defaultGraph: self.graph)
         let results = try e.evaluate(query: query, activeGraph: self.graph)
-        guard case let .bindings(_, iter) = results else { fatalError() }
-        return iter
+        guard case let .bindings(_, seq) = results else { fatalError() }
+        return AnyIterator(seq.makeIterator())
     }
     
     private func eval(algebra: Algebra) throws -> AnyIterator<TermResult> {

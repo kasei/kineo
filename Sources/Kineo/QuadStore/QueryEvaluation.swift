@@ -32,7 +32,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
         return .variable(".v\(n)", binding: true)
     }
     
-    private func triples(from results: AnyIterator<TermResult>, with template: [TriplePattern]) -> AnyIterator<Triple> {
+    private func triples(from results: AnyIterator<TermResult>, with template: [TriplePattern]) -> [Triple] {
         var triples = [Triple]()
         for r in results {
             for tp in template {
@@ -50,12 +50,13 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
                 } catch {}
             }
         }
-        return AnyIterator(triples.makeIterator())
+        return triples
     }
     
-    public func evaluate(query: Query, activeGraph: Term) throws -> QueryResult<TermResult> {
+    public func evaluate(query: Query, activeGraph: Term) throws -> QueryResult<[TermResult], [Triple]> {
         let algebra = query.algebra
         let iter = try self.evaluate(algebra: algebra, activeGraph: activeGraph)
+        let results = Array(iter) // OPTIMIZE:
         switch query.form {
         case .ask:
             if let _ = iter.next() {
@@ -64,7 +65,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
                 return QueryResult.boolean(false)
             }
         case .select(_):
-            return QueryResult.bindings(query.projectedVariables, iter)
+            return QueryResult.bindings(query.projectedVariables, results)
         case .construct(let template):
             let t = triples(from: iter, with: template)
             return QueryResult.triples(t)
@@ -78,8 +79,8 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
         // don't require access to the underlying store:
         case let .subquery(q):
             let result = try evaluate(query: q, activeGraph: activeGraph)
-            guard case let .bindings(_, i) = result else { throw QueryError.evaluationError("Unexpected results type from subquery: \(result)") }
-            return i
+            guard case let .bindings(_, seq) = result else { throw QueryError.evaluationError("Unexpected results type from subquery: \(result)") }
+            return AnyIterator(seq.makeIterator())
         case .unionIdentity:
             let results = [TermResult]()
             return AnyIterator(results.makeIterator())

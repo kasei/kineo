@@ -8,8 +8,7 @@
 import Foundation
 import SPARQLSyntax
 
-public struct SPARQLXMLParser<T: ResultProtocol> : SPARQLParsable where T.TermType == Term {
-    typealias ResultType = T
+public struct SPARQLXMLParser : SPARQLParsable {
     let mediaTypes = Set(["application/sparql-results+xml"])
     
     class Delegate: NSObject, XMLParserDelegate {
@@ -19,11 +18,11 @@ public struct SPARQLXMLParser<T: ResultProtocol> : SPARQLParsable where T.TermTy
         }
         var traceParsing: Bool
         var depth: Int
-        var results: [T]
+        var results: [TermResult]
         var type: QueryType?
         var projection: [String]
         var allowCharacterData: Bool
-        var bindings: [String:T.TermType]
+        var bindings: [String:Term]
         var bindingName: String?
         var chars: String
         var termType: TermType?
@@ -48,14 +47,13 @@ public struct SPARQLXMLParser<T: ResultProtocol> : SPARQLParsable where T.TermTy
             return String(repeating: " ", count: depth*4)
         }
         
-        var queryResult: QueryResult<T>? {
+        var queryResult: QueryResult<[TermResult], [Triple]>? {
             guard let t = type else { return nil }
             switch t {
             case .bindings:
-                let i = AnyIterator(results.makeIterator())
-                return QueryResult<T>.bindings(projection, i)
+                return QueryResult<[TermResult], [Triple]>.bindings(projection, results)
             case .boolean(let b):
-                return QueryResult<T>.boolean(b)
+                return QueryResult<[TermResult], [Triple]>.boolean(b)
             }
         }
         
@@ -123,7 +121,7 @@ public struct SPARQLXMLParser<T: ResultProtocol> : SPARQLParsable where T.TermTy
             depth -= 1
             switch elementName {
             case "result":
-                let r = T(bindings: bindings)
+                let r = TermResult(bindings: bindings)
                 results.append(r)
             case "boolean":
                 allowCharacterData = false
@@ -153,7 +151,7 @@ public struct SPARQLXMLParser<T: ResultProtocol> : SPARQLParsable where T.TermTy
         }
     }
     
-    func parse(_ data: Data) throws -> QueryResult<T> {
+    func parse(_ data: Data) throws -> QueryResult<[TermResult], [Triple]> {
         let parser = XMLParser(data: data)
         let delegate = Delegate()
         parser.delegate = delegate

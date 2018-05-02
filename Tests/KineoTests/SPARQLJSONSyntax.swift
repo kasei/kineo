@@ -39,8 +39,8 @@ class SPARQLJSONSyntaxTest: XCTestCase {
     func testJSON1() throws {
         let serializer = SPARQLJSONSerializer<TermResult>()
         
-        let i = self.uniformResults.makeIterator()
-        let results = QueryResult.bindings(["name", "value"], AnyIterator(i))
+        let seq : [TermResult] = self.uniformResults
+        let results = QueryResult<[TermResult], [Triple]>.bindings(["name", "value"], seq)
         let j = try serializer.serialize(results)
         let s = String(data: j, encoding: .utf8)!
         let expected = """
@@ -52,8 +52,8 @@ class SPARQLJSONSyntaxTest: XCTestCase {
     func testJSON2() throws {
         let serializer = SPARQLJSONSerializer<TermResult>()
         
-        let i = self.nonUniformResults.makeIterator()
-        let results = QueryResult.bindings(["name", "value", "boolean", "blank", "iri"], AnyIterator(i))
+        let seq : [TermResult] = self.nonUniformResults
+        let results = QueryResult<[TermResult], [Triple]>.bindings(["name", "value", "boolean", "blank", "iri"], seq)
         let j = try serializer.serialize(results)
         let s = String(data: j, encoding: .utf8)!
         let expected = """
@@ -65,7 +65,7 @@ class SPARQLJSONSyntaxTest: XCTestCase {
     func testJSON_boolean() throws {
         let serializer = SPARQLJSONSerializer<TermResult>()
         
-        let results = QueryResult<TermResult>.boolean(true)
+        let results = QueryResult<[TermResult], [Triple]>.boolean(true)
         let j = try serializer.serialize(results)
         let s = String(data: j, encoding: .utf8)!
         let expected = """
@@ -78,8 +78,8 @@ class SPARQLJSONSyntaxTest: XCTestCase {
         let serializer = SPARQLJSONSerializer<TermResult>()
         serializer.encoder.outputFormatting = .prettyPrinted
 
-        let i = self.uniformLanguageResults.makeIterator()
-        let results = QueryResult.bindings(["name", "value"], AnyIterator(i))
+        let seq : [TermResult] = self.uniformLanguageResults
+        let results = QueryResult<[TermResult], [Triple]>.bindings(["name", "value"], seq)
         let j = try serializer.serialize(results)
         let s = String(data: j, encoding: .utf8)!
         let expected = """

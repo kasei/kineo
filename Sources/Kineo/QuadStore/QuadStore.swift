@@ -112,14 +112,14 @@ public struct IDQuad<T: DefinedTestable & Equatable & Comparable & BufferSeriali
     }
 }
 
-public enum QueryResult<R: ResultProtocol> {
+public enum QueryResult<S, T> where S: Sequence, S.Element == TermResult, T: Sequence, T.Element == Triple {
     case boolean(Bool)
-    case triples(AnyIterator<Triple>)
-    case bindings([String], AnyIterator<R>)
+    case triples(T)
+    case bindings([String], S)
 }
 
-extension QueryResult: Equatable where R.TermType == Term {
-    private static func splitTriplesWithBlanks(_ triples: AnyIterator<Triple>) -> ([Triple], [Triple], [String]) {
+extension QueryResult: Equatable {
+    private static func splitTriplesWithBlanks(_ triples: T) -> ([Triple], [Triple], [String]) {
         var withBlanks = [Triple]()
         var withoutBlanks = [Triple]()
         var blanks = Set<String>()
@@ -142,9 +142,9 @@ extension QueryResult: Equatable where R.TermType == Term {
         return (withBlanks, withoutBlanks, Array(blanks))
     }
     
-    private static func splitBindingsWithBlanks(_ bindings: AnyIterator<R>) -> ([R], [R], [String]) {
-        var withBlanks = [R]()
-        var withoutBlanks = [R]()
+    private static func splitBindingsWithBlanks(_ bindings: S) -> ([TermResult], [TermResult], [String]) {
+        var withBlanks = [TermResult]()
+        var withoutBlanks = [TermResult]()
         var blanks = Set<String>()
         for r in bindings {
             var hasBlanks = false
@@ -181,7 +181,7 @@ extension QueryResult: Equatable where R.TermType == Term {
         }
     }
     
-    private static func triplesAreIsomorphic(_ lhs: AnyIterator<Triple>, _ rhs: AnyIterator<Triple>) -> Bool {
+    private static func triplesAreIsomorphic(_ lhs: T, _ rhs: T) -> Bool {
         let (lb, lnb, lblanks) = splitTriplesWithBlanks(lhs)
         let (rb, rnb, rblanks) = splitTriplesWithBlanks(rhs)
         
@@ -214,7 +214,7 @@ extension QueryResult: Equatable where R.TermType == Term {
         return true
     }
     
-    private static func bindingsAreIsomorphic(_ lhs: AnyIterator<R>, _ rhs: AnyIterator<R>) -> Bool {
+    private static func bindingsAreIsomorphic(_ lhs: S, _ rhs: S) -> Bool {
         let (lb, lnb, lblanks) = splitBindingsWithBlanks(lhs)
         let (rb, rnb, rblanks) = splitBindingsWithBlanks(rhs)
 

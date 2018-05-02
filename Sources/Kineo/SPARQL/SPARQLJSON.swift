@@ -43,14 +43,14 @@ public struct SPARQLJSONSerializer<T: ResultProtocol> : SPARQLSerializable where
         }
     }
     
-    public func serialize(_ results: QueryResult<T>) throws -> Data {
+    public func serialize(_ results: QueryResult<[TermResult], [Triple]>) throws -> Data {
         var r : ResultValue
         switch results {
         case .boolean(let value):
             r = ResultValue.boolean(value)
-        case let .bindings(vars, iter):
+        case let .bindings(vars, seq):
             var results = [[String:Term]]()
-            while let result = iter.next() {
+            for result in seq {
                 var d = [String:Term]()
                 for k in result.keys {
                     d[k] = result[k]

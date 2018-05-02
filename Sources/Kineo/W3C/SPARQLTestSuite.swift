@@ -273,9 +273,9 @@ public struct SPARQLTestRunner {
         return d
     }
     
-    func expectedResults(for url: URL) throws -> QueryResult<TermResult> {
+    func expectedResults(for url: URL) throws -> QueryResult<[TermResult], [Triple]> {
         if url.absoluteString.hasSuffix("srx") {
-            let srxParser = SPARQLXMLParser<TermResult>()
+            let srxParser = SPARQLXMLParser()
             return try srxParser.parse(Data(contentsOf: url))
         } else if url.absoluteString.hasSuffix("ttl") {
             let parser = RDFParser()
@@ -283,8 +283,7 @@ public struct SPARQLTestRunner {
             _ = try parser.parse(file: url.path, base: url.absoluteString) { (s, p, o) in
                 triples.append(Triple(subject: s, predicate: p, object: o))
             }
-            let i = AnyIterator(triples.makeIterator())
-            return QueryResult<TermResult>.triples(i)
+            return QueryResult<[TermResult], [Triple]>.triples(triples)
         } else {
             fatalError("Failed to load expected results from file \(url)")
         }
