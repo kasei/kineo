@@ -16,207 +16,84 @@ extension SPARQLEvaluationTest {
 // swiftlint:disable type_body_length
 class SPARQLEvaluationTest: XCTestCase {
     var sparqlBase: URL!
-    var quadstore: MemoryQuadStore!
-    
+    var testRunner: SPARQLTestRunner!
     override func setUp() {
         super.setUp()
         guard let rdfTestsBase = ProcessInfo.processInfo.environment["KINEO_W3C_TEST_PATH"] else { fatalError("*** KINEO_W3C_TEST_PATH environment variable must be set") }
         let base = NSURL(fileURLWithPath: rdfTestsBase)
         sparqlBase = base.appendingPathComponent("sparql11")
-        
-        quadstore = MemoryQuadStore()
+        testRunner = SPARQLTestRunner()
     }
     
     override func tearDown() {
         super.tearDown()
     }
-    
-    func parse<Q : MutableQuadStoreProtocol>(quadstore: Q, files: [String], graph defaultGraphTerm: Term? = nil) throws {
-        for filename in files {
-            #if os (OSX)
-            guard let path = NSURL(fileURLWithPath: filename).absoluteString else { throw DatabaseError.DataError("Not a valid graph path: \(filename)") }
-            #else
-            let path = NSURL(fileURLWithPath: filename).absoluteString
-            #endif
-            let graph   = defaultGraphTerm ?? Term(value: path, type: .iri)
-            
-            let parser = RDFParser()
-            var quads = [Quad]()
-            //                    print("Parsing RDF...")
-            _ = try parser.parse(file: filename, base: graph.value) { (s, p, o) in
-                let q = Quad(subject: s, predicate: p, object: o, graph: graph)
-                quads.append(q)
+   
+    func handle(testResults results: [SPARQLTestRunner.TestResult]) {
+        for result in results {
+            switch result {
+            case let .success(test):
+                XCTAssertTrue(true, test)
+            case let .failure(test, reason):
+                XCTFail("failed test <\(test)>: \(reason)")
             }
-            
-            //                    print("Loading RDF...")
-            try quadstore.load(version: Version(0), quads: quads)
         }
     }
     
-    func parse<D: PageDatabase>(_ database: D, files: [String], graph defaultGraphTerm: Term? = nil) throws {
-        let store = try PageQuadStore(database: database)
-        do {
-            try parse(quadstore: store, files: files, graph: defaultGraphTerm)
-        } catch let e {
-            warn("*** Failed during load of RDF; \(e)")
-            throw DatabaseUpdateError.rollback
-        }
-    }
-    
-    func datasetDescription(from quadstore: MemoryQuadStore, for term: Term, defaultGraph graph: Term) throws -> Dataset {
-        var d = Dataset()
-        let prefix = "http://www.w3.org/2001/sw/DataAccess/tests/test-query#"
-        let predicates = ["data", "graphData"].map { "\(prefix)\($0)" }
-        let keyPaths : [WritableKeyPath<Dataset, [Term]>] = [\Dataset.defaultGraphs, \Dataset.namedGraphs]
-        
-        for (predicate, keyPath) in zip(predicates, keyPaths) {
-            let pattern = QuadPattern(subject: .bound(term), predicate: .bound(Term(iri: predicate)), object: .variable("term", binding: true), graph: .bound(graph))
-            let quads = try quadstore.quads(matching: pattern)
-            let terms = quads.map { $0.object }
-            d[keyPath: keyPath] = terms
-        }
-        
-        return d
-    }
-    
-    func quadStore(from dataset: Dataset, defaultGraph: Term) throws -> MemoryQuadStore {
-        let q = MemoryQuadStore()
-        do {
-            let defaultUrls = dataset.defaultGraphs.compactMap { URL(string: $0.value) }
-            try parse(quadstore: q, files: defaultUrls.map{ $0.path }, graph: defaultGraph)
-            
-            let namedUrls = dataset.namedGraphs.compactMap { URL(string: $0.value) }.map { $0.path }
-            for url in namedUrls {
-                try parse(quadstore: q, files: [url], graph: Term(iri: url))
-            }
-        } catch let e {
-            print("*** \(e)")
-            throw e
-        }
-        return q
-    }
-    
-    func expectedResults(for url: URL) throws -> QueryResult<TermResult> {
-        if url.absoluteString.hasSuffix("srx") {
-            let srxParser = SPARQLXMLParser<TermResult>()
-            return try srxParser.parse(Data(contentsOf: url))
-        } else if url.absoluteString.hasSuffix("ttl") {
-            let parser = RDFParser()
-            var triples = [Triple]()
-            _ = try parser.parse(file: url.path, base: url.absoluteString) { (s, p, o) in
-                triples.append(Triple(subject: s, predicate: p, object: o))
-            }
-            let i = AnyIterator(triples.makeIterator())
-            return QueryResult<TermResult>.triples(i)
-        } else {
-            fatalError("Failed to load expected results from file \(url)")
-        }
-    }
-    
-    func runEvaluationTests(_ path: URL, testType: Term, skip: Set<String>? = nil) {
-        do {
-            let manifest = path.appendingPathComponent("manifest.ttl")
-            try parse(quadstore: quadstore, files: [manifest.path])
-            let manifestTerm = Term(iri: manifest.absoluteString)
-            let testRecords = try Array(manifestItems(quadstore: quadstore, manifest: manifestTerm, type: testType))
-            for testRecord in testRecords {
-                guard let test = testRecord["test"] else { XCTFail("Failed to access test IRI"); continue }
-                if let skip = skip {
-                    if skip.contains(test.value) {
-                        continue
-                    }
-                }
-                guard let action = testRecord["action"] else { XCTFail("Failed to access action term"); continue }
-                guard let testResult = testRecord["result"] else { XCTFail("Failed to access result term"); continue }
-                guard let query = testRecord["query"] else { XCTFail("Did not find an mf:action property for this test"); continue }
-                let dataset = try datasetDescription(from: quadstore, for: action, defaultGraph: manifestTerm)
-                
-                let testDefaultGraph = Term(iri: "tag:kasei.us,2018:default-graph")
-                print("Test dataset: \(dataset)")
-                let testQuadStore = try quadStore(from: dataset, defaultGraph: testDefaultGraph)
-                print("Test quadstore: \(testQuadStore)")
-
-                print("Parsing results: \(testResult)...")
-                guard let testResultUrl = URL(string: testResult.value) else { XCTFail("Failed to construct URL for result: \(testResult)"); continue }
-                let expectedResult = try expectedResults(for: testResultUrl)
-
-                print("Parsing query: \(query)...")
-                guard let url = URL(string: query.value) else { XCTFail("Failed to construct URL for action: \(query)"); continue }
-                
-                do {
-                    let sparql = try Data(contentsOf: url)
-                    guard var p = SPARQLParser(data: sparql) else { XCTFail("Failed to construct SPARQL parser"); continue }
-                    
-                    let query = try p.parseQuery()
-                    let result = try query.execute(quadstore: testQuadStore, defaultGraph: testDefaultGraph)
-                    XCTAssertEqual(result, expectedResult, "\(test)")
-                } catch let e {
-                    XCTFail("failed to parse \(url): \(e)")
-                }
-            }
-        } catch let e {
-            XCTFail("Failed to run syntax tests: \(e)")
-        }
-    }
-    
-    func manifestItems<Q: QuadStoreProtocol>(quadstore: Q, manifest: Term, type: Term? = nil) throws -> AnyIterator<TermResult> {
-        let testType = type ?? Term(iri: "http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#QueryEvaluationTest")
-        let sparql = """
-        PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-        PREFIX mf: <http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#>
-        PREFIX qt: <http://www.w3.org/2001/sw/DataAccess/tests/test-query#>
-        PREFIX dawgt: <http://www.w3.org/2001/sw/DataAccess/tests/test-dawg#>
-        SELECT * WHERE {
-        <\(manifest.value)> a mf:Manifest ;
-            mf:entries/rdf:rest*/rdf:first ?test .
-        ?test a <\(testType.value)> ;
-            mf:action ?action ;
-            mf:result ?result ;
-            dawgt:approval dawgt:Approved .
-        ?action qt:query ?query .
-        }
-        """
-        guard var p = SPARQLParser(data: sparql.data(using: .utf8)!) else { fatalError("Failed to construct SPARQL parser") }
-        let q = try p.parseQuery()
-        let result = try q.execute(quadstore: quadstore, defaultGraph: manifest)
-        var results = [TermResult]()
-        guard case let .bindings(_, iter) = result else { fatalError() }
-        for result in iter {
-            results.append(result)
-        }
-        return AnyIterator(results.makeIterator())
-    }
-    
-    func manifestItems<D: PageDatabase>(_ database: D, manifest: Term, type: Term? = nil) throws -> AnyIterator<TermResult> {
-        let testType = type ?? Term(iri: "http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#QueryEvaluationTest")
-        let sparql = """
-        PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-        PREFIX mf: <http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#>
-        PREFIX qt: <http://www.w3.org/2001/sw/DataAccess/tests/test-query#>
-        PREFIX dawgt: <http://www.w3.org/2001/sw/DataAccess/tests/test-dawg#>
-        SELECT * WHERE {
-        <\(manifest.value)> a mf:Manifest ;
-            mf:entries/rdf:rest*/rdf:first ?test .
-        ?test a <\(testType.value)> ;
-            mf:action ?action ;
-            dawgt:approval dawgt:Approved .
-        ?action qt:query ?query .
-        }
-        """
-        guard var p = SPARQLParser(data: sparql.data(using: .utf8)!) else { fatalError("Failed to construct SPARQL parser") }
-        let q = try p.parseQuery()
-        let results = try q.execute(database, defaultGraph: manifest)
-        return results
-    }
-    
-    func testPositive11Evaluation() {
+    func runEvaluationTests(inPathComponent dir: String) throws {
+        print("Manifest directory: \(dir)")
         let sparql11Path = sparqlBase.appendingPathComponent("data-sparql11")
-        let subdirs = ["aggregates", "bind", "bindings", "construct", "exists", "functions", "grouping", "negation", "project-expression", "property-path", "subquery", "syntax-query"]
-        for dir in subdirs {
-            print("Manifest directory: \(dir)")
-            let path = sparql11Path.appendingPathComponent(dir)
-            let positiveTestType = Term(iri: "http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#QueryEvaluationTest")
-            runEvaluationTests(path, testType: positiveTestType)
-        }
+        let path = sparql11Path.appendingPathComponent(dir)
+        let positiveTestType = Term(iri: "http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#QueryEvaluationTest")
+        let results = try testRunner.runEvaluationTests(inPath: path, testType: positiveTestType)
+        handle(testResults: results)
+    }
+
+    func test11Evaluation_aggregates() throws {
+        try runEvaluationTests(inPathComponent: "aggregates")
+    }
+
+    func test11Evaluation_bind() throws {
+        try runEvaluationTests(inPathComponent: "bind")
+    }
+    
+    func test11Evaluation_bindings() throws {
+        try runEvaluationTests(inPathComponent: "bindings")
+    }
+    
+    func test11Evaluation_construct() throws {
+        try runEvaluationTests(inPathComponent: "construct")
+    }
+    
+    func test11Evaluation_exists() throws {
+        try runEvaluationTests(inPathComponent: "exists")
+    }
+    
+    func test11Evaluation_functions() throws {
+        try runEvaluationTests(inPathComponent: "functions")
+    }
+    
+    func test11Evaluation_grouping() throws {
+        try runEvaluationTests(inPathComponent: "grouping")
+    }
+    
+    func test11Evaluation_negation() throws {
+        try runEvaluationTests(inPathComponent: "negation")
+    }
+    
+    func test11Evaluation_project_expression() throws {
+        try runEvaluationTests(inPathComponent: "project-expression")
+    }
+    
+    func test11Evaluation_property_path() throws {
+        try runEvaluationTests(inPathComponent: "property-path")
+    }
+    
+    func test11Evaluation_subquery() throws {
+        try runEvaluationTests(inPathComponent: "subquery")
+    }
+    
+    func test11Evaluation_syntax_query() throws {
+        try runEvaluationTests(inPathComponent: "syntax-query")
     }
 }
