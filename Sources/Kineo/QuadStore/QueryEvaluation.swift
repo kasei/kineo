@@ -60,7 +60,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
         let results = Array(iter) // OPTIMIZE:
         switch query.form {
         case .ask:
-            if let _ = iter.next() {
+            if results.count > 0 {
                 return QueryResult.boolean(true)
             } else {
                 return QueryResult.boolean(false)

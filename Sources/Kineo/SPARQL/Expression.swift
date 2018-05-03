@@ -249,9 +249,7 @@ class ExpressionEvaluator {
             guard let term = terms[0] else { throw QueryError.evaluationError("Not all arguments are bound in \(dateFunction) call") }
             guard let date = term.dateValue else { throw QueryError.evaluationError("Argument is not a valid xsd:dateTime value in \(dateFunction) call") }
             var calendar = Calendar(identifier: .gregorian)
-            if let tz = term.timeZone {
-                calendar.timeZone = tz
-            }
+            calendar.timeZone = TimeZone(secondsFromGMT: 0)!
             if dateFunction == .year {
                 let value = calendar.component(.year, from: date)
                 return Term(integer: value)
@@ -269,7 +267,7 @@ class ExpressionEvaluator {
                 return Term(integer: value)
             } else if dateFunction == .seconds {
                 let value = calendar.component(.second, from: date)
-                return Term(integer: value)
+                return Term(decimal: Double(value))
             } else if dateFunction == .timezone {
                 guard let tz = term.timeZone else { throw QueryError.evaluationError("Argument xsd:dateTime does not have a valid timezone in \(dateFunction) call") }
                 let seconds = tz.secondsFromGMT()
@@ -286,7 +284,7 @@ class ExpressionEvaluator {
                     return Term(value: string, type: .datatype(Term.xsd("dayTimeDuration").value))
                 }
             } else if dateFunction == .tz {
-                guard let tz = term.timeZone else { throw QueryError.evaluationError("Argument xsd:dateTime does not have a valid timezone in \(dateFunction) call") }
+                guard let tz = term.timeZone else { return Term(string: "") }
                 let seconds = tz.secondsFromGMT()
                 if seconds == 0 {
                     return Term(string: "Z")
@@ -395,10 +393,12 @@ class ExpressionEvaluator {
         case .strdt:
             guard terms.count == 2 else { throw QueryError.evaluationError("Wrong argument count for \(constructorFunction) call") }
             guard let string = terms[0], let datatype = terms[1] else { throw QueryError.evaluationError("Not all arguments are bound in \(constructorFunction) call") }
+            try throwUnlessSimpleLiteral(string)
             return Term(value: string.value, type: .datatype(datatype.value))
         case .strlang:
             guard terms.count == 2 else { throw QueryError.evaluationError("Wrong argument count for \(constructorFunction) call") }
             guard let string = terms[0], let lang = terms[1] else { throw QueryError.evaluationError("Not all arguments are bound in \(constructorFunction) call") }
+            try throwUnlessSimpleLiteral(string)
             return Term(value: string.value, type: .language(lang.value))
         case .uuid:
             guard terms.count == 0 else { throw QueryError.evaluationError("Wrong argument count for \(constructorFunction) call") }
@@ -408,6 +408,24 @@ class ExpressionEvaluator {
             guard terms.count == 0 else { throw QueryError.evaluationError("Wrong argument count for \(constructorFunction) call") }
             let id = NSUUID().uuidString.lowercased()
             return Term(string: id)
+        }
+    }
+    
+    private func throwUnlessStringLiteral(_ term: Term) throws {
+        switch term.type {
+        case .language(_), .datatype("http://www.w3.org/2001/XMLSchema#string"):
+            break
+        default:
+            throw QueryError.evaluationError("Operand must be a string literal")
+        }
+    }
+    
+    private func throwUnlessSimpleLiteral(_ term: Term) throws {
+        switch term.type {
+        case .datatype("http://www.w3.org/2001/XMLSchema#string"):
+            break
+        default:
+            throw QueryError.evaluationError("Operand must be a simple literal")
         }
     }
     
@@ -454,16 +472,13 @@ class ExpressionEvaluator {
             if stringFunction == .contains {
                 return Term(boolean: string.value.contains(pattern.value))
             } else if stringFunction == .strstarts {
+                try throwUnlessStringLiteral(string)
                 return Term(boolean: string.value.hasPrefix(pattern.value))
             } else if stringFunction == .strends {
+                try throwUnlessStringLiteral(string)
                 return Term(boolean: string.value.hasSuffix(pattern.value))
             } else if stringFunction == .strbefore {
-                switch string.type {
-                case .language(_), .datatype("http://www.w3.org/2001/XMLSchema#string"):
-                    break
-                default:
-                    throw QueryError.evaluationError("Operand to STRBEFORE must be a string literal")
-                }
+                try throwUnlessStringLiteral(string)
                 if let range = string.value.range(of: pattern.value) {
                     let index = range.lowerBound
                     let prefix = String(string.value[..<index])
@@ -472,6 +487,7 @@ class ExpressionEvaluator {
                     return Term(string: "")
                 }
             } else if stringFunction == .strafter {
+                try throwUnlessStringLiteral(string)
                 if let range = string.value.range(of: pattern.value) {
                     let index = range.upperBound
                     let suffix = String(string.value[index...])
@@ -483,9 +499,14 @@ class ExpressionEvaluator {
         case .replace:
             guard (3...4).contains(terms.count) else { throw QueryError.evaluationError("Wrong argument count for \(stringFunction) call") }
             guard let string = terms[0], let pattern = terms[1], let replacement = terms[2] else { throw QueryError.evaluationError("Not all arguments are bound in \(stringFunction) call") }
+            try throwUnlessStringLiteral(string)
             let flags = Set((terms.count == 4 ? (terms[3]?.value ?? "") : ""))
-            let options : String.CompareOptions = flags.contains("i") ? .caseInsensitive : .literal
-            let value = string.value.replacingOccurrences(of: pattern.value, with: replacement.value, options: options)
+
+            let options : NSRegularExpression.Options = flags.contains("i") ? .caseInsensitive : []
+            let regex = try NSRegularExpression(pattern: pattern.value, options: options)
+            let s = string.value
+            let range = NSRange(location: 0, length: s.utf16.count)
+            let value = regex.stringByReplacingMatches(in: string.value, options: [], range: range, withTemplate: replacement.value)
             return Term(value: value, type: string.type)
         case .regex, .substr:
             guard (2...3).contains(terms.count) else { throw QueryError.evaluationError("Wrong argument count for \(stringFunction) call") }
@@ -661,6 +682,7 @@ class ExpressionEvaluator {
             if let lval = try? evaluate(expression: lhs, result: result), let rval = try? evaluate(expression: rhs, result: result) {
                 guard lval.isNumeric else { throw QueryError.typeError("Value \(lval) is not numeric") }
                 guard rval.isNumeric else { throw QueryError.typeError("Value \(lval) is not numeric") }
+                guard rval.numericValue != 0.0 else { throw QueryError.typeError("Cannot divide by zero") }
                 let value = lval.numericValue / rval.numericValue
                 guard let type = lval.type.resultType(for: "/", withOperandType: rval.type) else { throw QueryError.typeError("Cannot determine resulting type for dividing \(lval) and \(rval)") }
                 guard let term = Term(numeric: value, type: type) else { throw QueryError.typeError("Cannot divide \(lval) and \(rval) and produce a valid numeric term") }

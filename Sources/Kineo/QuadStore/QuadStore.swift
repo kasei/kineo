@@ -393,7 +393,8 @@ public struct TermResult: CustomStringConvertible, ResultProtocol {
     }
 
     public var description: String {
-        return "Result\(bindings.description)"
+        let pairs = bindings.sorted { $0.0 < $1.0 }.map { "\($0): \($1)" }.joined(separator: ", ")
+        return "Result[\(pairs)]"
     }
 
     public mutating func extend(variable: String, value: TermType) throws {
