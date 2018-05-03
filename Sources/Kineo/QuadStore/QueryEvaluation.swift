@@ -186,6 +186,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
             return AnyIterator {
                 repeat {
                     guard let result = i.next() else { return nil }
+                    self.ee.nextResult()
                     do {
                         let term = try self.ee.evaluate(expression: expr, result: result)
                         if case .some(true) = try? term.ebv() {

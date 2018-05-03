@@ -125,13 +125,13 @@ extension QueryResult: CustomStringConvertible {
         case .boolean(let v):
             s += "\(v)"
         case let .bindings(proj, seq):
-            s += "Bindings \(proj) {\n"
+            s += "Bindings \(proj) |\(Array(seq).count)| {\n"
             for r in seq {
                 s += "    \(r)\n"
             }
             s += "}\n"
         case .triples(let seq):
-            s += "Triples {\n"
+            s += "Triples |\(Array(seq).count)| {\n"
             for t in seq {
                 s += "    \(t)\n"
             }

@@ -412,20 +412,30 @@ class ExpressionEvaluator {
     }
     
     private func throwUnlessStringLiteral(_ term: Term) throws {
-        switch term.type {
-        case .language(_), .datatype("http://www.w3.org/2001/XMLSchema#string"):
-            break
-        default:
+        if !term.isStringLiteral {
             throw QueryError.evaluationError("Operand must be a string literal")
         }
     }
     
     private func throwUnlessSimpleLiteral(_ term: Term) throws {
-        switch term.type {
-        case .datatype("http://www.w3.org/2001/XMLSchema#string"):
-            break
-        default:
+        if !term.isSimpleLiteral {
             throw QueryError.evaluationError("Operand must be a simple literal")
+        }
+    }
+    
+    private func throwUnlessArgumentCompatible(_ lhs: Term, _ rhs: Term) throws {
+        if lhs.isSimpleLiteral && rhs.isSimpleLiteral {
+            return
+        }
+        
+        switch (lhs.type, rhs.type) {
+        case let (.language(llang), .language(rlang)) where llang == rlang:
+            return
+        case (.language(_), .datatype("http://www.w3.org/2001/XMLSchema#string")):
+            return
+        default:
+            print("arguments are not compatible: \(lhs) <=> \(rhs)")
+            throw QueryError.evaluationError("Operands must be argument-compatible")
         }
     }
     
@@ -435,6 +445,7 @@ class ExpressionEvaluator {
             var types = Set<TermType>()
             var string = ""
             for term in terms.compactMap({ $0 }) {
+                try throwUnlessStringLiteral(term)
                 types.insert(term.type)
                 string.append(term.value)
             }
@@ -469,16 +480,17 @@ class ExpressionEvaluator {
         case .contains, .strstarts, .strends, .strbefore, .strafter:
             guard terms.count == 2 else { throw QueryError.evaluationError("Wrong argument count for \(stringFunction) call") }
             guard let string = terms[0], let pattern = terms[1] else { throw QueryError.evaluationError("Not all arguments are bound in \(stringFunction) call") }
+            try throwUnlessArgumentCompatible(string, pattern)
             if stringFunction == .contains {
                 return Term(boolean: string.value.contains(pattern.value))
             } else if stringFunction == .strstarts {
-                try throwUnlessStringLiteral(string)
                 return Term(boolean: string.value.hasPrefix(pattern.value))
             } else if stringFunction == .strends {
-                try throwUnlessStringLiteral(string)
                 return Term(boolean: string.value.hasSuffix(pattern.value))
             } else if stringFunction == .strbefore {
-                try throwUnlessStringLiteral(string)
+                if pattern.value == "" {
+                    return Term(value: "", type: string.type)
+                }
                 if let range = string.value.range(of: pattern.value) {
                     let index = range.lowerBound
                     let prefix = String(string.value[..<index])
@@ -487,7 +499,9 @@ class ExpressionEvaluator {
                     return Term(string: "")
                 }
             } else if stringFunction == .strafter {
-                try throwUnlessStringLiteral(string)
+                if pattern.value == "" {
+                    return string
+                }
                 if let range = string.value.range(of: pattern.value) {
                     let index = range.upperBound
                     let suffix = String(string.value[index...])
@@ -799,8 +813,11 @@ class ExpressionEvaluator {
         case .valuein(let expr, let exprs):
             let term = try evaluate(expression: expr, result: result)
             let terms = try exprs.map { try evaluate(expression: $0, result: result) }
-            let contains = terms.index(of: term) == terms.startIndex
-            return contains ? Term.trueValue: Term.falseValue
+            if let _ = terms.index(of: term) {
+                return Term.trueValue
+            } else {
+                return Term.falseValue
+            }
         case .exists(let lhs):
             print("*** Implement evaluation of EXISTS expression: \(lhs)")
         }
@@ -869,4 +886,25 @@ class ExpressionEvaluator {
             throw QueryError.evaluationError("Failed to numerically evaluate \(self) with result \(result)")
         }
     }
+}
+
+extension Term {
+    var isStringLiteral: Bool {
+        switch self.type {
+        case .language(_), .datatype("http://www.w3.org/2001/XMLSchema#string"):
+            return true
+        default:
+            return false
+        }
+    }
+    
+    var isSimpleLiteral: Bool {
+        switch self.type {
+        case .datatype("http://www.w3.org/2001/XMLSchema#string"):
+            return true
+        default:
+            return false
+        }
+    }
+
 }
