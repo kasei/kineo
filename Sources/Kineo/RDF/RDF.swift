@@ -207,11 +207,16 @@ extension Term: BufferSerializable {
 
 extension Term {
     public var dateValue: Date? {
-        guard case .datatype("http://www.w3.org/2001/XMLSchema#dateTime") = self.type else { return nil }
+        guard case .datatype("http://www.w3.org/2001/XMLSchema#dateTime") = self.type else {
+            return nil
+        }
         let lexical = self.value
         if #available (OSX 10.12, *) {
             let f = W3CDTFLocatedDateFormatter()
-            return f.date(from: lexical)
+            f.formatOptions.remove(.withTimeZone)
+            
+            let d = f.date(from: lexical)
+            return d
         } else {
             fatalError("OSX 10.12 is required to use date functions")
         }

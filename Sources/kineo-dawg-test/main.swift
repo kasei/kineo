@@ -10,12 +10,15 @@ import Foundation
 import SPARQLSyntax
 import Kineo
 
-func handle(result: SPARQLTestRunner.TestResult) {
+@discardableResult
+func handle(result: SPARQLTestRunner.TestResult) -> Bool {
     switch result {
     case let .success(iri):
         print("ok # \(iri)")
+        return true
     case let .failure(iri, reason):
         print("failed # \(iri): \(reason)")
+        return false
     }
 }
 
@@ -52,7 +55,8 @@ var testRunner = SPARQLTestRunner()
 testRunner.verbose = verbose
 
 if let testIRI = args.next() {
-    if verbose {
+    testRunner.verbose = true
+    if testRunner.verbose {
         print("Running test: \(testIRI)")
     }
     if syntaxTest {
@@ -63,19 +67,24 @@ if let testIRI = args.next() {
         handle(result: result)
     }
 } else {
-    if verbose {
+    if testRunner.verbose {
         print("Running tests in: \(sparqlPath)")
     }
+    var total = 0
+    var passed = 0
     if syntaxTest {
         let results = try testRunner.runSyntaxTests(inPath: sparqlPath, testType: nil)
+        total = results.count
         for result in results {
-            handle(result: result)
+            passed += handle(result: result) ? 1 : 0
         }
     } else {
         let results = try testRunner.runEvaluationTests(inPath: sparqlPath, testType: nil)
+        total = results.count
         for result in results {
-            handle(result: result)
+            passed += handle(result: result) ? 1 : 0
         }
     }
+    print("Passed \(passed)/\(total)")
 }
 

@@ -55,6 +55,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
     
     public func evaluate(query: Query, activeGraph: Term) throws -> QueryResult<[TermResult], [Triple]> {
         let algebra = query.algebra
+        self.ee.base = query.base
         let iter = try self.evaluate(algebra: algebra, activeGraph: activeGraph)
         let results = Array(iter) // OPTIMIZE:
         switch query.form {
@@ -139,8 +140,9 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
                     guard var result = i.next() else { return nil }
                     do {
                         let num = try self.ee.numericEvaluate(expression: expr, result: result)
-                        try? result.extend(variable: name, value: num.term)
+                        try result.extend(variable: name, value: num.term)
                     } catch let err {
+                        print("*** extend error: \(err)")
                         if self.verbose {
                             print(err)
                         }
@@ -152,8 +154,9 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
                     guard var result = i.next() else { return nil }
                     do {
                         let term = try self.ee.evaluate(expression: expr, result: result)
-                        try? result.extend(variable: name, value: term)
+                        try result.extend(variable: name, value: term)
                     } catch let err {
+                        print("*** extend error: \(err)")
                         if self.verbose {
                             print(err)
                         }

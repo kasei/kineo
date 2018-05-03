@@ -40,60 +40,200 @@ class SPARQLEvaluationTest: XCTestCase {
         }
     }
     
-    func runEvaluationTests(inPathComponent dir: String) throws {
-        print("Manifest directory: \(dir)")
-        let sparql11Path = sparqlBase.appendingPathComponent("data-sparql11")
-        let path = sparql11Path.appendingPathComponent(dir)
+    func runEvaluationTests(inPath path: URL) throws {
+        print("Manifest directory: \(path)")
         let positiveTestType = Term(iri: "http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#QueryEvaluationTest")
         let results = try testRunner.runEvaluationTests(inPath: path, testType: positiveTestType)
         handle(testResults: results)
     }
 
+
+
+    
+    
+    
+    func test10Evaluation_basic() throws {
+        let path = sparqlBase.appendingPathComponent("data-r2").appendingPathComponent("basic")
+        try runEvaluationTests(inPath: path)
+    }
+    
+    func test10Evaluation_triple_match() throws {
+        let path = sparqlBase.appendingPathComponent("data-r2").appendingPathComponent("triple-match")
+        try runEvaluationTests(inPath: path)
+    }
+    
+    func test10Evaluation_open_world() throws {
+        let path = sparqlBase.appendingPathComponent("data-r2").appendingPathComponent("open-world")
+        try runEvaluationTests(inPath: path)
+    }
+    
+    func test10Evaluation_algebra() throws {
+        let path = sparqlBase.appendingPathComponent("data-r2").appendingPathComponent("algebra")
+        try runEvaluationTests(inPath: path)
+    }
+    
+    func test10Evaluation_bnode_coreference() throws {
+        let path = sparqlBase.appendingPathComponent("data-r2").appendingPathComponent("bnode-coreference")
+        try runEvaluationTests(inPath: path)
+    }
+    
+    func test10Evaluation_optional() throws {
+        let path = sparqlBase.appendingPathComponent("data-r2").appendingPathComponent("optional")
+        try runEvaluationTests(inPath: path)
+    }
+    
+    func test10Evaluation_optional_filter() throws {
+        let path = sparqlBase.appendingPathComponent("data-r2").appendingPathComponent("optional-filter")
+        try runEvaluationTests(inPath: path)
+    }
+    
+    func test10Evaluation_graph() throws {
+        let path = sparqlBase.appendingPathComponent("data-r2").appendingPathComponent("graph")
+        try runEvaluationTests(inPath: path)
+    }
+    
+    func test10Evaluation_dataset() throws {
+        let path = sparqlBase.appendingPathComponent("data-r2").appendingPathComponent("dataset")
+        try runEvaluationTests(inPath: path)
+    }
+    
+    func test10Evaluation_type_promotion() throws {
+        let path = sparqlBase.appendingPathComponent("data-r2").appendingPathComponent("type-promotion")
+        try runEvaluationTests(inPath: path)
+    }
+    
+    func test10Evaluation_cast() throws {
+        let path = sparqlBase.appendingPathComponent("data-r2").appendingPathComponent("cast")
+        try runEvaluationTests(inPath: path)
+    }
+    
+    func test10Evaluation_boolean_effective_value() throws {
+        let path = sparqlBase.appendingPathComponent("data-r2").appendingPathComponent("boolean-effective-value")
+        try runEvaluationTests(inPath: path)
+    }
+    
+    func test10Evaluation_bound() throws {
+        let path = sparqlBase.appendingPathComponent("data-r2").appendingPathComponent("bound")
+        try runEvaluationTests(inPath: path)
+    }
+    
+    func test10Evaluation_expr_builtin() throws {
+        let path = sparqlBase.appendingPathComponent("data-r2").appendingPathComponent("expr-builtin")
+        try runEvaluationTests(inPath: path)
+    }
+    
+    func test10Evaluation_expr_ops() throws {
+        let path = sparqlBase.appendingPathComponent("data-r2").appendingPathComponent("expr-ops")
+        try runEvaluationTests(inPath: path)
+    }
+    
+    func test10Evaluation_expr_equals() throws {
+        let path = sparqlBase.appendingPathComponent("data-r2").appendingPathComponent("expr-equals")
+        try runEvaluationTests(inPath: path)
+    }
+    
+    func test10Evaluation_regex() throws {
+        let path = sparqlBase.appendingPathComponent("data-r2").appendingPathComponent("regex")
+        try runEvaluationTests(inPath: path)
+    }
+    
+    func test10Evaluation_i18n() throws {
+        let path = sparqlBase.appendingPathComponent("data-r2").appendingPathComponent("i18n")
+        try runEvaluationTests(inPath: path)
+    }
+    
+    func test10Evaluation_construct() throws {
+        let path = sparqlBase.appendingPathComponent("data-r2").appendingPathComponent("construct")
+        try runEvaluationTests(inPath: path)
+    }
+    
+    func test10Evaluation_ask() throws {
+        let path = sparqlBase.appendingPathComponent("data-r2").appendingPathComponent("ask")
+        try runEvaluationTests(inPath: path)
+    }
+    
+    func test10Evaluation_distinct() throws {
+        let path = sparqlBase.appendingPathComponent("data-r2").appendingPathComponent("distinct")
+        try runEvaluationTests(inPath: path)
+    }
+    
+    func test10Evaluation_sort() throws {
+        let path = sparqlBase.appendingPathComponent("data-r2").appendingPathComponent("sort")
+        try runEvaluationTests(inPath: path)
+    }
+    
+    func test10Evaluation_solution_seq() throws {
+        let path = sparqlBase.appendingPathComponent("data-r2").appendingPathComponent("solution-seq")
+        try runEvaluationTests(inPath: path)
+    }
+    
+    func test10Evaluation_reduced() throws {
+        let path = sparqlBase.appendingPathComponent("data-r2").appendingPathComponent("reduced")
+        try runEvaluationTests(inPath: path)
+    }
+    
+    
+    
+    
+    
+
     func test11Evaluation_aggregates() throws {
-        try runEvaluationTests(inPathComponent: "aggregates")
+        let path = sparqlBase.appendingPathComponent("data-sparql11").appendingPathComponent("aggregates")
+        try runEvaluationTests(inPath: path)
     }
 
     func test11Evaluation_bind() throws {
-        try runEvaluationTests(inPathComponent: "bind")
+        let path = sparqlBase.appendingPathComponent("data-sparql11").appendingPathComponent("bind")
+        try runEvaluationTests(inPath: path)
     }
     
     func test11Evaluation_bindings() throws {
-        try runEvaluationTests(inPathComponent: "bindings")
+        let path = sparqlBase.appendingPathComponent("data-sparql11").appendingPathComponent("bindings")
+        try runEvaluationTests(inPath: path)
     }
     
     func test11Evaluation_construct() throws {
-        try runEvaluationTests(inPathComponent: "construct")
+        let path = sparqlBase.appendingPathComponent("data-sparql11").appendingPathComponent("construct")
+        try runEvaluationTests(inPath: path)
     }
     
     func test11Evaluation_exists() throws {
-        try runEvaluationTests(inPathComponent: "exists")
+        let path = sparqlBase.appendingPathComponent("data-sparql11").appendingPathComponent("exists")
+        try runEvaluationTests(inPath: path)
     }
     
     func test11Evaluation_functions() throws {
-        try runEvaluationTests(inPathComponent: "functions")
+        let path = sparqlBase.appendingPathComponent("data-sparql11").appendingPathComponent("functions")
+        try runEvaluationTests(inPath: path)
     }
     
     func test11Evaluation_grouping() throws {
-        try runEvaluationTests(inPathComponent: "grouping")
+        let path = sparqlBase.appendingPathComponent("data-sparql11").appendingPathComponent("grouping")
+        try runEvaluationTests(inPath: path)
     }
     
     func test11Evaluation_negation() throws {
-        try runEvaluationTests(inPathComponent: "negation")
+        let path = sparqlBase.appendingPathComponent("data-sparql11").appendingPathComponent("negation")
+        try runEvaluationTests(inPath: path)
     }
     
     func test11Evaluation_project_expression() throws {
-        try runEvaluationTests(inPathComponent: "project-expression")
+        let path = sparqlBase.appendingPathComponent("data-sparql11").appendingPathComponent("project-expression")
+        try runEvaluationTests(inPath: path)
     }
     
     func test11Evaluation_property_path() throws {
-        try runEvaluationTests(inPathComponent: "property-path")
+        let path = sparqlBase.appendingPathComponent("data-sparql11").appendingPathComponent("property-path")
+        try runEvaluationTests(inPath: path)
     }
     
     func test11Evaluation_subquery() throws {
-        try runEvaluationTests(inPathComponent: "subquery")
+        let path = sparqlBase.appendingPathComponent("data-sparql11").appendingPathComponent("subquery")
+        try runEvaluationTests(inPath: path)
     }
     
     func test11Evaluation_syntax_query() throws {
-        try runEvaluationTests(inPathComponent: "syntax-query")
+        let path = sparqlBase.appendingPathComponent("data-sparql11").appendingPathComponent("syntax-query")
+        try runEvaluationTests(inPath: path)
     }
 }

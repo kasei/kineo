@@ -118,6 +118,29 @@ public enum QueryResult<S, T> where S: Sequence, S.Element == TermResult, T: Seq
     case bindings([String], S)
 }
 
+extension QueryResult: CustomStringConvertible {
+    public var description: String {
+        var s = ""
+        switch self {
+        case .boolean(let v):
+            s += "\(v)"
+        case let .bindings(proj, seq):
+            s += "Bindings \(proj) {\n"
+            for r in seq {
+                s += "    \(r)\n"
+            }
+            s += "}\n"
+        case .triples(let seq):
+            s += "Triples {\n"
+            for t in seq {
+                s += "    \(t)\n"
+            }
+            s += "}\n"
+        }
+        
+        return s
+    }
+}
 extension QueryResult: Equatable {
     private static func splitTriplesWithBlanks(_ triples: T) -> ([Triple], [Triple], [String]) {
         var withBlanks = [Triple]()
@@ -209,7 +232,8 @@ extension QueryResult: Equatable {
                 })
                 print("blank node map: \(map)")
             }
-            fatalError("*** TRIPLE ISOMORPHISM NOT FULLY IMPLEMENTED")
+            print("*** TRIPLE ISOMORPHISM NOT FULLY IMPLEMENTED") // TODO
+            return false
         }
         return true
     }
@@ -217,46 +241,54 @@ extension QueryResult: Equatable {
     private static func bindingsAreIsomorphic(_ lhs: S, _ rhs: S) -> Bool {
         let (lb, lnb, lblanks) = splitBindingsWithBlanks(lhs)
         let (rb, rnb, rblanks) = splitBindingsWithBlanks(rhs)
-
+        
         guard lb.count == rb.count else {
+            print("bindings are not isomorphic: bindings with blanks counts don't match")
             return false
         }
         guard lnb.count == rnb.count else {
+            print("bindings are not isomorphic: bindings without blanks counts don't match")
             return false
         }
         guard lblanks.count == rblanks.count else {
+            print("bindings are not isomorphic: blank identifier counts don't match")
             return false
         }
         
         let lset = Set(lnb)
         let rset = Set(rnb)
-//        print("lhs-non-blank bindings: \(lnb)")
-//        print("rhs-non-blank bindings: \(rnb)")
+        //        print("lhs-non-blank bindings: \(lnb)")
+        //        print("rhs-non-blank bindings: \(rnb)")
         guard lset == rset else {
+            print("bindings are not isomorphic: set of non-blank bindings don't match")
             return false
         }
         
         if lb.count > 1 {
-            let indexes = Array(0..<lb.count)
+            let indexes = Array(0..<lblanks.count)
             for permutation in permute(indexes, indexes.count-1) {
+                print("--> \(permutation)")
                 let map = Dictionary(uniqueKeysWithValues: permutation.enumerated().map { (i, j) in
                     (lblanks[i], rblanks[j])
                 })
                 print("blank node map: \(map)")
             }
-            fatalError("*** BINDING ISOMORPHISM NOT FULLY IMPLEMENTED")
+            print("*** BINDING ISOMORPHISM NOT FULLY IMPLEMENTED") // TODO
+            return false
         }
         return true
     }
     
     public static func == (lhs: QueryResult, rhs: QueryResult) -> Bool {
+//        print("*** Comparing QueryResults: \(lhs) <=> \(rhs)")
         switch (lhs, rhs) {
         case let (.boolean(l), .boolean(r)):
             return l == r
         case let (.triples(l), .triples(r)):
-            return triplesAreIsomorphic(l, r)
-        case let (.bindings(lproj, liter), .bindings(rproj, riter)) where lproj == rproj:
-            return bindingsAreIsomorphic(liter, riter)
+            return QueryResult.triplesAreIsomorphic(l, r)
+        case let (.bindings(lproj, lseq), .bindings(rproj, rseq)) where Set(lproj) == Set(rproj):
+//            print("*** comparing binding query results")
+            return QueryResult.bindingsAreIsomorphic(lseq, rseq)
         default:
             return false
         }

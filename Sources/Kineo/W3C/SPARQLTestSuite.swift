@@ -12,6 +12,10 @@ public struct SPARQLTestRunner {
     var quadstore: MemoryQuadStore
     public var verbose: Bool
     
+    public enum TestError: Error {
+        case unsupportedFormat(String)
+    }
+    
     public enum TestResult: Equatable {
         case success(iri: String)
         case failure(iri: String, reason: String)
@@ -252,7 +256,8 @@ public struct SPARQLTestRunner {
                 }
             }
         } catch let e {
-            fatalError("Failed to run syntax tests: \(e)")
+            print("Failed to run syntax tests: \(e)")
+            throw e
         }
         return results
     }
@@ -285,7 +290,7 @@ public struct SPARQLTestRunner {
             }
             return QueryResult<[TermResult], [Triple]>.triples(triples)
         } else {
-            fatalError("Failed to load expected results from file \(url)")
+            throw TestError.unsupportedFormat("Failed to load expected results from file \(url)")
         }
     }
     

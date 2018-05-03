@@ -12,7 +12,7 @@ import Foundation
 public class W3CDTFLocatedDateFormatter : ISO8601DateFormatter {
     public struct LocatedDate {
         var date: Date
-        var timezone: TimeZone
+        var timezone: TimeZone?
     }
     
     public func locatedDate(from string: String) -> LocatedDate? {
