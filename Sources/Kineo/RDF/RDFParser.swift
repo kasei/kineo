@@ -69,9 +69,16 @@ public class RDFParser {
         let handler = ctx.handler
         
         do {
+            var dt: String? = nil
+            if let dtTerm = datatype?.pointee {
+                if let term = try? RDFParser.node_as_term(env: env, node: dtTerm, datatype: nil, language: nil) {
+                    dt = term.value
+                }
+            }
+            
             let s = try RDFParser.node_as_term(env: env, node: subject.pointee, datatype: nil, language: nil)
             let p = try RDFParser.node_as_term(env: env, node: predicate.pointee, datatype: nil, language: nil)
-            let o = try RDFParser.node_as_term(env: env, node: object.pointee, datatype: datatype?.pointee.value, language: language?.pointee.value)
+            let o = try RDFParser.node_as_term(env: env, node: object.pointee, datatype: dt, language: language?.pointee.value)
             
             ctx.count += 1
             handler(s, p, o)
