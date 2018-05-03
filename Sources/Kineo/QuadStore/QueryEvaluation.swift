@@ -1037,15 +1037,20 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
 
 public func pipelinedHashJoin<R: ResultProtocol>(joinVariables: Set<String>, lhs: AnyIterator<R>, rhs: AnyIterator<R>, left: Bool = false) -> AnyIterator<R> {
     var table = [R:[R]]()
+    var unboundTable = [R]()
 //    warn(">>> filling hash table")
     var count = 0
     for result in rhs {
         count += 1
         let key = result.projected(variables: joinVariables)
-        if let results = table[key] {
-            table[key] = results + [result]
+        if key.keys.count != joinVariables.count {
+            unboundTable.append(result)
         } else {
-            table[key] = [result]
+            if let results = table[key] {
+                table[key] = results + [result]
+            } else {
+                table[key] = [result]
+            }
         }
     }
 //    warn(">>> done (\(count) results in \(Array(table.keys).count) buckets)")
@@ -1060,12 +1065,30 @@ public func pipelinedHashJoin<R: ResultProtocol>(joinVariables: Set<String>, lhs
             guard let result = lhs.next() else { return nil }
             var joined = false
             let key = result.projected(variables: joinVariables)
-            if let results = table[key] {
-                for lhs in results {
-                    if let j = lhs.join(result) {
-                        joined = true
-                        buffer.append(j)
+            var buckets = [R]()
+            if key.keys.count != joinVariables.count {
+                for bucket in table.keys {
+                    if let _ = bucket.join(result) {
+                        buckets.append(bucket)
                     }
+                }
+            } else {
+                buckets.append(key)
+            }
+            for bucket in buckets {
+                if let results = table[bucket] {
+                    for lhs in results {
+                        if let j = lhs.join(result) {
+                            joined = true
+                            buffer.append(j)
+                        }
+                    }
+                }
+            }
+            for lhs in unboundTable {
+                if let j = lhs.join(result) {
+                    joined = true
+                    buffer.append(j)
                 }
             }
             if left && !joined {

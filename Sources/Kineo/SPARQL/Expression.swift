@@ -526,6 +526,8 @@ class ExpressionEvaluator {
             guard let string = terms[0] else { throw QueryError.evaluationError("Not all arguments are bound in \(stringFunction) call") }
             if stringFunction == .regex {
                 guard let pattern = terms[1] else { throw QueryError.evaluationError("Not all arguments are bound in \(stringFunction) call") }
+                try throwUnlessStringLiteral(string)
+                try throwUnlessSimpleLiteral(pattern)
                 let flags = Set((terms.count == 3 ? (terms[2]?.value ?? "") : ""))
                 let options : NSRegularExpression.Options = flags.contains("i") ? .caseInsensitive : []
                 let regex = try NSRegularExpression(pattern: pattern.value, options: options)

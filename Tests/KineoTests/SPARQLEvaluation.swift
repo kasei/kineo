@@ -128,7 +128,11 @@ class SPARQLEvaluationTest: XCTestCase {
     
     func test10Evaluation_expr_equals() throws {
         let path = sparqlBase.appendingPathComponent("data-r2").appendingPathComponent("expr-equals")
-        try runEvaluationTests(inPath: path)
+        let skip = Set([
+            "http://www.w3.org/2001/sw/DataAccess/tests/data-r2/expr-equals/manifest#eq-graph-1",
+            "http://www.w3.org/2001/sw/DataAccess/tests/data-r2/expr-equals/manifest#eq-graph-2",
+            ])
+        try runEvaluationTests(inPath: path, skip: skip)
     }
     
     func test10Evaluation_regex() throws {
