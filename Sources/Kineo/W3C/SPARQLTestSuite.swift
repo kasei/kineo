@@ -220,29 +220,38 @@ public struct SPARQLTestRunner {
                 guard let testResultUrl = URL(string: testResult.value) else {
                     results.append(.failure(iri: test.value, reason: "Failed to construct URL for result: \(testResult)"))
                     continue }
-                let expectedResult = try expectedResults(for: testResultUrl)
                 
-                if verbose {
-                    print("Parsing query: \(query)...")
-                }
                 guard let url = URL(string: query.value) else {
                     results.append(.failure(iri: test.value, reason: "Failed to construct URL for action: \(query)"))
                     continue
                 }
                 
                 do {
+                    if verbose {
+                        print("Parsing query: \(query)...")
+                    }
                     let sparql = try Data(contentsOf: url)
+                    if verbose {
+                        if let s = String(data: sparql, encoding: .utf8) {
+                            print("\(s)")
+                        }
+                    }
                     guard var p = SPARQLParser(data: sparql) else {
                         results.append(.failure(iri: test.value, reason: "Failed to construct SPARQL parser"))
                         continue
                     }
                     
                     let query = try p.parseQuery()
+                    if verbose {
+                        print("\(query.serialize())")
+                    }
+                    let expectedResult = try expectedResults(for: query, from: testResultUrl)
                     let result = try query.execute(quadstore: testQuadStore, defaultGraph: testDefaultGraph)
                     if result == expectedResult {
                         results.append(.success(iri: test.value))
                     } else {
                         if verbose {
+                            print("\(testQuadStore)")
                             print("*** Test results did not match expected data")
                             print("Got:")
                             print("\(result)")
@@ -278,7 +287,58 @@ public struct SPARQLTestRunner {
         return d
     }
     
-    func expectedResults(for url: URL) throws -> QueryResult<[TermResult], [Triple]> {
+    func bindingResults<Q: QuadStoreProtocol>(from quadstore: Q, defaultGraph: Term) throws -> QueryResult<[TermResult], [Triple]> {
+        let varsPattern = QuadPattern(
+            subject: .variable("rs", binding: true),
+            predicate: .bound(Term(iri: "http://www.w3.org/2001/sw/DataAccess/tests/result-set#resultVariable")),
+            object: .variable("var", binding: true),
+            graph: .bound(defaultGraph)
+        )
+        let vars = try quadstore.quads(matching: varsPattern).map { $0.object.value }
+        
+        let solutionsPattern = QuadPattern(
+            subject: .variable("rs", binding: true),
+            predicate: .bound(Term(iri: "http://www.w3.org/2001/sw/DataAccess/tests/result-set#solution")),
+            object: .variable("s", binding: true),
+            graph: .bound(defaultGraph)
+        )
+        let solutions = try quadstore.quads(matching: solutionsPattern).map { $0.object }
+        var results = [TermResult]()
+        for solution in solutions {
+            let bindingsPattern = QuadPattern(
+                subject: .bound(solution),
+                predicate: .bound(Term(iri: "http://www.w3.org/2001/sw/DataAccess/tests/result-set#binding")),
+                object: .variable("s", binding: true),
+                graph: .bound(defaultGraph)
+            )
+            let bindings = try quadstore.quads(matching: bindingsPattern).map { $0.object }
+            var d = [String:Term]()
+            for binding in bindings {
+                let valuePattern = QuadPattern(
+                    subject: .bound(binding),
+                    predicate: .bound(Term(iri: "http://www.w3.org/2001/sw/DataAccess/tests/result-set#value")),
+                    object: .variable("s", binding: true),
+                    graph: .bound(defaultGraph)
+                )
+                let variablePattern = QuadPattern(
+                    subject: .bound(binding),
+                    predicate: .bound(Term(iri: "http://www.w3.org/2001/sw/DataAccess/tests/result-set#variable")),
+                    object: .variable("s", binding: true),
+                    graph: .bound(defaultGraph)
+                )
+                let values = try quadstore.quads(matching: valuePattern).map { $0.object }
+                let variables = try quadstore.quads(matching: variablePattern).map { $0.object }
+                if let value = values.first, let variable = variables.first {
+                    d[variable.value] = value
+                }
+            }
+            let result = TermResult(bindings: d)
+            results.append(result)
+        }
+        return QueryResult<[TermResult], [Triple]>.bindings(vars, results)
+    }
+    
+    func expectedResults(for query: Query, from url: URL) throws -> QueryResult<[TermResult], [Triple]> {
         if url.absoluteString.hasSuffix("srx") {
             let srxParser = SPARQLXMLParser()
             return try srxParser.parse(Data(contentsOf: url))
@@ -288,7 +348,16 @@ public struct SPARQLTestRunner {
             _ = try parser.parse(file: url.path, base: url.absoluteString) { (s, p, o) in
                 triples.append(Triple(subject: s, predicate: p, object: o))
             }
-            return QueryResult<[TermResult], [Triple]>.triples(triples)
+            switch query.form {
+            case .construct(_), .describe(_):
+                return QueryResult<[TermResult], [Triple]>.triples(triples)
+            default:
+                let quadstore = MemoryQuadStore(version: Version(0))
+                let graph = Term(iri: "http://example.org/")
+                let quads = triples.map { Quad(triple: $0, graph: graph) }
+                try quadstore.load(version: Version(0), quads: quads)
+                return try bindingResults(from: quadstore, defaultGraph: graph)
+            }
         } else {
             throw TestError.unsupportedFormat("Failed to load expected results from file \(url)")
         }

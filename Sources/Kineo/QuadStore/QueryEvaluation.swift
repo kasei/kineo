@@ -134,6 +134,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
                 return i
             }
         case let .extend(child, expr, name):
+            self.ee.nextResult()
             let i = try self.evaluate(algebra: child, activeGraph: activeGraph)
             if expr.isNumeric {
                 return AnyIterator {
@@ -142,7 +143,6 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
                         let num = try self.ee.numericEvaluate(expression: expr, result: result)
                         try result.extend(variable: name, value: num.term)
                     } catch let err {
-                        print("*** extend error: \(err)")
                         if self.verbose {
                             print(err)
                         }
@@ -156,7 +156,6 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
                         let term = try self.ee.evaluate(expression: expr, result: result)
                         try result.extend(variable: name, value: term)
                     } catch let err {
-                        print("*** extend error: \(err)")
                         if self.verbose {
                             print(err)
                         }
@@ -211,8 +210,10 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
                 } while true
             }
         case .bgp(let patterns):
-            let triples : [Algebra] = patterns.map { .triple($0) }
-            let algebra: Algebra = triples.reduce(.joinIdentity) { .innerJoin($0, $1) }
+            let projection = algebra.inscope
+            let triples : [Algebra] = patterns.map { $0.bindingAllVariables }.map { .triple($0) }
+            let join: Algebra = triples.reduce(.joinIdentity) { .innerJoin($0, $1) }
+            let algebra: Algebra = .project(join, projection)
             return try evaluate(algebra: algebra, activeGraph: activeGraph)
         case let .minus(lhs, rhs):
             let l = try self.evaluate(algebra: lhs, activeGraph: activeGraph)

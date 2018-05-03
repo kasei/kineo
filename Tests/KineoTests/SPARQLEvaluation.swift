@@ -40,21 +40,20 @@ class SPARQLEvaluationTest: XCTestCase {
         }
     }
     
-    func runEvaluationTests(inPath path: URL) throws {
+    func runEvaluationTests(inPath path: URL, skip: Set<String>? = nil) throws {
         print("Manifest directory: \(path)")
         let positiveTestType = Term(iri: "http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#QueryEvaluationTest")
-        let results = try testRunner.runEvaluationTests(inPath: path, testType: positiveTestType)
+        let results = try testRunner.runEvaluationTests(inPath: path, testType: positiveTestType, skip: skip)
         handle(testResults: results)
     }
 
-
-
-    
-    
-    
     func test10Evaluation_basic() throws {
         let path = sparqlBase.appendingPathComponent("data-r2").appendingPathComponent("basic")
-        try runEvaluationTests(inPath: path)
+        let skip = Set([
+            "http://www.w3.org/2001/sw/DataAccess/tests/data-r2/basic/manifest#term-6",
+            "http://www.w3.org/2001/sw/DataAccess/tests/data-r2/basic/manifest#term-7"
+            ])
+        try runEvaluationTests(inPath: path, skip: skip)
     }
     
     func test10Evaluation_triple_match() throws {

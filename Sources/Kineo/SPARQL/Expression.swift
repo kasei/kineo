@@ -434,7 +434,6 @@ class ExpressionEvaluator {
         case (.language(_), .datatype("http://www.w3.org/2001/XMLSchema#string")):
             return
         default:
-            print("arguments are not compatible: \(lhs) <=> \(rhs)")
             throw QueryError.evaluationError("Operands must be argument-compatible")
         }
     }

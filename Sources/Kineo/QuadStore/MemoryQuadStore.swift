@@ -80,6 +80,14 @@ open class MemoryQuadStore: Sequence, MutableQuadStoreProtocol {
         var p : TermID = 0
         var o : TermID = 0
         var g : TermID = 0
+        var variablePositions = [String:[Int]]()
+        for (i, node) in pattern.enumerated() {
+            if case .variable(let name, _) = node {
+                variablePositions[name, default: []] += [i]
+            }
+        }
+        let repeats = variablePositions.filter { (_, pos) in pos.count > 1 }
+
         if case .bound(let t) = pattern.subject {
             if let i = t2i[t] {
                 s = i
@@ -123,6 +131,25 @@ open class MemoryQuadStore: Sequence, MutableQuadStoreProtocol {
                 return false
             }
 
+            for (_, pos) in repeats {
+                let terms = pos.map { (i) -> TermID in
+                    switch i {
+                    case 0:
+                        return idquad.0
+                    case 1:
+                        return idquad.1
+                    case 2:
+                        return idquad.2
+                    case 3:
+                        return idquad.3
+                    default:
+                        fatalError()
+                    }
+                }
+                if Set(terms).count != 1 {
+                    return false
+                }
+            }
             return true
         }
         return AnyIterator(matching.makeIterator())
@@ -157,6 +184,17 @@ open class MemoryQuadStore: Sequence, MutableQuadStoreProtocol {
     public func load<S: Sequence>(version: Version, quads: S) throws where S.Iterator.Element == Quad {
         self.version = version
         self.idquads.append(contentsOf: quads.map { idquad(from: $0) })
+    }
+}
+
+extension MemoryQuadStore: CustomStringConvertible {
+    public var description: String {
+        var s = "MemoryQuadStore {\n"
+        for q in self {
+            s += "    \(q)\n"
+        }
+        s += "}\n"
+        return s
     }
 }
 

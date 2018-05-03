@@ -230,9 +230,22 @@ extension QueryResult: Equatable {
                 let map = Dictionary(uniqueKeysWithValues: permutation.enumerated().map { (i, j) in
                     (lblanks[i], rblanks[j])
                 })
-                print("blank node map: \(map)")
+                let lbMapped = lb.map { (triple) -> Triple in
+                    do {
+                        return try triple.replace { (t) -> Term? in
+                            guard t.type == .blank else { return t }
+                            let name = t.value
+                            let ident = map[name] ?? name
+                            return Term(value: ident, type: .blank)
+                        }
+                    } catch {
+                        return triple
+                    }
+                }
+                if Set(lbMapped) == Set(rb) {
+                    return true
+                }
             }
-            print("*** TRIPLE ISOMORPHISM NOT FULLY IMPLEMENTED") // TODO
             return false
         }
         return true
@@ -267,13 +280,23 @@ extension QueryResult: Equatable {
         if lb.count > 1 {
             let indexes = Array(0..<lblanks.count)
             for permutation in permute(indexes, indexes.count-1) {
-                print("--> \(permutation)")
                 let map = Dictionary(uniqueKeysWithValues: permutation.enumerated().map { (i, j) in
                     (lblanks[i], rblanks[j])
                 })
-                print("blank node map: \(map)")
+                
+                let lbMapped = lb.map { (r) -> TermResult in
+                    let bindings = r.bindings.mapValues { (t) -> Term in
+                        guard t.type == .blank else { return t }
+                        let name = t.value
+                        let ident = map[name] ?? name
+                        return Term(value: ident, type: .blank)
+                    }
+                    return TermResult(bindings: bindings)
+                }
+                if Set(lbMapped) == Set(rb) {
+                    return true
+                }
             }
-            print("*** BINDING ISOMORPHISM NOT FULLY IMPLEMENTED") // TODO
             return false
         }
         return true
@@ -316,7 +339,7 @@ extension ResultProtocol {
 
 public struct TermResult: CustomStringConvertible, ResultProtocol {
     public typealias TermType = Term
-    private var bindings: [String:TermType]
+    internal var bindings: [String:TermType]
     public var keys: [String] { return Array(bindings.keys) }
 
     public init(bindings: [String:TermType]) {
