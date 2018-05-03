@@ -317,16 +317,28 @@ public extension PackedIdentityMap where Item == Term, Result == UInt64 {
     
     private func pack(dateTime term: Term) -> Result? {
         // ZZZZ ZZZY YYYY YYYY YYYY MMMM DDDD Dhhh hhmm mmmm ssss ssss ssss ssss
-        guard let date = term.dateValue else { return nil }
-        guard let tz = term.timeZone else { return nil }
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = tz
-        let year : UInt64 = UInt64(calendar.component(.year, from: date))
-        let month : UInt64 = UInt64(calendar.component(.month, from: date))
-        let day : UInt64 = UInt64(calendar.component(.day, from: date))
-        let hours : UInt64 = UInt64(calendar.component(.hour, from: date))
-        let minutes : UInt64 = UInt64(calendar.component(.minute, from: date))
-        let seconds : UInt64 = UInt64(calendar.component(.second, from: date))
+        guard let date = term.dateValue else {
+            return nil
+        }
+        guard let tz = term.timeZone else {
+            return nil
+        }
+        let calendar = Calendar(identifier: .gregorian)
+        let utc = TimeZone(secondsFromGMT: 0)!
+        let components = calendar.dateComponents(in: utc, from: date)
+        
+        guard let _year = components.year,
+            let _month = components.month,
+            let _day = components.day,
+            let _hours = components.hour,
+            let _minutes = components.minute,
+            let _seconds = components.second else { return nil }
+        let year : UInt64 = UInt64(_year)
+        let month : UInt64 = UInt64(_month)
+        let day : UInt64 = UInt64(_day)
+        let hours : UInt64 = UInt64(_hours)
+        let minutes : UInt64 = UInt64(_minutes)
+        let seconds : UInt64 = UInt64(_seconds)
         let msecs : UInt64   = seconds * 1_000
         let offsetSeconds = tz.secondsFromGMT()
         let tzSign : UInt64 = (offsetSeconds < 0) ? 1 : 0
@@ -338,7 +350,7 @@ public extension PackedIdentityMap where Item == Term, Result == UInt64 {
         guard year >= 0 && year < 0x1fff else { return nil }
         guard month >= 0 && month < 0xf else { return nil }
         guard day >= 0 && day < 0x1f else { return nil }
-        guard hours >= 0 && hours < 0xf else { return nil }
+        guard hours >= 0 && hours < 0x1f else { return nil }
         guard minutes >= 0 && minutes < 0x3f else { return nil }
         guard seconds >= 0 && seconds < 0xffff else { return nil }
 
