@@ -33,9 +33,15 @@ open class MemoryQuadStore: Sequence, MutableQuadStoreProtocol {
         return AnyIterator(graphs.makeIterator())
     }
     
-    public func graphNodeTerms() -> AnyIterator<Term> {
-        let nodes = Set(idquads.map { [$0.subject, $0.object] }.flatMap { $0 }.map { i2t[$0]! })
-        return AnyIterator(nodes.makeIterator())
+    public func graphTerms(in graph: Term) -> AnyIterator<Term> {
+        let qp = QuadPattern(subject: .variable("s", binding: true), predicate: .variable("p", binding: false), object: .variable("o", binding: true), graph: .bound(graph))
+        do {
+            let matching = try idquads(matching: qp)
+            let nodes = Set(matching.map { [$0.subject, $0.object] }.flatMap { $0 }.map { i2t[$0]! })
+            return AnyIterator(nodes.makeIterator())
+        } catch {
+            return AnyIterator([].makeIterator())
+        }
     }
     
     private func quad(from idquad: MemoryQuad) -> Quad {

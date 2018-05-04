@@ -249,7 +249,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
         case let .quad(quad):
             return try store.results(matching: quad)
         case let .path(s, path, o):
-            return try evaluatePath(subject: s, object: o, graph: .bound(activeGraph), path: path)
+            return try evaluatePath(subject: s, object: o, graph: activeGraph, path: path)
         case let .namedGraph(child, graph):
             guard case .variable(let gv, let bind) = graph else { fatalError("Unexpected node found where variable required") }
             var iters = try store.graphs().filter { $0 != defaultGraph }.map { ($0, try evaluate(algebra: child, activeGraph: $0)) }
@@ -731,13 +731,13 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
         return AnyIterator(results.makeIterator())
     }
 
-    private func alp(term: Term, path: PropertyPath, graph: Node) throws -> AnyIterator<Term> {
+    private func alp(term: Term, path: PropertyPath, graph: Term) throws -> AnyIterator<Term> {
         var v = Set<Term>()
         try alp(term: term, path: path, seen: &v, graph: graph)
         return AnyIterator(v.makeIterator())
     }
 
-    private func alp(term: Term, path: PropertyPath, seen: inout Set<Term>, graph: Node) throws {
+    private func alp(term: Term, path: PropertyPath, seen: inout Set<Term>, graph: Term) throws {
         guard !seen.contains(term) else { return }
         seen.insert(term)
         let pvar = freshVariable()
@@ -748,10 +748,10 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
         }
     }
 
-    func evaluatePath(subject: Node, object: Node, graph: Node, path: PropertyPath) throws -> AnyIterator<TermResult> {
+    func evaluatePath(subject: Node, object: Node, graph: Term, path: PropertyPath) throws -> AnyIterator<TermResult> {
         switch path {
         case .link(let predicate):
-            let quad = QuadPattern(subject: subject, predicate: .bound(predicate), object: object, graph: graph)
+            let quad = QuadPattern(subject: subject, predicate: .bound(predicate), object: object, graph: .bound(graph))
             return try store.results(matching: quad)
         case .inv(let ipath):
             return try evaluatePath(subject: object, object: subject, graph: graph, path: ipath)
@@ -816,7 +816,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
                 return AnyIterator(results.makeIterator())
             case (.variable(let sname, binding: _), .variable(_)):
                 var results = [TermResult]()
-                for t in store.graphNodeTerms() {
+                for t in store.graphTerms(in: graph) {
                     let i = try evaluatePath(subject: .bound(t), object: object, graph: graph, path: pp)
                     let j = i.map {
                         $0.extended(variable: sname, value: t) ?? $0
@@ -848,7 +848,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
                 return AnyIterator(results.makeIterator())
             case let (.variable(sname, binding: _), .variable(_)):
                 var results = [TermResult]()
-                for t in store.graphNodeTerms() {
+                for t in store.graphTerms(in: graph) {
                     let i = try evaluatePath(subject: .bound(t), object: object, graph: graph, path: path)
                     let j = i.map {
                         $0.extended(variable: sname, value: t) ?? $0
@@ -859,23 +859,19 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
             }
         case .zeroOrOne(let pp):
             switch (subject, object) {
-            case (.bound(_), .variable(let oname, binding: _)):
+            case (.bound(let x), .variable(let oname, binding: _)):
                 // eval(Path(X:term, ZeroOrOnePath(P), Y:var)) = { (Y, yn) | yn = X or {(Y, yn)} in eval(Path(X,P,Y)) }
-                var results = [TermResult]()
-                for t in store.graphNodeTerms() {
-                    results.append(TermResult(bindings: [oname: t]))
-                }
+                var results = Set<TermResult>()
+                results.insert(TermResult(bindings: [oname: x]))
                 let i = try evaluatePath(subject: subject, object: object, graph: graph, path: pp)
-                results.append(contentsOf: i)
+                results.formUnion(i)
                 return AnyIterator(results.makeIterator())
-            case (.variable(let sname, binding: _), .bound(_)):
+            case (.variable(let sname, binding: _), .bound(let y)):
                 // eval(Path(X:var, ZeroOrOnePath(P), Y:term)) = { (X, xn) | xn = Y or {(X, xn)} in eval(Path(X,P,Y)) }
-                var results = [TermResult]()
-                for t in store.graphNodeTerms() {
-                    results.append(TermResult(bindings: [sname: t]))
-                }
+                var results = Set<TermResult>()
+                results.insert(TermResult(bindings: [sname: y]))
                 let i = try evaluatePath(subject: subject, object: object, graph: graph, path: pp)
-                results.append(contentsOf: i)
+                results.formUnion(i)
                 return AnyIterator(results.makeIterator())
             case (.bound(let s), .bound(let o)) where s == o:
                 let results = [TermResult(bindings: [:])]
@@ -893,7 +889,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
             case (.variable(let sname, binding: _), .variable(let oname, binding: _)):
                 // eval(Path(X:var, ZeroOrOnePath(P), Y:var)) = { (X, xn) (Y, yn) | either (yn in nodes(G) and xn = yn) or {(X,xn), (Y,yn)} in eval(Path(X,P,Y)) }
                 var results = [TermResult]()
-                for t in store.graphNodeTerms() {
+                for t in store.graphTerms(in: graph) {
                     results.append(TermResult(bindings: [sname: t, oname: t]))
                 }
                 let i = try evaluatePath(subject: subject, object: object, graph: graph, path: pp)
@@ -903,9 +899,9 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
         }
     }
 
-    func evaluateNPS(subject: Node, object: Node, graph: Node, not iris: [Term]) throws -> AnyIterator<TermResult> {
+    func evaluateNPS(subject: Node, object: Node, graph: Term, not iris: [Term]) throws -> AnyIterator<TermResult> {
         let predicate = self.freshVariable()
-        let quad = QuadPattern(subject: subject, predicate: predicate, object: object, graph: graph)
+        let quad = QuadPattern(subject: subject, predicate: predicate, object: object, graph: .bound(graph))
         let i = try store.results(matching: quad)
         // OPTIMIZE: this can be made more efficient by adding an NPS function to the store,
         //           and allowing it to do the filtering based on a IDResult objects before

@@ -12,7 +12,7 @@ import SPARQLSyntax
 public protocol QuadStoreProtocol: Sequence {
     var count: Int { get }
     func graphs() -> AnyIterator<Term>
-    func graphNodeTerms() -> AnyIterator<Term>
+    func graphTerms(in: Term) -> AnyIterator<Term>
     func makeIterator() -> AnyIterator<Quad>
     func results(matching pattern: QuadPattern) throws -> AnyIterator<TermResult>
     func quads(matching pattern: QuadPattern) throws -> AnyIterator<Quad>

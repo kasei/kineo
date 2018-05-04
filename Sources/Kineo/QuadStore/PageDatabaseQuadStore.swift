@@ -33,11 +33,11 @@ open class PageQuadStore<D: PageDatabase>: Sequence, QuadStoreProtocol, MutableQ
         return i
     }
     
-    public func graphNodeTerms() -> AnyIterator<Term> {
+    public func graphTerms(in graph: Term) -> AnyIterator<Term> {
         var i : AnyIterator<Term> = AnyIterator([].makeIterator())
         try? database.read { (m) in
             let store       = try MediatedPageQuadStore(mediator: m)
-            i = store.graphNodeTerms()
+            i = store.graphTerms(in: graph)
         }
         return i
     }
@@ -248,7 +248,7 @@ open class MediatedPageQuadStore: Sequence, QuadStoreProtocol {
         return AnyIterator(graphs.makeIterator())
     }
     
-    internal func graphNodeIDs() -> AnyIterator<IDType> {
+    internal func graphNodeIDs(in graph: IDType) -> AnyIterator<IDType> {
         guard let mapping = try? quadMapping(fromOrder: MediatedPageQuadStore.defaultIndex) else {
             warn("Failed to compute mapping for quad index order \(MediatedPageQuadStore.defaultIndex)")
             return AnyIterator { return nil }
@@ -261,6 +261,8 @@ open class MediatedPageQuadStore: Sequence, QuadStoreProtocol {
         var seen = Set<UInt64>()
         let nodes = quadsTree.lazy.map {
             mapping($0.0)
+            }.filter { (idquad) in
+                idquad[3] == graph
             }.map { (idquad) in
                 [idquad[2], idquad[0]]
             }.flatMap { $0 }.filter { (gid) -> Bool in
@@ -272,9 +274,12 @@ open class MediatedPageQuadStore: Sequence, QuadStoreProtocol {
         return AnyIterator(nodes.makeIterator())
     }
     
-    public func graphNodeTerms() -> AnyIterator<Term> {
+    public func graphTerms(in graph: Term) -> AnyIterator<Term> {
         let idmap = self.id
-        let ids = graphNodeIDs()
+        guard let gid = idmap.id(for: graph) else {
+            return AnyIterator([].makeIterator())
+        }
+        let ids = graphNodeIDs(in: gid)
         let nodes = ids.map { (gid) -> Term? in
             return idmap.term(for: gid)
             }.compactMap { $0 }

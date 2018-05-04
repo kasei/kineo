@@ -64,9 +64,9 @@ public struct SPARQLTestRunner {
             let defaultUrls = dataset.defaultGraphs.compactMap { URL(string: $0.value) }
             try parse(version: Version(0), quadstore: q, files: defaultUrls.map{ $0.path }, graph: defaultGraph)
             
-            let namedUrls = dataset.namedGraphs.compactMap { URL(string: $0.value) }.map { $0.path }
+            let namedUrls = dataset.namedGraphs.compactMap { URL(string: $0.value) }
             for url in namedUrls {
-                try parse(version: Version(0), quadstore: q, files: [url], graph: Term(iri: url))
+                try parse(version: Version(0), quadstore: q, files: [url.path], graph: Term(iri: url.absoluteString))
             }
         } catch let e {
             print("*** \(e)")

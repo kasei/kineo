@@ -53,15 +53,13 @@ struct TestStore: QuadStoreProtocol {
         return AnyIterator(graphs.makeIterator())
     }
 
-    func graphNodeIDs() -> AnyIterator<Term> {
-        return graphNodeTerms()
-    }
-
-    func graphNodeTerms() -> AnyIterator<Term> {
+    func graphTerms(in graph: Term) -> AnyIterator<Term> {
         var terms = Set<Term>()
         for q in self {
-            terms.insert(q.subject)
-            terms.insert(q.object)
+            if q.graph == graph {
+                terms.insert(q.subject)
+                terms.insert(q.object)
+            }
         }
         return AnyIterator(terms.makeIterator())
     }
