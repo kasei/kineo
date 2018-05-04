@@ -640,11 +640,11 @@ class ExpressionEvaluator {
             return Term.falseValue
         case .eq(let lhs, let rhs):
             if let lval = try? evaluate(expression: lhs, result: result), let rval = try? evaluate(expression: rhs, result: result) {
-                return (lval == rval) ? Term.trueValue: Term.falseValue
+                return lval.equals(rval) ? Term.trueValue: Term.falseValue
             }
         case .ne(let lhs, let rhs):
             if let lval = try? evaluate(expression: lhs, result: result), let rval = try? evaluate(expression: rhs, result: result) {
-                return (lval != rval) ? Term.trueValue: Term.falseValue
+                return !lval.equals(rval) ? Term.trueValue: Term.falseValue
             }
         case .gt(let lhs, let rhs):
             if let lval = try? evaluate(expression: lhs, result: result), let rval = try? evaluate(expression: rhs, result: result) {
