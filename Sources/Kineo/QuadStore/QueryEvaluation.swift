@@ -455,6 +455,8 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
                 count += 1
                 resultingType = resultingType?.resultType(for: "+", withOperandType: term.type)
                 doubleSum += term.numericValue
+            } else {
+                return nil
             }
         }
 
@@ -483,6 +485,8 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
             for term in unique {
                 if let numeric = term.numeric {
                     runningSum = runningSum + numeric
+                } else {
+                    return nil
                 }
             }
             return runningSum.term
@@ -493,6 +497,8 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
                     count += 1
                     if let numeric = term.numeric {
                         runningSum = runningSum + numeric
+                    } else {
+                        return nil
                     }
                 }
             }
@@ -524,6 +530,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
         var numericGroups = [String:NumericValue]()
         var termGroups = [String:Term]()
         var groupCount = [String:Int]()
+        var groupErrors = [String:Error]()
         var groupBindings = [String:[String:Term]]()
         for result in i {
             let group = groups.map { (expr) -> Term? in return try? self.ee.evaluate(expression: expr, result: result) }
@@ -559,6 +566,8 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
                         if let n = term.numeric {
                             numericGroups[groupKey] = value + n
                             groupCount[groupKey] = c + 1
+                        } else {
+                            groupErrors[groupKey] = QueryError.evaluationError("Non-numeric term in numeric aggregation")
                         }
                     }
                 case .count(let keyExpr, false):
@@ -569,6 +578,8 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
                     if let term = try? self.ee.evaluate(expression: keyExpr, result: result) {
                         if let n = term.numeric {
                             numericGroups[groupKey] = value + n
+                        } else {
+                            groupErrors[groupKey] = QueryError.evaluationError("Non-numeric term in numeric aggregation")
                         }
                     }
                 default:
@@ -583,6 +594,8 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
                         if term.isNumeric {
                             numericGroups[groupKey] = term.numeric
                             groupCount[groupKey] = 1
+                        } else {
+                            groupErrors[groupKey] = QueryError.evaluationError("Non-numeric term in numeric aggregation")
                         }
                     }
                 case .count(let keyExpr, false):
@@ -593,6 +606,8 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
                     if let term = try? self.ee.evaluate(expression: keyExpr, result: result) {
                         if term.isNumeric {
                             numericGroups[groupKey] = term.numeric
+                        } else {
+                            groupErrors[groupKey] = QueryError.evaluationError("Non-numeric term in numeric aggregation")
                         }
                     }
                 case .min(let keyExpr):
@@ -645,11 +660,13 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
             var value = v
             if case .avg(_) = agg {
                 guard let count = groupCount[groupKey] else { fatalError("Failed to find expected group data during aggregation") }
-                value = v / NumericValue.double(mantissa: Double(count), exponent: 0)
+                value = v / NumericValue.integer(count)
             }
 
             guard var bindings = groupBindings[groupKey] else { fatalError("Unexpected missing aggregation group template") }
-            bindings[name] = value.term
+            if nil == groupErrors[groupKey] {
+                bindings[name] = value.term
+            }
             return TermResult(bindings: bindings)
         }
         var b = termGroups.makeIterator()
@@ -657,7 +674,9 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
             guard let pair = b.next() else { return nil }
             let (groupKey, term) = pair
             guard var bindings = groupBindings[groupKey] else { fatalError("Unexpected missing aggregation group template") }
-            bindings[name] = term
+            if nil == groupErrors[groupKey] {
+                bindings[name] = term
+            }
             return TermResult(bindings: bindings)
         }
         
@@ -927,6 +946,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
         let i = try self.evaluate(algebra: child, activeGraph: activeGraph)
         var groupBuckets = [String:[TermResult]]()
         var groupBindings = [String:[String:Term]]()
+
         for result in i {
             let group = groups.map { (expr) -> Term? in return try? self.ee.evaluate(expression: expr, result: result) }
             let groupKey = "\(group)"
