@@ -761,6 +761,17 @@ class ExpressionEvaluator {
             } else {
                 return Term.falseValue
             }
+        case .boolCast(let expr):
+            let term = try evaluate(expression: expr, result: result)
+            if let n = term.numeric {
+                return Term(boolean: n.value != 0.0)
+            } else if term.value == "true" {
+                return Term(boolean: true)
+            } else if term.value == "false" {
+                return Term(boolean: false)
+            } else {
+                throw QueryError.typeError("Cannot coerce term to a numeric value")
+            }
         case .intCast(let expr):
             let term = try evaluate(expression: expr, result: result)
             if let n = term.numeric {
@@ -788,6 +799,31 @@ class ExpressionEvaluator {
             } else {
                 throw QueryError.typeError("Cannot coerce term to a numeric value")
             }
+        case .decimalCast(let expr):
+            let term = try evaluate(expression: expr, result: result)
+            if let n = term.numeric {
+                return Term(decimal: n.value)
+            } else if let v = Double(term.value) {
+                let cs = CharacterSet.decimalDigits.union(CharacterSet(charactersIn: ".+-")).inverted
+                if term.value.rangeOfCharacter(from: cs) == nil {
+                    return Term(decimal: v)
+                }
+            } else {
+                throw QueryError.typeError("Cannot coerce term to a numeric value")
+            }
+        case .dateTimeCast(let expr):
+            let term = try evaluate(expression: expr, result: result)
+            if #available (OSX 10.12, *) {
+                let f = ISO8601DateFormatter()
+                f.formatOptions.remove(.withTimeZone)
+                if let _ = f.date(from: term.value) {
+                    return Term(value: term.value, type: .datatype("http://www.w3.org/2001/XMLSchema#dateTime"))
+                }
+            }
+            throw QueryError.typeError("Cannot coerce term to a dateTime value")
+        case .stringCast(let expr):
+            let term = try evaluate(expression: expr, result: result)
+            return Term(string: term.value)
         case .lang(let expr):
             let val = try evaluate(expression: expr, result: result)
             if case .language(let l) = val.type {
