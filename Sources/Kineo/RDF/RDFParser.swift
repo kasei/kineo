@@ -191,7 +191,7 @@ public class RDFParser {
             guard let in_fd = fopen(filename, "r") else {
                 let errptr = strerror(errno)
                 let error = errptr == .none ? "(internal error)" : String(cString: errptr!)
-                throw RDFParserError.parseError("\(error)")
+                throw RDFParserError.parseError("Failed to open \(filename): \(error)")
             }
             
             var status = serd_reader_start_stream(reader, in_fd, filename, false)
