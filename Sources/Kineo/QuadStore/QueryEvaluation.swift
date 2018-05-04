@@ -32,8 +32,8 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
         return .variable(".v\(n)", binding: true)
     }
     
-    private func triples(from results: AnyIterator<TermResult>, with template: [TriplePattern]) -> [Triple] {
-        var triples = [Triple]()
+    private func triples<S : Sequence>(from results: S, with template: [TriplePattern]) -> [Triple] where S.Element == TermResult {
+        var triples = Set<Triple>()
         for r in results {
             for tp in template {
                 do {
@@ -45,12 +45,12 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
                         return nil
                     }
                     if let ground = replaced.ground {
-                        triples.append(ground)
+                        triples.insert(ground)
                     }
                 } catch {}
             }
         }
-        return triples
+        return Array(triples)
     }
     
     public func evaluate(query: Query, activeGraph: Term) throws -> QueryResult<[TermResult], [Triple]> {
@@ -68,7 +68,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
         case .select(_):
             return QueryResult.bindings(query.projectedVariables, results)
         case .construct(let template):
-            let t = triples(from: iter, with: template)
+            let t = triples(from: results, with: template)
             return QueryResult.triples(t)
         default:
             throw QueryError.evaluationError("TODO: evaluate(query) not implemented for \(query.form)")
