@@ -252,7 +252,7 @@ class QueryEvaluationTest: XCTestCase {
     }
 
     func testSumEval() {
-        guard let results = try? Array(eval(query: "quad ?s ?p ?o <http://example.org/numbers>\nsum o sum\n")) else { XCTFail(); return }
+        guard let results = try? Array(eval(query: "quad ?s ?p ?o <http://example.org/numbers>\nfilter ?o isnumeric\nsum o sum\n")) else { XCTFail(); return }
         XCTAssertEqual(results.count, 1)
         guard let result = results.first else { XCTFail(); return }
         guard let value = result["sum"] else { XCTFail(); return }
@@ -260,7 +260,7 @@ class QueryEvaluationTest: XCTestCase {
     }
 
     func testAvgEval() {
-        guard let results = try? Array(eval(query: "quad ?s ?p ?o <http://example.org/numbers>\navg o avg\n")) else { XCTFail(); return }
+        guard let results = try? Array(eval(query: "quad ?s ?p ?o <http://example.org/numbers>\nfilter ?o isnumeric\navg o avg\n")) else { XCTFail(); return }
         XCTAssertEqual(results.count, 1)
         guard let result = results.first else { XCTFail(); return }
         guard let value = result["avg"] else { XCTFail(); return }
@@ -274,7 +274,8 @@ class QueryEvaluationTest: XCTestCase {
             object: .variable("o", binding: true),
             graph: .bound(Term(value: "http://example.org/numbers", type: .iri))
             ))
-        let agg: Algebra = .aggregate(quad, [], [
+        let numerics: Algebra = .filter(quad, .isnumeric(.node(.variable("o", binding: false))))
+        let agg: Algebra = .aggregate(numerics, [], [
             (.sum(.node(.variable("o", binding: false)), false), "sum"),
             (.avg(.node(.variable("o", binding: false)), false), "avg")
             ])

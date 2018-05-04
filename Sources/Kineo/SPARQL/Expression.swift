@@ -763,16 +763,31 @@ class ExpressionEvaluator {
             }
         case .intCast(let expr):
             let term = try evaluate(expression: expr, result: result)
-            guard let n = term.numeric else { throw QueryError.typeError("Cannot coerce term to a numeric value") }
-            return Term(integer: Int(n.value))
+            if let n = term.numeric {
+                return Term(integer: Int(n.value))
+            } else if let v = Int(term.value) {
+                return Term(integer: v)
+            } else {
+                throw QueryError.typeError("Cannot coerce term to a numeric value")
+            }
         case .floatCast(let expr):
             let term = try evaluate(expression: expr, result: result)
-            guard let n = term.numeric else { throw QueryError.typeError("Cannot coerce term to a numeric value") }
-            return Term(float: n.value)
+            if let n = term.numeric {
+                return Term(float: n.value)
+            } else if let v = Double(term.value) {
+                return Term(float: v)
+            } else {
+                throw QueryError.typeError("Cannot coerce term to a numeric value")
+            }
         case .doubleCast(let expr):
             let term = try evaluate(expression: expr, result: result)
-            guard let n = term.numeric else { throw QueryError.typeError("Cannot coerce term to a numeric value") }
-            return Term(float: n.value)
+            if let n = term.numeric {
+                return Term(double: n.value)
+            } else if let v = Double(term.value) {
+                return Term(double: v)
+            } else {
+                throw QueryError.typeError("Cannot coerce term to a numeric value")
+            }
         case .lang(let expr):
             let val = try evaluate(expression: expr, result: result)
             if case .language(let l) = val.type {

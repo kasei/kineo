@@ -533,116 +533,111 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
         var groupErrors = [String:Error]()
         var groupBindings = [String:[String:Term]]()
         for result in i {
-            let group = groups.map { (expr) -> Term? in return try? self.ee.evaluate(expression: expr, result: result) }
+            let group = groups.map {
+                (expr) -> Term? in
+                return try? self.ee.evaluate(expression: expr, result: result)
+            }
             let groupKey = "\(group)"
-            if let value = termGroups[groupKey] {
-                switch agg {
-                case .min(let keyExpr):
-                    if let term = try? self.ee.evaluate(expression: keyExpr, result: result) {
+            
+            do {
+                if let value = termGroups[groupKey] {
+                    switch agg {
+                    case .min(let keyExpr):
+                        let term = try self.ee.evaluate(expression: keyExpr, result: result)
                         termGroups[groupKey] = min(value, term)
-                    }
-                case .max(let keyExpr):
-                    if let term = try? self.ee.evaluate(expression: keyExpr, result: result) {
+                    case .max(let keyExpr):
+                        let term = try self.ee.evaluate(expression: keyExpr, result: result)
                         termGroups[groupKey] = max(value, term)
-                    }
-                case .sample(_):
-                    break
-                case .groupConcat(let keyExpr, let sep, false):
-                    guard case .datatype(_) = value.type else { fatalError("Unexpected term in generating GROUP_CONCAT value") }
-                    let string = value.value
-                    if let term = try? self.ee.evaluate(expression: keyExpr, result: result) {
+                    case .sample(_):
+                        break
+                    case .groupConcat(let keyExpr, let sep, false):
+                        guard case .datatype(_) = value.type else { fatalError("Unexpected term in generating GROUP_CONCAT value") }
+                        let string = value.value
+                        let term = try self.ee.evaluate(expression: keyExpr, result: result)
                         let updated = string + sep + term.value
                         termGroups[groupKey] = Term(value: updated, type: value.type)
+                    default:
+                        fatalError("unexpected pipelined evaluation for \(agg)")
                     }
-                default:
-                    fatalError("unexpected pipelined evaluation for \(agg)")
-                }
-            } else if let value = numericGroups[groupKey] {
-                switch agg {
-                case .countAll:
-                    numericGroups[groupKey] = value + .integer(1)
-                case .avg(let keyExpr, false):
-                    if let term = try? self.ee.evaluate(expression: keyExpr, result: result), let c = groupCount[groupKey] {
-                        if let n = term.numeric {
-                            numericGroups[groupKey] = value + n
-                            groupCount[groupKey] = c + 1
-                        } else {
-                            groupErrors[groupKey] = QueryError.evaluationError("Non-numeric term in numeric aggregation")
-                        }
-                    }
-                case .count(let keyExpr, false):
-                    if let _ = try? self.ee.evaluate(expression: keyExpr, result: result) {
+                } else if let value = numericGroups[groupKey] {
+                    switch agg {
+                    case .countAll:
                         numericGroups[groupKey] = value + .integer(1)
-                    }
-                case .sum(let keyExpr, false):
-                    if let term = try? self.ee.evaluate(expression: keyExpr, result: result) {
+                    case .avg(let keyExpr, false):
+                        let term = try self.ee.evaluate(expression: keyExpr, result: result)
+                        if let n = term.numeric {
+                            numericGroups[groupKey] = value + n
+                            groupCount[groupKey, default: 0] += 1
+                        } else {
+                            groupErrors[groupKey] = QueryError.evaluationError("Non-numeric term in numeric aggregation (\(term))")
+                        }
+                    case .count(let keyExpr, false):
+                        let _ = try self.ee.evaluate(expression: keyExpr, result: result)
+                        numericGroups[groupKey] = value + .integer(1)
+                    case .sum(let keyExpr, false):
+                        let term = try self.ee.evaluate(expression: keyExpr, result: result)
                         if let n = term.numeric {
                             numericGroups[groupKey] = value + n
                         } else {
-                            groupErrors[groupKey] = QueryError.evaluationError("Non-numeric term in numeric aggregation")
+                            groupErrors[groupKey] = QueryError.evaluationError("Non-numeric term in numeric aggregation (\(term))")
                         }
+                    default:
+                        fatalError("unexpected pipelined evaluation for \(agg)")
                     }
-                default:
-                    fatalError("unexpected pipelined evaluation for \(agg)")
-                }
-            } else {
-                switch agg {
-                case .countAll:
-                    numericGroups[groupKey] = .integer(1)
-                case .avg(let keyExpr, false):
-                    if let term = try? self.ee.evaluate(expression: keyExpr, result: result) {
+                } else {
+                    switch agg {
+                    case .countAll:
+                        numericGroups[groupKey] = .integer(1)
+                    case .avg(let keyExpr, false):
+                        let term = try self.ee.evaluate(expression: keyExpr, result: result)
                         if term.isNumeric {
                             numericGroups[groupKey] = term.numeric
                             groupCount[groupKey] = 1
                         } else {
-                            groupErrors[groupKey] = QueryError.evaluationError("Non-numeric term in numeric aggregation")
+                            groupErrors[groupKey] = QueryError.evaluationError("Non-numeric term in numeric aggregation (\(term))")
                         }
-                    }
-                case .count(let keyExpr, false):
-                    if let _ = try? self.ee.evaluate(expression: keyExpr, result: result) {
+                    case .count(let keyExpr, false):
+                        let _ = try self.ee.evaluate(expression: keyExpr, result: result)
                         numericGroups[groupKey] = .integer(1)
-                    }
-                case .sum(let keyExpr, false):
-                    if let term = try? self.ee.evaluate(expression: keyExpr, result: result) {
+                    case .sum(let keyExpr, false):
+                        let term = try self.ee.evaluate(expression: keyExpr, result: result)
                         if term.isNumeric {
                             numericGroups[groupKey] = term.numeric
                         } else {
-                            groupErrors[groupKey] = QueryError.evaluationError("Non-numeric term in numeric aggregation")
+                            groupErrors[groupKey] = QueryError.evaluationError("Non-numeric term in numeric aggregation (\(term))")
                         }
-                    }
-                case .min(let keyExpr):
-                    if let term = try? self.ee.evaluate(expression: keyExpr, result: result) {
+                    case .min(let keyExpr):
+                        let term = try self.ee.evaluate(expression: keyExpr, result: result)
                         termGroups[groupKey] = term
-                    }
-                case .max(let keyExpr):
-                    if let term = try? self.ee.evaluate(expression: keyExpr, result: result) {
+                    case .max(let keyExpr):
+                        let term = try self.ee.evaluate(expression: keyExpr, result: result)
                         termGroups[groupKey] = term
-                    }
-                case .sample(let keyExpr):
-                    if let term = try? self.ee.evaluate(expression: keyExpr, result: result) {
+                    case .sample(let keyExpr):
+                        let term = try self.ee.evaluate(expression: keyExpr, result: result)
                         termGroups[groupKey] = term
-                    }
-                case .groupConcat(let keyExpr, _, false):
-                    if let term = try? self.ee.evaluate(expression: keyExpr, result: result) {
+                    case .groupConcat(let keyExpr, _, false):
+                        let term = try self.ee.evaluate(expression: keyExpr, result: result)
                         switch term.type {
                         case .datatype(_):
                             termGroups[groupKey] = term
                         default:
                             termGroups[groupKey] = Term(value: term.value, type: .datatype("http://www.w3.org/2001/XMLSchema#string"))
                         }
+                    default:
+                        fatalError("unexpected pipelined evaluation for \(agg)")
                     }
-                default:
-                    fatalError("unexpected pipelined evaluation for \(agg)")
-                }
-                var bindings = [String:Term]()
-                for (g, term) in zip(groups, group) {
-                    if case .node(.variable(let name, true)) = g {
-                        if let term = term {
-                            bindings[name] = term
+                    var bindings = [String:Term]()
+                    for (g, term) in zip(groups, group) {
+                        if case .node(.variable(let name, true)) = g {
+                            if let term = term {
+                                bindings[name] = term
+                            }
                         }
                     }
+                    groupBindings[groupKey] = bindings
                 }
-                groupBindings[groupKey] = bindings
+            } catch let e {
+                print("*** error evaluating aggregate expression: \(e)")
             }
         }
         
@@ -664,7 +659,9 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
             }
 
             guard var bindings = groupBindings[groupKey] else { fatalError("Unexpected missing aggregation group template") }
-            if nil == groupErrors[groupKey] {
+            if let error = groupErrors[groupKey] {
+                print("*** error binding aggregate to ?\(name): \(error)")
+            } else {
                 bindings[name] = value.term
             }
             return TermResult(bindings: bindings)
@@ -674,7 +671,9 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
             guard let pair = b.next() else { return nil }
             let (groupKey, term) = pair
             guard var bindings = groupBindings[groupKey] else { fatalError("Unexpected missing aggregation group template") }
-            if nil == groupErrors[groupKey] {
+            if let error = groupErrors[groupKey] {
+                print("*** error binding aggregate to ?\(name): \(error)")
+            } else {
                 bindings[name] = term
             }
             return TermResult(bindings: bindings)
