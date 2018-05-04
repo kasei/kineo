@@ -204,16 +204,9 @@ public struct SPARQLTestRunner {
                     continue
                     
                 }
-                let dataset = try datasetDescription(from: quadstore, for: action, defaultGraph: manifestTerm)
+                var dataset : Dataset = try datasetDescription(from: quadstore, for: action, defaultGraph: manifestTerm)
                 
                 let testDefaultGraph = Term(iri: "tag:kasei.us,2018:default-graph")
-                if verbose {
-                    print("Test dataset: \(dataset)")
-                }
-                let testQuadStore = try quadStore(from: dataset, defaultGraph: testDefaultGraph)
-                if verbose {
-                    print("Test quadstore: \(testQuadStore)")
-                }
                 if verbose {
                     print("Parsing results: \(testResult)...")
                 }
@@ -236,7 +229,7 @@ public struct SPARQLTestRunner {
                             print("\(s)")
                         }
                     }
-                    guard var p = SPARQLParser(data: sparql) else {
+                    guard var p = SPARQLParser(data: sparql, base: url.absoluteString) else {
                         results.append(.failure(iri: test.value, reason: "Failed to construct SPARQL parser"))
                         continue
                     }
@@ -245,7 +238,21 @@ public struct SPARQLTestRunner {
                     if verbose {
                         print("\(query.serialize())")
                     }
+                    if let queryDataset = query.dataset {
+                        if !queryDataset.isEmpty {
+                            dataset = queryDataset
+                        }
+                    }
+                    if verbose {
+                        print("Test dataset: \(dataset)")
+                    }
+
                     let expectedResult = try expectedResults(for: query, from: testResultUrl)
+
+                    let testQuadStore = try quadStore(from: dataset, defaultGraph: testDefaultGraph)
+                    if verbose {
+                        print("Test quadstore: \(testQuadStore)")
+                    }
                     let result = try query.execute(quadstore: testQuadStore, defaultGraph: testDefaultGraph)
                     if result == expectedResult {
                         results.append(.success(iri: test.value))
