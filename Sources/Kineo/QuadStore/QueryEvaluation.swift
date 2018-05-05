@@ -640,14 +640,21 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
                 print("*** error evaluating aggregate expression: \(e)")
             }
         }
-        
+
         if numericGroups.count == 0 && termGroups.count == 0 {
-            // special case where there are no groups (no input rows led to no groups being created);
-            // in this case, counts should return a single result with { $name=0 }
-            let result = TermResult(bindings: [name: Term(integer: 0)])
-            return AnyIterator([result].makeIterator())
+            switch agg {
+            case .avg, .count, .countAll, .sum:
+                // special case where there are no groups (no input rows led to no groups being created);
+                // in this case, counts should return a single result with { $name=0 }
+                // TODO: make sure this works the same as the more general code in evaluateAggregation(algebra:groups:aggregations:activeGraph:)
+                let result = TermResult(bindings: [name: Term(integer: 0)])
+                return AnyIterator([result].makeIterator())
+            default:
+                let result = TermResult(bindings: [:])
+                return AnyIterator([result].makeIterator())
+            }
         }
-        
+
         var a = numericGroups.makeIterator()
         let numericIterator : AnyIterator<TermResult> = AnyIterator {
             guard let pair = a.next() else { return nil }
@@ -963,6 +970,10 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
             } else {
                 groupBuckets[groupKey]?.append(result)
             }
+        }
+        if groups.count == 0 && groupBuckets.count == 0 {
+            groupBuckets[""] = []
+            groupBindings[""] = [:]
         }
         var a = groupBuckets.makeIterator()
         return AnyIterator {
