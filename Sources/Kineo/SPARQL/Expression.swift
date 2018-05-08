@@ -628,7 +628,8 @@ class ExpressionEvaluator {
             }
             return Term.falseValue
         case .or(let lhs, let rhs):
-            if let lval = try? evaluate(expression: lhs, result: result), let lebv = try? lval.ebv() {
+            let lval = try? evaluate(expression: lhs, result: result)
+            if let lv = lval, let lebv = try? lv.ebv() {
                 if lebv {
                     return Term.trueValue
                 }
@@ -636,125 +637,44 @@ class ExpressionEvaluator {
             let rval = try evaluate(expression: rhs, result: result)
             if try rval.ebv() {
                 return Term.trueValue
+            } else if lval == nil {
+                print("logical-or resulted in error||false")
+                throw QueryError.typeError("logical-or resulted in error||false")
             }
             return Term.falseValue
         case .eq(let lhs, let rhs):
             if let lval = try? evaluate(expression: lhs, result: result), let rval = try? evaluate(expression: rhs, result: result) {
-                switch (lval.type, rval.type) {
-                case (.datatype("http://www.w3.org/2001/XMLSchema#dateTime"), .datatype("http://www.w3.org/2001/XMLSchema#dateTime")):
-                    if let ld = lval.dateValue, let rd = rval.dateValue {
-                        return ld == rd ? Term.trueValue: Term.falseValue
-                    } else {
-                        throw QueryError.typeError("Equality on invalid xsd:dateTime")
-                    }
-                case (.datatype("http://www.w3.org/2001/XMLSchema#boolean"), .datatype("http://www.w3.org/2001/XMLSchema#boolean")):
-                    if let ld = lval.booleanValue, let rd = rval.booleanValue {
-                        return ld == rd ? Term.trueValue: Term.falseValue
-                    } else {
-                        throw QueryError.typeError("Equality on invalid xsd:boolean")
-                    }
-                case (_, _) where lval.isNumeric && rval.isNumeric:
-                    return lval.equals(rval) ? Term.trueValue: Term.falseValue
-                case (_, _) where lval.isStringLiteral && rval.isStringLiteral:
-                    return lval.equals(rval) ? Term.trueValue: Term.falseValue
-                default:
-                    throw QueryError.typeError("Equality cannot be tested on these types: \(lval) > \(rval)")
-                }
+                let c = try lval.sparqlCompare(rval)
+                return (c == .equals) ? Term.trueValue: Term.falseValue
             }
         case .ne(let lhs, let rhs):
-            let term = try evaluate(expression: .eq(lhs, rhs), result: result)
-            if let b = term.booleanValue {
-                return !b ? Term.trueValue: Term.falseValue
-            } else {
-                throw QueryError.typeError("Non-equality test did not return a valid boolean result")
+            if let lval = try? evaluate(expression: lhs, result: result), let rval = try? evaluate(expression: rhs, result: result) {
+                let c = try lval.sparqlCompare(rval)
+                return (c != .equals) ? Term.trueValue: Term.falseValue
             }
         case .gt(let lhs, let rhs):
             if let lval = try? evaluate(expression: lhs, result: result), let rval = try? evaluate(expression: rhs, result: result) {
-                if let ld = lval.dateValue, let rd = rval.dateValue {
-                    return ld > rd ? Term.trueValue: Term.falseValue
-                }
-                
-                switch (lval.type, rval.type) {
-                case (.datatype("http://www.w3.org/2001/XMLSchema#boolean"), .datatype("http://www.w3.org/2001/XMLSchema#boolean")):
-                    if let ld = lval.booleanValue, let rd = rval.booleanValue {
-                        return (!ld && rd) ? Term.trueValue: Term.falseValue
-                    } else {
-                        throw QueryError.typeError("Greater-than on invalid xsd:boolean")
-                    }
-                case (_, _) where lval.isNumeric && rval.isNumeric:
-                    return lval > rval ? Term.trueValue: Term.falseValue
-                case (_, _) where lval.isStringLiteral && rval.isStringLiteral:
-                    return lval > rval ? Term.trueValue: Term.falseValue
-                default:
-                    throw QueryError.typeError("Greater-than cannot be tested on these types: \(lval) > \(rval)")
-                }
+                let c = try lval.sparqlCompare(rval)
+                return (c == .greaterThan) ? Term.trueValue: Term.falseValue
+            }
+        case .lt(let lhs, let rhs):
+            if let lval = try? evaluate(expression: lhs, result: result), let rval = try? evaluate(expression: rhs, result: result) {
+                let c = try lval.sparqlCompare(rval)
+                return (c == .lessThan) ? Term.trueValue: Term.falseValue
+            }
+        case .ge(let lhs, let rhs):
+            if let lval = try? evaluate(expression: lhs, result: result), let rval = try? evaluate(expression: rhs, result: result) {
+                let c = try lval.sparqlCompare(rval)
+                return (c != .lessThan) ? Term.trueValue: Term.falseValue
+            }
+        case .le(let lhs, let rhs):
+            if let lval = try? evaluate(expression: lhs, result: result), let rval = try? evaluate(expression: rhs, result: result) {
+                let c = try lval.sparqlCompare(rval)
+                return (c != .greaterThan) ? Term.trueValue: Term.falseValue
             }
         case .between(let expr, let lower, let upper):
             if let val = try? evaluate(expression: expr, result: result), let lval = try? evaluate(expression: lower, result: result), let uval = try? evaluate(expression: upper, result: result) {
                 return (val <= uval && val >= lval) ? Term.trueValue: Term.falseValue
-            }
-        case .lt(let lhs, let rhs):
-            if let lval = try? evaluate(expression: lhs, result: result), let rval = try? evaluate(expression: rhs, result: result) {
-                if let ld = lval.dateValue, let rd = rval.dateValue {
-                    return ld < rd ? Term.trueValue: Term.falseValue
-                }
-
-                switch (lval.type, rval.type) {
-                case (.datatype("http://www.w3.org/2001/XMLSchema#boolean"), .datatype("http://www.w3.org/2001/XMLSchema#boolean")):
-                    if let ld = lval.booleanValue, let rd = rval.booleanValue {
-                        return (ld && !rd) ? Term.trueValue: Term.falseValue
-                    } else {
-                        throw QueryError.typeError("Less-than on invalid xsd:boolean")
-                    }
-                case (_, _) where lval.isNumeric && rval.isNumeric:
-                    return lval < rval ? Term.trueValue: Term.falseValue
-                case (_, _) where lval.isStringLiteral && rval.isStringLiteral:
-                    return lval < rval ? Term.trueValue: Term.falseValue
-                default:
-                    throw QueryError.typeError("Less-than cannot be tested on these types: \(lval) > \(rval)")
-                }
-            }
-        case .ge(let lhs, let rhs):
-            if let lval = try? evaluate(expression: lhs, result: result), let rval = try? evaluate(expression: rhs, result: result) {
-                if let ld = lval.dateValue, let rd = rval.dateValue {
-                    return ld >= rd ? Term.trueValue: Term.falseValue
-                }
-
-                switch (lval.type, rval.type) {
-                case (.datatype("http://www.w3.org/2001/XMLSchema#boolean"), .datatype("http://www.w3.org/2001/XMLSchema#boolean")):
-                    if let _ = lval.booleanValue, let rd = rval.booleanValue {
-                        return rd ? Term.trueValue: Term.falseValue
-                    } else {
-                        throw QueryError.typeError("Less-than on invalid xsd:boolean")
-                    }
-                case (_, _) where lval.isNumeric && rval.isNumeric:
-                    return lval >= rval ? Term.trueValue: Term.falseValue
-                case (_, _) where lval.isStringLiteral && rval.isStringLiteral:
-                    return lval >= rval ? Term.trueValue: Term.falseValue
-                default:
-                    throw QueryError.typeError("Less-than cannot be tested on these types")
-                }
-            }
-        case .le(let lhs, let rhs):
-            if let lval = try? evaluate(expression: lhs, result: result), let rval = try? evaluate(expression: rhs, result: result) {
-                if let ld = lval.dateValue, let rd = rval.dateValue {
-                    return ld <= rd ? Term.trueValue: Term.falseValue
-                }
-                
-                switch (lval.type, rval.type) {
-                case (.datatype("http://www.w3.org/2001/XMLSchema#boolean"), .datatype("http://www.w3.org/2001/XMLSchema#boolean")):
-                    if let ld = lval.booleanValue, let _ = rval.booleanValue {
-                        return ld ? Term.trueValue: Term.falseValue
-                    } else {
-                        throw QueryError.typeError("Less-than on invalid xsd:boolean")
-                    }
-                case (_, _) where lval.isNumeric && rval.isNumeric:
-                    return lval <= rval ? Term.trueValue: Term.falseValue
-                case (_, _) where lval.isStringLiteral && rval.isStringLiteral:
-                    return lval <= rval ? Term.trueValue: Term.falseValue
-                default:
-                    throw QueryError.typeError("Less-than cannot be tested on these types")
-                }
             }
         case .add(let lhs, let rhs):
             if let lval = try? evaluate(expression: lhs, result: result), let rval = try? evaluate(expression: rhs, result: result) {
@@ -847,8 +767,10 @@ class ExpressionEvaluator {
             }
         case .bound(let expr):
             if let _ = try? evaluate(expression: expr, result: result) {
+//                print("BOUND(\(expr)): true\t\(result)")
                 return Term.trueValue
             } else {
+//                print("BOUND(\(expr)): false\t\(result)")
                 return Term.falseValue
             }
         case .boolCast(let expr):
@@ -1059,4 +981,57 @@ extension Term {
         }
     }
     
+    enum SPARQLComparisonResult {
+        case equals
+        case lessThan
+        case greaterThan
+    }
+    
+    func sparqlCompare(_ rval: Term) throws -> SPARQLComparisonResult {
+        let lval = self
+        switch (lval.type, rval.type) {
+        case (.datatype("http://www.w3.org/2001/XMLSchema#dateTime"), .datatype("http://www.w3.org/2001/XMLSchema#dateTime")):
+            if let ld = lval.dateValue, let rd = rval.dateValue {
+                if ld == rd {
+                    return .equals
+                } else if ld < rd {
+                    return .lessThan
+                } else {
+                    return .greaterThan
+                }
+            } else {
+                throw QueryError.typeError("Comparison on invalid xsd:dateTime")
+            }
+        case (.datatype("http://www.w3.org/2001/XMLSchema#boolean"), .datatype("http://www.w3.org/2001/XMLSchema#boolean")):
+            if let ld = lval.booleanValue, let rd = rval.booleanValue {
+                if ld == rd {
+                    return .equals
+                } else if rd {
+                    return .lessThan
+                } else {
+                    return .greaterThan
+                }
+            } else {
+                throw QueryError.typeError("Equality on invalid xsd:boolean")
+            }
+        case (_, _) where lval.isNumeric && rval.isNumeric:
+            if lval.equals(rval)  {
+                return .equals
+            } else if lval < rval {
+                return .lessThan
+            } else {
+                return .greaterThan
+            }
+        case (_, _) where lval.isStringLiteral && rval.isStringLiteral:
+            if lval.equals(rval)  {
+                return .equals
+            } else if lval < rval {
+                return .lessThan
+            } else {
+                return .greaterThan
+            }
+        default:
+            throw QueryError.typeError("Comparison cannot be made on these types: \(lval) <=> \(rval)")
+        }
+    }
 }
