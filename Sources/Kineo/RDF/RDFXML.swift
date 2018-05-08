@@ -108,7 +108,9 @@ public struct RDFXMLParser {
         }
         
         func pop_language() {
-            language.removeLast()
+            if language.count > 0 {
+                language.removeLast()
+            }
         }
 
         func pop_base() {

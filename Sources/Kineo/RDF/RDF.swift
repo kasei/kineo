@@ -206,21 +206,44 @@ extension Term: BufferSerializable {
 }
 
 extension Term {
-    public var dateValue: Date? {
-        guard case .datatype("http://www.w3.org/2001/XMLSchema#dateTime") = self.type else {
+    public var booleanValue: Bool? {
+        guard case .datatype("http://www.w3.org/2001/XMLSchema#boolean") = self.type else {
             return nil
         }
         let lexical = self.value
-        if #available (OSX 10.12, *) {
-            let f = W3CDTFLocatedDateFormatter()
-            f.formatOptions.remove(.withTimeZone)
-            
-            let d = f.date(from: lexical)
-            return d
+        if lexical == "true" || lexical == "1" {
+            return true
         } else {
-            fatalError("OSX 10.12 is required to use date functions")
+            return false
         }
-        
+    }
+    
+    public var dateValue: Date? {
+        guard case .datatype(let dt) = self.type else {
+            return nil
+        }
+        let lexical = self.value
+        if dt == "http://www.w3.org/2001/XMLSchema#dateTime" {
+            if #available (OSX 10.12, *) {
+                let f = W3CDTFLocatedDateFormatter()
+                f.formatOptions.remove(.withTimeZone)
+                
+                let d = f.date(from: lexical)
+                return d
+            } else {
+                fatalError("OSX 10.12 is required to use date functions")
+            }
+        } else if dt == "http://www.w3.org/2001/XMLSchema#date" {
+            if #available (OSX 10.12, *) {
+                let f = W3CDTFLocatedDateFormatter()
+                f.formatOptions = [.withYear, .withMonth, .withDay, .withDashSeparatorInDate]
+                
+                let d = f.date(from: lexical)
+                return d
+            } else {
+                fatalError("OSX 10.12 is required to use date functions")
+            }
+        }
         return nil
     }
     

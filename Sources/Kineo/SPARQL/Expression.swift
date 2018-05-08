@@ -185,7 +185,7 @@ class ExpressionEvaluator {
         case regex = "REGEX"
         case substr = "SUBSTR"
     }
-
+    
     public enum HashFunction : String {
         case md5 = "MD5"
         case sha1 = "SHA1"
@@ -299,7 +299,7 @@ class ExpressionEvaluator {
         }
         fatalError("unrecognized date function: \(dateFunction)")
     }
-
+    
     private func evaluateCoalesce(terms: [Term?]) throws -> Term {
         let bound = terms.compactMap { $0 }
         guard let term = bound.first else {
@@ -341,7 +341,7 @@ class ExpressionEvaluator {
             throw QueryError.evaluationError("Hash function operand not valid utf8 data")
         }
         
-//        print("Computing hash of \(data.debugDescription)")
+        //        print("Computing hash of \(data.debugDescription)")
         
         let hashData : Data!
         switch hashFunction {
@@ -514,7 +514,7 @@ class ExpressionEvaluator {
             guard let string = terms[0], let pattern = terms[1], let replacement = terms[2] else { throw QueryError.evaluationError("Not all arguments are bound in \(stringFunction) call") }
             try throwUnlessStringLiteral(string)
             let flags = Set((terms.count == 4 ? (terms[3]?.value ?? "") : ""))
-
+            
             let options : NSRegularExpression.Options = flags.contains("i") ? .caseInsensitive : []
             let regex = try NSRegularExpression(pattern: pattern.value, options: options)
             let s = string.value
@@ -605,7 +605,7 @@ class ExpressionEvaluator {
         }
         throw QueryError.evaluationError("Unrecognized numeric function: \(numericFunction)")
     }
-
+    
     public func evaluate(expression: Expression, result: TermResult) throws -> Term {
         switch expression {
         case .aggregate(_):
@@ -640,15 +640,54 @@ class ExpressionEvaluator {
             return Term.falseValue
         case .eq(let lhs, let rhs):
             if let lval = try? evaluate(expression: lhs, result: result), let rval = try? evaluate(expression: rhs, result: result) {
-                return lval.equals(rval) ? Term.trueValue: Term.falseValue
+                switch (lval.type, rval.type) {
+                case (.datatype("http://www.w3.org/2001/XMLSchema#dateTime"), .datatype("http://www.w3.org/2001/XMLSchema#dateTime")):
+                    if let ld = lval.dateValue, let rd = rval.dateValue {
+                        return ld == rd ? Term.trueValue: Term.falseValue
+                    } else {
+                        throw QueryError.typeError("Equality on invalid xsd:dateTime")
+                    }
+                case (.datatype("http://www.w3.org/2001/XMLSchema#boolean"), .datatype("http://www.w3.org/2001/XMLSchema#boolean")):
+                    if let ld = lval.booleanValue, let rd = rval.booleanValue {
+                        return ld == rd ? Term.trueValue: Term.falseValue
+                    } else {
+                        throw QueryError.typeError("Equality on invalid xsd:boolean")
+                    }
+                case (_, _) where lval.isNumeric && rval.isNumeric:
+                    return lval.equals(rval) ? Term.trueValue: Term.falseValue
+                case (_, _) where lval.isStringLiteral && rval.isStringLiteral:
+                    return lval.equals(rval) ? Term.trueValue: Term.falseValue
+                default:
+                    throw QueryError.typeError("Equality cannot be tested on these types: \(lval) > \(rval)")
+                }
             }
         case .ne(let lhs, let rhs):
-            if let lval = try? evaluate(expression: lhs, result: result), let rval = try? evaluate(expression: rhs, result: result) {
-                return !lval.equals(rval) ? Term.trueValue: Term.falseValue
+            let term = try evaluate(expression: .eq(lhs, rhs), result: result)
+            if let b = term.booleanValue {
+                return !b ? Term.trueValue: Term.falseValue
+            } else {
+                throw QueryError.typeError("Non-equality test did not return a valid boolean result")
             }
         case .gt(let lhs, let rhs):
             if let lval = try? evaluate(expression: lhs, result: result), let rval = try? evaluate(expression: rhs, result: result) {
-                return (lval > rval) ? Term.trueValue: Term.falseValue
+                if let ld = lval.dateValue, let rd = rval.dateValue {
+                    return ld > rd ? Term.trueValue: Term.falseValue
+                }
+                
+                switch (lval.type, rval.type) {
+                case (.datatype("http://www.w3.org/2001/XMLSchema#boolean"), .datatype("http://www.w3.org/2001/XMLSchema#boolean")):
+                    if let ld = lval.booleanValue, let rd = rval.booleanValue {
+                        return (!ld && rd) ? Term.trueValue: Term.falseValue
+                    } else {
+                        throw QueryError.typeError("Greater-than on invalid xsd:boolean")
+                    }
+                case (_, _) where lval.isNumeric && rval.isNumeric:
+                    return lval > rval ? Term.trueValue: Term.falseValue
+                case (_, _) where lval.isStringLiteral && rval.isStringLiteral:
+                    return lval > rval ? Term.trueValue: Term.falseValue
+                default:
+                    throw QueryError.typeError("Greater-than cannot be tested on these types: \(lval) > \(rval)")
+                }
             }
         case .between(let expr, let lower, let upper):
             if let val = try? evaluate(expression: expr, result: result), let lval = try? evaluate(expression: lower, result: result), let uval = try? evaluate(expression: upper, result: result) {
@@ -656,15 +695,66 @@ class ExpressionEvaluator {
             }
         case .lt(let lhs, let rhs):
             if let lval = try? evaluate(expression: lhs, result: result), let rval = try? evaluate(expression: rhs, result: result) {
-                return (lval < rval) ? Term.trueValue: Term.falseValue
+                if let ld = lval.dateValue, let rd = rval.dateValue {
+                    return ld < rd ? Term.trueValue: Term.falseValue
+                }
+
+                switch (lval.type, rval.type) {
+                case (.datatype("http://www.w3.org/2001/XMLSchema#boolean"), .datatype("http://www.w3.org/2001/XMLSchema#boolean")):
+                    if let ld = lval.booleanValue, let rd = rval.booleanValue {
+                        return (ld && !rd) ? Term.trueValue: Term.falseValue
+                    } else {
+                        throw QueryError.typeError("Less-than on invalid xsd:boolean")
+                    }
+                case (_, _) where lval.isNumeric && rval.isNumeric:
+                    return lval < rval ? Term.trueValue: Term.falseValue
+                case (_, _) where lval.isStringLiteral && rval.isStringLiteral:
+                    return lval < rval ? Term.trueValue: Term.falseValue
+                default:
+                    throw QueryError.typeError("Less-than cannot be tested on these types: \(lval) > \(rval)")
+                }
             }
         case .ge(let lhs, let rhs):
             if let lval = try? evaluate(expression: lhs, result: result), let rval = try? evaluate(expression: rhs, result: result) {
-                return (lval >= rval) ? Term.trueValue: Term.falseValue
+                if let ld = lval.dateValue, let rd = rval.dateValue {
+                    return ld >= rd ? Term.trueValue: Term.falseValue
+                }
+
+                switch (lval.type, rval.type) {
+                case (.datatype("http://www.w3.org/2001/XMLSchema#boolean"), .datatype("http://www.w3.org/2001/XMLSchema#boolean")):
+                    if let _ = lval.booleanValue, let rd = rval.booleanValue {
+                        return rd ? Term.trueValue: Term.falseValue
+                    } else {
+                        throw QueryError.typeError("Less-than on invalid xsd:boolean")
+                    }
+                case (_, _) where lval.isNumeric && rval.isNumeric:
+                    return lval >= rval ? Term.trueValue: Term.falseValue
+                case (_, _) where lval.isStringLiteral && rval.isStringLiteral:
+                    return lval >= rval ? Term.trueValue: Term.falseValue
+                default:
+                    throw QueryError.typeError("Less-than cannot be tested on these types")
+                }
             }
         case .le(let lhs, let rhs):
             if let lval = try? evaluate(expression: lhs, result: result), let rval = try? evaluate(expression: rhs, result: result) {
-                return (lval <= rval) ? Term.trueValue: Term.falseValue
+                if let ld = lval.dateValue, let rd = rval.dateValue {
+                    return ld <= rd ? Term.trueValue: Term.falseValue
+                }
+                
+                switch (lval.type, rval.type) {
+                case (.datatype("http://www.w3.org/2001/XMLSchema#boolean"), .datatype("http://www.w3.org/2001/XMLSchema#boolean")):
+                    if let ld = lval.booleanValue, let _ = rval.booleanValue {
+                        return ld ? Term.trueValue: Term.falseValue
+                    } else {
+                        throw QueryError.typeError("Less-than on invalid xsd:boolean")
+                    }
+                case (_, _) where lval.isNumeric && rval.isNumeric:
+                    return lval <= rval ? Term.trueValue: Term.falseValue
+                case (_, _) where lval.isStringLiteral && rval.isStringLiteral:
+                    return lval <= rval ? Term.trueValue: Term.falseValue
+                default:
+                    throw QueryError.typeError("Less-than cannot be tested on these types")
+                }
             }
         case .add(let lhs, let rhs):
             if let lval = try? evaluate(expression: lhs, result: result), let rval = try? evaluate(expression: rhs, result: result) {
@@ -811,6 +901,16 @@ class ExpressionEvaluator {
             } else {
                 throw QueryError.typeError("Cannot coerce term to a numeric value")
             }
+        case .dateCast(let expr):
+            let term = try evaluate(expression: expr, result: result)
+            if #available (OSX 10.12, *) {
+                let f = ISO8601DateFormatter()
+                f.formatOptions.remove(.withTimeZone)
+                if let _ = f.date(from: term.value) {
+                    return Term(value: term.value, type: .datatype("http://www.w3.org/2001/XMLSchema#date"))
+                }
+            }
+            throw QueryError.typeError("Cannot coerce term to a date value")
         case .dateTimeCast(let expr):
             let term = try evaluate(expression: expr, result: result)
             if #available (OSX 10.12, *) {
@@ -958,5 +1058,5 @@ extension Term {
             return false
         }
     }
-
+    
 }
