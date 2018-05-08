@@ -31,6 +31,3 @@ let package = Package(
         .testTarget(name: "KineoTests", dependencies: ["Kineo"])
     ]
 )
-
-//let lib = Product(name: "Kineo", type: .Library(.Dynamic), modules: "Kineo")
-//products.append(lib)

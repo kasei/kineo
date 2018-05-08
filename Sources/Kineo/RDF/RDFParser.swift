@@ -10,6 +10,112 @@ import serd
 import Foundation
 import SPARQLSyntax
 
+public typealias TripleHandler = (Term, Term, Term) -> Void
+
+private class ParserContext {
+    var count: Int
+    var handler: TripleHandler
+    var env: OpaquePointer!
+    
+    init(env: OpaquePointer, handler: @escaping TripleHandler) {
+        self.count = 0
+        self.env = env
+        self.handler = handler
+    }
+}
+
+let serd_base_sink : @convention(c) (UnsafeMutableRawPointer?, UnsafePointer<SerdNode>?) -> SerdStatus = { (handle, node) -> SerdStatus in
+    guard let handle = handle, let node = node else { return SERD_FAILURE }
+    let ptr = handle.assumingMemoryBound(to: ParserContext.self)
+    let ctx = ptr.pointee
+    let env = ctx.env
+    return serd_env_set_base_uri(env, node)
+}
+
+let serd_prefix_sink : @convention(c) (UnsafeMutableRawPointer?, UnsafePointer<SerdNode>?, UnsafePointer<SerdNode>?) -> SerdStatus = { (handle, name, uri) -> SerdStatus in
+    guard let handle = handle, let name = name, let uri = uri else { return SERD_FAILURE }
+    let ptr = handle.assumingMemoryBound(to: ParserContext.self)
+    let ctx = ptr.pointee
+    let env = ctx.env
+    return serd_env_set_prefix(env, name, uri)
+}
+
+let serd_free_handle : @convention(c) (UnsafeMutableRawPointer?) -> Void = { (ptr) -> Void in }
+
+let serd_statement_sink : @convention(c) (UnsafeMutableRawPointer?, SerdStatementFlags, UnsafePointer<SerdNode>?, UnsafePointer<SerdNode>?, UnsafePointer<SerdNode>?, UnsafePointer<SerdNode>?, UnsafePointer<SerdNode>?, UnsafePointer<SerdNode>?) -> SerdStatus = { (handle, flags, graph, subject, predicate, object, datatype, language) -> SerdStatus in
+    guard let handle = handle, let subject = subject, let predicate = predicate, let object = object else { return SERD_FAILURE }
+    let ptr = handle.assumingMemoryBound(to: ParserContext.self)
+    let ctx = ptr.pointee
+    let env = ctx.env
+    let handler = ctx.handler
+    
+    do {
+        var dt: String? = nil
+        if let dtTerm = datatype?.pointee {
+            if let term = try? serd_node_as_term(env: env, node: dtTerm, datatype: nil, language: nil) {
+                dt = term.value
+            }
+        }
+        
+        let s = try serd_node_as_term(env: env, node: subject.pointee, datatype: nil, language: nil)
+        let p = try serd_node_as_term(env: env, node: predicate.pointee, datatype: nil, language: nil)
+        let o = try serd_node_as_term(env: env, node: object.pointee, datatype: dt, language: language?.pointee.value)
+        
+        ctx.count += 1
+        handler(s, p, o)
+    } catch let e {
+        print("*** \(e)")
+        return SERD_FAILURE
+    }
+    return SERD_SUCCESS
+}
+
+let serd_end_sink : @convention(c) (UnsafeMutableRawPointer?, UnsafePointer<SerdNode>?) -> SerdStatus = { (handle, node) -> SerdStatus in return SERD_SUCCESS }
+
+let serd_error_sink : @convention(c) (UnsafeMutableRawPointer?, UnsafePointer<SerdError>?) -> SerdStatus = { (reader, error) in
+    print("error: \(String(describing: error))")
+    return SERD_SUCCESS
+}
+
+private func serd_node_as_term(env: OpaquePointer?, node: SerdNode, datatype: String?, language: String?) throws -> Term {
+    switch node.type {
+    case SERD_URI:
+        var base_uri = SERD_URI_NULL
+        var uri = SERD_URI_NULL
+        var abs_uri = SERD_URI_NULL
+        serd_env_get_base_uri(env, &base_uri)
+        serd_uri_parse(node.buf, &uri)
+        serd_uri_resolve(&uri, &base_uri, &abs_uri)
+        return Term(value: abs_uri.value, type: .iri)
+    case SERD_BLANK:
+        return Term(value: node.value, type: .blank)
+    case SERD_LITERAL:
+        if let lang = language {
+            return Term(value: node.value, type: .language(lang))
+        } else {
+            return Term(value:node.value, type: .datatype(datatype ?? "http://www.w3.org/2001/XMLSchema#string"))
+        }
+    case SERD_CURIE:
+        var n = node
+        let t = withUnsafePointer(to: &n) { (n) -> Term? in
+            var uri_prefix = SerdChunk()
+            var suffix = SerdChunk()
+            let status = serd_env_expand(env, n, &uri_prefix, &suffix)
+            guard status == SERD_SUCCESS else {
+                return nil
+            }
+            return Term(value: "\(uri_prefix.value)\(suffix.value)", type: .iri)
+        }
+        
+        guard let term = t else {
+            throw RDFParser.RDFParserError.parseError("Undefined namespace prefix \(node.value)")
+        }
+        return term
+    default:
+        fatalError("Unexpected SerdNode type: \(node.type)")
+    }
+}
+
 public class RDFParser {
     public enum RDFParserError : Error {
         case parseError(String)
@@ -19,132 +125,69 @@ public class RDFParser {
     public enum RDFSyntax {
         case ntriples
         case turtle
+        case rdfxml
         
-        var serdSyntax : SerdSyntax {
+        var serdSyntax : SerdSyntax? {
             switch self {
             case .ntriples:
                 return SERD_NTRIPLES
             case .turtle:
                 return SERD_TURTLE
+            default:
+                return nil
             }
         }
     }
 
-    public typealias TripleHandler = (Term, Term, Term) -> Void
-    private class ParserContext {
-        var count: Int
-        var handler: TripleHandler
-        var env: OpaquePointer!
-        
-        init(env: OpaquePointer, handler: @escaping TripleHandler) {
-            self.count = 0
-            self.env = env
-            self.handler = handler
+    public static func guessSyntax(for filename: String) -> RDFSyntax {
+        if filename.hasSuffix("ttl") {
+            return .turtle
+        } else if filename.hasSuffix("nt") {
+            return .ntriples
+        } else if filename.hasSuffix("rdf") {
+            return .rdfxml
+        } else {
+            return .turtle
         }
     }
-    
-    let base_sink : @convention(c) (UnsafeMutableRawPointer?, UnsafePointer<SerdNode>?) -> SerdStatus = { (handle, node) -> SerdStatus in
-        guard let handle = handle, let node = node else { return SERD_FAILURE }
-        let ptr = handle.assumingMemoryBound(to: ParserContext.self)
-        let ctx = ptr.pointee
-        let env = ctx.env
-        return serd_env_set_base_uri(env, node)
-    }
-    
-    let prefix_sink : @convention(c) (UnsafeMutableRawPointer?, UnsafePointer<SerdNode>?, UnsafePointer<SerdNode>?) -> SerdStatus = { (handle, name, uri) -> SerdStatus in
-        guard let handle = handle, let name = name, let uri = uri else { return SERD_FAILURE }
-        let ptr = handle.assumingMemoryBound(to: ParserContext.self)
-        let ctx = ptr.pointee
-        let env = ctx.env
-        return serd_env_set_prefix(env, name, uri)
-    }
-    
-    let free_handle : @convention(c) (UnsafeMutableRawPointer?) -> Void = { (ptr) -> Void in }
-    
-    let statement_sink : @convention(c) (UnsafeMutableRawPointer?, SerdStatementFlags, UnsafePointer<SerdNode>?, UnsafePointer<SerdNode>?, UnsafePointer<SerdNode>?, UnsafePointer<SerdNode>?, UnsafePointer<SerdNode>?, UnsafePointer<SerdNode>?) -> SerdStatus = { (handle, flags, graph, subject, predicate, object, datatype, language) -> SerdStatus in
-        guard let handle = handle, let subject = subject, let predicate = predicate, let object = object else { return SERD_FAILURE }
-        let ptr = handle.assumingMemoryBound(to: ParserContext.self)
-        let ctx = ptr.pointee
-        let env = ctx.env
-        let handler = ctx.handler
-        
-        do {
-            var dt: String? = nil
-            if let dtTerm = datatype?.pointee {
-                if let term = try? RDFParser.node_as_term(env: env, node: dtTerm, datatype: nil, language: nil) {
-                    dt = term.value
-                }
-            }
-            
-            let s = try RDFParser.node_as_term(env: env, node: subject.pointee, datatype: nil, language: nil)
-            let p = try RDFParser.node_as_term(env: env, node: predicate.pointee, datatype: nil, language: nil)
-            let o = try RDFParser.node_as_term(env: env, node: object.pointee, datatype: dt, language: language?.pointee.value)
-            
-            ctx.count += 1
-            handler(s, p, o)
-        } catch let e {
-            print("*** \(e)")
-            return SERD_FAILURE
-        }
-        return SERD_SUCCESS
-    }
-    
-    let end_sink : @convention(c) (UnsafeMutableRawPointer?, UnsafePointer<SerdNode>?) -> SerdStatus = { (handle, node) -> SerdStatus in return SERD_SUCCESS }
-    
-    let error_sink : @convention(c) (UnsafeMutableRawPointer?, UnsafePointer<SerdError>?) -> SerdStatus = { (reader, error) in
-        print("error: \(String(describing: error))")
-        return SERD_SUCCESS
-    }
-    
+
     var inputSyntax: RDFSyntax
     var defaultBase: String
+    
     public init(syntax: RDFSyntax = .turtle, base defaultBase: String = "http://base.example.org/") {
         self.inputSyntax = syntax
         self.defaultBase = defaultBase
     }
-    
-    private static func node_as_term(env: OpaquePointer?, node: SerdNode, datatype: String?, language: String?) throws -> Term {
-        switch node.type {
-        case SERD_URI:
-            var base_uri = SERD_URI_NULL
-            var uri = SERD_URI_NULL
-            var abs_uri = SERD_URI_NULL
-            serd_env_get_base_uri(env, &base_uri)
-            serd_uri_parse(node.buf, &uri)
-            serd_uri_resolve(&uri, &base_uri, &abs_uri)
-            return Term(value: abs_uri.value, type: .iri)
-        case SERD_BLANK:
-            return Term(value: node.value, type: .blank)
-        case SERD_LITERAL:
-            if let lang = language {
-                return Term(value: node.value, type: .language(lang))
-            } else {
-                return Term(value:node.value, type: .datatype(datatype ?? "http://www.w3.org/2001/XMLSchema#string"))
-            }
-        case SERD_CURIE:
-            var n = node
-            let t = withUnsafePointer(to: &n) { (n) -> Term? in
-                var uri_prefix = SerdChunk()
-                var suffix = SerdChunk()
-                let status = serd_env_expand(env, n, &uri_prefix, &suffix)
-                guard status == SERD_SUCCESS else {
-                    return nil
-                }
-                return Term(value: "\(uri_prefix.value)\(suffix.value)", type: .iri)
-            }
-            
-            guard let term = t else {
-                throw RDFParserError.parseError("Undefined namespace prefix \(node.value)")
-            }
-            return term
+
+    @discardableResult
+    public func parse(string: String, handleTriple: @escaping (Term, Term, Term) -> Void) throws -> Int {
+        switch inputSyntax {
+        case .ntriples, .turtle:
+            return try serd_parse(string: string, handleTriple: handleTriple)
         default:
-            // We assume the data being parsed is N-Triples, so we should never see a CURIE
-            fatalError("Unexpected SerdNode type: \(node.type)")
+            let p = RDFXMLParser()
+            try p.parse(string: string, tripleHandler: handleTriple)
+            return 0
         }
     }
     
     @discardableResult
-    public func parse(string: String, handleTriple: @escaping (Term, Term, Term) -> Void) throws -> Int {
+    public func parse(file filename: String, base: String? = nil, handleTriple: @escaping TripleHandler) throws -> Int {
+        switch inputSyntax {
+        case .ntriples, .turtle:
+            return try serd_parse(file: filename, base: base, handleTriple: handleTriple)
+        default:
+            let fileURI = URL(fileURLWithPath: filename)
+            let p = RDFXMLParser(base: fileURI.absoluteString)
+            let data = try Data(contentsOf: fileURI)
+            try p.parse(data: data, tripleHandler: handleTriple)
+            return 0
+        }
+    }
+}
+
+extension RDFParser {
+    public func serd_parse(string: String, handleTriple: @escaping (Term, Term, Term) -> Void) throws -> Int {
         var baseUri = SERD_URI_NULL
         var base = SERD_NODE_NULL
         
@@ -153,10 +196,10 @@ public class RDFParser {
         
         var context = ParserContext(env: env, handler: handleTriple)
         withUnsafePointer(to: &context) { (ctx) -> Void in
-            guard let reader = serd_reader_new(inputSyntax.serdSyntax, UnsafeMutableRawPointer(mutating: ctx), free_handle, base_sink, prefix_sink, statement_sink, end_sink) else { fatalError() }
+            guard let reader = serd_reader_new(inputSyntax.serdSyntax!, UnsafeMutableRawPointer(mutating: ctx), serd_free_handle, serd_base_sink, serd_prefix_sink, serd_statement_sink, serd_end_sink) else { fatalError() }
             
             serd_reader_set_strict(reader, true)
-            serd_reader_set_error_sink(reader, error_sink, nil)
+            serd_reader_set_error_sink(reader, serd_error_sink, nil)
             
             _ = serd_reader_read_string(reader, string)
             serd_reader_free(reader)
@@ -167,8 +210,7 @@ public class RDFParser {
         return context.count
     }
     
-    @discardableResult
-    public func parse(file filename: String, base _base: String? = nil, handleTriple: @escaping TripleHandler) throws -> Int {
+    public func serd_parse(file filename: String, base _base: String? = nil, handleTriple: @escaping TripleHandler) throws -> Int {
         guard let input = serd_uri_to_path(filename) else { throw RDFParserError.parseError("no such file") }
         
         var baseUri = SERD_URI_NULL
@@ -180,13 +222,13 @@ public class RDFParser {
         }
         
         guard let env = serd_env_new(&base) else { throw RDFParserError.internalError("Failed to construct parser context") }
-
+        
         var context = ParserContext(env: env, handler: handleTriple)
         try withUnsafePointer(to: &context) { (ctx) throws -> Void in
-            guard let reader = serd_reader_new(inputSyntax.serdSyntax, UnsafeMutableRawPointer(mutating: ctx), free_handle, base_sink, prefix_sink, statement_sink, end_sink) else { fatalError() }
+            guard let reader = serd_reader_new(inputSyntax.serdSyntax!, UnsafeMutableRawPointer(mutating: ctx), serd_free_handle, serd_base_sink, serd_prefix_sink, serd_statement_sink, serd_end_sink) else { fatalError() }
             
             serd_reader_set_strict(reader, true)
-            serd_reader_set_error_sink(reader, error_sink, nil)
+            serd_reader_set_error_sink(reader, serd_error_sink, nil)
             
             guard let in_fd = fopen(filename, "r") else {
                 let errptr = strerror(errno)
