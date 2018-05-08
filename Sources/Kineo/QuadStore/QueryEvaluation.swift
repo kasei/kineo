@@ -188,10 +188,13 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
                     self.ee.nextResult()
                     do {
                         let term = try self.ee.evaluate(expression: expr, result: result)
-                        if case .some(true) = try? term.ebv() {
+//                        print("filter \(term) <- \(expr)")
+                        let ebv = try? term.ebv()
+                        if case .some(true) = ebv {
                             return result
                         }
                     } catch let err {
+                        print("filter error: \(err) ; \(expr)")
                         if self.verbose {
                             print(err)
                         }
@@ -391,23 +394,37 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
         return AnyIterator(results.makeIterator())
     }
 
-    func evaluateLeftJoin(lhs: Algebra, rhs: Algebra, expression expr: Expression, activeGraph: Term) throws -> AnyIterator<TermResult> {
-        let i = try evaluateJoin(lhs: lhs, rhs: rhs, left: true, activeGraph: activeGraph)
+    func evaluate(diff lhs: Algebra, _ rhs: Algebra, expression expr: Expression, activeGraph: Term) throws -> AnyIterator<TermResult> {
+        let i = try evaluate(algebra: lhs, activeGraph: activeGraph)
+        let r = try Array(evaluate(algebra: lhs, activeGraph: activeGraph))
         return AnyIterator {
             repeat {
                 guard let result = i.next() else { return nil }
-                do {
-                    let term = try self.ee.evaluate(expression: expr, result: result)
-                    if case .some(true) = try? term.ebv() {
-                        return result
+                var ok = true
+                for candidate in r {
+                    if let j = result.join(candidate) {
+                        self.ee.nextResult()
+                        if let term = try? self.ee.evaluate(expression: expr, result: j) {
+                            if case .some(true) = try? term.ebv() {
+                                ok = false
+                                break
+                            }
+                        }
                     }
-                } catch let err {
-                    if self.verbose {
-                        print(err)
-                    }
+                }
+                
+                if ok {
+                    return result
                 }
             } while true
         }
+    }
+    
+    func evaluateLeftJoin(lhs: Algebra, rhs: Algebra, expression expr: Expression, activeGraph: Term) throws -> AnyIterator<TermResult> {
+        let i = try evaluate(algebra: .filter(.innerJoin(lhs, rhs), expr), activeGraph: activeGraph)
+        let d = try evaluate(diff: lhs, rhs, expression: expr, activeGraph: activeGraph)
+        let results = Array(i) + Array(d)
+        return AnyIterator(results.makeIterator())
     }
 
     func evaluateCount<S: Sequence>(results: S, expression keyExpr: Expression, distinct: Bool) -> Term? where S.Iterator.Element == TermResult {
