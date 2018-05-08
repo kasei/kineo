@@ -73,8 +73,15 @@ let serd_statement_sink : @convention(c) (UnsafeMutableRawPointer?, SerdStatemen
 let serd_end_sink : @convention(c) (UnsafeMutableRawPointer?, UnsafePointer<SerdNode>?) -> SerdStatus = { (handle, node) -> SerdStatus in return SERD_SUCCESS }
 
 let serd_error_sink : @convention(c) (UnsafeMutableRawPointer?, UnsafePointer<SerdError>?) -> SerdStatus = { (reader, error) in
-    print("error: \(String(describing: error))")
-    return SERD_SUCCESS
+    if let error = error {
+        let e = error.pointee
+        let filename = String(cString: e.filename)
+        let fmt = String(cString: e.fmt)
+        // print("serd error while parsing \(filename): \(fmt))")
+    } else {
+        // print("serd error during parsing")
+    }
+    return SERD_FAILURE
 }
 
 private func serd_node_as_term(env: OpaquePointer?, node: SerdNode, datatype: String?, language: String?) throws -> Term {
@@ -195,18 +202,24 @@ extension RDFParser {
         base = serd_node_new_uri_from_string(defaultBase, nil, &baseUri)
         
         var context = ParserContext(env: env, handler: handleTriple)
-        withUnsafePointer(to: &context) { (ctx) -> Void in
+        let status = withUnsafePointer(to: &context) { (ctx) -> SerdStatus in
             guard let reader = serd_reader_new(inputSyntax.serdSyntax!, UnsafeMutableRawPointer(mutating: ctx), serd_free_handle, serd_base_sink, serd_prefix_sink, serd_statement_sink, serd_end_sink) else { fatalError() }
             
             serd_reader_set_strict(reader, true)
             serd_reader_set_error_sink(reader, serd_error_sink, nil)
             
-            _ = serd_reader_read_string(reader, string)
+            let status = serd_reader_read_string(reader, string)
             serd_reader_free(reader)
+            return status
         }
         
         serd_env_free(env)
         serd_node_free(&base)
+        
+        if status != SERD_SUCCESS {
+            throw RDFParserError.parseError("Failed to parse file using serd")
+        }
+        
         return context.count
     }
     
@@ -224,7 +237,7 @@ extension RDFParser {
         guard let env = serd_env_new(&base) else { throw RDFParserError.internalError("Failed to construct parser context") }
         
         var context = ParserContext(env: env, handler: handleTriple)
-        try withUnsafePointer(to: &context) { (ctx) throws -> Void in
+        let status = try withUnsafePointer(to: &context) { (ctx) throws -> SerdStatus in
             guard let reader = serd_reader_new(inputSyntax.serdSyntax!, UnsafeMutableRawPointer(mutating: ctx), serd_free_handle, serd_base_sink, serd_prefix_sink, serd_statement_sink, serd_end_sink) else { fatalError() }
             
             serd_reader_set_strict(reader, true)
@@ -242,10 +255,16 @@ extension RDFParser {
             }
             serd_reader_end_stream(reader)
             serd_reader_free(reader)
+            return status
         }
         
         serd_env_free(env)
         serd_node_free(&base)
+        
+        if status != SERD_SUCCESS {
+            throw RDFParserError.parseError("Failed to parse file using serd")
+        }
+
         return context.count
     }
 }

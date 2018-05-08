@@ -11,6 +11,9 @@ import SPARQLSyntax
 public struct SPARQLXMLParser : SPARQLParsable {
     let mediaTypes = Set(["application/sparql-results+xml"])
     
+    public init() {
+        
+    }
     class Delegate: NSObject, XMLParserDelegate {
         enum QueryType {
             case bindings
@@ -151,7 +154,7 @@ public struct SPARQLXMLParser : SPARQLParsable {
         }
     }
     
-    func parse(_ data: Data) throws -> QueryResult<[TermResult], [Triple]> {
+    public func parse(_ data: Data) throws -> QueryResult<[TermResult], [Triple]> {
         let parser = XMLParser(data: data)
         let delegate = Delegate()
         parser.delegate = delegate
