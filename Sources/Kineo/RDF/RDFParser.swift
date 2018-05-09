@@ -19,9 +19,37 @@ private class ParserContext {
     var env: OpaquePointer!
     
     init(env: OpaquePointer, handler: @escaping TripleHandler) {
+        var blankNodes = [String:Term]()
         self.count = 0
         self.env = env
-        self.handler = handler
+        self.handler = { (s,p,o) in
+            var subj = s
+            let pred = p
+            var obj = o
+            
+            if case .blank = subj.type {
+                if let t = blankNodes[subj.value] {
+                    subj = t
+                } else {
+                    let id = NSUUID().uuidString
+                    let b = Term(value: id, type: .blank)
+                    blankNodes[subj.value] = b
+                    subj = b
+                }
+            }
+            if case .blank = obj.type {
+                if let t = blankNodes[obj.value] {
+                    obj = t
+                } else {
+                    let id = NSUUID().uuidString
+                    let b = Term(value: id, type: .blank)
+                    blankNodes[obj.value] = b
+                    obj = b
+                }
+            }
+
+            handler(subj, pred, obj)
+        }
         self.errors = []
     }
 }
