@@ -81,11 +81,6 @@ class SPARQLEvaluationTest: XCTestCase {
         try runEvaluationTests(inPath: path)
     }
     
-    func test10Evaluation_optional_filter() throws {
-        let path = sparqlBase.appendingPathComponent("data-r2").appendingPathComponent("optional-filter")
-        try runEvaluationTests(inPath: path)
-    }
-    
     func test10Evaluation_graph() throws {
         let path = sparqlBase.appendingPathComponent("data-r2").appendingPathComponent("graph")
         try runEvaluationTests(inPath: path)
