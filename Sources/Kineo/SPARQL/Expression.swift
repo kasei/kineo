@@ -990,6 +990,14 @@ extension Term {
     func sparqlCompare(_ rval: Term) throws -> SPARQLComparisonResult {
         let lval = self
         switch (lval.type, rval.type) {
+        case (.iri, .iri):
+            if lval == rval {
+                return .equals
+            } else if lval < rval {
+                return .lessThan
+            } else {
+                return .greaterThan
+            }
         case (.datatype("http://www.w3.org/2001/XMLSchema#dateTime"), .datatype("http://www.w3.org/2001/XMLSchema#dateTime")):
             if let ld = lval.dateValue, let rd = rval.dateValue {
                 if ld == rd {
