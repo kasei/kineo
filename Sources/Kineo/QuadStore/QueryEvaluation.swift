@@ -396,7 +396,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
 
     func evaluate(diff lhs: Algebra, _ rhs: Algebra, expression expr: Expression, activeGraph: Term) throws -> AnyIterator<TermResult> {
         let i = try evaluate(algebra: lhs, activeGraph: activeGraph)
-        let r = try Array(evaluate(algebra: lhs, activeGraph: activeGraph))
+        let r = try Array(evaluate(algebra: rhs, activeGraph: activeGraph))
         return AnyIterator {
             repeat {
                 guard let result = i.next() else { return nil }
