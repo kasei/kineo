@@ -295,6 +295,17 @@ public struct SPARQLTestRunner {
         return d
     }
     
+    func booleanResults<Q: QuadStoreProtocol>(from quadstore: Q, defaultGraph: Term) throws -> QueryResult<[TermResult], [Triple]> {
+        let pattern = QuadPattern(
+            subject: .variable("rs", binding: true),
+            predicate: .bound(Term(iri: "http://www.w3.org/2001/sw/DataAccess/tests/result-set#boolean")),
+            object: .variable("result", binding: true),
+            graph: .bound(defaultGraph)
+        )
+        let result = try quadstore.quads(matching: pattern).map { $0.object }.first!
+        return QueryResult.boolean(result.booleanValue!)
+    }
+    
     func bindingResults<Q: QuadStoreProtocol>(from quadstore: Q, defaultGraph: Term) throws -> QueryResult<[TermResult], [Triple]> {
         let varsPattern = QuadPattern(
             subject: .variable("rs", binding: true),
@@ -366,7 +377,11 @@ public struct SPARQLTestRunner {
                 let graph = Term(iri: "http://example.org/")
                 let quads = triples.map { Quad(triple: $0, graph: graph) }
                 try quadstore.load(version: Version(0), quads: quads)
-                return try bindingResults(from: quadstore, defaultGraph: graph)
+                if query.form == .ask {
+                    return try booleanResults(from: quadstore, defaultGraph: graph)
+                } else {
+                    return try bindingResults(from: quadstore, defaultGraph: graph)
+                }
             }
         } else {
             throw TestError.unsupportedFormat("Failed to load expected results from file \(url)")
