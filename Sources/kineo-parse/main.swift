@@ -100,13 +100,13 @@ var printTokens = false
 let argscount = CommandLine.arguments.count
 var args = PeekableIterator(generator: CommandLine.arguments.makeIterator())
 guard let pname = args.next() else { fatalError("Missing command name") }
-var pageSize = 8192
 guard argscount >= 2 else {
     print("Usage: \(pname) [-v] query.rq")
     print("")
     exit(1)
 }
 
+Logger.shared.level = .silent
 if let next = args.peek(), next.hasPrefix("-") {
     _ = args.next()
     if next == "-s" {

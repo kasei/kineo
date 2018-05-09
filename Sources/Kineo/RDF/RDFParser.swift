@@ -77,9 +77,9 @@ let serd_error_sink : @convention(c) (UnsafeMutableRawPointer?, UnsafePointer<Se
         let e = error.pointee
         let filename = String(cString: e.filename)
         let fmt = String(cString: e.fmt)
-        // print("serd error while parsing \(filename): \(fmt))")
+        Logger.shared.error("serd error while parsing \(filename): \(fmt))")
     } else {
-        // print("serd error during parsing")
+        Logger.shared.error("serd error during parsing")
     }
     return SERD_FAILURE
 }
@@ -217,7 +217,7 @@ extension RDFParser {
         serd_node_free(&base)
         
         if status != SERD_SUCCESS {
-            throw RDFParserError.parseError("Failed to parse file using serd")
+            throw RDFParserError.parseError("Failed to parse string using serd")
         }
         
         return context.count

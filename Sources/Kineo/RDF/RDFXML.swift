@@ -184,11 +184,12 @@ public struct RDFXMLParser {
         @discardableResult
         private func parse_literal_property_attributes(elementName: String, attributes attributeDict: [String : String] = [:], term: Term? = nil) -> Term? {
             let node_id = term ?? new_bnode()
-            var asserted = false
+            let asserted = false
             reify_id.insert(nil, at: 0)
-            for (k, data) in attributeDict {
-                // TODO: create triples for literal properties
-            }
+            // TODO
+//            for (k, data) in attributeDict {
+//                // TODO: create triples for literal properties
+//            }
             reify_id.removeFirst()
             return asserted ? node_id : nil
         }
