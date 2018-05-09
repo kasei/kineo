@@ -14,6 +14,7 @@ public typealias TripleHandler = (Term, Term, Term) -> Void
 
 private class ParserContext {
     var count: Int
+    var errors: [Error]
     var handler: TripleHandler
     var env: OpaquePointer!
     
@@ -21,6 +22,7 @@ private class ParserContext {
         self.count = 0
         self.env = env
         self.handler = handler
+        self.errors = []
     }
 }
 
@@ -72,12 +74,17 @@ let serd_statement_sink : @convention(c) (UnsafeMutableRawPointer?, SerdStatemen
 
 let serd_end_sink : @convention(c) (UnsafeMutableRawPointer?, UnsafePointer<SerdNode>?) -> SerdStatus = { (handle, node) -> SerdStatus in return SERD_SUCCESS }
 
-let serd_error_sink : @convention(c) (UnsafeMutableRawPointer?, UnsafePointer<SerdError>?) -> SerdStatus = { (reader, error) in
+let serd_error_sink : @convention(c) (UnsafeMutableRawPointer?, UnsafePointer<SerdError>?) -> SerdStatus = { (handle, error) in
     if let error = error {
         let e = error.pointee
         let filename = String(cString: e.filename)
         let fmt = String(cString: e.fmt)
-        Logger.shared.error("serd error while parsing \(filename): \(fmt))")
+        let msg = "serd error while parsing \(filename): \(fmt))"
+        Logger.shared.error(msg)
+        if let ptr = handle?.assumingMemoryBound(to: ParserContext.self) {
+            let ctx = ptr.pointee
+            ctx.errors.append(RDFParser.RDFParserError.parseError(msg))
+        }
     } else {
         Logger.shared.error("serd error during parsing")
     }
@@ -241,7 +248,7 @@ extension RDFParser {
             guard let reader = serd_reader_new(inputSyntax.serdSyntax!, UnsafeMutableRawPointer(mutating: ctx), serd_free_handle, serd_base_sink, serd_prefix_sink, serd_statement_sink, serd_end_sink) else { fatalError() }
             
             serd_reader_set_strict(reader, true)
-            serd_reader_set_error_sink(reader, serd_error_sink, nil)
+            serd_reader_set_error_sink(reader, serd_error_sink, UnsafeMutableRawPointer(mutating: ctx))
             
             guard let in_fd = fopen(filename, "r") else {
                 let errptr = strerror(errno)
@@ -261,10 +268,10 @@ extension RDFParser {
         serd_env_free(env)
         serd_node_free(&base)
         
-        if status != SERD_SUCCESS {
-            throw RDFParserError.parseError("Failed to parse file using serd")
+        if let e = context.errors.first {
+            throw e
         }
-
+        
         return context.count
     }
 }
