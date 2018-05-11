@@ -81,15 +81,21 @@ class ExpressionEvaluator {
         case ceil = "CEIL"
         case floor = "FLOOR"
     }
-    
+  
+    public typealias AlgebraEvaluator = (Algebra, Term) throws -> AnyIterator<TermResult>
+
     var bnodes: [String: String]
     var now: Date
     var base: String?
+    var activeGraph: Term?
+    var algebraEvaluator: AlgebraEvaluator?
     
     init(base: String? = nil) {
         self.base = base
         self.bnodes = [:]
         self.now = Date()
+        self.activeGraph = nil
+        self.algebraEvaluator = nil
     }
     
     public func nextResult() {
@@ -436,6 +442,19 @@ class ExpressionEvaluator {
         }
         throw QueryError.evaluationError("Unrecognized numeric function: \(numericFunction)")
     }
+
+    // TODO: this isn't really an escaping closure, but swift can't tell that
+    public func evaluate(expression: Expression, result: TermResult, activeGraph: Term, existsHandler: @escaping AlgebraEvaluator) throws -> Term {
+        let previousGraph = activeGraph
+        self.activeGraph = activeGraph
+        self.algebraEvaluator = existsHandler
+        defer {
+            self.activeGraph = previousGraph
+            self.algebraEvaluator = nil
+        }
+        let term = try self.evaluate(expression: expression, result: result)
+        return term
+    }
     
     public func evaluate(expression: Expression, result: TermResult) throws -> Term {
         switch expression {
@@ -529,7 +548,7 @@ class ExpressionEvaluator {
         case .not(let expr):
             let val = try evaluate(expression: expr, result: result)
             let ebv = try val.ebv()
-            return Term.boolean(ebv)
+            return Term.boolean(!ebv)
         case .isiri(let expr):
             let val = try evaluate(expression: expr, result: result)
             return Term.boolean(val.type == .iri)
@@ -686,8 +705,18 @@ class ExpressionEvaluator {
             } else {
                 return Term.falseValue
             }
-        case .exists(let lhs):
-            print("*** Implement evaluation of EXISTS expression: \(lhs)")
+        case .exists(let algebra):
+            if let ae = algebraEvaluator, let ag = activeGraph {
+                let a = try algebra.replace(result.bindings)
+                let i = try ae(a, ag)
+                if let _ = i.next() {
+                    return Term.trueValue
+                } else {
+                    return Term.falseValue
+                }
+            } else {
+                throw QueryError.evaluationError("Failed to evaluate EXISTS in a Query Evaluator that lacks an AlgebraEvaluator")
+            }
         }
         throw QueryError.evaluationError("Failed to evaluate \(expression) with result \(result)")
     }

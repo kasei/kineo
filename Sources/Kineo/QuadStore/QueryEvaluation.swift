@@ -187,7 +187,9 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
                     guard let result = i.next() else { return nil }
                     self.ee.nextResult()
                     do {
-                        let term = try self.ee.evaluate(expression: expr, result: result)
+                        let term = try self.ee.evaluate(expression: expr, result: result, activeGraph: activeGraph) { (algebra, graph) throws in
+                            return try self.evaluate(algebra: algebra, activeGraph: graph)
+                        }
 //                        print("filter \(term) <- \(expr)")
                         let ebv = try? term.ebv()
                         if case .some(true) = ebv {
