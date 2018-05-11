@@ -495,7 +495,13 @@ class ExpressionEvaluator {
             if let val = try? evaluate(expression: expr, result: result), let lval = try? evaluate(expression: lower, result: result), let uval = try? evaluate(expression: upper, result: result) {
                 return (val <= uval && val >= lval) ? Term.trueValue: Term.falseValue
             }
-        case let .add(lhs, rhs), let .sub(lhs, rhs), let .mul(lhs, rhs):
+        case .neg(let expr):
+            if let val = try? evaluate(expression: expr, result: result) {
+                guard let num = val.numeric else { throw QueryError.typeError("Value \(val) is not numeric") }
+                let neg = -num
+                return neg.term
+            }
+        case let .add(lhs, rhs), let .sub(lhs, rhs), let .mul(lhs, rhs), let .div(lhs, rhs):
             if let lval = try? evaluate(expression: lhs, result: result), let rval = try? evaluate(expression: rhs, result: result) {
                 guard lval.isNumeric else { throw QueryError.typeError("Value \(lval) is not numeric") }
                 guard rval.isNumeric else { throw QueryError.typeError("Value \(lval) is not numeric") }
@@ -511,26 +517,14 @@ class ExpressionEvaluator {
                 case .mul:
                     value = lval.numericValue * rval.numericValue
                     termType = lval.type.resultType(for: "*", withOperandType: rval.type)
+                case .div:
+                    guard rval.numericValue != 0.0 else { throw QueryError.typeError("Cannot divide by zero") }
+                    value = lval.numericValue / rval.numericValue
+                    termType = lval.type.resultType(for: "/", withOperandType: rval.type)
                 }
                 guard let type = termType else { throw QueryError.typeError("Cannot determine resulting numeric type for combining \(lval) and \(rval)") }
                 guard let term = Term(numeric: value, type: type) else { throw QueryError.typeError("Cannot combine \(lval) and \(rval) and produce a valid numeric term") }
                 return term
-            }
-        case let .div(lhs, rhs):
-            if let lval = try? evaluate(expression: lhs, result: result), let rval = try? evaluate(expression: rhs, result: result) {
-                guard lval.isNumeric else { throw QueryError.typeError("Value \(lval) is not numeric") }
-                guard rval.isNumeric else { throw QueryError.typeError("Value \(lval) is not numeric") }
-                guard rval.numericValue != 0.0 else { throw QueryError.typeError("Cannot divide by zero") }
-                let value = lval.numericValue / rval.numericValue
-                guard let type = lval.type.resultType(for: "/", withOperandType: rval.type) else { throw QueryError.typeError("Cannot determine resulting type for dividing \(lval) and \(rval)") }
-                guard let term = Term(numeric: value, type: type) else { throw QueryError.typeError("Cannot divide \(lval) and \(rval) and produce a valid numeric term") }
-                return term
-            }
-        case .neg(let expr):
-            if let val = try? evaluate(expression: expr, result: result) {
-                guard let num = val.numeric else { throw QueryError.typeError("Value \(val) is not numeric") }
-                let neg = -num
-                return neg.term
             }
         case .not(let expr):
             let val = try evaluate(expression: expr, result: result)
