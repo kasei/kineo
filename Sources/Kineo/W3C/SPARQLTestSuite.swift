@@ -259,7 +259,6 @@ public struct SPARQLTestRunner {
                         results.append(.success(iri: test.value))
                     } else {
                         if verbose {
-                            print("\(testQuadStore)")
                             print("*** Test results did not match expected data")
                             print("Got:")
                             print("\(result)")

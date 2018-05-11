@@ -48,7 +48,7 @@ func parseTokens(_ qfile: String, silent: Bool = false) throws {
     }
 }
 
-func parseSPARQL(_ qfile: String, printTokens: Bool, silent: Bool) throws -> Int32 {
+func parseSPARQL(_ qfile: String, printTokens: Bool, pretty: Bool, silent: Bool) throws -> Int32 {
     do {
         warn("# \(qfile)")
         if pretty {
@@ -93,10 +93,65 @@ func parseRDF(_ filename: String, silent: Bool) throws -> Int32 {
     return 0
 }
 
+/**
+ Parse the supplied RDF files and assign each unique RDF term an integer ID such that the
+ ordering of IDs corresponds to the terms' ordering according to the sorting rules of SPARQL.
+ 
+ - parameter files: Filenames of Turtle or N-Triples files to parse.
+ */
+func sortParse(files: [String]) throws -> (Int, [Int:Term]) {
+    var count   = 0
+    var blanks = Set<Term>()
+    var iris = Set<Term>()
+    var literals = Set<Term>()
+    for filename in files {
+        #if os (OSX)
+        guard let path = NSURL(fileURLWithPath: filename).absoluteString else { throw DatabaseError.DataError("Not a valid graph path: \(filename)") }
+        #else
+        let path = NSURL(fileURLWithPath: filename).absoluteString
+        #endif
+        let graph   = Term(value: path, type: .iri)
+        
+        iris.insert(graph)
+        
+        let parser = RDFParser()
+        count = try parser.parse(file: filename, base: graph.value) { (s, p, o) in
+            for term in [s, p, o] {
+                switch term.type {
+                case .iri:
+                    iris.insert(term)
+                case .blank:
+                    blanks.insert(term)
+                default:
+                    literals.insert(term)
+                }
+            }
+        }
+        warn("\r\(count) triples parsed")
+    }
+    
+    let blanksCount = blanks.count
+    let irisAndBlanksCount = iris.count + blanksCount
+    
+    var mapping = [Int:Term]()
+    for (i, term) in blanks.enumerated() { // blanks don't have inherent ordering amongst themselves
+        mapping[i] = term
+    }
+    for (i, term) in iris.sorted().enumerated() {
+        mapping[i + blanksCount] = term
+    }
+    for (i, term) in literals.sorted().enumerated() {
+        mapping[i + irisAndBlanksCount] = term
+    }
+    return (count, mapping)
+}
+
 var pretty = false
 var verbose = false
 var silent = false
 var printTokens = false
+var lint = false
+var sort = false
 let argscount = CommandLine.arguments.count
 var args = PeekableIterator(generator: CommandLine.arguments.makeIterator())
 guard let pname = args.next() else { fatalError("Missing command name") }
@@ -111,6 +166,8 @@ if let next = args.peek(), next.hasPrefix("-") {
     _ = args.next()
     if next == "-s" {
         silent = true
+    } else if next == "-S" {
+        sort = true
     } else if next == "-v" {
         verbose = true
     } else if next == "-t" {
@@ -123,8 +180,19 @@ if let next = args.peek(), next.hasPrefix("-") {
 guard let qfile = args.next() else { fatalError("No query file given") }
 
 do {
-    let rr = try parseRDF(qfile, silent: silent)
-    exit(rr)
+    if sort {
+        let files = [qfile] + args.elements()
+        let (_, terms) = try sortParse(files: files)
+        for i in terms.keys.sorted() {
+            if let term = terms[i] {
+                print("\(i)\t\(term)")
+            }
+        }
+        exit(0)
+    } else {
+        let rr = try parseRDF(qfile, silent: silent)
+        exit(rr)
+    }
 } catch {}
 
 do {
@@ -132,5 +200,5 @@ do {
     exit(xr)
 } catch {}
 
-let sr = try parseSPARQL(qfile, printTokens: printTokens, silent: silent)
+let sr = try parseSPARQL(qfile, printTokens: printTokens, pretty: pretty, silent: silent)
 exit(sr)

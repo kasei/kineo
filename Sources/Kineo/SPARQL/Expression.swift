@@ -15,145 +15,13 @@ extension Term {
         switch type {
         case .datatype("http://www.w3.org/2001/XMLSchema#boolean"):
             return value == "true" || value == "1"
-        case .datatype(_), .language(_):
-            if self.isNumeric {
-                return self.numericValue != 0.0
-            } else {
-                return value.count > 0
-            }
+        case .language(_), .datatype("http://www.w3.org/2001/XMLSchema#string"):
+            return value.count > 0
+        case _ where self.isNumeric:
+            return self.numericValue != 0.0
         default:
             throw QueryError.typeError("EBV cannot be computed for \(self)")
         }
-    }
-}
-
-class ExpressionParser {
-    static func parseExpression(_ parts: [String]) throws -> Expression? {
-        var stack = [Expression]()
-        var i = parts.makeIterator()
-        let parser = NTriplesPatternParser(reader: "")
-        while let s = i.next() {
-            switch s {
-            case "||":
-                guard stack.count >= 2 else { throw QueryError.parseError("Not enough expressions on the stack for \(s)") }
-                let rhs = stack.popLast()!
-                let lhs = stack.popLast()!
-                stack.append(.or(lhs, rhs))
-            case "&&":
-                guard stack.count >= 2 else { throw QueryError.parseError("Not enough expressions on the stack for \(s)") }
-                let rhs = stack.popLast()!
-                let lhs = stack.popLast()!
-                stack.append(.and(lhs, rhs))
-            case "=":
-                guard stack.count >= 2 else { throw QueryError.parseError("Not enough expressions on the stack for \(s)") }
-                let rhs = stack.popLast()!
-                let lhs = stack.popLast()!
-                stack.append(.eq(lhs, rhs))
-            case "!=":
-                guard stack.count >= 2 else { throw QueryError.parseError("Not enough expressions on the stack for \(s)") }
-                let rhs = stack.popLast()!
-                let lhs = stack.popLast()!
-                stack.append(.ne(lhs, rhs))
-            case "between":
-                guard stack.count >= 3 else { throw QueryError.parseError("Not enough expressions on the stack for \(s)") }
-                let upper = stack.popLast()!
-                let lower = stack.popLast()!
-                let value = stack.popLast()!
-                stack.append(.between(value, lower, upper))
-            case "<":
-                guard stack.count >= 2 else { throw QueryError.parseError("Not enough expressions on the stack for \(s)") }
-                let rhs = stack.popLast()!
-                let lhs = stack.popLast()!
-                stack.append(.lt(lhs, rhs))
-            case ">":
-                guard stack.count >= 2 else { throw QueryError.parseError("Not enough expressions on the stack for \(s)") }
-                let rhs = stack.popLast()!
-                let lhs = stack.popLast()!
-                stack.append(.gt(lhs, rhs))
-            case "<=":
-                guard stack.count >= 2 else { throw QueryError.parseError("Not enough expressions on the stack for \(s)") }
-                let rhs = stack.popLast()!
-                let lhs = stack.popLast()!
-                stack.append(.le(lhs, rhs))
-            case ">=":
-                guard stack.count >= 2 else { throw QueryError.parseError("Not enough expressions on the stack for \(s)") }
-                let rhs = stack.popLast()!
-                let lhs = stack.popLast()!
-                stack.append(.ge(lhs, rhs))
-            case "+":
-                guard stack.count >= 2 else { throw QueryError.parseError("Not enough expressions on the stack for \(s)") }
-                let rhs = stack.popLast()!
-                let lhs = stack.popLast()!
-                stack.append(.add(lhs, rhs))
-            case "-":
-                guard stack.count >= 2 else { throw QueryError.parseError("Not enough expressions on the stack for \(s)") }
-                let rhs = stack.popLast()!
-                let lhs = stack.popLast()!
-                stack.append(.sub(lhs, rhs))
-            case "neg":
-                guard stack.count >= 1 else { throw QueryError.parseError("Not enough expressions on the stack for \(s)") }
-                let expr = stack.popLast()!
-                stack.append(.neg(expr))
-            case "*":
-                guard stack.count >= 2 else { throw QueryError.parseError("Not enough expressions on the stack for \(s)") }
-                let rhs = stack.popLast()!
-                let lhs = stack.popLast()!
-                stack.append(.mul(lhs, rhs))
-            case "/":
-                guard stack.count >= 2 else { throw QueryError.parseError("Not enough expressions on the stack for \(s)") }
-                let rhs = stack.popLast()!
-                let lhs = stack.popLast()!
-                stack.append(.div(lhs, rhs))
-            case "not":
-                guard stack.count >= 1 else { throw QueryError.parseError("Not enough expressions on the stack for \(s)") }
-                let expr = stack.popLast()!
-                stack.append(.not(expr))
-            case "isiri":
-                guard stack.count >= 1 else { throw QueryError.parseError("Not enough expressions on the stack for \(s)") }
-                let expr = stack.popLast()!
-                stack.append(.isiri(expr))
-            case "isliteral":
-                guard stack.count >= 1 else { throw QueryError.parseError("Not enough expressions on the stack for \(s)") }
-                let expr = stack.popLast()!
-                stack.append(.isliteral(expr))
-            case "isblank":
-                guard stack.count >= 1 else { throw QueryError.parseError("Not enough expressions on the stack for \(s)") }
-                let expr = stack.popLast()!
-                stack.append(.isblank(expr))
-            case "isnumeric":
-                guard stack.count >= 1 else { throw QueryError.parseError("Not enough expressions on the stack for \(s)") }
-                let expr = stack.popLast()!
-                stack.append(.isnumeric(expr))
-            case "lang":
-                guard stack.count >= 1 else { throw QueryError.parseError("Not enough expressions on the stack for \(s)") }
-                let expr = stack.popLast()!
-                stack.append(.lang(expr))
-            case "datatype":
-                guard stack.count >= 1 else { throw QueryError.parseError("Not enough expressions on the stack for \(s)") }
-                let expr = stack.popLast()!
-                stack.append(.datatype(expr))
-            case "int":
-                guard stack.count >= 1 else { throw QueryError.parseError("Not enough expressions on the stack for \(s)") }
-                let expr = stack.popLast()!
-                stack.append(.intCast(expr))
-            case "float":
-                guard stack.count >= 1 else { throw QueryError.parseError("Not enough expressions on the stack for \(s)") }
-                let expr = stack.popLast()!
-                stack.append(.floatCast(expr))
-            case "double":
-                guard stack.count >= 1 else { throw QueryError.parseError("Not enough expressions on the stack for \(s)") }
-                let expr = stack.popLast()!
-                stack.append(.doubleCast(expr))
-            default:
-                if let value = Double(s) {
-                    stack.append(.node(.bound(Term(float: value))))
-                } else {
-                    guard let n = parser.parseNode(line: s) else { throw QueryError.parseError("Failed to parse expression: \(parts.joined(separator: " "))") }
-                    stack.append(.node(n))
-                }
-            }
-        }
-        return stack.popLast()
     }
 }
 
@@ -250,25 +118,21 @@ class ExpressionEvaluator {
             guard let date = term.dateValue else { throw QueryError.evaluationError("Argument is not a valid xsd:dateTime value in \(dateFunction) call") }
             var calendar = Calendar(identifier: .gregorian)
             calendar.timeZone = TimeZone(secondsFromGMT: 0)!
-            if dateFunction == .year {
-                let value = calendar.component(.year, from: date)
-                return Term(integer: value)
-            } else if dateFunction == .month {
-                let value = calendar.component(.month, from: date)
-                return Term(integer: value)
-            } else if dateFunction == .day {
-                let value = calendar.component(.day, from: date)
-                return Term(integer: value)
-            } else if dateFunction == .hours {
-                let value = calendar.component(.hour, from: date)
-                return Term(integer: value)
-            } else if dateFunction == .minutes {
-                let value = calendar.component(.minute, from: date)
-                return Term(integer: value)
-            } else if dateFunction == .seconds {
-                let value = calendar.component(.second, from: date)
-                return Term(decimal: Double(value))
-            } else if dateFunction == .timezone {
+            
+            switch dateFunction {
+            case .year:
+                return Term(integer: calendar.component(.year, from: date))
+            case .month:
+                return Term(integer: calendar.component(.month, from: date))
+            case .day:
+                return Term(integer: calendar.component(.day, from: date))
+            case .hours:
+                return Term(integer: calendar.component(.hour, from: date))
+            case .minutes:
+                return Term(integer: calendar.component(.minute, from: date))
+            case .seconds:
+                return Term(decimal: Double(calendar.component(.second, from: date)))
+            case .timezone:
                 guard let tz = term.timeZone else { throw QueryError.evaluationError("Argument xsd:dateTime does not have a valid timezone in \(dateFunction) call") }
                 let seconds = tz.secondsFromGMT()
                 if seconds == 0 {
@@ -283,7 +147,7 @@ class ExpressionEvaluator {
                     }
                     return Term(value: string, type: .datatype(Term.xsd("dayTimeDuration").value))
                 }
-            } else if dateFunction == .tz {
+            case .tz:
                 guard let tz = term.timeZone else { return Term(string: "") }
                 let seconds = tz.secondsFromGMT()
                 if seconds == 0 {
@@ -295,9 +159,10 @@ class ExpressionEvaluator {
                     let string = String(format: "\(neg)%02d:%02d", hours, minutes)
                     return Term(string: string)
                 }
+            case .now:
+                return Term(dateTime: now, timeZone: term.timeZone)
             }
         }
-        fatalError("unrecognized date function: \(dateFunction)")
     }
     
     private func evaluateCoalesce(terms: [Term?]) throws -> Term {
@@ -308,10 +173,13 @@ class ExpressionEvaluator {
         return term
     }
     
-    private func evaluateIf(terms: [Term?]) throws -> Term {
-        guard terms.count == 3 else {
-            throw QueryError.evaluationError("IF() function invocation must be ternary")
+    private func guardArity(_ items: Int, _ count: Int, _ function: String) throws {
+        guard items == count else {
+            throw QueryError.evaluationError("\(function) function invocation must have arity of \(count)")
         }
+    }
+    private func evaluateIf(terms: [Term?]) throws -> Term {
+        try guardArity(terms.count, 3, "IF()")
         guard let term = terms[0] else {
             throw QueryError.evaluationError("IF() function conditional not found")
         }
@@ -327,12 +195,8 @@ class ExpressionEvaluator {
     }
     
     private func evaluate(hashFunction: HashFunction, terms: [Term?]) throws -> Term {
-        guard terms.count == 1 else {
-            throw QueryError.evaluationError("Hash function invocation must be unary")
-        }
-        guard let term = terms[0] else {
-            throw QueryError.evaluationError("Hash function invocation must be unary")
-        }
+        try guardArity(terms.count, 1, "Hash")
+        let term = terms[0]!
         guard case .datatype("http://www.w3.org/2001/XMLSchema#string") = term.type else {
             throw QueryError.evaluationError("Hash function invocation must have simple literal operand")
         }
@@ -364,11 +228,11 @@ class ExpressionEvaluator {
     private func evaluate(constructor constructorFunction: ConstructorFunction, terms: [Term?]) throws -> Term {
         switch constructorFunction {
         case .str:
-            guard terms.count == 1 else { throw QueryError.evaluationError("Wrong argument count for \(constructorFunction) call") }
+            try guardArity(terms.count, 1, constructorFunction.rawValue)
             guard let string = terms[0] else { throw QueryError.evaluationError("Not all arguments are bound in \(constructorFunction) call") }
             return Term(string: string.value)
         case .uri, .iri:
-            guard terms.count == 1 else { throw QueryError.evaluationError("Wrong argument count for \(constructorFunction) call") }
+            try guardArity(terms.count, 1, constructorFunction.rawValue)
             guard let string = terms[0] else { throw QueryError.evaluationError("Not all arguments are bound in \(constructorFunction) call") }
             if let base = self.base {
                 guard let b = URL(string: base), let i = URL(string: string.value, relativeTo: b) else {
@@ -391,21 +255,21 @@ class ExpressionEvaluator {
                 return Term(value: id, type: .blank)
             }
         case .strdt:
-            guard terms.count == 2 else { throw QueryError.evaluationError("Wrong argument count for \(constructorFunction) call") }
+            try guardArity(terms.count, 2, constructorFunction.rawValue)
             guard let string = terms[0], let datatype = terms[1] else { throw QueryError.evaluationError("Not all arguments are bound in \(constructorFunction) call") }
             try throwUnlessSimpleLiteral(string)
             return Term(value: string.value, type: .datatype(datatype.value))
         case .strlang:
-            guard terms.count == 2 else { throw QueryError.evaluationError("Wrong argument count for \(constructorFunction) call") }
+            try guardArity(terms.count, 2, constructorFunction.rawValue)
             guard let string = terms[0], let lang = terms[1] else { throw QueryError.evaluationError("Not all arguments are bound in \(constructorFunction) call") }
             try throwUnlessSimpleLiteral(string)
             return Term(value: string.value, type: .language(lang.value))
         case .uuid:
-            guard terms.count == 0 else { throw QueryError.evaluationError("Wrong argument count for \(constructorFunction) call") }
+            try guardArity(terms.count, 0, constructorFunction.rawValue)
             let id = NSUUID().uuidString.lowercased()
             return Term(value: "urn:uuid:\(id)", type: .iri)
         case .struuid:
-            guard terms.count == 0 else { throw QueryError.evaluationError("Wrong argument count for \(constructorFunction) call") }
+            try guardArity(terms.count, 0, constructorFunction.rawValue)
             let id = NSUUID().uuidString.lowercased()
             return Term(string: id)
         }
@@ -454,30 +318,30 @@ class ExpressionEvaluator {
                 return Term(string: string)
             }
         case .str, .strlen, .lcase, .ucase, .encode_for_uri, .datatype:
-            guard terms.count == 1 else { throw QueryError.evaluationError("Wrong argument count for \(stringFunction) call") }
+            try guardArity(terms.count, 1, stringFunction.rawValue)
             guard let string = terms[0] else { throw QueryError.evaluationError("Not all arguments are bound in \(stringFunction) call") }
-            if stringFunction == .str {
+            switch stringFunction {
+            case .str:
                 return Term(string: string.value)
-            } else if stringFunction == .strlen {
+            case .strlen:
                 return Term(integer: string.value.count)
-            } else if stringFunction == .lcase {
+            case .lcase:
                 return Term(value: string.value.lowercased(), type: string.type)
-            } else if stringFunction == .ucase {
+            case .ucase:
                 return Term(value: string.value.uppercased(), type: string.type)
-            } else if stringFunction == .datatype {
-                if case .datatype(let d) = string.type {
-                    return Term(value: d, type: .iri)
-                } else {
-                    throw QueryError.evaluationError("DATATYPE called on on a non-datatyped term")
-                }
-            } else if stringFunction == .encode_for_uri {
+            case .datatype:
+                guard case .datatype(let d) = string.type else { throw QueryError.evaluationError("DATATYPE called on on a non-datatyped term") }
+                return Term(value: d, type: .iri)
+            case .encode_for_uri:
                 guard let encoded = string.value.addingPercentEncoding(withAllowedCharacters: CharacterSet.urlQueryAllowed) else {
                     throw QueryError.evaluationError("Failed to encode string as a URI")
                 }
                 return Term(string: encoded)
+            default:
+                fatalError()
             }
         case .contains, .strstarts, .strends, .strbefore, .strafter:
-            guard terms.count == 2 else { throw QueryError.evaluationError("Wrong argument count for \(stringFunction) call") }
+            try guardArity(terms.count, 2, stringFunction.rawValue)
             guard let string = terms[0], let pattern = terms[1] else { throw QueryError.evaluationError("Not all arguments are bound in \(stringFunction) call") }
             try throwUnlessArgumentCompatible(string, pattern)
             if stringFunction == .contains {
@@ -487,23 +351,17 @@ class ExpressionEvaluator {
             } else if stringFunction == .strends {
                 return Term(boolean: string.value.hasSuffix(pattern.value))
             } else if stringFunction == .strbefore {
-                if pattern.value == "" {
-                    return Term(value: "", type: string.type)
-                }
+                guard pattern.value != "" else { return Term(value: "", type: string.type) }
                 if let range = string.value.range(of: pattern.value) {
-                    let index = range.lowerBound
-                    let prefix = String(string.value[..<index])
+                    let prefix = String(string.value[..<range.lowerBound])
                     return Term(value: prefix, type: string.type)
                 } else {
                     return Term(string: "")
                 }
             } else if stringFunction == .strafter {
-                if pattern.value == "" {
-                    return string
-                }
+                guard pattern.value != "" else { return string }
                 if let range = string.value.range(of: pattern.value) {
-                    let index = range.upperBound
-                    let suffix = String(string.value[index...])
+                    let suffix = String(string.value[range.upperBound...])
                     return Term(value: suffix, type: string.type)
                 } else {
                     return Term(string: "")
@@ -554,42 +412,15 @@ class ExpressionEvaluator {
         throw QueryError.evaluationError("Unrecognized string function: \(stringFunction)")
     }
     
-    private func evaluate(expression: Expression, numericFunction: NumericFunction, terms: [Term?]) throws -> Term {
-        switch numericFunction {
-        case .rand:
-            let v = Double(_random()) / Double(UINT32_MAX)
-            return Term(double: v)
-        case .abs, .round, .ceil, .floor:
-            guard terms.count == 1 else { throw QueryError.evaluationError("Wrong argument count for \(numericFunction) call") }
-            guard let term = terms[0] else { throw QueryError.evaluationError("Not all arguments are bound in \(numericFunction) call") }
-            guard term.isNumeric else { throw QueryError.evaluationError("Arguments is not numeric in \(numericFunction) call") }
-            guard let numeric = term.numeric else { throw QueryError.evaluationError("Arguments is not numeric in \(numericFunction) call") }
-            switch numericFunction {
-            case .abs:
-                return numeric.absoluteValue.term
-            case .round:
-                return numeric.round.term
-            case .ceil:
-                return numeric.ceil.term
-            case .floor:
-                return numeric.floor.term
-            default:
-                fatalError()
-            }
-        }
-        throw QueryError.evaluationError("Unrecognized numeric function: \(numericFunction)")
-    }
-    
     private func evaluate(numericFunction: NumericFunction, terms: [Term?]) throws -> Term {
         switch numericFunction {
         case .rand:
             let v = Double(_random()) / Double(UINT32_MAX)
             return Term(double: v)
         case .abs, .round, .ceil, .floor:
-            guard terms.count == 1 else { throw QueryError.evaluationError("Wrong argument count for \(numericFunction) call") }
+            try guardArity(terms.count, 1, numericFunction.rawValue)
             guard let term = terms[0] else { throw QueryError.evaluationError("Not all arguments are bound in \(numericFunction) call") }
-            guard term.isNumeric else { throw QueryError.evaluationError("Arguments is not numeric in \(numericFunction) call") }
-            guard let numeric = term.numeric else { throw QueryError.evaluationError("Arguments is not numeric in \(numericFunction) call") }
+            guard let numeric = term.numeric else { throw QueryError.evaluationError("Argument is not numeric in \(numericFunction) call") }
             switch numericFunction {
             case .abs:
                 return numeric.absoluteValue.term
@@ -618,7 +449,7 @@ class ExpressionEvaluator {
             } else {
                 throw QueryError.typeError("Variable ?\(name) is unbound in result \(result)")
             }
-        case .and(let lhs, let rhs):
+        case let .and(lhs, rhs):
             let lval = try evaluate(expression: lhs, result: result)
             if try lval.ebv() {
                 let rval = try evaluate(expression: rhs, result: result)
@@ -627,7 +458,7 @@ class ExpressionEvaluator {
                 }
             }
             return Term.falseValue
-        case .or(let lhs, let rhs):
+        case let .or(lhs, rhs):
             let lval = try? evaluate(expression: lhs, result: result)
             if let lv = lval, let lebv = try? lv.ebv() {
                 if lebv {
@@ -642,68 +473,50 @@ class ExpressionEvaluator {
                 throw QueryError.typeError("logical-or resulted in error||false")
             }
             return Term.falseValue
-        case .eq(let lhs, let rhs):
+        case let .eq(lhs, rhs), let .ne(lhs, rhs), let .gt(lhs, rhs), let .lt(lhs, rhs), let .ge(lhs, rhs), let .le(lhs, rhs):
             if let lval = try? evaluate(expression: lhs, result: result), let rval = try? evaluate(expression: rhs, result: result) {
                 let c = try lval.sparqlCompare(rval)
-                return (c == .equals) ? Term.trueValue: Term.falseValue
-            }
-        case .ne(let lhs, let rhs):
-            if let lval = try? evaluate(expression: lhs, result: result), let rval = try? evaluate(expression: rhs, result: result) {
-                let c = try lval.sparqlCompare(rval)
-                return (c != .equals) ? Term.trueValue: Term.falseValue
-            }
-        case .gt(let lhs, let rhs):
-            if let lval = try? evaluate(expression: lhs, result: result), let rval = try? evaluate(expression: rhs, result: result) {
-                let c = try lval.sparqlCompare(rval)
-                return (c == .greaterThan) ? Term.trueValue: Term.falseValue
-            }
-        case .lt(let lhs, let rhs):
-            if let lval = try? evaluate(expression: lhs, result: result), let rval = try? evaluate(expression: rhs, result: result) {
-                let c = try lval.sparqlCompare(rval)
-                return (c == .lessThan) ? Term.trueValue: Term.falseValue
-            }
-        case .ge(let lhs, let rhs):
-            if let lval = try? evaluate(expression: lhs, result: result), let rval = try? evaluate(expression: rhs, result: result) {
-                let c = try lval.sparqlCompare(rval)
-                return (c != .lessThan) ? Term.trueValue: Term.falseValue
-            }
-        case .le(let lhs, let rhs):
-            if let lval = try? evaluate(expression: lhs, result: result), let rval = try? evaluate(expression: rhs, result: result) {
-                let c = try lval.sparqlCompare(rval)
-                return (c != .greaterThan) ? Term.trueValue: Term.falseValue
+                switch expression {
+                case .eq:
+                    return (c == .equals) ? Term.trueValue: Term.falseValue
+                case .ne:
+                    return (c != .equals) ? Term.trueValue: Term.falseValue
+                case .gt:
+                    return (c == .greaterThan) ? Term.trueValue: Term.falseValue
+                case .lt:
+                    return (c == .lessThan) ? Term.trueValue: Term.falseValue
+                case .ge:
+                    return (c != .lessThan) ? Term.trueValue: Term.falseValue
+                case .le:
+                    return (c != .greaterThan) ? Term.trueValue: Term.falseValue
+                }
             }
         case .between(let expr, let lower, let upper):
             if let val = try? evaluate(expression: expr, result: result), let lval = try? evaluate(expression: lower, result: result), let uval = try? evaluate(expression: upper, result: result) {
                 return (val <= uval && val >= lval) ? Term.trueValue: Term.falseValue
             }
-        case .add(let lhs, let rhs):
+        case let .add(lhs, rhs), let .sub(lhs, rhs), let .mul(lhs, rhs):
             if let lval = try? evaluate(expression: lhs, result: result), let rval = try? evaluate(expression: rhs, result: result) {
                 guard lval.isNumeric else { throw QueryError.typeError("Value \(lval) is not numeric") }
                 guard rval.isNumeric else { throw QueryError.typeError("Value \(lval) is not numeric") }
-                let value = lval.numericValue + rval.numericValue
-                guard let type = lval.type.resultType(for: "+", withOperandType: rval.type) else { throw QueryError.typeError("Cannot determine resulting type for adding \(lval) and \(rval)") }
-                guard let term = Term(numeric: value, type: type) else { throw QueryError.typeError("Cannot add \(lval) and \(rval) and produce a valid numeric term") }
+                let value: Double
+                let termType: TermType?
+                switch expression {
+                case .add:
+                    value = lval.numericValue + rval.numericValue
+                    termType = lval.type.resultType(for: "+", withOperandType: rval.type)
+                case .sub:
+                    value = lval.numericValue - rval.numericValue
+                    termType = lval.type.resultType(for: "-", withOperandType: rval.type)
+                case .mul:
+                    value = lval.numericValue * rval.numericValue
+                    termType = lval.type.resultType(for: "*", withOperandType: rval.type)
+                }
+                guard let type = termType else { throw QueryError.typeError("Cannot determine resulting numeric type for combining \(lval) and \(rval)") }
+                guard let term = Term(numeric: value, type: type) else { throw QueryError.typeError("Cannot combine \(lval) and \(rval) and produce a valid numeric term") }
                 return term
             }
-        case .sub(let lhs, let rhs):
-            if let lval = try? evaluate(expression: lhs, result: result), let rval = try? evaluate(expression: rhs, result: result) {
-                guard lval.isNumeric else { throw QueryError.typeError("Value \(lval) is not numeric") }
-                guard rval.isNumeric else { throw QueryError.typeError("Value \(lval) is not numeric") }
-                let value = lval.numericValue - rval.numericValue
-                guard let type = lval.type.resultType(for: "-", withOperandType: rval.type) else { throw QueryError.typeError("Cannot determine resulting type for subtracting \(lval) and \(rval)") }
-                guard let term = Term(numeric: value, type: type) else { throw QueryError.typeError("Cannot subtract \(lval) and \(rval) and produce a valid numeric term") }
-                return term
-            }
-        case .mul(let lhs, let rhs):
-            if let lval = try? evaluate(expression: lhs, result: result), let rval = try? evaluate(expression: rhs, result: result) {
-                guard lval.isNumeric else { throw QueryError.typeError("Value \(lval) is not numeric") }
-                guard rval.isNumeric else { throw QueryError.typeError("Value \(lval) is not numeric") }
-                let value = lval.numericValue * rval.numericValue
-                guard let type = lval.type.resultType(for: "*", withOperandType: rval.type) else { throw QueryError.typeError("Cannot determine resulting type for multiplying \(lval) and \(rval)") }
-                guard let term = Term(numeric: value, type: type) else { throw QueryError.typeError("Cannot multiply \(lval) and \(rval) and produce a valid numeric term") }
-                return term
-            }
-        case .div(let lhs, let rhs):
+        case let .div(lhs, rhs):
             if let lval = try? evaluate(expression: lhs, result: result), let rval = try? evaluate(expression: rhs, result: result) {
                 guard lval.isNumeric else { throw QueryError.typeError("Value \(lval) is not numeric") }
                 guard rval.isNumeric else { throw QueryError.typeError("Value \(lval) is not numeric") }
@@ -713,9 +526,6 @@ class ExpressionEvaluator {
                 guard let term = Term(numeric: value, type: type) else { throw QueryError.typeError("Cannot divide \(lval) and \(rval) and produce a valid numeric term") }
                 return term
             }
-            //        default:
-            //            print("*** Cannot evaluate expression \(self)")
-        //            throw QueryError.evaluationError("Cannot evaluate \(self) with result \(result)")
         case .neg(let expr):
             if let val = try? evaluate(expression: expr, result: result) {
                 guard let num = val.numeric else { throw QueryError.typeError("Value \(val) is not numeric") }
@@ -725,21 +535,13 @@ class ExpressionEvaluator {
         case .not(let expr):
             let val = try evaluate(expression: expr, result: result)
             let ebv = try val.ebv()
-            return ebv ? Term.falseValue: Term.trueValue
+            return Term.boolean(ebv)
         case .isiri(let expr):
             let val = try evaluate(expression: expr, result: result)
-            if case .iri = val.type {
-                return Term.trueValue
-            } else {
-                return Term.falseValue
-            }
+            return Term.boolean(val.type == .iri)
         case .isblank(let expr):
             let val = try evaluate(expression: expr, result: result)
-            if case .blank = val.type {
-                return Term.trueValue
-            } else {
-                return Term.falseValue
-            }
+            return Term.boolean(val.type == .blank)
         case .isliteral(let expr):
             let val = try evaluate(expression: expr, result: result)
             if case .language(_) = val.type {
@@ -751,26 +553,20 @@ class ExpressionEvaluator {
             }
         case .isnumeric(let expr):
             let val = try evaluate(expression: expr, result: result)
-            if val.isNumeric {
-                return Term.trueValue
-            } else {
-                return Term.falseValue
-            }
+            return Term.boolean(val.isNumeric)
         case .datatype(let expr):
             let val = try evaluate(expression: expr, result: result)
             if case .datatype(let dt) = val.type {
                 return Term(value: dt, type: .iri)
             } else if case .language(_) = val.type {
-                return Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#", type: .iri)
+                return Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#langString", type: .iri)
             } else {
                 throw QueryError.typeError("DATATYPE called with non-literal")
             }
         case .bound(let expr):
             if let _ = try? evaluate(expression: expr, result: result) {
-//                print("BOUND(\(expr)): true\t\(result)")
                 return Term.trueValue
             } else {
-//                print("BOUND(\(expr)): false\t\(result)")
                 return Term.falseValue
             }
         case .boolCast(let expr):
@@ -849,12 +645,16 @@ class ExpressionEvaluator {
         case .lang(let expr):
             let val = try evaluate(expression: expr, result: result)
             if case .language(let l) = val.type {
-                return Term(value: l, type: .datatype("http://www.w3.org/2001/XMLSchema#string"))
+                return Term(string: l)
             } else if case .datatype(_) = val.type {
                 return Term(string: "")
             } else {
                 throw QueryError.typeError("LANG called with non-language-literal")
             }
+        case let .sameterm(lhs, rhs):
+            let l = try evaluate(expression: lhs, result: result)
+            let r = try evaluate(expression: rhs, result: result)
+            return (l == r) ? Term.trueValue : Term.falseValue
         case .langmatches(let expr, let m):
             let string = try evaluate(expression: expr, result: result)
             let pattern = try evaluate(expression: m, result: result)
@@ -895,31 +695,25 @@ class ExpressionEvaluator {
         case .exists(let lhs):
             print("*** Implement evaluation of EXISTS expression: \(lhs)")
         }
-        throw QueryError.evaluationError("Failed to evaluate \(self) with result \(result)")
+        throw QueryError.evaluationError("Failed to evaluate \(expression) with result \(result)")
     }
     
     public func numericEvaluate(expression: Expression, result: TermResult) throws -> NumericValue {
-        //        print("numericEvaluate over result: \(result)")
-        //        print("numericEvaluate expression: \(self)")
-        //        guard self.isNumeric else { throw QueryError.evaluationError("Cannot compile expression as numeric") }
         switch expression {
         case .aggregate(_):
             fatalError("cannot evaluate an aggregate expression without a query context")
         case .node(.bound(let term)):
-            guard term.isNumeric else {
-                throw QueryError.typeError("Term is not numeric in evaluation: \(term)")
-            }
             if let num = term.numeric {
                 return num
             } else {
-                throw QueryError.typeError("Term is not numeric")
+                throw QueryError.typeError("Term is not numeric in evaluation: \(term)")
             }
         case .node(.variable(let name, binding: _)):
             if let term = result[name] {
                 if let num = term.numeric {
                     return num
                 } else {
-                    throw QueryError.typeError("Term is not numeric")
+                    throw QueryError.typeError("Term is not numeric in evaluation: \(term)")
                 }
             } else {
                 throw QueryError.typeError("Variable ?\(name) is unbound in result \(result)")
@@ -927,26 +721,19 @@ class ExpressionEvaluator {
         case .neg(let expr):
             let val = try numericEvaluate(expression: expr, result: result)
             return -val
-        case .add(let lhs, let rhs):
+        case let .add(lhs, rhs), let .sub(lhs, rhs), let .mul(lhs, rhs), let .div(lhs, rhs):
             let lval = try numericEvaluate(expression: lhs, result: result)
             let rval = try numericEvaluate(expression: rhs, result: result)
-            let value = lval + rval
-            return value
-        case .sub(let lhs, let rhs):
-            let lval = try numericEvaluate(expression: lhs, result: result)
-            let rval = try numericEvaluate(expression: rhs, result: result)
-            let value = lval - rval
-            return value
-        case .mul(let lhs, let rhs):
-            let lval = try numericEvaluate(expression: lhs, result: result)
-            let rval = try numericEvaluate(expression: rhs, result: result)
-            let value = lval * rval
-            return value
-        case .div(let lhs, let rhs):
-            let lval = try numericEvaluate(expression: lhs, result: result)
-            let rval = try numericEvaluate(expression: rhs, result: result)
-            let value = lval / rval
-            return value
+            switch expression {
+            case .add:
+                return lval + rval
+            case .sub:
+                return lval - rval
+            case .mul:
+                return lval * rval
+            case .div:
+                return lval / rval
+            }
         case .intCast(let expr):
             let val = try numericEvaluate(expression: expr, result: result)
             return .integer(Int(val.value))

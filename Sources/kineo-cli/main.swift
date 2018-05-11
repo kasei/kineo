@@ -380,10 +380,7 @@ var pageSize = 8192
 guard argscount >= 2 else {
     print("Usage: \(pname) [-v] database.db COMMAND [ARGUMENTS]")
     print("       \(pname) database.db load [-g GRAPH-IRI] rdf.nt ...")
-    print("       \(pname) database.db sort [-g GRAPH-IRI] rdf.nt")
     print("       \(pname) database.db parse query.rq")
-    print("       \(pname) database.db lint query.rq")
-    print("       \(pname) database.db sparql query.rq")
     print("       \(pname) database.db terms")
     print("       \(pname) database.db graphs")
     print("       \(pname) database.db indexes")
@@ -424,78 +421,12 @@ if let op = args.next() {
         } catch let e {
             warn("*** Failed to load data: \(e)")
         }
-    } else if op == "sort" {
-        do {
-            var graph: Term? = nil
-            if let next = args.peek(), next == "-g" {
-                _ = args.next()
-                guard let iri = args.next() else { fatalError("No IRI value given after -g") }
-                graph = Term(value: iri, type: .iri)
-            }
-            
-            let (c, terms) = try sortParse(files: args.elements(), graph: graph)
-            for i in terms.keys.sorted() {
-                if let term = terms[i] {
-                    print("\(i)\t\(term)")
-                }
-            }
-            count = c
-        } catch let e {
-            warn("*** Failed to sort data: \(e)")
-        }
     } else if op == "terms" {
         count = try printTerms(from: database)
     } else if op == "graphs" {
         count = try printGraphs(from: database)
     } else if op == "indexes" {
         count = try printIndexes(from: database)
-    } else if op == "parse" {
-        var printAlgebra = false
-        var printSPARQL = false
-        var pretty = true
-        if let next = args.peek(), next.lowercased() == "-s" {
-            _ = args.next()
-            printSPARQL = true
-            if next == "-S" {
-                pretty = true
-            }
-        }
-        if let next = args.peek(), next == "-a" {
-            _ = args.next()
-            printAlgebra = true
-        }
-        if !printAlgebra && !printSPARQL {
-            printAlgebra = true
-        }
-        
-        guard let qfile = args.next() else { fatalError("No query file given") }
-        do {
-            let sparql = try data(fromFileOrString: qfile)
-            guard var p = SPARQLParser(data: sparql) else { fatalError("Failed to construct SPARQL parser") }
-            let query = try p.parseQuery()
-            count = 1
-            if printAlgebra {
-                print(query.serialize())
-            }
-            if printSPARQL {
-                let s = SPARQLSerializer()
-                let tokens  = query.sparqlTokens
-                if pretty {
-                    print(s.serializePretty(tokens))
-                } else {
-                    print(s.serialize(tokens))
-                }
-            }
-        } catch let e {
-            warn("*** Failed to parse query: \(e)")
-        }
-    } else if op == "lint", let qfile = args.next() {
-        do {
-            let pretty = false
-            try printSPARQL(qfile, pretty: pretty, silent: false, includeComments: true)
-        } catch let e {
-            warn("*** Failed to lint query: \(e)")
-        }
     } else if op == "explain" {
         var graph: Term? = nil
         if let next = args.peek(), next == "-g" {
@@ -514,23 +445,6 @@ if let op = args.next() {
         } catch let e {
             warn("*** Failed to explain query: \(e)")
         }
-    } else if op == "sparql" {
-        var graph: Term? = nil
-        if let next = args.peek(), next == "-g" {
-            _ = args.next()
-            guard let iri = args.next() else { fatalError("No IRI value given after -g") }
-            graph = Term(value: iri, type: .iri)
-        }
-        guard let qfile = args.next() else { fatalError("No query file given") }
-        let sparql = try data(fromFileOrString: qfile)
-        guard var p = SPARQLParser(data: sparql) else { fatalError("Failed to construct SPARQL parser") }
-        do {
-            let q = try p.parseQuery()
-            count = try query(database, query: q, graph: graph, verbose: verbose)
-        } catch let e {
-            warn("*** Failed to evaluate query:")
-            warn("*** - \(e)")
-        }
     } else if op == "query" {
         var graph: Term? = nil
         if let next = args.peek(), next == "-g" {
@@ -539,8 +453,13 @@ if let op = args.next() {
             graph = Term(value: iri, type: .iri)
         }
         guard let qfile = args.next() else { fatalError("No query file given") }
-        guard let q = try parseQuery(database, filename: qfile) else { fatalError("Failed to parse query") }
-        count = try query(database, query: q, graph: graph, verbose: verbose)
+        do {
+            guard let q = try parseQuery(database, filename: qfile) else { fatalError("Failed to parse query") }
+            count = try query(database, query: q, graph: graph, verbose: verbose)
+        } catch let e {
+            warn("*** Failed to evaluate query:")
+            warn("*** - \(e)")
+        }
     } else if op == "dump" {
         let index = args.next() ?? MediatedPageQuadStore.defaultIndex
         count = try serialize(database, index: index)
