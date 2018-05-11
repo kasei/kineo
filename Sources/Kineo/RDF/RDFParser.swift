@@ -272,7 +272,7 @@ extension RDFParser {
         guard let env = serd_env_new(&base) else { throw RDFParserError.internalError("Failed to construct parser context") }
         
         var context = ParserContext(env: env, handler: handleTriple)
-        let status = try withUnsafePointer(to: &context) { (ctx) throws -> SerdStatus in
+        _ = try withUnsafePointer(to: &context) { (ctx) throws -> SerdStatus in
             guard let reader = serd_reader_new(inputSyntax.serdSyntax!, UnsafeMutableRawPointer(mutating: ctx), serd_free_handle, serd_base_sink, serd_prefix_sink, serd_statement_sink, serd_end_sink) else { fatalError() }
             
             serd_reader_set_strict(reader, true)

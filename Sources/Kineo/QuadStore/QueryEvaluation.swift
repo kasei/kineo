@@ -70,7 +70,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
         case .construct(let template):
             let t = triples(from: results, with: template)
             return QueryResult.triples(t)
-        default:
+        case .describe(_):
             throw QueryError.evaluationError("TODO: evaluate(query) not implemented for \(query.form)")
         }
     }

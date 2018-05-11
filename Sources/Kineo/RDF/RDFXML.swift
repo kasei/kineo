@@ -54,6 +54,7 @@ public struct RDFXMLParser {
         var literal_depth: Int
         var rdf_resource: Term?
         var errors: [ParserError]
+        var namespaces: [String:[String]]
 
         init(base baseURI: String, tripleHandler handler: @escaping TripleHandler) {
             expectedState = [.subject, .none]
@@ -76,6 +77,7 @@ public struct RDFXMLParser {
             reify_id = [nil]
             errors = []
             tripleHandler = handler
+            namespaces = [:]
 
             traceParsing = false
             super.init()
@@ -114,7 +116,9 @@ public struct RDFXMLParser {
         }
 
         func pop_base() {
-            // TODO
+            if base.count > 0 {
+                base.removeLast()
+            }
         }
 
         var indent: String {
@@ -137,8 +141,9 @@ public struct RDFXMLParser {
         }
         
         private func handleScopedValues(_ elementName: String, attributes attributeDict: [String : String]) {
-            // TODO: xml:base
-            // TODO: xml:lang
+            let b = attributeDict["xml:base"] ?? self.base.last ?? ""
+            base.append(b)
+            language.append(attributeDict["xml:lang"] ?? "")
         }
         
         func new_iri(_ value: String) -> Term {
@@ -162,7 +167,11 @@ public struct RDFXMLParser {
                     return Term(value: value, type: .datatype(dt))
                 }
             } else if let lang = get_language() {
-                return Term(value: value, type: .language(lang))
+                if lang.count > 0 {
+                    return Term(value: value, type: .language(lang))
+                } else {
+                    return Term(string: value)
+                }
             } else {
                 return Term(string: value)
             }
@@ -182,14 +191,32 @@ public struct RDFXMLParser {
         }
         
         @discardableResult
-        private func parse_literal_property_attributes(elementName: String, attributes attributeDict: [String : String] = [:], term: Term? = nil) -> Term? {
+        private func parse_literal_property_attributes(elementName: String, attributes attributeDict: [String : String] = [:], term: Term? = nil) throws -> Term? {
             let node_id = term ?? new_bnode()
-            let asserted = false
+            var asserted = false
             reify_id.insert(nil, at: 0)
-            // TODO
-//            for (k, data) in attributeDict {
-//                // TODO: create triples for literal properties
-//            }
+            let ignore = Set([
+                "xmlns",
+                "about",
+                "xml:lang",
+                "xml:base",
+                "rdf:resource",
+                "rdf:about",
+                "rdf:ID",
+                "rdf:datatype",
+                "rdf:nodeID",
+                ])
+            for (k, data) in attributeDict.filter({ (k,_) -> Bool in !ignore.contains(k) }) {
+                let pair = k.components(separatedBy: ":")
+                guard pair.count == 2 else { continue }
+                let u = try uri(for: pair[0], local: pair[1])
+                let pred = Term(iri: u)
+                let obj = new_literal(data)
+                if let subj = nodes.last {
+                    tripleHandler(subj, pred, obj)
+                    asserted = true
+                }
+            }
             reify_id.removeFirst()
             return asserted ? node_id : nil
         }
@@ -199,7 +226,7 @@ public struct RDFXMLParser {
             
             let iri = "\(namespaceURI ?? "")\(elementName)"
             trace("didStartElement \(elementName) <\(iri)>")
-            if expecting(.literal) {
+            if !expecting(.literal) {
                 handleScopedValues(elementName, attributes: attributeDict)
             }
             
@@ -213,149 +240,153 @@ public struct RDFXMLParser {
                 expect(.subject)
             }
             
-            if expecting(.subject) || expecting(.object) {
-                let node = new_iri(iri)
-                if expecting(.object) {
-                    characters = ""
-                }
-                
-                let node_id: Term
-                if let about = attributeDict["rdf:about"] {
-                    node_id = new_iri(about)
-                } else if let id = attributeDict["rdf:ID"] {
-                    node_id = new_iri("#\(id)")
-                } else if let nodeID = attributeDict["rdf:nodeID"] {
-                    node_id = get_named_bnode(name: nodeID)
-                } else {
-                    node_id = new_bnode()
-                }
-
-                if let peekIndex = expectedState.index(0, offsetBy: 1, limitedBy: expectedState.endIndex), expectedState[peekIndex] == .collection {
-                    let list = new_bnode()
-                    if let l = collection_last.first, let last = l {
-                        tripleHandler(last, Term.rdf("rest"), list)
+            do {
+                if expecting(.subject) || expecting(.object) {
+                    let node = new_iri(iri)
+                    if expecting(.object) {
+                        characters = ""
                     }
                     
-                    if collection_last.count == 0 {
-                        collection_last.append(list)
+                    let node_id: Term
+                    if let about = attributeDict["rdf:about"] {
+                        node_id = new_iri(about)
+                    } else if let id = attributeDict["rdf:ID"] {
+                        node_id = new_iri("#\(id)")
+                    } else if let nodeID = attributeDict["rdf:nodeID"] {
+                        node_id = get_named_bnode(name: nodeID)
                     } else {
-                        collection_last[0] = list
+                        node_id = new_bnode()
                     }
-                    tripleHandler(list, Term.rdf("first"), node_id)
-                    if collection_head.count == 0 {
-                        collection_head.append(list)
-                    } else if collection_head.first! == nil {
-                        collection_head[0] = list
+
+                    if let peekIndex = expectedState.index(0, offsetBy: 1, limitedBy: expectedState.endIndex), expectedState[peekIndex] == .collection {
+                        let list = new_bnode()
+                        if let l = collection_last.first, let last = l {
+                            tripleHandler(last, Term.rdf("rest"), list)
+                        }
+                        
+                        if collection_last.count == 0 {
+                            collection_last.append(list)
+                        } else {
+                            collection_last[0] = list
+                        }
+                        tripleHandler(list, Term.rdf("first"), node_id)
+                        if collection_head.count == 0 {
+                            collection_head.append(list)
+                        } else if collection_head.first! == nil {
+                            collection_head[0] = list
+                        }
+                    } else if expecting(.object) {
+                        let pair = nodes.suffix(2)
+                        if pair.count == 2 {
+                            let i = pair.startIndex
+                            let s = pair[i]
+                            let p = pair[i+1]
+                            tripleHandler(s, p, node_id)
+                        }
                     }
-                } else if expecting(.object) {
-                    let pair = nodes.suffix(2)
-                    if pair.count == 2 {
-                        let i = pair.startIndex
-                        let s = pair[i]
-                        let p = pair[i+1]
-                        tripleHandler(s, p, node_id)
+                    
+                    if iri != "http://www.w3.org/1999/02/22-rdf-syntax-ns#Description" {
+                        tripleHandler(node_id, Term.rdf("type"), node)
                     }
-                }
-                
-                if iri != "http://www.w3.org/1999/02/22-rdf-syntax-ns#Description" {
-                    tripleHandler(node_id, Term.rdf("type"), node)
-                }
-                nodes.append(node_id)
-                parse_literal_property_attributes(elementName: elementName, attributes: attributeDict, term: node)
-                
-                expect(.predicate)
-                seqs.insert(0, at: 0)
-            } else if expecting(.collection) {
-            } else if expecting(.predicate) {
-                var node = new_iri(iri)
-                if iri == "http://www.w3.org/1999/02/22-rdf-syntax-ns#li" {
-                    seqs[0] += 1
-                    let id = seqs[0]
-                    node = Term.rdf("_\(id)")
-                }
-                nodes.append(node)
-                if let dt = attributeDict["rdf:datatype"] {
-                    datatype = dt
-                }
-                
-                if let id = attributeDict["rdf:ID"] {
-                    reify_id.insert(id, at: 0)
-                } else {
-                    reify_id.insert(nil, at: 0)
-                }
-                
-                if let pt = attributeDict["rdf:parseType"] {
-                    switch pt {
-                    case "Resource":
+                    nodes.append(node_id)
+                    try parse_literal_property_attributes(elementName: elementName, attributes: attributeDict, term: node)
+                    expect(.predicate)
+                    seqs.insert(0, at: 0)
+                } else if expecting(.collection) {
+                } else if expecting(.predicate) {
+                    var node = new_iri(iri)
+                    if iri == "http://www.w3.org/1999/02/22-rdf-syntax-ns#li" {
+                        seqs[0] += 1
+                        let id = seqs[0]
+                        node = Term.rdf("_\(id)")
+                    }
+                    nodes.append(node)
+                    if let dt = attributeDict["rdf:datatype"] {
+                        datatype = dt
+                    }
+                    
+                    if let id = attributeDict["rdf:ID"] {
+                        reify_id.insert(id, at: 0)
+                    } else {
+                        reify_id.insert(nil, at: 0)
+                    }
+                    
+                    if let pt = attributeDict["rdf:parseType"] {
+                        switch pt {
+                        case "Resource":
+                            // fake an enclosing object scope
+                            let node = new_bnode()
+                            nodes.append(node)
+                            let triple = nodes.suffix(3)
+                            let i = triple.startIndex
+                            tripleHandler(triple[i], triple[i+1], triple[i+2])
+                            expect(.predicate)
+                        case "Literal":
+                            datatype = "http://www.w3.org/1999/02/22-rdf-syntax-ns#XMLLiteral"
+                            literal_depth = depth - 1
+                            expect(.literal)
+                        case "Collection":
+                            collection_head.insert(nil, at: 0)
+                            collection_last.insert(nil, at: 0)
+                            expect(.collection)
+                            expect(.object)
+                        default:
+                            errors.append(ParserError.parsingError("Unrecognized rdf:parseType"))
+                            return
+                        }
+                    } else if let data = attributeDict["rdf:resource"] {
+                        // stash the uri away so that we can use it when we get the end_element call for this predicate
+                        let uri = new_iri(data)
+                        try parse_literal_property_attributes(elementName: elementName, attributes: attributeDict, term: uri)
+                        rdf_resource = uri
+                        expect(.object)
+                        chars_ok = true
+                    } else if let node_name = attributeDict["rdf:nodeID"] {
+                        // stash the bnode away so that we can use it when we get the end_element call for this predicate
+                        let bnode = get_named_bnode(name: node_name)
+                        try parse_literal_property_attributes(elementName: elementName, attributes: attributeDict, term: new_iri(iri))
+                        rdf_resource = bnode // the key 'rdf:resource' is a bit misused here, but both rdf:resource and rdf:nodeID use it for the same purpose, so...
+                        expect(.object)
+                        chars_ok = true
+                    } else if let node = try parse_literal_property_attributes(elementName: elementName, attributes: attributeDict) {
                         // fake an enclosing object scope
-                        let node = new_bnode()
                         nodes.append(node)
                         let triple = nodes.suffix(3)
                         let i = triple.startIndex
                         tripleHandler(triple[i], triple[i+1], triple[i+2])
                         expect(.predicate)
-                    case "Literal":
-                        datatype = "http://www.w3.org/1999/02/22-rdf-syntax-ns#XMLLiteral"
-                        literal_depth = depth - 1
-                        expect(.literal)
-                    case "Collection":
-                        collection_head.insert(nil, at: 0)
-                        collection_last.insert(nil, at: 0)
-                        expect(.collection)
+                    } else {
                         expect(.object)
-                    default:
-                        errors.append(ParserError.parsingError("Unrecognized rdf:parseType"))
-                        return
+                        chars_ok = true
                     }
-                } else if let data = attributeDict["rdf:resource"] {
-                    // stash the uri away so that we can use it when we get the end_element call for this predicate
-                    let uri = new_iri(data)
-                    parse_literal_property_attributes(elementName: elementName, attributes: attributeDict, term: uri)
-                    rdf_resource = uri
-                    expect(.object)
-                    chars_ok = true
-                } else if let node_name = attributeDict["rdf:nodeID"] {
-                    // stash the bnode away so that we can use it when we get the end_element call for this predicate
-                    let bnode = get_named_bnode(name: node_name)
-                    parse_literal_property_attributes(elementName: elementName, attributes: attributeDict, term: new_iri(iri))
-                    rdf_resource = bnode // the key 'rdf:resource' is a bit misused here, but both rdf:resource and rdf:nodeID use it for the same purpose, so...
-                    expect(.object)
-                    chars_ok = true
-                } else if let node = parse_literal_property_attributes(elementName: elementName, attributes: attributeDict) {
-                    // fake an enclosing object scope
-                    nodes.append(node)
-                    let triple = nodes.suffix(3)
-                    let i = triple.startIndex
-                    tripleHandler(triple[i], triple[i+1], triple[i+2])
-                    expect(.predicate)
+                } else if expecting(.literal) {
+                    let tag = qName ?? elementName
+                    characters += "<\(tag)"
+                    /**
+                my $attr	= $el->{Attributes};
+                if (my $ns = $el->{NamespaceURI}) {
+                    my $abbr = $el->{Prefix};
+                    unless ($self->{defined_literal_namespaces}{$abbr}{$ns}) {
+                        $self->{characters}	.= ' xmlns';
+                        if (length($abbr)) {
+                            $self->{characters}	.= ':' . $abbr;
+                        }
+                        $self->{characters}	.= '="' . $ns . '"';
+                        $self->{defined_literal_namespaces}{$abbr}{$ns}++;
+                    }
+                }
+                     **/
+                    
+                    for (k, value) in attributeDict {
+                        characters += " \(k)=\"\(value)\""
+                    }
+                    characters += ">"
                 } else {
-                    expect(.object)
-                    chars_ok = true
+                    errors.append(ParserError.parsingError("not sure what type of token is expected"))
+                    return
                 }
-            } else if expecting(.literal) {
-                let tag = qName ?? elementName
-                characters += "<\(tag)"
-                /**
-			my $attr	= $el->{Attributes};
-			if (my $ns = $el->{NamespaceURI}) {
-				my $abbr = $el->{Prefix};
-				unless ($self->{defined_literal_namespaces}{$abbr}{$ns}) {
-					$self->{characters}	.= ' xmlns';
-					if (length($abbr)) {
-						$self->{characters}	.= ':' . $abbr;
-					}
-					$self->{characters}	.= '="' . $ns . '"';
-					$self->{defined_literal_namespaces}{$abbr}{$ns}++;
-				}
-			}
-                 **/
-                
-                for (k, value) in attributeDict {
-                    characters += " \(k)=\"\(value)\""
-                }
-                characters += ">"
-            } else {
-                errors.append(ParserError.parsingError("not sure what type of token is expected"))
+            } catch let e {
+                errors.append(e as! ParserError)
                 return
             }
         }
@@ -455,6 +486,23 @@ public struct RDFXMLParser {
             }
             trace("foundCharacters: '\(string.replacingOccurrences(of: "\n", with: " "))'")
         }
+        
+        func parser(_ parser: XMLParser, didStartMappingPrefix prefix: String, toURI namespaceURI: String) {
+            trace("+ XMLNS \(prefix): \(namespaceURI)")
+            namespaces[prefix, default: []].append(namespaceURI)
+        }
+        
+        func parser(_ parser: XMLParser, didEndMappingPrefix prefix: String) {
+            trace("- XMLNS \(prefix)")
+            namespaces[prefix, default: []].removeLast()
+        }
+        
+        func uri(for prefix: String, local: String) throws -> String {
+            guard let ns = namespaces[prefix, default: []].last else {
+                throw ParserError.parsingError("No mapping found for namespace prefix '\(prefix)'")
+            }
+            return "\(ns)\(local)"
+        }
     }
     
     func parse(string: String, tripleHandler: @escaping TripleHandler) throws {
@@ -467,6 +515,7 @@ public struct RDFXMLParser {
     func parse(data: Data, tripleHandler: @escaping TripleHandler) throws {
         let parser = XMLParser(data: data)
         parser.shouldProcessNamespaces = true
+        parser.shouldReportNamespacePrefixes = true
         let delegate = RDFXMLParserDelegate(base: base, tripleHandler: tripleHandler)
         parser.delegate = delegate
         if !parser.parse() {
