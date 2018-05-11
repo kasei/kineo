@@ -323,7 +323,7 @@ class ExpressionEvaluator {
             } else {
                 return Term(string: string)
             }
-        case .str, .strlen, .lcase, .ucase, .encode_for_uri, .datatype:
+        case .str, .strlen, .lcase, .ucase, .datatype, .encode_for_uri:
             try guardArity(terms.count, 1, stringFunction.rawValue)
             guard let string = terms[0] else { throw QueryError.evaluationError("Not all arguments are bound in \(stringFunction) call") }
             switch stringFunction {
@@ -344,19 +344,20 @@ class ExpressionEvaluator {
                 }
                 return Term(string: encoded)
             default:
-                fatalError()
+                break
             }
         case .contains, .strstarts, .strends, .strbefore, .strafter:
             try guardArity(terms.count, 2, stringFunction.rawValue)
             guard let string = terms[0], let pattern = terms[1] else { throw QueryError.evaluationError("Not all arguments are bound in \(stringFunction) call") }
             try throwUnlessArgumentCompatible(string, pattern)
-            if stringFunction == .contains {
+            switch stringFunction {
+            case .contains:
                 return Term(boolean: string.value.contains(pattern.value))
-            } else if stringFunction == .strstarts {
+            case .strstarts:
                 return Term(boolean: string.value.hasPrefix(pattern.value))
-            } else if stringFunction == .strends {
+            case .strends:
                 return Term(boolean: string.value.hasSuffix(pattern.value))
-            } else if stringFunction == .strbefore {
+            case .strbefore:
                 guard pattern.value != "" else { return Term(value: "", type: string.type) }
                 if let range = string.value.range(of: pattern.value) {
                     let prefix = String(string.value[..<range.lowerBound])
@@ -364,7 +365,7 @@ class ExpressionEvaluator {
                 } else {
                     return Term(string: "")
                 }
-            } else if stringFunction == .strafter {
+            case .strafter:
                 guard pattern.value != "" else { return string }
                 if let range = string.value.range(of: pattern.value) {
                     let suffix = String(string.value[range.upperBound...])
@@ -372,6 +373,8 @@ class ExpressionEvaluator {
                 } else {
                     return Term(string: "")
                 }
+            default:
+                break
             }
         case .replace:
             guard (3...4).contains(terms.count) else { throw QueryError.evaluationError("Wrong argument count for \(stringFunction) call") }
@@ -459,7 +462,7 @@ class ExpressionEvaluator {
     public func evaluate(expression: Expression, result: TermResult) throws -> Term {
         switch expression {
         case .aggregate(_):
-            fatalError("cannot evaluate an aggregate expression without a query context: \(expression)")
+            fatalError("Cannot evaluate an aggregate expression without a query context: \(expression)")
         case .node(.bound(let term)):
             return term
         case .node(.variable(let name, _)):
@@ -724,7 +727,7 @@ class ExpressionEvaluator {
     public func numericEvaluate(expression: Expression, result: TermResult) throws -> NumericValue {
         switch expression {
         case .aggregate(_):
-            fatalError("cannot evaluate an aggregate expression without a query context")
+            fatalError("Cannot evaluate an aggregate expression without a query context")
         case .node(.bound(let term)):
             if let num = term.numeric {
                 return num
