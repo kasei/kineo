@@ -308,7 +308,10 @@ fileprivate extension SerdURI {
     var value : String {
         var value = ""
         value += self.scheme.value
-        value += "://"
+        value += ":"
+        if self.authority.defined {
+            value += "//"
+        }
         value += self.authority.value
         value += self.path_base.value
         value += self.path.value
@@ -323,6 +326,14 @@ fileprivate extension SerdURI {
 }
 
 fileprivate extension SerdChunk {
+    var defined : Bool {
+        if let _ = self.buf {
+            return true
+        } else {
+            return false
+        }
+    }
+    
     var value : String {
         if let buf = self.buf {
             let len = self.len
