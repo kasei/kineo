@@ -93,7 +93,10 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
             for row in rows {
                 var bindings = [String:Term]()
                 for (node, term) in zip(names, row) {
-                    guard case .variable(let name, _) = node else { fatalError() }
+                    guard case .variable(let name, _) = node else {
+                        Logger.shared.error("Unexpected variable generated during table evaluation")
+                        throw QueryError.evaluationError("Unexpected variable generated during table evaluation")
+                    }
                     if let term = term {
                         bindings[name] = term
                     }
@@ -256,7 +259,10 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
         case let .path(s, path, o):
             return try evaluatePath(subject: s, object: o, graph: activeGraph, path: path)
         case let .namedGraph(child, graph):
-            guard case .variable(let gv, let bind) = graph else { fatalError("Unexpected node found where variable required") }
+            guard case .variable(let gv, let bind) = graph else {
+                Logger.shared.error("Unexpected variable found during named graph evaluation")
+                throw QueryError.evaluationError("Unexpected variable found during named graph evaluation")
+            }
             var iters = try store.graphs().filter { $0 != defaultGraph }.map { ($0, try evaluate(algebra: child, activeGraph: $0)) }
             return AnyIterator {
                 repeat {
@@ -306,7 +312,8 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
             if case .bound(let g) = graph {
                 return try effectiveVersion(matching: child, activeGraph: g)
             } else {
-                fatalError("Unimplemented: effectiveVersion(.namedGraph(_), )")
+                Logger.shared.error("Unimplemented: effectiveVersion(.namedGraph(_), )")
+                throw QueryError.evaluationError("Unimplemented: effectiveVersion(.namedGraph(_), )")
             }
         case .distinct(let child), .project(let child, _), .slice(let child, _, _), .extend(let child, _, _), .order(let child, _), .filter(let child, _):
             return try effectiveVersion(matching: child, activeGraph: activeGraph)
@@ -570,13 +577,17 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
                     case .sample(_):
                         break
                     case .groupConcat(let keyExpr, let sep, false):
-                        guard case .datatype(_) = value.type else { fatalError("Unexpected term in generating GROUP_CONCAT value") }
+                        guard case .datatype(_) = value.type else {
+                            Logger.shared.error("Unexpected term in generating GROUP_CONCAT value")
+                            throw QueryError.evaluationError("Unexpected term in generating GROUP_CONCAT value")
+                        }
                         let string = value.value
                         let term = try self.ee.evaluate(expression: keyExpr, result: result)
                         let updated = string + sep + term.value
                         termGroups[groupKey] = Term(value: updated, type: value.type)
                     default:
-                        fatalError("unexpected pipelined evaluation for \(agg)")
+                        Logger.shared.error("unexpected pipelined evaluation for \(agg)")
+                        throw QueryError.evaluationError("unexpected pipelined evaluation for \(agg)")
                     }
                 } else if let value = numericGroups[groupKey] {
                     switch agg {
@@ -601,7 +612,8 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
                             groupErrors[groupKey] = QueryError.evaluationError("Non-numeric term in numeric aggregation (\(term))")
                         }
                     default:
-                        fatalError("unexpected pipelined evaluation for \(agg)")
+                        Logger.shared.error("unexpected pipelined evaluation for \(agg)")
+                        throw QueryError.evaluationError("unexpected pipelined evaluation for \(agg)")
                     }
                 } else {
                     switch agg {
@@ -640,10 +652,11 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
                         case .datatype(_):
                             termGroups[groupKey] = term
                         default:
-                            termGroups[groupKey] = Term(value: term.value, type: .datatype("http://www.w3.org/2001/XMLSchema#string"))
+                            termGroups[groupKey] = Term(string: term.value)
                         }
                     default:
-                        fatalError("unexpected pipelined evaluation for \(agg)")
+                        Logger.shared.error("unexpected pipelined evaluation for \(agg)")
+                        throw QueryError.evaluationError("unexpected pipelined evaluation for \(agg)")
                     }
                     var bindings = [String:Term]()
                     for (g, term) in zip(groups, group) {
@@ -656,7 +669,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
                     groupBindings[groupKey] = bindings
                 }
             } catch let e {
-                print("*** error evaluating aggregate expression: \(e)")
+                Logger.shared.warn("*** error evaluating aggregate expression: \(e)")
             }
         }
 
@@ -680,11 +693,17 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
             let (groupKey, v) = pair
             var value = v
             if case .avg(_) = agg {
-                guard let count = groupCount[groupKey] else { fatalError("Failed to find expected group data during aggregation") }
+                guard let count = groupCount[groupKey] else {
+                    Logger.shared.error("Failed to find expected group data during aggregation")
+                    fatalError("Failed to find expected group data during aggregation")
+                }
                 value = v / NumericValue.integer(count)
             }
 
-            guard var bindings = groupBindings[groupKey] else { fatalError("Unexpected missing aggregation group template") }
+            guard var bindings = groupBindings[groupKey] else {
+                Logger.shared.error("Unexpected missing aggregation group template")
+                fatalError("Unexpected missing aggregation group template")
+            }
             if let error = groupErrors[groupKey] {
                 print("*** error binding aggregate to ?\(name): \(error)")
             } else {
@@ -696,7 +715,10 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
         let termIterator : AnyIterator<TermResult> = AnyIterator {
             guard let pair = b.next() else { return nil }
             let (groupKey, term) = pair
-            guard var bindings = groupBindings[groupKey] else { fatalError("Unexpected missing aggregation group template") }
+            guard var bindings = groupBindings[groupKey] else {
+                Logger.shared.error("Unexpected missing aggregation group template")
+                fatalError("Unexpected missing aggregation group template")
+            }
             if let error = groupErrors[groupKey] {
                 print("*** error binding aggregate to ?\(name): \(error)")
             } else {
@@ -818,7 +840,10 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
 
         case let .seq(lhs, rhs):
             let jvar = freshVariable()
-            guard case .variable(let jvarname, _) = jvar else { fatalError() }
+            guard case .variable(let jvarname, _) = jvar else {
+                Logger.shared.error("Unexpected variable generated during path evaluation")
+                throw QueryError.evaluationError("Unexpected variable generated during path evaluation")
+            }
             let lhsIter = try evaluatePath(subject: subject, object: jvar, graph: graph, path: lhs)
             let rhsIter = try evaluatePath(subject: jvar, object: object, graph: graph, path: rhs)
             let i = pipelinedHashJoin(joinVariables: [jvarname], lhs: lhsIter, rhs: rhsIter)
@@ -998,7 +1023,10 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
         return AnyIterator {
             guard let pair = a.next() else { return nil }
             let (groupKey, results) = pair
-            guard var bindings = groupBindings[groupKey] else { fatalError("Unexpected missing aggregation group template") }
+            guard var bindings = groupBindings[groupKey] else {
+                Logger.shared.error("Unexpected missing aggregation group template")
+                fatalError("Unexpected missing aggregation group template")
+            }
             for (agg, name) in aggs {
                 switch agg {
                 case .countAll:
