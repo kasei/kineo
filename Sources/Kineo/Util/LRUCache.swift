@@ -10,7 +10,7 @@ import Foundation
 
 class LinkedListNode<K: Equatable & Hashable, V> {
     var next: LinkedListNode<K, V>?
-    weak var previous: LinkedListNode<K, V>?
+    var previous: LinkedListNode<K, V>?
     var key: K
     var value: V
     init(key: K, value: V, next: LinkedListNode<K, V>?, previous: LinkedListNode<K, V>?) {
@@ -32,6 +32,19 @@ class LinkedList<K: Equatable & Hashable, V> : Sequence {
         tail = nil
     }
 
+    deinit {
+        if let head = self.head {
+            var n : LinkedListNode<K,V>? = head
+            while n != nil {
+                let next = n?.next
+                n?.previous = nil
+                n?.next = nil
+                n = next
+            }
+        }
+        self.tail = nil
+    }
+    
     func append(key: K, value: V) -> LinkedListNode<K, V> {
         count += 1
         switch (head, tail) {
