@@ -8,6 +8,96 @@
 import Foundation
 import SPARQLSyntax
 
+public struct SPARQLXMLSerializer<T: ResultProtocol> : SPARQLSerializable where T.TermType == Term {
+    typealias ResultType = T
+    public let canonicalMediaType = "application/sparql-results+xml"
+
+    public init() {
+    }
+    
+    func write(boolean: Bool, into root: XMLElement) {
+        let b = XMLNode.element(withName: "boolean", stringValue: "\(boolean)") as! XMLNode
+        root.addChild(b)
+    }
+
+    func write(variables: [String], rows: [TermResult], into root: XMLElement) {
+        write(head: variables, into: root)
+        write(rows: rows, into: root)
+    }
+
+    func write(term: Term, into root: XMLElement) {
+        switch term.type {
+        case .blank:
+            let e = XMLNode.element(withName: "bnode", stringValue: term.value) as! XMLElement
+            root.addChild(e)
+        case .iri:
+            let e = XMLNode.element(withName: "uri", stringValue: term.value) as! XMLElement
+            root.addChild(e)
+        case .datatype(let dt):
+            let e = XMLNode.element(withName: "literal", stringValue: term.value) as! XMLElement
+            let attr = XMLNode.attribute(withName: "datatype", stringValue: dt) as! XMLNode
+            e.addAttribute(attr)
+            root.addChild(e)
+        case .language(let lang):
+            let e = XMLNode.element(withName: "literal", stringValue: term.value) as! XMLElement
+            let attr = XMLNode.attribute(withName: "xml:lang", stringValue: lang) as! XMLNode
+            e.addAttribute(attr)
+            root.addChild(e)
+        }
+    }
+    
+    func write(result row: TermResult, into root: XMLElement) {
+        let result = XMLElement(name: "result")
+        for (name, t) in row {
+            let binding = XMLElement(name: "binding")
+            let attr = XMLNode.attribute(withName: "name", stringValue: name) as! XMLNode
+            binding.addAttribute(attr)
+            write(term: t, into: binding)
+            result.addChild(binding)
+        }
+        root.addChild(result)
+    }
+    
+    func write(rows: [TermResult], into root: XMLElement) {
+        let results = XMLElement(name: "results")
+        for r in rows {
+            write(result: r, into: results)
+        }
+        root.addChild(results)
+    }
+    
+    func write(head variables: [String], into root: XMLElement) {
+        let head = XMLElement(name: "head")
+        for name in variables {
+            let variable = XMLElement(name: "variable")
+            let attr = XMLNode.attribute(withName: "name", stringValue: name) as! XMLNode
+            variable.addAttribute(attr)
+            head.addChild(variable)
+        }
+        root.addChild(head)
+    }
+    
+    public func serialize(_ results: QueryResult<[TermResult], [Triple]>) throws -> Data {
+        let root = XMLElement(name: "sparql")
+        let ns = XMLNode.namespace(withName: "", stringValue: "http://www.w3.org/2005/sparql-results#") as! XMLNode
+        root.addNamespace(ns)
+
+        switch results {
+        case .boolean(let v):
+            write(boolean: v, into: root)
+        case .bindings(let variables, let rows):
+            write(variables: variables, rows: rows, into: root)
+        default:
+            print("TODO: implement SPARQL/XML serializer")
+            fatalError("TODO: implement SPARQL/XML serializer")
+        }
+        
+        let xml = XMLDocument(rootElement: root)
+        return xml.xmlData
+    }
+
+}
+
 public struct SPARQLXMLParser : SPARQLParsable {
     public let mediaTypes = Set(["application/sparql-results+xml"])
     

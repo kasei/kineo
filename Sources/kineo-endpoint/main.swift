@@ -18,7 +18,7 @@ import Vapor
  
  - parameter query: The query to evaluate.
  */
-func evaluate<Q : QuadStoreProtocol, S : SPARQLSerializable>(_ query: Query, using store: Q, defaultGraph: Term, serializedWith serializer: S) throws -> HTTPResponse {
+func evaluate<Q : QuadStoreProtocol>(_ query: Query, using store: Q, defaultGraph: Term, serializedWith serializer: SPARQLSerializable) throws -> HTTPResponse {
     let verbose = false
 //    let store = try PageQuadStore(database: database)
     let e = SimpleQueryEvaluator(store: store, defaultGraph: defaultGraph, verbose: verbose)
@@ -36,6 +36,26 @@ func evaluate<Q : QuadStoreProtocol, S : SPARQLSerializable>(_ query: Query, usi
     let data = try serializer.serialize(results)
     resp.body = HTTPBody(data: data)
     return resp
+}
+
+func resultsSerializer(for req: Request) -> SPARQLSerializable {
+    let accept = req.http.headers["Accept"]
+    let xml = SPARQLXMLSerializer<TermResult>()
+    let json = SPARQLJSONSerializer<TermResult>()
+    for a in accept {
+        if a == "*/*" {
+            return xml
+        } else if a.hasPrefix("application/sparql-results+json") {
+            return json
+        } else if a.hasPrefix("application/json") {
+            return json
+        } else if a.hasPrefix("test/plain") {
+            return json
+        } else if a.hasPrefix("application/sparql-results+xml") {
+            return xml
+        }
+    }
+    return xml
 }
 
 var pageSize = 8192
@@ -60,7 +80,7 @@ router.get("sparql") { (req) -> HTTPResponse in
         guard let sparqlData = sparql.data(using: .utf8) else { throw EndpointError(status: .badRequest, message: "Failed to interpret SPARQL as utf-8") }
         guard var p = SPARQLParser(data: sparqlData) else { throw EndpointError(status: .internalServerError, message: "Failed to construct SPARQL parser") }
         let query = try p.parseQuery()
-        let serializer = SPARQLJSONSerializer<TermResult>()
+        let serializer = resultsSerializer(for: req)
         let store = try PageQuadStore(database: database)
         let defaultGraph = store.graphs().next() ?? Term(iri: "tag:kasei.us,2018:default-graph")
         return try evaluate(query, using: store, defaultGraph: defaultGraph, serializedWith: serializer)
