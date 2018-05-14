@@ -93,4 +93,22 @@ router.get("sparql") { (req) -> HTTPResponse in
     }
 }
 
+router.post("sparql") { (req) -> HTTPResponse in
+    do {
+        guard let sparqlData = req.http.body.data else { throw EndpointError(status: .badRequest, message: "No query supplied") }
+        guard var p = SPARQLParser(data: sparqlData) else { throw EndpointError(status: .internalServerError, message: "Failed to construct SPARQL parser") }
+        let query = try p.parseQuery()
+        let serializer = resultsSerializer(for: req)
+        let store = try PageQuadStore(database: database)
+        let defaultGraph = store.graphs().next() ?? Term(iri: "tag:kasei.us,2018:default-graph")
+        return try evaluate(query, using: store, defaultGraph: defaultGraph, serializedWith: serializer)
+    } catch let e {
+        if let err = e as? EndpointError {
+            return HTTPResponse(status: err.status, body: err.message)
+        }
+        let output = "*** Failed to evaluate query:\n*** - \(e)"
+        return HTTPResponse(status: .internalServerError, body: output)
+    }
+}
+
 try app.run()
