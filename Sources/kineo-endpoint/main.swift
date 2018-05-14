@@ -12,15 +12,23 @@ import Kineo
 import Vapor
 
 
+struct EndpointError : Error {
+    var status: HTTPResponseStatus
+    var message: String
+}
+
+
 /**
  Evaluate the supplied Query against the database's QuadStore and return an HTTP response.
  If a graph argument is given, use it as the initial active graph.
  
  - parameter query: The query to evaluate.
  */
-func evaluate<Q : QuadStoreProtocol>(_ query: Query, using store: Q, defaultGraph: Term, serializedWith serializer: SPARQLSerializable) throws -> HTTPResponse {
+func evaluate<Q : QuadStoreProtocol>(_ query: Query, using store: Q, dataset: Dataset, serializedWith serializer: SPARQLSerializable) throws -> HTTPResponse {
     let verbose = false
 //    let store = try PageQuadStore(database: database)
+
+    let defaultGraph = dataset.defaultGraphs[0]
     let e = SimpleQueryEvaluator(store: store, defaultGraph: defaultGraph, verbose: verbose)
 
     var resp = HTTPResponse(status: .ok)
@@ -58,15 +66,23 @@ func resultsSerializer(for req: Request) -> SPARQLSerializable {
     return xml
 }
 
+func dataset<Q : QuadStoreProtocol>(from components: URLComponents, for store: Q) throws -> Dataset {
+    let queryItems = components.queryItems ?? []
+    let defaultGraphs = queryItems.filter { $0.name == "default-graph-uri" }.compactMap { $0.value }.map { Term(iri: $0) }
+    let namedGraphs = queryItems.filter { $0.name == "named-graph-uri" }.compactMap { $0.value }.map { Term(iri: $0) }
+    let c = defaultGraphs.count + namedGraphs.count
+    if c > 0 {
+        return Dataset(defaultGraphs: defaultGraphs, namedGraphs:namedGraphs)
+    } else {
+        let defaultGraph = store.graphs().next() ?? Term(iri: "tag:kasei.us,2018:default-graph")
+        return Dataset(defaultGraphs: [defaultGraph])
+    }
+}
+
 var pageSize = 8192
 
 let filename = CommandLine.arguments.removeLast()
 guard let database = FilePageDatabase(filename, size: pageSize) else { warn("Failed to open \(filename)"); exit(1) }
-
-struct EndpointError : Error {
-    var status: HTTPResponseStatus
-    var message: String
-}
 
 let app = try Application()
 let router = try app.make(Router.self)
@@ -82,8 +98,8 @@ router.get("sparql") { (req) -> HTTPResponse in
         let query = try p.parseQuery()
         let serializer = resultsSerializer(for: req)
         let store = try PageQuadStore(database: database)
-        let defaultGraph = store.graphs().next() ?? Term(iri: "tag:kasei.us,2018:default-graph")
-        return try evaluate(query, using: store, defaultGraph: defaultGraph, serializedWith: serializer)
+        let ds = try dataset(from: components, for: store)
+        return try evaluate(query, using: store, dataset: ds, serializedWith: serializer)
     } catch let e {
         if let err = e as? EndpointError {
             return HTTPResponse(status: err.status, body: err.message)
@@ -94,14 +110,19 @@ router.get("sparql") { (req) -> HTTPResponse in
 }
 
 router.post("sparql") { (req) -> HTTPResponse in
+    // TODO: differentiate application/x-www-form-urlencoded vs. application/sparql-query
+    //       if application/x-www-form-urlencoded, access dataset IRIs from POST body
+
     do {
+        let u = req.http.url
+        guard let components = URLComponents(string: u.absoluteString) else { throw EndpointError(status: .badRequest, message: "Failed to access URL components") }
         guard let sparqlData = req.http.body.data else { throw EndpointError(status: .badRequest, message: "No query supplied") }
         guard var p = SPARQLParser(data: sparqlData) else { throw EndpointError(status: .internalServerError, message: "Failed to construct SPARQL parser") }
         let query = try p.parseQuery()
         let serializer = resultsSerializer(for: req)
         let store = try PageQuadStore(database: database)
-        let defaultGraph = store.graphs().next() ?? Term(iri: "tag:kasei.us,2018:default-graph")
-        return try evaluate(query, using: store, defaultGraph: defaultGraph, serializedWith: serializer)
+        let ds = try dataset(from: components, for: store)
+        return try evaluate(query, using: store, dataset: ds, serializedWith: serializer)
     } catch let e {
         if let err = e as? EndpointError {
             return HTTPResponse(status: err.status, body: err.message)
