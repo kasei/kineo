@@ -8,17 +8,17 @@
 import Foundation
 import SPARQLSyntax
 
-enum SerializationError: Error {
+public enum SerializationError: Error {
     case encodingError(String)
     case parsingError(String)
 }
 
-protocol SPARQLParsable {
+public protocol SPARQLParsable {
     var mediaTypes: Set<String> { get }
     func parse(_ data: Data) throws -> QueryResult<[TermResult], [Triple]>
 }
 
-protocol SPARQLSerializable {
+public protocol SPARQLSerializable {
     var canonicalMediaType: String { get }
     func serialize(_ results: QueryResult<[TermResult], [Triple]>) throws -> Data
 }

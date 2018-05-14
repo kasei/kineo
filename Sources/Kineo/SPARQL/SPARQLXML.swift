@@ -9,7 +9,7 @@ import Foundation
 import SPARQLSyntax
 
 public struct SPARQLXMLParser : SPARQLParsable {
-    let mediaTypes = Set(["application/sparql-results+xml"])
+    public let mediaTypes = Set(["application/sparql-results+xml"])
     
     public init() {
         
