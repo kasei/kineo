@@ -66,7 +66,9 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
                 return QueryResult.boolean(false)
             }
         case .select(_):
-            return QueryResult.bindings(query.projectedVariables, results)
+            let variables = query.projectedVariables
+            let r : QueryResult<[TermResult], [Triple]> = QueryResult.bindings(variables, results)
+            return r
         case .construct(let template):
             let t = triples(from: results, with: template)
             return QueryResult.triples(t)

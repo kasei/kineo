@@ -10,7 +10,7 @@ import SPARQLSyntax
 
 public struct SPARQLJSONSerializer<T: ResultProtocol> : SPARQLSerializable where T.TermType == Term {
     typealias ResultType = T
-    let canonicalMediaType = "application/sparql-results+json"
+    public let canonicalMediaType = "application/sparql-results+json"
 
     public var encoder: JSONEncoder
     public init() {
