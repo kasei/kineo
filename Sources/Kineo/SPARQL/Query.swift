@@ -40,31 +40,10 @@ extension QuadPattern {
 }
 
 extension Query {
+    // TODO: update to use a Dataset instead of defaultGraph
     func execute<Q: QuadStoreProtocol>(quadstore: Q, defaultGraph: Term) throws -> QueryResult<[TermResult], [Triple]> {
         let e       = SimpleQueryEvaluator(store: quadstore, defaultGraph: defaultGraph, verbose: false)
         let result = try e.evaluate(query: self, activeGraph: defaultGraph)
         return result
-    }
-    
-    func execute<D : PageDatabase>(_ database: D, defaultGraph: Term) throws -> AnyIterator<TermResult> {
-        var results = [TermResult]()
-        try self.execute(database, defaultGraph: defaultGraph) { (r) in
-            results.append(r)
-        }
-        return AnyIterator(results.makeIterator())
-    }
-    
-    // TODO: is this necessary?
-    func execute<D : PageDatabase>(_ database: D, defaultGraph: Term, _ cb: (TermResult) throws -> ()) throws {
-        let query = self
-        try database.read { (m) in
-            let store       = try MediatedPageQuadStore(mediator: m)
-            let e       = SimpleQueryEvaluator(store: store, defaultGraph: defaultGraph, verbose: false)
-            let results = try e.evaluate(query: query, activeGraph: defaultGraph)
-            guard case let .bindings(_, iter) = results else { fatalError() }
-            for result in iter {
-                try cb(result)
-            }
-        }
     }
 }
