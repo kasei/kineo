@@ -70,19 +70,33 @@ func dataset<Q : QuadStoreProtocol>(from components: URLComponents, for store: Q
     let queryItems = components.queryItems ?? []
     let defaultGraphs = queryItems.filter { $0.name == "default-graph-uri" }.compactMap { $0.value }.map { Term(iri: $0) }
     let namedGraphs = queryItems.filter { $0.name == "named-graph-uri" }.compactMap { $0.value }.map { Term(iri: $0) }
-    let c = defaultGraphs.count + namedGraphs.count
-    if c > 0 {
-        return Dataset(defaultGraphs: defaultGraphs, namedGraphs:namedGraphs)
-    } else {
+    let dataset = Dataset(defaultGraphs: defaultGraphs, namedGraphs: namedGraphs)
+    if dataset.isEmpty {
         let defaultGraph = store.graphs().next() ?? Term(iri: "tag:kasei.us,2018:default-graph")
         return Dataset(defaultGraphs: [defaultGraph])
+    } else {
+        return dataset
     }
 }
 
 var pageSize = 8192
 
+guard CommandLine.arguments.count > 1 else { warn("No database filename given."); exit(1) }
 let filename = CommandLine.arguments.removeLast()
 guard let database = FilePageDatabase(filename, size: pageSize) else { warn("Failed to open \(filename)"); exit(1) }
+
+struct ProtocolRequest : Codable {
+    var query: String
+    var defaultGraphs: [String]?
+    var namedGraphs: [String]?
+    
+    var dataset: Dataset? {
+        let dg = defaultGraphs ?? []
+        let ng = namedGraphs ?? []
+        let ds = Dataset(defaultGraphs: dg.map { Term(iri: $0) }, namedGraphs: ng.map { Term(iri: $0) })
+        return ds.isEmpty ? nil : ds
+    }
+}
 
 let app = try Application()
 let router = try app.make(Router.self)
@@ -110,19 +124,33 @@ router.get("sparql") { (req) -> HTTPResponse in
 }
 
 router.post("sparql") { (req) -> HTTPResponse in
-    // TODO: differentiate application/x-www-form-urlencoded vs. application/sparql-query
-    //       if application/x-www-form-urlencoded, access dataset IRIs from POST body
-
     do {
         let u = req.http.url
         guard let components = URLComponents(string: u.absoluteString) else { throw EndpointError(status: .badRequest, message: "Failed to access URL components") }
-        guard let sparqlData = req.http.body.data else { throw EndpointError(status: .badRequest, message: "No query supplied") }
-        guard var p = SPARQLParser(data: sparqlData) else { throw EndpointError(status: .internalServerError, message: "Failed to construct SPARQL parser") }
-        let query = try p.parseQuery()
-        let serializer = resultsSerializer(for: req)
+
+        let ct = req.http.headers["Content-Type"].first
         let store = try PageQuadStore(database: database)
-        let ds = try dataset(from: components, for: store)
-        return try evaluate(query, using: store, dataset: ds, serializedWith: serializer)
+        let serializer = resultsSerializer(for: req)
+
+        switch ct {
+        case .none, .some("application/sparql-query"):
+            guard let sparqlData = req.http.body.data else { throw EndpointError(status: .badRequest, message: "No query supplied") }
+            guard var p = SPARQLParser(data: sparqlData) else { throw EndpointError(status: .internalServerError, message: "Failed to construct SPARQL parser") }
+            let query = try p.parseQuery()
+            let ds = try dataset(from: components, for: store)
+            return try evaluate(query, using: store, dataset: ds, serializedWith: serializer)
+        case .some("application/x-www-form-urlencoded"):
+            guard let formData = req.http.body.data else { throw EndpointError(status: .badRequest, message: "No form data supplied") }
+            let q = try URLEncodedFormDecoder().decode(ProtocolRequest.self, from: formData)
+            guard let sparqlData = q.query.data(using: .utf8) else { throw EndpointError(status: .badRequest, message: "No query supplied") }
+            guard var p = SPARQLParser(data: sparqlData) else { throw EndpointError(status: .internalServerError, message: "Failed to construct SPARQL parser") }
+            let query = try p.parseQuery()
+            let ds = try q.dataset ?? dataset(from: components, for: store) // TOOD: access dataset IRIs from POST body
+            return try evaluate(query, using: store, dataset: ds, serializedWith: serializer)
+        case .some(let c):
+            throw EndpointError(status: .badRequest, message: "Unrecognized Content-Type: \(c)")
+        }
+        
     } catch let e {
         if let err = e as? EndpointError {
             return HTTPResponse(status: err.status, body: err.message)
