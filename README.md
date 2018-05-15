@@ -28,9 +28,7 @@ custom graph name can be used for the query default graph):
 
 ### Query
 
-A simple line-based query format (equivalent to a subset of SPARQL) allows querying the data.
-
-Triple patterns can be joined and results filtered (with expressions encoded in postfix notation):
+Querying of the data can be done using SPARQL:
 
 ```
 % cat geo.rq
@@ -58,4 +56,38 @@ Using default graph <file:///Users/greg/kineo/geo.nt>
 9	Result["s": <http://dbpedia.org/resource/Solana_Beach,_California>]
 10	Result["s": <http://dbpedia.org/resource/Tijuana>]
 11	Result["s": <http://dbpedia.org/resource/University_of_California,_San_Diego>]
+```
+
+### SPARQL Endpoint
+
+Finally, a SPARQL endpoint can be run, allowing SPARQL Protocol clients to access the data:
+
+```
+% ./.build/release/kineo-endpoint geo.db &
+% curl -H "Accept: application/sparql-results+json" -H "Content-Type: application/sparql-query" --data 'PREFIX geo: <http://www.w3.org/2003/01/geo/wgs84_pos#> SELECT ?s ?lat ?long WHERE { ?s geo:lat ?lat ; geo:long ?long } LIMIT 3' 'http://localhost:8080/sparql'
+{
+  "head": {
+    "vars": [ "s", "lat", "long" ]
+  },
+  "results": {
+    "bindings": [
+      {
+        "s": { "type": "uri", "value": "http://dbpedia.org/resource/'s-Gravendeel" },
+        "lat": { "type": "literal", "value": "5.17833333333333E1", "datatype": "http://www.w3.org/2001/XMLSchema#float" },
+        "long": { "type": "literal", "value": "4.61666666666667E0", "datatype": "http://www.w3.org/2001/XMLSchema#float" }
+      },
+      {
+        "s": { "type": "uri", "value": "http://dbpedia.org/resource/'s-Hertogenbosch" },
+        "lat": { "type": "literal", "value": "5.17833333333333E1", "datatype": "http://www.w3.org/2001/XMLSchema#float" },
+        "s": { "type": "uri", "value": "http://dbpedia.org/resource/Groesbeek" },
+        "long": { "type": "literal", "value": "5.93333333333333E0", "datatype": "http://www.w3.org/2001/XMLSchema#float" }
+      },
+      {
+        "s": { "type": "uri", "value": "http://dbpedia.org/resource/'s-Hertogenbosch" },
+        "lat": { "type": "literal", "value": "5.1729918E1", "datatype": "http://www.w3.org/2001/XMLSchema#float" },
+        "long": { "type": "literal", "value": "5.306938E0", "datatype": "http://www.w3.org/2001/XMLSchema#float" }
+      }
+    ]
+  }
+}
 ```
