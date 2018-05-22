@@ -96,8 +96,9 @@ class SPARQLEvaluationTest: XCTestCase {
     }
     
     func test10Evaluation_open_world() throws {
-        let path = sparqlBase.appendingPathComponent("data-r2").appendingPathComponent("open-world")
-        try runEvaluationTests(inPath: path)
+        // many of these tests rely on not canonicalizing Terms on load
+//        let path = sparqlBase.appendingPathComponent("data-r2").appendingPathComponent("open-world")
+//        try runEvaluationTests(inPath: path)
     }
     
     func test10Evaluation_algebra() throws {
@@ -146,8 +147,17 @@ class SPARQLEvaluationTest: XCTestCase {
     }
     
     func test10Evaluation_expr_builtin() throws {
+        // many of these tests rely on not canonicalizing Terms on load
+        let skip = Set([
+            "http://www.w3.org/2001/sw/DataAccess/tests/data-r2/expr-builtin/manifest#sameTerm-simple",
+            "http://www.w3.org/2001/sw/DataAccess/tests/data-r2/expr-builtin/manifest#dawg-str-2",
+            "http://www.w3.org/2001/sw/DataAccess/tests/data-r2/expr-builtin/manifest#dawg-str-1",
+            "http://www.w3.org/2001/sw/DataAccess/tests/data-r2/expr-builtin/manifest#sameTerm-not-eq",
+            "http://www.w3.org/2001/sw/DataAccess/tests/data-r2/expr-builtin/manifest#sameTerm-eq",
+            "http://www.w3.org/2001/sw/DataAccess/tests/data-r2/expr-builtin/manifest#dawg-datatype-2",
+            ])
         let path = sparqlBase.appendingPathComponent("data-r2").appendingPathComponent("expr-builtin")
-        try runEvaluationTests(inPath: path)
+        try runEvaluationTests(inPath: path, skip: skip)
     }
     
     func test10Evaluation_expr_ops() throws {
@@ -156,10 +166,13 @@ class SPARQLEvaluationTest: XCTestCase {
     }
     
     func test10Evaluation_expr_equals() throws {
+        // many of these tests rely on not canonicalizing Terms on load
         let path = sparqlBase.appendingPathComponent("data-r2").appendingPathComponent("expr-equals")
         let skip = Set([
             "http://www.w3.org/2001/sw/DataAccess/tests/data-r2/expr-equals/manifest#eq-graph-1",
             "http://www.w3.org/2001/sw/DataAccess/tests/data-r2/expr-equals/manifest#eq-graph-2",
+            "http://www.w3.org/2001/sw/DataAccess/tests/data-r2/expr-equals/manifest#eq-2-1",
+            "http://www.w3.org/2001/sw/DataAccess/tests/data-r2/expr-equals/manifest#eq-2-2",
             ])
         try runEvaluationTests(inPath: path, skip: skip)
     }
@@ -185,8 +198,14 @@ class SPARQLEvaluationTest: XCTestCase {
     }
     
     func test10Evaluation_distinct() throws {
+        // many of these tests rely on not canonicalizing Terms on load
+        let skip = Set([
+            "http://www.w3.org/2001/sw/DataAccess/tests/data-r2/distinct/manifest#distinct-9",
+            "http://www.w3.org/2001/sw/DataAccess/tests/data-r2/distinct/manifest#distinct-2",
+            "http://www.w3.org/2001/sw/DataAccess/tests/data-r2/distinct/manifest#distinct-1",
+            ])
         let path = sparqlBase.appendingPathComponent("data-r2").appendingPathComponent("distinct")
-        try runEvaluationTests(inPath: path)
+        try runEvaluationTests(inPath: path, skip: skip)
     }
     
     func test10Evaluation_sort() throws {
@@ -200,8 +219,13 @@ class SPARQLEvaluationTest: XCTestCase {
     }
     
     func test10Evaluation_reduced() throws {
+        // many of these tests rely on not canonicalizing Terms on load
+        let skip = Set([
+            "http://www.w3.org/2001/sw/DataAccess/tests/data-r2/reduced/manifest#reduced-1",
+            "http://www.w3.org/2001/sw/DataAccess/tests/data-r2/reduced/manifest#reduced-2",
+            ])
         let path = sparqlBase.appendingPathComponent("data-r2").appendingPathComponent("reduced")
-        try runEvaluationTests(inPath: path)
+        try runEvaluationTests(inPath: path, skip: skip)
     }
     
     
