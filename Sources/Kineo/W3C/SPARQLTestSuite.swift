@@ -357,7 +357,6 @@ public struct SPARQLTestRunner {
     }
     
     func expectedResults(for query: Query, from url: URL) throws -> QueryResult<[TermResult], [Triple]> {
-        print("parsing rdf file \(url.path)")
         if url.absoluteString.hasSuffix("srx") {
             let srxParser = SPARQLXMLParser()
             return try srxParser.parse(Data(contentsOf: url))
