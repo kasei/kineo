@@ -109,8 +109,9 @@ class QueryEvaluationPerformanceTest: XCTestCase {
     }
     
     private func eval(query: Query) throws -> AnyIterator<TermResult> {
-        let e = SimpleQueryEvaluator(store: store, defaultGraph: self.graph)
-        let results = try e.evaluate(query: query, activeGraph: self.graph)
+        let dataset = store.dataset(withDefault: self.graph)
+        let e = SimpleQueryEvaluator(store: store, dataset: dataset)
+        let results = try e.evaluate(query: query)
         guard case let .bindings(_, seq) = results else { fatalError() }
         return AnyIterator(seq.makeIterator())
     }

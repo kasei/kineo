@@ -24,6 +24,13 @@ public protocol MutableQuadStoreProtocol: QuadStoreProtocol {
 }
 
 extension QuadStoreProtocol {
+    public func dataset(withDefault defaultGraph: Term) -> Dataset {
+        var named = Set(self.graphs())
+        named.remove(defaultGraph)
+        let dataset = Dataset(defaultGraphs: [defaultGraph], namedGraphs: Array(named))
+        return dataset
+    }
+    
     public func effectiveVersion() throws -> Version? {
         let pattern = QuadPattern(
             subject: .variable("s", binding: true),

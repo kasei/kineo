@@ -40,10 +40,10 @@ extension QuadPattern {
 }
 
 extension Query {
-    // TODO: update to use a Dataset instead of defaultGraph
     func execute<Q: QuadStoreProtocol>(quadstore: Q, defaultGraph: Term) throws -> QueryResult<[TermResult], [Triple]> {
-        let e       = SimpleQueryEvaluator(store: quadstore, defaultGraph: defaultGraph, verbose: false)
-        let result = try e.evaluate(query: self, activeGraph: defaultGraph)
+        let dataset = quadstore.dataset(withDefault: defaultGraph)
+        let e       = SimpleQueryEvaluator(store: quadstore, dataset: dataset, verbose: false)
+        let result = try e.evaluate(query: self)
         return result
     }
 }

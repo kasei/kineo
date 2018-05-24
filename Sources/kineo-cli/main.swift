@@ -177,14 +177,15 @@ func query<D : PageDatabase>(_ database: D, query: Query, graph: Term? = nil, ve
         defaultGraph = store.graphs().next() ?? Term(iri: "tag:kasei.us,2018:default-graph")
         warn("Using default graph \(defaultGraph)")
     }
-    let e           = SimpleQueryEvaluator(store: store, defaultGraph: defaultGraph, verbose: verbose)
-    if let mtime = try e.effectiveVersion(matching: query, activeGraph: defaultGraph) {
+    let dataset = store.dataset(withDefault: defaultGraph)
+    let e           = SimpleQueryEvaluator(store: store, dataset: dataset, verbose: verbose)
+    if let mtime = try e.effectiveVersion(matching: query) {
         let date = getDateString(seconds: mtime)
         if verbose {
             print("# Last-Modified: \(date)")
         }
     }
-    let results = try e.evaluate(query: query, activeGraph: defaultGraph)
+    let results = try e.evaluate(query: query)
     switch results {
     case .bindings(_, let iter):
         for result in iter {

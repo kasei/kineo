@@ -28,18 +28,17 @@ func evaluate<Q : QuadStoreProtocol>(_ query: Query, using store: Q, dataset: Da
     let verbose = false
 //    let store = try PageQuadStore(database: database)
 
-    let defaultGraph = dataset.defaultGraphs[0]
-    let e = SimpleQueryEvaluator(store: store, defaultGraph: defaultGraph, verbose: verbose)
+    let e = SimpleQueryEvaluator(store: store, dataset: dataset, verbose: verbose)
 
     var resp = HTTPResponse(status: .ok)
     resp.headers.replaceOrAdd(name: "Content-Type", value: serializer.canonicalMediaType)
 
-    if let mtime = try e.effectiveVersion(matching: query, activeGraph: defaultGraph) {
+    if let mtime = try e.effectiveVersion(matching: query) {
         let date = getDateString(seconds: mtime)
         resp.headers.add(name: "Last-Modified", value: "\(date)")
     }
 
-    let results = try e.evaluate(query: query, activeGraph: defaultGraph)
+    let results = try e.evaluate(query: query)
 
     let data = try serializer.serialize(results)
     resp.body = HTTPBody(data: data)

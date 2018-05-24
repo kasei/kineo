@@ -13,17 +13,22 @@ import SPARQLSyntax
 // swiftlint:disable:next type_body_length
 open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
     var store: Q
-    var defaultGraph: Term
+    var dataset: Dataset
     var freshVarNumber: Int
     var verbose: Bool
     var ee: ExpressionEvaluator
-    
-    public init(store: Q, defaultGraph: Term, verbose: Bool = false) {
+
+    public init(store: Q, dataset: Dataset, verbose: Bool = false) {
         self.store = store
-        self.defaultGraph = defaultGraph
+        self.dataset = dataset
         self.freshVarNumber = 1
         self.verbose = verbose
         self.ee = ExpressionEvaluator()
+    }
+    
+    convenience public init(store: Q, defaultGraph: Term, verbose: Bool = false) {
+        let dataset = store.dataset(withDefault: defaultGraph)
+        self.init(store: store, dataset: dataset, verbose: verbose)
     }
 
     private func freshVariable() -> Node {
@@ -52,8 +57,8 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
         }
         return Array(triples)
     }
-    
-    public func evaluate(query: Query, activeGraph: Term) throws -> QueryResult<[TermResult], [Triple]> {
+
+    public func evaluate(query: Query, activeGraph: Term? = nil) throws -> QueryResult<[TermResult], [Triple]> {
         let algebra = query.algebra
         self.ee.base = query.base
         let iter = try self.evaluate(algebra: algebra, activeGraph: activeGraph)
@@ -75,6 +80,22 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
         case .describe(_):
             throw QueryError.evaluationError("TODO: evaluate(query) not implemented for \(query.form)")
         }
+    }
+
+    public func evaluate(algebra: Algebra, activeGraph: Term? = nil) throws -> AnyIterator<TermResult> {
+        var iterators = [AnyIterator<TermResult>]()
+        let graphs : [Term]
+        if let g = activeGraph {
+            graphs = [g]
+        } else {
+            graphs = dataset.defaultGraphs
+        }
+        for activeGraph in graphs {
+            let i = try evaluate(algebra: algebra, activeGraph: activeGraph)
+            iterators.append(i)
+        }
+        let j = iterators.joined()
+        return AnyIterator(j.makeIterator())
     }
     
     public func evaluate(algebra: Algebra, activeGraph: Term) throws -> AnyIterator<TermResult> {
@@ -201,9 +222,9 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
                             return result
                         }
                     } catch let err {
-                        print("filter error: \(err) ; \(expr)")
+//                        print("filter error: \(err) ; \(expr)")
                         if self.verbose {
-                            print(err)
+                            print("filter error: \(err) ; \(expr)")
                         }
                     }
                 } while true
@@ -265,7 +286,8 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
                 Logger.shared.error("Unexpected variable found during named graph evaluation")
                 throw QueryError.evaluationError("Unexpected variable found during named graph evaluation")
             }
-            var iters = try store.graphs().filter { $0 != defaultGraph }.map { ($0, try evaluate(algebra: child, activeGraph: $0)) }
+            let defaultGraphs = Set(dataset.defaultGraphs)
+            var iters = try store.graphs().filter { !defaultGraphs.contains($0) }.map { ($0, try evaluate(algebra: child, activeGraph: $0)) }
             return AnyIterator {
                 repeat {
                     if iters.count == 0 {
@@ -286,17 +308,24 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
         }
     }
 
-    public func effectiveVersion(matching query: Query, activeGraph: Term) throws -> Version? {
+    public func effectiveVersion(matching query: Query) throws -> Version? {
         let algebra = query.algebra
-        guard var mtime = try effectiveVersion(matching: algebra, activeGraph: activeGraph) else { return nil }
-        if case .describe(let nodes) = query.form {
-            for node in nodes {
-                let quad = QuadPattern(subject: node, predicate: .variable("p", binding: true), object: .variable("o", binding: true), graph: .bound(activeGraph))
-                guard let qmtime = try store.effectiveVersion(matching: quad) else { return nil }
-                mtime = max(mtime, qmtime)
+        var version : Version? = nil
+        for activeGraph in dataset.defaultGraphs {
+            guard let mtime = try effectiveVersion(matching: algebra, activeGraph: activeGraph) else { return nil }
+            if case .describe(let nodes) = query.form {
+                for node in nodes {
+                    let quad = QuadPattern(subject: node, predicate: .variable("p", binding: true), object: .variable("o", binding: true), graph: .bound(activeGraph))
+                    guard let qmtime = try store.effectiveVersion(matching: quad) else { return nil }
+                    if let v = version {
+                        version = max(v, mtime, qmtime)
+                    } else {
+                        version = max(mtime, qmtime)
+                    }
+                }
             }
         }
-        return mtime
+        return version
     }
     
     public func effectiveVersion(matching algebra: Algebra, activeGraph: Term) throws -> Version? {
