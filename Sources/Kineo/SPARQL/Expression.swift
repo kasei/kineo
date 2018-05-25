@@ -241,7 +241,7 @@ class ExpressionEvaluator {
             try guardArity(terms.count, 1, constructorFunction.rawValue)
             guard let string = terms[0] else { throw QueryError.evaluationError("Not all arguments are bound in \(constructorFunction) call") }
             if let base = self.base {
-                guard let b = SPARQLSyntax.IRI(string: base), let i = SPARQLSyntax.IRI(string: string.value, relativeTo: b) else {
+                guard let b = IRI(string: base), let i = IRI(string: string.value, relativeTo: b) else {
                     throw QueryError.evaluationError("Failed to resolve IRI against base IRI")
                 }
                 return Term(value: i.absoluteString, type: .iri)
@@ -446,7 +446,7 @@ class ExpressionEvaluator {
         throw QueryError.evaluationError("Unrecognized numeric function: \(numericFunction)")
     }
 
-    // TODO: this isn't really an escaping closure, but swift can't tell that
+    // NOTE: this isn't really an escaping closure, but swift can't tell that
     public func evaluate(expression: Expression, result: TermResult, activeGraph: Term, existsHandler: @escaping AlgebraEvaluator) throws -> Term {
         let previousGraph = activeGraph
         self.activeGraph = activeGraph

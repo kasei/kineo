@@ -152,7 +152,7 @@ public struct RDFXMLParser {
                 if iri == "" {
                     return Term(iri: b)
                 }
-                if let u = SPARQLSyntax.IRI(string: iri, relativeTo: SPARQLSyntax.IRI(string: b)) {
+                if let u = IRI(string: iri, relativeTo: IRI(string: b)) {
                     iri = u.absoluteString
                 }
             }
