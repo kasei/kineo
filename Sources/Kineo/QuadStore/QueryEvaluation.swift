@@ -37,6 +37,33 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
         return .variable(".v\(n)", binding: true)
     }
     
+    private func triples(describing term: Term) throws -> AnyIterator<Triple> {
+        let qp = QuadPattern(
+            subject: .bound(term),
+            predicate: .variable("p", binding: true),
+            object: .variable("o", binding: true),
+            graph: .variable("g", binding: true))
+        let quads = try store.quads(matching: qp)
+        let triples = quads.map { $0.triple }
+        return AnyIterator(triples.makeIterator())
+    }
+    
+    private func triples<S : Sequence>(describing node: Node, from results: S) throws -> AnyIterator<Triple> where S.Element == TermResult {
+        switch node {
+        case .bound(let term):
+            return try triples(describing: term)
+        case .variable(let name, binding: _):
+            let iters = try results.compactMap { (result) throws -> AnyIterator<Triple>? in
+                if let term = result[name] {
+                    return try triples(describing: term)
+                } else {
+                    return nil
+                }
+            }
+            return AnyIterator(iters.joined().makeIterator())
+        }
+    }
+    
     private func triples<S : Sequence>(from results: S, with template: [TriplePattern]) -> [Triple] where S.Element == TermResult {
         var triples = Set<Triple>()
         for r in results {
@@ -77,8 +104,10 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
         case .construct(let template):
             let t = triples(from: results, with: template)
             return QueryResult.triples(t)
-        case .describe(_):
-            throw QueryError.evaluationError("TODO: evaluate(query) not implemented for \(query.form)")
+        case .describe(let nodes):
+            let iters = try nodes.map { try triples(describing: $0, from: results) }
+            let t = Array(iters.joined())
+            return QueryResult.triples(t)
         }
     }
 
@@ -267,8 +296,13 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
                     }
                 }
             }
-        case .service(_):
-            throw QueryError.evaluationError("TODO: unimplemented evaluate(query) for \(algebra)")
+        case let .service(endpoint, algebra, silent):
+            switch endpoint {
+            case .bound(let i) where i.type == .iri:
+                return try evaluate(algebra: algebra, endpoint: i, silent: silent, activeGraph: activeGraph)
+            default:
+                throw QueryError.evaluationError("SERVICE cannot be called with a non-IRI endpoint")
+            }
         case let .namedGraph(child, .bound(g)):
             return try evaluate(algebra: child, activeGraph: g)
         case let .triple(t):
@@ -465,6 +499,72 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
         let d = try evaluate(diff: lhs, rhs, expression: expr, activeGraph: activeGraph)
         let results = Array(i) + Array(d)
         return AnyIterator(results.makeIterator())
+    }
+    
+    func evaluate(algebra: Algebra, endpoint: Term, silent: Bool, activeGraph: Term) throws -> AnyIterator<TermResult> {
+        var args : (Data?, URLResponse?, Error?) = (nil, nil, nil)
+        do {
+            let s = SPARQLSerializer()
+            guard let q = try? Query(form: .select(.star), algebra: algebra) else {
+                throw QueryError.evaluationError("Failed to serialize SERVICE algebra into SPARQL string")
+            }
+            let tokens = q.sparqlTokens
+            let query = s.serializePretty(tokens)
+            guard var components = URLComponents(string: endpoint.value) else {
+                throw QueryError.evaluationError("Invalid URL components for SERVICE evaluation: \(endpoint.value)")
+            }
+            var queryItems = components.queryItems ?? []
+            queryItems.append(URLQueryItem(name: "query", value: query))
+            components.queryItems = queryItems
+
+            guard let u = components.url else {
+                throw QueryError.evaluationError("Invalid URL for SERVICE evaluation: \(components)")
+            }
+
+//            print("SPARQL service URL: <\(u.absoluteString)>")
+            
+            let semaphore = DispatchSemaphore(value: 0)
+            let session = URLSession.shared
+            let task = session.dataTask(with: u) {
+                args = ($0, $1, $2)
+                semaphore.signal()
+            }
+            task.resume()
+
+            let timeout = DispatchTime.now() + 5.0
+            _ = semaphore.wait(timeout: timeout)
+            
+            if let error = args.2 {
+                throw QueryError.evaluationError("URL request failed: \(error)")
+            }
+
+            guard let data = args.0 else {
+                throw QueryError.evaluationError("URL request did not return data")
+            }
+            
+            var r : QueryResult<[TermResult], [Triple]>
+            do {
+                // TODO: use conneg to accept SPARQL/JSON or SPARQL/TSV here
+                let srxParser = SPARQLXMLParser()
+                r = try srxParser.parse(data)
+            } catch let e {
+                throw QueryError.evaluationError("SPARQL Results XML parsing error: \(e)")
+            }
+
+            switch r {
+            case let .bindings(_, seq):
+                return AnyIterator(seq.makeIterator())
+            default:
+                throw QueryError.evaluationError("SERVICE request did not return bindings")
+            }
+        } catch let e {
+            if silent {
+                return try evaluate(algebra: .joinIdentity, activeGraph: activeGraph)
+            } else {
+                dump(args.1)
+                throw QueryError.evaluationError("SERVICE error: \(e)")
+            }
+        }
     }
 
     func evaluateCount<S: Sequence>(results: S, expression keyExpr: Expression, distinct: Bool) -> Term? where S.Iterator.Element == TermResult {

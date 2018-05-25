@@ -381,6 +381,7 @@ var pageSize = 8192
 guard argscount >= 2 else {
     print("Usage: \(pname) [-v] database.db COMMAND [ARGUMENTS]")
     print("       \(pname) database.db load [-g GRAPH-IRI] rdf.nt ...")
+    print("       \(pname) database.db query query.rq")
     print("       \(pname) database.db parse query.rq")
     print("       \(pname) database.db terms")
     print("       \(pname) database.db graphs")
@@ -455,7 +456,9 @@ if let op = args.next() {
         }
         guard let qfile = args.next() else { fatalError("No query file given") }
         do {
-            guard let q = try parseQuery(database, filename: qfile) else { fatalError("Failed to parse query") }
+            let sparql = try data(fromFileOrString: qfile)
+            guard var p = SPARQLParser(data: sparql) else { fatalError("Failed to construct SPARQL parser") }
+            let q = try p.parseQuery()
             count = try query(database, query: q, graph: graph, verbose: verbose)
         } catch let e {
             warn("*** Failed to evaluate query:")
