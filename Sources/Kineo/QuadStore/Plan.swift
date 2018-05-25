@@ -11,14 +11,12 @@ import SPARQLSyntax
 
 public typealias IDType = UInt64
 public typealias IDListResult = [IDType]
-public typealias Variable = String
-public typealias IRI = String
 
 public typealias TermResultComparator = (TermResult, TermResult) -> Bool
 public typealias IDListResultComparator = (IDListResult, IDListResult) -> Bool
 
 public indirect enum TermGroupPlan {
-    case group(ResultPlan, [Variable])
+    case group(ResultPlan, [String])
 }
 
 public enum IDNode {
@@ -26,26 +24,14 @@ public enum IDNode {
     case variable(Int)
 }
 
-public indirect enum IDExpression {
-    case node(IDNode)
-    case sameterm(IDExpression, IDExpression)
-    case and(IDExpression, IDExpression)
-    case or(IDExpression, IDExpression)
-    case isiri(IDExpression)
-    case isblank(IDExpression)
-    case isliteral(IDExpression)
-    case isnumeric(IDExpression)
-    case bound(IDExpression)
-}
-
 public indirect enum IDListPlan {
     case quad(IDNode, IDNode, IDNode, IDNode)
 //    case nestedLoopJoin(IDListPlan, IDListPlan)
     case hashJoin(IDListPlan, IDListPlan)
-//    case ebvFilter(IDListPlan, IDExpression)
+//    case ebvFilter(IDListPlan, Expression)
 //    case merge(IDListPlan, IDListPlan, IDListResultComparator)
 //    case union(IDListPlan, IDListPlan)
-//    case extend(IDListPlan, IDExpression, Int)
+//    case extend(IDListPlan, Expression, Int)
 //    case hashDistinct(IDListPlan)
 //    case unique(IDListPlan)
 //    case slice(IDListPlan, Int, Int)
@@ -55,11 +41,11 @@ public indirect enum IDListPlan {
 //    case graphNodes(IDType, Int)
     case graphNames(Int)
 //    case aggregate(TermGroupPlan, [(Aggregation, Int)])
-//    case window(TermGroupPlan, [(WindowFunction, Int, [(IDExpression, Bool)])])
+//    case window(TermGroupPlan, [(WindowFunction, Int, [(Expression, Bool)])])
 }
 
 public indirect enum ResultPlan {
-    case idListPlan(IDListPlan, [Variable])
+    case idListPlan(IDListPlan, [String])
 //    case quad(QuadPattern)
 //    case nestedLoopJoin(ResultPlan, ResultPlan)
     case hashJoin(ResultPlan, ResultPlan)
