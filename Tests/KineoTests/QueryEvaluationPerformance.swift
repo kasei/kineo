@@ -7,6 +7,7 @@ extension QueryEvaluationTest {
     static var allTests : [(String, (QueryEvaluationTest) -> () throws -> Void)] {
         return [
             ("testPerformance_pipelinedAggregation", testPerformance_pipelinedAggregation),
+            ("testPerformance_nonPipelinedAggregation", testPerformance_nonPipelinedAggregation)
         ]
     }
 }
