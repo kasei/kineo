@@ -88,8 +88,7 @@ public struct SPARQLXMLSerializer<T: ResultProtocol> : SPARQLSerializable where 
         case .bindings(let variables, let rows):
             write(variables: variables, rows: rows, into: root)
         default:
-            print("TODO: implement SPARQL/XML serializer")
-            fatalError("TODO: implement SPARQL/XML serializer")
+            throw SerializationError.encodingError("RDF triples cannot be serialized using the SPARQL/XML format")
         }
         
         let xml = XMLDocument(rootElement: root)
