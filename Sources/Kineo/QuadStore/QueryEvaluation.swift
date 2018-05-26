@@ -508,7 +508,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
             guard let q = try? Query(form: .select(.star), algebra: algebra) else {
                 throw QueryError.evaluationError("Failed to serialize SERVICE algebra into SPARQL string")
             }
-            let tokens = q.sparqlTokens
+            let tokens = try q.sparqlTokens()
             let query = s.serializePretty(tokens)
             guard var components = URLComponents(string: endpoint.value) else {
                 throw QueryError.evaluationError("Invalid URL components for SERVICE evaluation: \(endpoint.value)")

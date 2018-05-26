@@ -59,13 +59,13 @@ func parseSPARQL(_ qfile: String, printTokens: Bool, pretty: Bool, silent: Bool)
             try parseQuery(qfile, silent: silent)
         }
         //print("ok")
-    } catch SPARQLParsingError.parsingError(let message) {
+    } catch SerializationError.parsingError(let message) {
         print("not ok \(message)")
         let s = try String(contentsOfFile: qfile, encoding: .utf8)
         print(s)
         return 255
-    } catch SPARQLParsingError.lexicalError(let message) {
-        print("not ok \(message)")
+    } catch let e {
+        print("not ok \(e)")
         let s = try String(contentsOfFile: qfile, encoding: .utf8)
         print(s)
         return 255
