@@ -277,8 +277,8 @@ class QueryEvaluationTest: XCTestCase {
             ))
         let numerics: Algebra = .filter(quad, .isnumeric(.node(.variable("o", binding: false))))
         let agg: Algebra = .aggregate(numerics, [], [
-            (.sum(.node(.variable("o", binding: false)), false), "sum"),
-            (.avg(.node(.variable("o", binding: false)), false), "avg")
+            Algebra.AggregationMapping(aggregation: .sum(.node(.variable("o", binding: false)), false), variableName: "sum"),
+            Algebra.AggregationMapping(aggregation: .avg(.node(.variable("o", binding: false)), false), variableName: "avg"),
             ])
 
         guard let results = try? Array(eval(algebra: agg)) else { XCTFail(); return }
@@ -299,7 +299,7 @@ class QueryEvaluationTest: XCTestCase {
             graph: .bound(Term(value: "http://example.org/numbers", type: .iri))
             ))
 
-        let ascending: Algebra = .order(quad, [(true, .node(.variable("o", binding: false)))])
+        let ascending: Algebra = .order(quad, [Algebra.SortComparator(ascending: true, expression: .node(.variable("o", binding: false)))])
         guard let ascResults = try? Array(eval(algebra: ascending)) else { XCTFail(); return }
 
         XCTAssertEqual(ascResults.count, 2)
@@ -307,7 +307,7 @@ class QueryEvaluationTest: XCTestCase {
         XCTAssertEqual(ascValues[0], -118.0, accuracy: 0.1)
         XCTAssertEqual(ascValues[1], 32.7, accuracy: 0.1)
 
-        let descending: Algebra = .order(quad, [(false, .node(.variable("o", binding: false)))])
+        let descending: Algebra = .order(quad, [Algebra.SortComparator(ascending: false, expression: .node(.variable("o", binding: false)))])
         guard let descResults = try? Array(eval(algebra: descending)) else { XCTFail(); return }
 
         XCTAssertEqual(descResults.count, 2)
@@ -315,7 +315,7 @@ class QueryEvaluationTest: XCTestCase {
         XCTAssertEqual(descValues[0], 32.7, accuracy: 0.1)
         XCTAssertEqual(descValues[1], -118.0, accuracy: 0.1)
 
-        let negated: Algebra = .order(quad, [(false, .neg(.node(.variable("o", binding: false))))])
+        let negated: Algebra = .order(quad, [Algebra.SortComparator(ascending: false, expression: .neg(.node(.variable("o", binding: false))))])
         guard let negResults = try? Array(eval(algebra: negated)) else { XCTFail(); return }
 
         XCTAssertEqual(negResults.count, 2)

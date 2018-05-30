@@ -77,7 +77,7 @@ open class QueryParser<T: LineReadable> {
             guard aggs.count > 0 else { throw QueryError.parseError("Bad syntax for agg operation") }
             let groupby = pair.count == 2 ? pair[1].split(separator: ",") : []
             
-            var aggregates = [(Aggregation, String)]()
+            var aggregates = [Algebra.AggregationMapping]()
             for a in aggs {
                 let strings = Array(a)
                 guard strings.count >= 3 else { throw QueryError.parseError("Failed to parse aggregate expression") }
@@ -101,7 +101,8 @@ open class QueryParser<T: LineReadable> {
                 default:
                     throw QueryError.parseError("Unexpected aggregation operation: \(op)")
                 }
-                aggregates.append((agg, name))
+                let aggMap = Algebra.AggregationMapping(aggregation: agg, variableName: name)
+                aggregates.append(aggMap)
             }
             
             let groups = try groupby.map { (gstrings) -> Expression in
@@ -118,7 +119,7 @@ open class QueryParser<T: LineReadable> {
             guard w.count > 0 else { throw QueryError.parseError("Bad syntax for window operation") }
             let groupby = pair.count == 2 ? pair[1].split(separator: ",") : []
             
-            var windows: [(WindowFunction, [Algebra.SortComparator], String)] = []
+            var windows: [Algebra.WindowFunctionMapping] = []
             for a in w {
                 let strings = Array(a)
                 guard strings.count >= 2 else { throw QueryError.parseError("Failed to parse window expression") }
@@ -134,7 +135,8 @@ open class QueryParser<T: LineReadable> {
                 default:
                     throw QueryError.parseError("Unexpected window operation: \(op)")
                 }
-                windows.append((f, [], name))
+                let windowMap = Algebra.WindowFunctionMapping(windowFunction: f, comparators: [], variableName: name)
+                windows.append(windowMap)
             }
             
             let groups = try groupby.map { (gstrings) -> Expression in
@@ -150,27 +152,31 @@ open class QueryParser<T: LineReadable> {
             let name = parts[2]
             let groups = parts.suffix(from: 3).map { (name) -> Expression in .node(.variable(name, binding: true)) }
             guard let child = stack.popLast() else { return nil }
-            return .aggregate(child, groups, [(.avg(.node(.variable(key, binding: true)), false), name)])
+            let aggMap = Algebra.AggregationMapping(aggregation: .avg(.node(.variable(key, binding: true)), false), variableName: name)
+            return .aggregate(child, groups, [aggMap])
         } else if op == "sum" { // (SUM(?key) AS ?name) ... GROUP BY ?x ?y ?z --> "sum key name x y z"
             guard parts.count > 2 else { throw QueryError.parseError("Not enough arguments for \(op)") }
             let key = parts[1]
             let name = parts[2]
             let groups = parts.suffix(from: 3).map { (name) -> Expression in .node(.variable(name, binding: true)) }
             guard let child = stack.popLast() else { return nil }
-            return .aggregate(child, groups, [(.sum(.node(.variable(key, binding: true)), false), name)])
+            let aggMap = Algebra.AggregationMapping(aggregation: .sum(.node(.variable(key, binding: true)), false), variableName: name)
+            return .aggregate(child, groups, [aggMap])
         } else if op == "count" { // (COUNT(?key) AS ?name) ... GROUP BY ?x ?y ?z --> "count key name x y z"
             guard parts.count > 2 else { throw QueryError.parseError("Not enough arguments for \(op)") }
             let key = parts[1]
             let name = parts[2]
             let groups = parts.suffix(from: 3).map { (name) -> Expression in .node(.variable(name, binding: true)) }
             guard let child = stack.popLast() else { return nil }
-            return .aggregate(child, groups, [(.count(.node(.variable(key, binding: true)), false), name)])
+            let aggMap = Algebra.AggregationMapping(aggregation: .count(.node(.variable(key, binding: true)), false), variableName: name)
+            return .aggregate(child, groups, [aggMap])
         } else if op == "countall" { // (COUNT(*) AS ?name) ... GROUP BY ?x ?y ?z --> "count name x y z"
             guard parts.count > 1 else { throw QueryError.parseError("Not enough arguments for \(op)") }
             let name = parts[1]
             let groups = parts.suffix(from: 2).map { (name) -> Expression in .node(.variable(name, binding: true)) }
             guard let child = stack.popLast() else { return nil }
-            return .aggregate(child, groups, [(.countAll, name)])
+            let aggMap = Algebra.AggregationMapping(aggregation: .countAll, variableName: name)
+            return .aggregate(child, groups, [aggMap])
         } else if op == "limit" {
             guard let count = Int(rest) else { return nil }
             guard let child = stack.popLast() else { throw QueryError.parseError("Not enough operands for \(op)") }
@@ -201,7 +207,7 @@ open class QueryParser<T: LineReadable> {
         } else if op == "sort" {
             let comparators = try parts.suffix(from: 1).split(separator: ",").map { (stack) -> Algebra.SortComparator in
                 guard let expr = try ExpressionParser.parseExpression(Array(stack)) else { throw QueryError.parseError("Failed to parse ORDER expression") }
-                let c: Algebra.SortComparator = (true, expr)
+                let c = Algebra.SortComparator(ascending: true, expression: expr)
                 return c
             }
             guard let child = stack.popLast() else { throw QueryError.parseError("Not enough operands for \(op)") }

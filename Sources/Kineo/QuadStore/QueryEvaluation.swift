@@ -224,10 +224,10 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
             return AnyIterator(s.makeIterator())
         case let .aggregate(child, groups, aggs):
             if aggs.count == 1 {
-                let (agg, name) = aggs[0]
-                switch agg {
+                let aggMap = aggs[0]
+                switch aggMap.aggregation {
                 case .sum(_, false), .count(_, false), .countAll, .avg(_, false), .min(_), .max(_), .groupConcat(_, _, false), .sample(_):
-                    return try evaluateSinglePipelinedAggregation(algebra: child, groups: groups, aggregation: agg, variable: name, activeGraph: activeGraph)
+                    return try evaluateSinglePipelinedAggregation(algebra: child, groups: groups, aggregation: aggMap.aggregation, variable: aggMap.variableName, activeGraph: activeGraph)
                 default:
                     break
                 }
@@ -867,7 +867,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
         }
     }
 
-    func evaluateWindow(algebra child: Algebra, groups: [Expression], functions: [(WindowFunction, [Algebra.SortComparator], String)], activeGraph: Term) throws -> AnyIterator<TermResult> {
+    func evaluateWindow(algebra child: Algebra, groups: [Expression], functions: [Algebra.WindowFunctionMapping], activeGraph: Term) throws -> AnyIterator<TermResult> {
         let i = try self.evaluate(algebra: child, activeGraph: activeGraph)
         var groupBuckets = [String:[TermResult]]()
         for result in i {
@@ -889,7 +889,10 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
         }
 
         var groups = Array(groupBuckets.values)
-        for (f, comparators, name) in functions {
+        for windowMap in functions {
+            let f = windowMap.windowFunction
+            let comparators = windowMap.comparators
+            let name = windowMap.variableName
             let results = groups.map { (results) -> [TermResult] in
                 var newResults = [TermResult]()
                 
@@ -1123,7 +1126,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
         }
     }
 
-    func evaluateAggregation(algebra child: Algebra, groups: [Expression], aggregations aggs: [(Aggregation, String)], activeGraph: Term) throws -> AnyIterator<TermResult> {
+    func evaluateAggregation(algebra child: Algebra, groups: [Expression], aggregations aggs: [Algebra.AggregationMapping], activeGraph: Term) throws -> AnyIterator<TermResult> {
         let i = try self.evaluate(algebra: child, activeGraph: activeGraph)
         var groupBuckets = [String:[TermResult]]()
         var groupBindings = [String:[String:Term]]()
@@ -1158,7 +1161,9 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
                 Logger.shared.error("Unexpected missing aggregation group template")
                 fatalError("Unexpected missing aggregation group template")
             }
-            for (agg, name) in aggs {
+            for aggMap in aggs {
+                let agg = aggMap.aggregation
+                let name = aggMap.variableName
                 switch agg {
                 case .countAll:
                     if let n = self.evaluateCountAll(results: results) {
@@ -1204,10 +1209,10 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
     }
 
     private func _resultsEqual(_ a : TermResult, _ b : TermResult, comparators: [Algebra.SortComparator]) -> Bool {
-        for (ascending, expr) in comparators {
-            guard var lhs = try? self.ee.evaluate(expression: expr, result: a) else { return true }
-            guard var rhs = try? self.ee.evaluate(expression: expr, result: b) else { return false }
-            if !ascending {
+        for cmp in comparators {
+            guard var lhs = try? self.ee.evaluate(expression: cmp.expression, result: a) else { return true }
+            guard var rhs = try? self.ee.evaluate(expression: cmp.expression, result: b) else { return false }
+            if !cmp.ascending {
                 (lhs, rhs) = (rhs, lhs)
             }
             if lhs < rhs {
@@ -1221,10 +1226,10 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
     
     private func _sortResults(_ results: [TermResult], comparators: [Algebra.SortComparator]) -> [TermResult] {
         let s = results.sorted { (a, b) -> Bool in
-            for (ascending, expr) in comparators {
-                guard var lhs = try? self.ee.evaluate(expression: expr, result: a) else { return true }
-                guard var rhs = try? self.ee.evaluate(expression: expr, result: b) else { return false }
-                if !ascending {
+            for cmp in comparators {
+                guard var lhs = try? self.ee.evaluate(expression: cmp.expression, result: a) else { return true }
+                guard var rhs = try? self.ee.evaluate(expression: cmp.expression, result: b) else { return false }
+                if !cmp.ascending {
                     (lhs, rhs) = (rhs, lhs)
                 }
                 if lhs < rhs {
