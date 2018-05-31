@@ -502,7 +502,10 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
     }
     
     func evaluate(algebra: Algebra, endpoint: Term, silent: Bool, activeGraph: Term) throws -> AnyIterator<TermResult> {
-        var args : (Data?, URLResponse?, Error?) = (nil, nil, nil)
+        guard let url = URL(string: endpoint.value) else {
+            throw QueryError.evaluationError("Failed to construct URL for SERVICE endpoint: \(endpoint)")
+        }
+        let client = SPARQLClient(endpoint: url, silent: silent)
         do {
             let s = SPARQLSerializer()
             guard let q = try? Query(form: .select(.star), algebra: algebra) else {
@@ -510,47 +513,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
             }
             let tokens = try q.sparqlTokens()
             let query = s.serializePretty(tokens)
-            guard var components = URLComponents(string: endpoint.value) else {
-                throw QueryError.evaluationError("Invalid URL components for SERVICE evaluation: \(endpoint.value)")
-            }
-            var queryItems = components.queryItems ?? []
-            queryItems.append(URLQueryItem(name: "query", value: query))
-            components.queryItems = queryItems
-
-            guard let u = components.url else {
-                throw QueryError.evaluationError("Invalid URL for SERVICE evaluation: \(components)")
-            }
-
-//            print("SPARQL service URL: <\(u.absoluteString)>")
-            
-            let semaphore = DispatchSemaphore(value: 0)
-            let session = URLSession.shared
-            let task = session.dataTask(with: u) {
-                args = ($0, $1, $2)
-                semaphore.signal()
-            }
-            task.resume()
-
-            let timeout = DispatchTime.now() + 5.0
-            _ = semaphore.wait(timeout: timeout)
-            
-            if let error = args.2 {
-                throw QueryError.evaluationError("URL request failed: \(error)")
-            }
-
-            guard let data = args.0 else {
-                throw QueryError.evaluationError("URL request did not return data")
-            }
-            
-            var r : QueryResult<[TermResult], [Triple]>
-            do {
-                // TODO: use conneg to accept SPARQL/JSON or SPARQL/TSV here
-                let srxParser = SPARQLXMLParser()
-                r = try srxParser.parse(data)
-            } catch let e {
-                throw QueryError.evaluationError("SPARQL Results XML parsing error: \(e)")
-            }
-
+            let r = try client.execute(query)
             switch r {
             case let .bindings(_, seq):
                 return AnyIterator(seq.makeIterator())
@@ -558,12 +521,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
                 throw QueryError.evaluationError("SERVICE request did not return bindings")
             }
         } catch let e {
-            if silent {
-                return try evaluate(algebra: .joinIdentity, activeGraph: activeGraph)
-            } else {
-                dump(args.1)
-                throw QueryError.evaluationError("SERVICE error: \(e)")
-            }
+            throw QueryError.evaluationError("SERVICE error: \(e)")
         }
     }
 
