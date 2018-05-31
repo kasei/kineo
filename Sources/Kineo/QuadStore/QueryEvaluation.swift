@@ -297,12 +297,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
                 }
             }
         case let .service(endpoint, algebra, silent):
-            switch endpoint {
-            case .bound(let i) where i.type == .iri:
-                return try evaluate(algebra: algebra, endpoint: i, silent: silent, activeGraph: activeGraph)
-            default:
-                throw QueryError.evaluationError("SERVICE cannot be called with a non-IRI endpoint")
-            }
+            return try evaluate(algebra: algebra, endpoint: endpoint, silent: silent, activeGraph: activeGraph)
         case let .namedGraph(child, .bound(g)):
             return try evaluate(algebra: child, activeGraph: g)
         case let .triple(t):
@@ -501,11 +496,8 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
         return AnyIterator(results.makeIterator())
     }
     
-    func evaluate(algebra: Algebra, endpoint: Term, silent: Bool, activeGraph: Term) throws -> AnyIterator<TermResult> {
-        guard let url = URL(string: endpoint.value) else {
-            throw QueryError.evaluationError("Failed to construct URL for SERVICE endpoint: \(endpoint)")
-        }
-        let client = SPARQLClient(endpoint: url, silent: silent)
+    func evaluate(algebra: Algebra, endpoint: URL, silent: Bool, activeGraph: Term) throws -> AnyIterator<TermResult> {
+        let client = SPARQLClient(endpoint: endpoint, silent: silent)
         do {
             let s = SPARQLSerializer()
             guard let q = try? Query(form: .select(.star), algebra: algebra) else {
