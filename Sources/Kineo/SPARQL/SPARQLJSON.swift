@@ -8,6 +8,47 @@
 import Foundation
 import SPARQLSyntax
 
+enum ResultValue: Codable {
+    case bindings([String], [[String:Term]])
+    case boolean(Bool)
+    
+    enum CodingKeys: CodingKey {
+        case head
+        case vars
+        case boolean
+        case results
+        case bindings
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let head = try container.nestedContainer(keyedBy: CodingKeys.self, forKey: .head)
+        if head.contains(.results) {
+            let results = try container.nestedContainer(keyedBy: CodingKeys.self, forKey: .results)
+            let vars = try results.decode([String].self, forKey: .vars)
+            let bindings = try results.decode([[String:Term]].self, forKey: .bindings)
+            self = .bindings(vars, bindings)
+        } else {
+            let value = try container.decode(String.self, forKey: .boolean)
+            self = .boolean(value == "true")
+        }
+    }
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        var head = container.nestedContainer(keyedBy: CodingKeys.self, forKey: .head)
+        switch self {
+        case let .bindings(vars, bindings):
+            var results = container.nestedContainer(keyedBy: CodingKeys.self, forKey: .results)
+            try head.encode(vars, forKey: .vars)
+            try results.encode(bindings, forKey: .bindings)
+        case let .boolean(value):
+            let lex = value ? "true" : "false"
+            try container.encode(lex, forKey: .boolean)
+        }
+    }
+}
+
 public struct SPARQLJSONSerializer<T: ResultProtocol> : SPARQLSerializable where T.TermType == Term {
     typealias ResultType = T
     public let canonicalMediaType = "application/sparql-results+json"
@@ -16,33 +57,6 @@ public struct SPARQLJSONSerializer<T: ResultProtocol> : SPARQLSerializable where
     public init() {
         encoder = JSONEncoder()
     }
-    enum ResultValue: Encodable {
-        case bindings([String], [[String:Term]])
-        case boolean(Bool)
-
-        enum CodingKeys: CodingKey {
-            case head
-            case vars
-            case boolean
-            case results
-            case bindings
-        }
-        
-        func encode(to encoder: Encoder) throws {
-            var container = encoder.container(keyedBy: CodingKeys.self)
-            var head = container.nestedContainer(keyedBy: CodingKeys.self, forKey: .head)
-            switch self {
-            case let .bindings(vars, bindings):
-                var results = container.nestedContainer(keyedBy: CodingKeys.self, forKey: .results)
-                try head.encode(vars, forKey: .vars)
-                try results.encode(bindings, forKey: .bindings)
-            case let .boolean(value):
-                let lex = value ? "true" : "false"
-                try container.encode(lex, forKey: .boolean)
-            }
-        }
-    }
-    
     public func serialize(_ results: QueryResult<[TermResult], [Triple]>) throws -> Data {
         var r : ResultValue
         switch results {
@@ -62,5 +76,25 @@ public struct SPARQLJSONSerializer<T: ResultProtocol> : SPARQLSerializable where
             throw SerializationError.encodingError("RDF triples cannot be serialized in SPARQL-JSON")
         }
         return try encoder.encode(r)
+    }
+}
+
+public struct SPARQLJSONParser : SPARQLParsable {
+    public let mediaTypes = Set(["application/sparql-results+json", "application/json"])
+
+    public var decoder: JSONDecoder
+    public init() {
+        decoder = JSONDecoder()
+    }
+
+    public func parse(_ data: Data) throws -> QueryResult<[TermResult], [Triple]> {
+        let resultValue = try decoder.decode(ResultValue.self, from: data)
+        switch resultValue {
+        case .boolean(let v):
+            return QueryResult.boolean(v)
+        case let .bindings(vars, rows):
+            let bindings = rows.map { TermResult(bindings: $0) }
+            return QueryResult.bindings(vars, bindings)
+        }
     }
 }

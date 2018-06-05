@@ -51,10 +51,14 @@ struct SPARQLClient {
                 throw QueryError.evaluationError("URL request did not return data")
             }
             
+            guard let resp = args.1 else {
+                throw QueryError.evaluationError("URL request did not return a response object")
+            }
+            
             do {
-                // TODO: use conneg to accept SPARQL/JSON or SPARQL/TSV here
-                let srxParser = SPARQLXMLParser()
-                return try srxParser.parse(data)
+                let n = SPARQLContentNegotiator()
+                let parser = n.negotiateParser(for: resp)
+                return try parser.parse(data)
             } catch let e {
                 throw QueryError.evaluationError("SPARQL Results XML parsing error: \(e)")
             }
@@ -66,5 +70,23 @@ struct SPARQLClient {
                 throw QueryError.evaluationError("SERVICE error: \(e)")
             }
         }
+    }
+}
+
+struct SPARQLContentNegotiator {
+    func negotiateParser(for response: URLResponse) -> SPARQLParsable {
+        if let resp = response as? HTTPURLResponse {
+            let type = resp.allHeaderFields["Content-Type"] as? String
+            switch type {
+            case "application/json", "application/sparql-results+json":
+                return SPARQLJSONParser()
+            case "application/sparql-results+xml":
+                return SPARQLXMLParser()
+            default:
+                break
+            }
+        }
+        
+        return SPARQLXMLParser()
     }
 }
