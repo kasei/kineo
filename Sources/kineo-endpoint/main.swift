@@ -83,6 +83,7 @@ var pageSize = 8192
 guard CommandLine.arguments.count > 1 else { warn("No database filename given."); exit(1) }
 let filename = CommandLine.arguments.removeLast()
 guard let database = FilePageDatabase(filename, size: pageSize) else { warn("Failed to open \(filename)"); exit(1) }
+let store = try PageQuadStore(database: database)
 
 struct ProtocolRequest : Codable {
     var query: String
@@ -110,7 +111,6 @@ router.get("sparql") { (req) -> HTTPResponse in
         guard var p = SPARQLParser(data: sparqlData) else { throw EndpointError(status: .internalServerError, message: "Failed to construct SPARQL parser") }
         let query = try p.parseQuery()
         let serializer = resultsSerializer(for: req)
-        let store = try PageQuadStore(database: database)
         let ds = try dataset(from: components, for: store)
         return try evaluate(query, using: store, dataset: ds, serializedWith: serializer)
     } catch let e {
@@ -128,7 +128,6 @@ router.post("sparql") { (req) -> HTTPResponse in
         guard let components = URLComponents(string: u.absoluteString) else { throw EndpointError(status: .badRequest, message: "Failed to access URL components") }
 
         let ct = req.http.headers["Content-Type"].first
-        let store = try PageQuadStore(database: database)
         let serializer = resultsSerializer(for: req)
 
         switch ct {

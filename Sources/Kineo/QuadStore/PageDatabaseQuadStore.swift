@@ -616,19 +616,17 @@ open class MediatedLanguagePageQuadStore: MediatedPageQuadStore {
         }
     }
     
-    /**
-     override public func quads(matching pattern: QuadPattern) throws -> AnyIterator<Quad> {
-     let i = try super.quads(matching: pattern)
-     return AnyIterator {
-     repeat {
-     guard let quad = i.next() else { return nil }
-     if self.accept(quad: quad, languages: self.acceptLanguages) {
-     return quad
-     }
-     } while true
-     }
-     }
-     **/
+//    override public func quads(matching pattern: QuadPattern) throws -> AnyIterator<Quad> {
+//        let i = try super.quads(matching: pattern)
+//        return AnyIterator {
+//            repeat {
+//                guard let quad = i.next() else { return nil }
+//                if self.accept(quad: quad, languages: self.acceptLanguages) {
+//                    return quad
+//                }
+//            } while true
+//        }
+//    }
     
     internal func qValue(_ language: String, qualityValues: [(String, Double)]) -> Double {
         for (lang, value) in qualityValues {

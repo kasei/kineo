@@ -74,6 +74,10 @@ struct SPARQLClient {
 }
 
 struct SPARQLContentNegotiator {
+    func negotiateSerializer(for request: URLRequest) -> SPARQLSerializable {
+        fatalError("SPARQLContentNegotiator.negotiateSerializer not implemented yet")
+    }
+    
     func negotiateParser(for response: URLResponse) -> SPARQLParsable {
         if let resp = response as? HTTPURLResponse {
             let type = resp.allHeaderFields["Content-Type"] as? String
