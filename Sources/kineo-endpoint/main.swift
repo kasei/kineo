@@ -45,26 +45,6 @@ func evaluate<Q : QuadStoreProtocol>(_ query: Query, using store: Q, dataset: Da
     return resp
 }
 
-func resultsSerializer(for req: Request) -> SPARQLSerializable {
-    let accept = req.http.headers["Accept"]
-    let xml = SPARQLXMLSerializer<TermResult>()
-    let json = SPARQLJSONSerializer<TermResult>()
-    for a in accept {
-        if a == "*/*" {
-            return xml
-        } else if a.hasPrefix("application/sparql-results+json") {
-            return json
-        } else if a.hasPrefix("application/json") {
-            return json
-        } else if a.hasPrefix("test/plain") {
-            return json
-        } else if a.hasPrefix("application/sparql-results+xml") {
-            return xml
-        }
-    }
-    return xml
-}
-
 func dataset<Q : QuadStoreProtocol>(from components: URLComponents, for store: Q) throws -> Dataset {
     let queryItems = components.queryItems ?? []
     let defaultGraphs = queryItems.filter { $0.name == "default-graph-uri" }.compactMap { $0.value }.map { Term(iri: $0) }
@@ -81,9 +61,20 @@ func dataset<Q : QuadStoreProtocol>(from components: URLComponents, for store: Q
 var pageSize = 8192
 
 guard CommandLine.arguments.count > 1 else { warn("No database filename given."); exit(1) }
-let filename = CommandLine.arguments.removeLast()
+var filename : String = ""
+var language : Bool = false
+
+while true {
+    filename = CommandLine.arguments.removeLast()
+    if filename == "-l" {
+        language = true
+        guard CommandLine.arguments.count > 1 else { warn("No database filename given."); exit(1) }
+        continue
+    }
+    break
+}
+
 guard let database = FilePageDatabase(filename, size: pageSize) else { warn("Failed to open \(filename)"); exit(1) }
-let store = try PageQuadStore(database: database)
 
 struct ProtocolRequest : Codable {
     var query: String
@@ -98,6 +89,24 @@ struct ProtocolRequest : Codable {
     }
 }
 
+func parseAcceptLanguages(_ value: String) -> [(String, Double)] {
+    var accept = [(String, Double)]()
+    let items = value.split(separator: ",")
+    for i in items {
+        let pair = i.split(separator: ";")
+        if pair.count == 1 {
+            accept.append((String(pair[0]), 1.0))
+        } else if pair.count == 2 {
+            if let d = Double(pair[1]) {
+                accept.append((String(pair[0]), d))
+            } else {
+                accept.append((String(pair[0]), 1.0))
+            }
+        }
+    }
+    return accept
+}
+
 let app = try Application()
 let router = try app.make(Router.self)
 router.get("sparql") { (req) -> HTTPResponse in
@@ -110,9 +119,19 @@ router.get("sparql") { (req) -> HTTPResponse in
         guard let sparqlData = sparql.data(using: .utf8) else { throw EndpointError(status: .badRequest, message: "Failed to interpret SPARQL as utf-8") }
         guard var p = SPARQLParser(data: sparqlData) else { throw EndpointError(status: .internalServerError, message: "Failed to construct SPARQL parser") }
         let query = try p.parseQuery()
-        let serializer = resultsSerializer(for: req)
-        let ds = try dataset(from: components, for: store)
-        return try evaluate(query, using: store, dataset: ds, serializedWith: serializer)
+        let n = SPARQLContentNegotiator()
+        let accept = req.http.headers["Accept"]
+        let serializer = n.negotiateSerializer(for: accept)
+        if language, let header = req.http.headers["Accept-Language"].first {
+            let acceptLanguages = parseAcceptLanguages(header)
+            let store = try LanguagePageQuadStore(database: database, acceptLanguages: acceptLanguages)
+            let ds = try dataset(from: components, for: store)
+            return try evaluate(query, using: store, dataset: ds, serializedWith: serializer)
+        } else {
+            let store = try PageQuadStore(database: database)
+            let ds = try dataset(from: components, for: store)
+            return try evaluate(query, using: store, dataset: ds, serializedWith: serializer)
+        }
     } catch let e {
         if let err = e as? EndpointError {
             return HTTPResponse(status: err.status, body: err.message)
@@ -128,23 +147,41 @@ router.post("sparql") { (req) -> HTTPResponse in
         guard let components = URLComponents(string: u.absoluteString) else { throw EndpointError(status: .badRequest, message: "Failed to access URL components") }
 
         let ct = req.http.headers["Content-Type"].first
-        let serializer = resultsSerializer(for: req)
+        let n = SPARQLContentNegotiator()
+        let accept = req.http.headers["Accept"]
+        let serializer = n.negotiateSerializer(for: accept)
 
         switch ct {
         case .none, .some("application/sparql-query"):
             guard let sparqlData = req.http.body.data else { throw EndpointError(status: .badRequest, message: "No query supplied") }
             guard var p = SPARQLParser(data: sparqlData) else { throw EndpointError(status: .internalServerError, message: "Failed to construct SPARQL parser") }
             let query = try p.parseQuery()
-            let ds = try dataset(from: components, for: store)
-            return try evaluate(query, using: store, dataset: ds, serializedWith: serializer)
+            if language, let header = req.http.headers["Accept-Language"].first {
+                let acceptLanguages = parseAcceptLanguages(header)
+                let store = try LanguagePageQuadStore(database: database, acceptLanguages: acceptLanguages)
+                let ds = try dataset(from: components, for: store)
+                return try evaluate(query, using: store, dataset: ds, serializedWith: serializer)
+            } else {
+                let store = try PageQuadStore(database: database)
+                let ds = try dataset(from: components, for: store)
+                return try evaluate(query, using: store, dataset: ds, serializedWith: serializer)
+            }
         case .some("application/x-www-form-urlencoded"):
             guard let formData = req.http.body.data else { throw EndpointError(status: .badRequest, message: "No form data supplied") }
             let q = try URLEncodedFormDecoder().decode(ProtocolRequest.self, from: formData)
             guard let sparqlData = q.query.data(using: .utf8) else { throw EndpointError(status: .badRequest, message: "No query supplied") }
             guard var p = SPARQLParser(data: sparqlData) else { throw EndpointError(status: .internalServerError, message: "Failed to construct SPARQL parser") }
             let query = try p.parseQuery()
-            let ds = try q.dataset ?? dataset(from: components, for: store) // TOOD: access dataset IRIs from POST body
-            return try evaluate(query, using: store, dataset: ds, serializedWith: serializer)
+            if language, let header = req.http.headers["Accept-Language"].first {
+                let acceptLanguages = parseAcceptLanguages(header)
+                let store = try LanguagePageQuadStore(database: database, acceptLanguages: acceptLanguages)
+                let ds = try q.dataset ?? dataset(from: components, for: store) // TOOD: access dataset IRIs from POST body
+                return try evaluate(query, using: store, dataset: ds, serializedWith: serializer)
+            } else {
+                let store = try PageQuadStore(database: database)
+                let ds = try q.dataset ?? dataset(from: components, for: store) // TOOD: access dataset IRIs from POST body
+                return try evaluate(query, using: store, dataset: ds, serializedWith: serializer)
+            }
         case .some(let c):
             throw EndpointError(status: .badRequest, message: "Unrecognized Content-Type: \(c)")
         }

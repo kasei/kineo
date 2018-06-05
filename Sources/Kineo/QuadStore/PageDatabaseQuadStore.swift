@@ -14,7 +14,7 @@ open class PageQuadStore<D: PageDatabase>: Sequence, QuadStoreProtocol, MutableQ
     public init(database: D) throws {
         self.database = database
     }
-
+    
     public var count: Int {
         var c = 0
         try? database.read { (m) in
@@ -81,6 +81,87 @@ open class PageQuadStore<D: PageDatabase>: Sequence, QuadStoreProtocol, MutableQ
     public func load<S>(version: Version, quads: S) throws where S : Sequence, S.Element == Quad {
         try database.update(version: version) { (m) in
             let store       = try MediatedPageQuadStore(mediator: m)
+            try store.load(quads: quads)
+        }
+    }
+}
+
+open class LanguagePageQuadStore<D: PageDatabase>: Sequence, QuadStoreProtocol, MutableQuadStoreProtocol {
+    var database: D
+    public typealias IDType = UInt64
+    var acceptLanguages: [(String, Double)]
+
+    public init(database: D, acceptLanguages: [(String, Double)]) throws {
+        self.database = database
+        self.acceptLanguages = acceptLanguages
+    }
+    
+    public var count: Int {
+        var c = 0
+        try? database.read { (m) in
+            let store       = try MediatedLanguagePageQuadStore(mediator: m, acceptLanguages: acceptLanguages)
+            c = store.count
+        }
+        return c
+    }
+    
+    public func graphs() -> AnyIterator<Term> {
+        var i : AnyIterator<Term> = AnyIterator([].makeIterator())
+        try? database.read { (m) in
+            let store       = try MediatedLanguagePageQuadStore(mediator: m, acceptLanguages: acceptLanguages)
+            i = store.graphs()
+        }
+        return i
+    }
+    
+    public func graphTerms(in graph: Term) -> AnyIterator<Term> {
+        var i : AnyIterator<Term> = AnyIterator([].makeIterator())
+        try? database.read { (m) in
+            let store       = try MediatedLanguagePageQuadStore(mediator: m, acceptLanguages: acceptLanguages)
+            i = store.graphTerms(in: graph)
+        }
+        return i
+    }
+    
+    public func makeIterator() -> AnyIterator<Quad> {
+        var i : AnyIterator<Quad> = AnyIterator([].makeIterator())
+        try? database.read { (m) in
+            let store       = try MediatedLanguagePageQuadStore(mediator: m, acceptLanguages: acceptLanguages)
+            i = store.makeIterator()
+        }
+        return i
+    }
+    
+    public func results(matching pattern: QuadPattern) throws -> AnyIterator<TermResult> {
+        var i : AnyIterator<TermResult> = AnyIterator([].makeIterator())
+        try database.read { (m) in
+            let store       = try MediatedLanguagePageQuadStore(mediator: m, acceptLanguages: acceptLanguages)
+            i = try store.results(matching: pattern)
+        }
+        return i
+    }
+    
+    public func quads(matching pattern: QuadPattern) throws -> AnyIterator<Quad> {
+        var i : AnyIterator<Quad> = AnyIterator([].makeIterator())
+        try database.read { (m) in
+            let store       = try MediatedLanguagePageQuadStore(mediator: m, acceptLanguages: acceptLanguages)
+            i = try store.quads(matching: pattern)
+        }
+        return i
+    }
+    
+    public func effectiveVersion(matching pattern: QuadPattern) throws -> Version? {
+        var v : Version? = nil
+        try database.read { (m) in
+            let store       = try MediatedLanguagePageQuadStore(mediator: m, acceptLanguages: acceptLanguages)
+            v = try store.effectiveVersion(matching: pattern)
+        }
+        return v
+    }
+    
+    public func load<S>(version: Version, quads: S) throws where S : Sequence, S.Element == Quad {
+        try database.update(version: version) { (m) in
+            let store       = try MediatedLanguagePageQuadStore(mediator: m, acceptLanguages: acceptLanguages)
             try store.load(quads: quads)
         }
     }
