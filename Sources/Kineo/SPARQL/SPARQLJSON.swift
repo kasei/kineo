@@ -56,7 +56,11 @@ public struct SPARQLJSONSerializer<T: ResultProtocol> : SPARQLSerializable where
     public var encoder: JSONEncoder
     public init() {
         encoder = JSONEncoder()
+        if #available(OSX 10.13, iOS 11.0, watchOS 4.0, tvOS 11.0, *) {
+            encoder.outputFormatting = .sortedKeys
+        }
     }
+    
     public func serialize(_ results: QueryResult<[TermResult], [Triple]>) throws -> Data {
         var r : ResultValue
         switch results {
