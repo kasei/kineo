@@ -83,7 +83,7 @@ func parseSRX(_ filename: String, silent: Bool) throws -> Int32 {
 }
 
 func parseRDF(_ filename: String, silent: Bool) throws -> Int32 {
-    let syntax = RDFParser.guessSyntax(for: filename)
+    let syntax = RDFParser.guessSyntax(filename: filename)
     let parser = RDFParser(syntax: syntax)
     let url = URL(fileURLWithPath: filename)
     _ = try parser.parse(file: filename, base: url.absoluteString) { (s, p, o) in

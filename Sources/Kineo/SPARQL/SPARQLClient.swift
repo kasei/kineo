@@ -8,12 +8,12 @@
 import Foundation
 import SPARQLSyntax
 
-struct SPARQLClient {
+public struct SPARQLClient {
     var endpoint: URL
     var timeout: Double
     var silent: Bool
     
-    init(endpoint: URL, silent: Bool = false, timeout: Double = 5.0) {
+    public init(endpoint: URL, silent: Bool = false, timeout: Double = 5.0) {
         self.endpoint = endpoint
         self.timeout = timeout
         self.silent = silent

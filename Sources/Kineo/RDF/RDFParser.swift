@@ -181,7 +181,7 @@ public class RDFParser {
         }
     }
 
-    public static func guessSyntax(for filename: String) -> RDFSyntax {
+    public static func guessSyntax(filename: String) -> RDFSyntax {
         if filename.hasSuffix("ttl") {
             return .turtle
         } else if filename.hasSuffix("nt") {
@@ -192,7 +192,23 @@ public class RDFParser {
             return .turtle
         }
     }
-
+    
+    public static func guessSyntax(mediaType: String) -> RDFSyntax {
+        if mediaType.hasPrefix("text/turtle") {
+            return .turtle
+        } else if mediaType.hasPrefix("text/plain") {
+            return .turtle
+        } else if mediaType.hasPrefix("application/rdf+xml") {
+            return .rdfxml
+        } else if mediaType.hasPrefix("application/xml") {
+            return .rdfxml
+        } else if mediaType.hasSuffix("application/n-triples") {
+            return .ntriples
+        } else {
+            return .turtle
+        }
+    }
+    
     var inputSyntax: RDFSyntax
     var defaultBase: String
     

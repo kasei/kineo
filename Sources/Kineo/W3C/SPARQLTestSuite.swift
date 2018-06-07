@@ -35,7 +35,7 @@ public struct SPARQLTestRunner {
             #endif
             let graph   = defaultGraphTerm ?? Term(value: path, type: .iri)
             
-            let syntax = RDFParser.guessSyntax(for: filename)
+            let syntax = RDFParser.guessSyntax(filename: filename)
             let parser = RDFParser(syntax: syntax)
             var quads = [Quad]()
             //                    print("Parsing RDF...")
@@ -361,7 +361,7 @@ public struct SPARQLTestRunner {
             let srxParser = SPARQLXMLParser()
             return try srxParser.parse(Data(contentsOf: url))
         } else if url.absoluteString.hasSuffix("ttl") || url.absoluteString.hasSuffix("rdf") {
-            let syntax = RDFParser.guessSyntax(for: url.absoluteString)
+            let syntax = RDFParser.guessSyntax(filename: url.absoluteString)
             let parser = RDFParser(syntax: syntax)
             var triples = [Triple]()
             _ = try parser.parse(file: url.path, base: url.absoluteString) { (s, p, o) in

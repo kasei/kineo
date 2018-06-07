@@ -11,11 +11,12 @@ let package = Package(
 		.package(url: "https://github.com/kasei/swift-serd.git", from: "0.0.0"),
 		.package(url: "https://github.com/krzyzanowskim/CryptoSwift.git", from: "0.8.0"),
         .package(url: "https://github.com/vapor/vapor.git", from: "3.0.0"),
+        .package(url: "https://github.com/kylef/URITemplate.swift.git", from: "2.0.3")
     ],
     targets: [
     	.target(
     		name: "Kineo",
-			dependencies: ["CryptoSwift", "SPARQLSyntax"]
+			dependencies: ["CryptoSwift", "SPARQLSyntax", "URITemplate"]
     	),
         .target(
             name: "kineo-cli",
@@ -32,6 +33,10 @@ let package = Package(
         .target(
             name: "kineo-endpoint",
             dependencies: ["Kineo", "SPARQLSyntax", "Vapor"]
+        ),
+        .target(
+            name: "kineo-test",
+            dependencies: ["Kineo", "SPARQLSyntax"]
         ),
         .testTarget(name: "KineoTests", dependencies: ["Kineo"])
     ]
