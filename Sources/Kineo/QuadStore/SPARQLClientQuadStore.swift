@@ -155,7 +155,6 @@ open class SPARQLClientQuadStore: Sequence, QuadStoreProtocol {
 
 extension SPARQLClientQuadStore: CustomStringConvertible {
     public var description: String {
-        var s = "SPARQLClientQuadStore <\(client.endpoint)>\n"
-        return s
+        return "SPARQLClientQuadStore <\(client.endpoint)>\n"
     }
 }

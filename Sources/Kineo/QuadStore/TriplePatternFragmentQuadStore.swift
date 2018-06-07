@@ -327,3 +327,52 @@ extension Term {
         }
     }
 }
+
+public extension TriplePatternFragmentQuadStore {
+    private func extend<C : Collection>(result: TermResult, with patterns: C) throws -> AnyIterator<TermResult> where C.Element == TriplePattern {
+        if let tp = patterns.first {
+            let qp = QuadPattern(triplePattern: tp, graph: .bound(defaultGraph)).expand(result.bindings)
+            let r = try results(matching: qp)
+
+            let bindings = r.lazy.compactMap { (r) -> TermResult? in
+                return r.join(result)
+            }
+            
+            let rest = patterns.dropFirst()
+            if rest.count == 0 {
+                return AnyIterator(bindings.makeIterator())
+            } else {
+                var buffer = [TermResult]()
+                var source = bindings.makeIterator()
+                return AnyIterator { () -> TermResult? in
+                    while true {
+                        if buffer.count > 0 {
+                            return buffer.remove(at: 0)
+                        }
+                        
+                        guard let b = source.next() else {
+                            return nil
+                        }
+                        
+                        if let i = try? self.extend(result: b, with: rest) {
+                            buffer.append(contentsOf: i)
+                        } else {
+                            return nil
+                        }
+                    }
+                }
+            }
+        } else {
+            return AnyIterator([result].makeIterator())
+        }
+    }
+    
+    func evaluate(bgp: [TriplePattern], activeGraph: Term) throws -> AnyIterator<TermResult> {
+        // TODO: re-order triple patterns based on selectivity (obtained from metadata on first page of each fragment)
+        guard activeGraph == defaultGraph else {
+            return AnyIterator([].makeIterator())
+        }
+        
+        return try extend(result: TermResult(bindings: [:]), with: bgp)
+    }
+}
