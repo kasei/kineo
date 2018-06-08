@@ -350,10 +350,10 @@ func printSPARQL(_ qfile: String, pretty: Bool = false, silent: Bool = false, in
     let stream = InputStream(data: sparql)
     stream.open()
     let lexer = SPARQLLexer(source: stream, includeComments: includeComments)
-    let s = SPARQLSerializer()
+    let s = SPARQLSerializer(prettyPrint: true)
     let tokens: UnfoldSequence<SPARQLToken, Int> = sequence(state: 0) { (_) in return lexer.next() }
     if pretty {
-        print(s.serializePretty(tokens))
+        print(s.serialize(tokens))
     } else {
         print(s.serialize(tokens))
     }

@@ -499,12 +499,12 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
     func evaluate(algebra: Algebra, endpoint: URL, silent: Bool, activeGraph: Term) throws -> AnyIterator<TermResult> {
         let client = SPARQLClient(endpoint: endpoint, silent: silent)
         do {
-            let s = SPARQLSerializer()
+            let s = SPARQLSerializer(prettyPrint: true)
             guard let q = try? Query(form: .select(.star), algebra: algebra) else {
                 throw QueryError.evaluationError("Failed to serialize SERVICE algebra into SPARQL string")
             }
             let tokens = try q.sparqlTokens()
-            let query = s.serializePretty(tokens)
+            let query = s.serialize(tokens)
             let r = try client.execute(query)
             switch r {
             case let .bindings(_, seq):

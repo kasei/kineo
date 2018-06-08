@@ -16,9 +16,9 @@ func prettyPrint(_ qfile: String, silent: Bool = false, includeComments: Bool = 
     let stream = InputStream(data: sparql)
     stream.open()
     let lexer = SPARQLLexer(source: stream, includeComments: includeComments)
-    let s = SPARQLSerializer()
+    let s = SPARQLSerializer(prettyPrint: true)
     let tokens: UnfoldSequence<SPARQLToken, Int> = sequence(state: 0) { (_) in return lexer.next() }
-    let pretty = s.serializePretty(tokens)
+    let pretty = s.serialize(tokens)
     print(pretty)
 }
 
