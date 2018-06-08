@@ -224,7 +224,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
             return AnyIterator(s.makeIterator())
         case let .aggregate(child, groups, aggs):
             if aggs.count == 1 {
-                let aggMap = aggs[0]
+                let aggMap = aggs.first!
                 switch aggMap.aggregation {
                 case .sum(_, false), .count(_, false), .countAll, .avg(_, false), .min(_), .max(_), .groupConcat(_, _, false), .sample(_):
                     return try evaluateSinglePipelinedAggregation(algebra: child, groups: groups, aggregation: aggMap.aggregation, variable: aggMap.variableName, activeGraph: activeGraph)
@@ -1076,7 +1076,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
         }
     }
 
-    func evaluateAggregation(algebra child: Algebra, groups: [Expression], aggregations aggs: [Algebra.AggregationMapping], activeGraph: Term) throws -> AnyIterator<TermResult> {
+    func evaluateAggregation(algebra child: Algebra, groups: [Expression], aggregations aggs: Set<Algebra.AggregationMapping>, activeGraph: Term) throws -> AnyIterator<TermResult> {
         let i = try self.evaluate(algebra: child, activeGraph: activeGraph)
         var groupBuckets = [String:[TermResult]]()
         var groupBindings = [String:[String:Term]]()

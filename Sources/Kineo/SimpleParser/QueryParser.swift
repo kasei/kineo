@@ -111,7 +111,7 @@ open class QueryParser<T: LineReadable> {
             }
             
             guard let child = stack.popLast() else { return nil }
-            return .aggregate(child, groups, aggregates)
+            return .aggregate(child, groups, Set(aggregates))
         } else if op == "window" { // window row rowresult , rank rankresult ; ?x , ?y , ?z"
             let pair = parts.suffix(from: 1).split(separator: ";")
             guard pair.count >= 1 else { throw QueryError.parseError("Bad syntax for window operation") }
