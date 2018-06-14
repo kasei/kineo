@@ -91,7 +91,7 @@ class TermIdentityMapTest: XCTestCase {
         
         let integerOverflows : [UInt64] = [0x00ffffffffffffff, 0x01ffffffffffffff]
         for v in integerOverflows {
-            let id = map.id(for: Term(value: "\(v)", type: .datatype("http://www.w3.org/2001/XMLSchema#integer")))
+            let id = map.id(for: Term(value: "\(v)", type: .datatype(.integer)))
             XCTAssertNil(id)
         }
     }
@@ -175,7 +175,7 @@ class TermIdentityMapTest: XCTestCase {
             let term = map.term(for: id)
             XCTAssertNotNil(term)
             XCTAssertEqual(term!.value, string)
-            XCTAssertEqual(term!.type, .datatype("http://www.w3.org/2001/XMLSchema#string"))
+            XCTAssertEqual(term!.type, .datatype(.string))
         }
     }
 
@@ -232,7 +232,7 @@ class TermIdentityMapTest: XCTestCase {
     
     func testDecimalToID() {
         for (expected, string) in expectedDecimals {
-            let id = map.id(for: Term(value: string, type: .datatype("http://www.w3.org/2001/XMLSchema#decimal")))
+            let id = map.id(for: Term(value: string, type: .datatype(.decimal)))
             XCTAssertEqual(id, decimal_base + expected)
         }
     }
@@ -242,7 +242,7 @@ class TermIdentityMapTest: XCTestCase {
             let term = map.term(for: decimal_base + id)
             XCTAssertNotNil(term)
             XCTAssertEqual(term!.value, string)
-            XCTAssertEqual(term!.type, .datatype("http://www.w3.org/2001/XMLSchema#decimal"))
+            XCTAssertEqual(term!.type, .datatype(.decimal))
         }
     }
     

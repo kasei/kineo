@@ -15,7 +15,7 @@ extension Term {
         switch type {
         case .datatype("http://www.w3.org/2001/XMLSchema#boolean"):
             return value == "true" || value == "1"
-        case .language(_), .datatype("http://www.w3.org/2001/XMLSchema#string"):
+        case .language(_), .datatype(.string):
             return value.count > 0
         case _ where self.isNumeric:
             return self.numericValue != 0.0
@@ -114,7 +114,7 @@ class ExpressionEvaluator {
         if dateFunction == .now {
             if #available (OSX 10.12, *) {
                 let f = W3CDTFLocatedDateFormatter()
-                return Term(value: f.string(from: now), type: .datatype(Term.xsd("dateTime").value))
+                return Term(value: f.string(from: now), type: .datatype(.dateTime))
             } else {
                 throw QueryError.evaluationError("OSX 10.12 is required to use date functions")
             }
@@ -142,7 +142,8 @@ class ExpressionEvaluator {
                 guard let tz = term.timeZone else { throw QueryError.evaluationError("Argument xsd:dateTime does not have a valid timezone in \(dateFunction) call") }
                 let seconds = tz.secondsFromGMT()
                 if seconds == 0 {
-                    return Term(value: "PT0S", type: .datatype(Term.xsd("dayTimeDuration").value))
+                    let dt = TermDataType(stringLiteral: Term.xsd("dayTimeDuration").value)
+                    return Term(value: "PT0S", type: .datatype(dt))
                 } else {
                     let neg = seconds < 0 ? "-" : ""
                     let minutes = abs(seconds / 60) % 60
@@ -151,7 +152,8 @@ class ExpressionEvaluator {
                     if minutes > 0 {
                         string += "\(minutes)M"
                     }
-                    return Term(value: string, type: .datatype(Term.xsd("dayTimeDuration").value))
+                    let dt = TermDataType(stringLiteral: Term.xsd("dayTimeDuration").value)
+                    return Term(value: string, type: .datatype(dt))
                 }
             case .tz:
                 guard let tz = term.timeZone else { return Term(string: "") }
@@ -203,7 +205,7 @@ class ExpressionEvaluator {
     private func evaluate(hashFunction: HashFunction, terms: [Term?]) throws -> Term {
         try guardArity(terms.count, 1, "Hash")
         let term = terms[0]!
-        guard case .datatype("http://www.w3.org/2001/XMLSchema#string") = term.type else {
+        guard case .datatype(.string) = term.type else {
             throw QueryError.evaluationError("Hash function invocation must have simple literal operand")
         }
         let value = term.value
@@ -264,7 +266,8 @@ class ExpressionEvaluator {
             try guardArity(terms.count, 2, constructorFunction.rawValue)
             guard let string = terms[0], let datatype = terms[1] else { throw QueryError.evaluationError("Not all arguments are bound in \(constructorFunction) call") }
             try throwUnlessSimpleLiteral(string)
-            return Term(value: string.value, type: .datatype(datatype.value))
+            let dt = TermDataType(stringLiteral: datatype.value)
+            return Term(value: string.value, type: .datatype(dt))
         case .strlang:
             try guardArity(terms.count, 2, constructorFunction.rawValue)
             guard let string = terms[0], let lang = terms[1] else { throw QueryError.evaluationError("Not all arguments are bound in \(constructorFunction) call") }
@@ -301,7 +304,7 @@ class ExpressionEvaluator {
         switch (lhs.type, rhs.type) {
         case let (.language(llang), .language(rlang)) where llang == rlang:
             return
-        case (.language(_), .datatype("http://www.w3.org/2001/XMLSchema#string")):
+        case (.language(_), .datatype(.string)):
             return
         default:
             throw QueryError.evaluationError("Operands must be argument-compatible")
@@ -337,7 +340,7 @@ class ExpressionEvaluator {
                 return Term(value: string.value.uppercased(), type: string.type)
             case .datatype:
                 guard case .datatype(let d) = string.type else { throw QueryError.evaluationError("DATATYPE called on on a non-datatyped term") }
-                return Term(value: d, type: .iri)
+                return Term(value: d.value, type: .iri)
             case .encode_for_uri:
                 guard let encoded = string.value.addingPercentEncoding(withAllowedCharacters: CharacterSet.urlQueryAllowed) else {
                     throw QueryError.evaluationError("Failed to encode string as a URI")
@@ -573,7 +576,7 @@ class ExpressionEvaluator {
         case .datatype(let expr):
             let val = try evaluate(expression: expr, result: result)
             if case .datatype(let dt) = val.type {
-                return Term(value: dt, type: .iri)
+                return Term(value: dt.value, type: .iri)
             } else if case .language(_) = val.type {
                 return Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#langString", type: .iri)
             } else {
@@ -778,7 +781,7 @@ class ExpressionEvaluator {
 extension Term {
     var isStringLiteral: Bool {
         switch self.type {
-        case .language(_), .datatype("http://www.w3.org/2001/XMLSchema#string"):
+        case .language(_), .datatype(.string):
             return true
         default:
             return false
@@ -787,7 +790,7 @@ extension Term {
     
     var isSimpleLiteral: Bool {
         switch self.type {
-        case .datatype("http://www.w3.org/2001/XMLSchema#string"):
+        case .datatype(.string):
             return true
         default:
             return false

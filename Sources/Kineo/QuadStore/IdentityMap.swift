@@ -133,17 +133,17 @@ public extension PackedIdentityMap where Item == Term, Result == UInt64 {
             return pack(boolean: true)
         case (.datatype("http://www.w3.org/2001/XMLSchema#boolean"), "false"), (.datatype("http://www.w3.org/2001/XMLSchema#boolean"), "0"):
             return pack(boolean: false)
-        case (.datatype("http://www.w3.org/2001/XMLSchema#dateTime"), _):
+        case (.datatype(.dateTime), _):
             return pack(dateTime: value)
-        case (.datatype("http://www.w3.org/2001/XMLSchema#date"), let v):
+        case (.datatype(.date), let v):
             return pack(date: v)
-        case (.datatype("http://www.w3.org/2001/XMLSchema#string"), let v):
+        case (.datatype(.string), let v):
             return pack(string: v)
-        case (.datatype("http://www.w3.org/2001/XMLSchema#integer"), let v):
+        case (.datatype(.integer), let v):
             return pack(integer: v)
         case (.datatype("http://www.w3.org/2001/XMLSchema#int"), let v):
             return pack(int: v)
-        case (.datatype("http://www.w3.org/2001/XMLSchema#decimal"), let v):
+        case (.datatype(.decimal), let v):
             return pack(decimal: v)
         default:
             return nil
@@ -180,7 +180,7 @@ public extension PackedIdentityMap where Item == Term, Result == UInt64 {
         }
         
         if let string = string {
-            return Term(value: string, type: .datatype("http://www.w3.org/2001/XMLSchema#string"))
+            return Term(value: string, type: .datatype(.string))
         }
         return nil
     }
@@ -191,7 +191,7 @@ public extension PackedIdentityMap where Item == Term, Result == UInt64 {
     }
     
     private func unpack(integer value: UInt64) -> Item? {
-        return Term(value: "\(value)", type: .datatype("http://www.w3.org/2001/XMLSchema#integer"))
+        return Term(value: "\(value)", type: .datatype(.integer))
     }
     
     private func unpack(int value: UInt64) -> Item? {
@@ -224,7 +224,7 @@ public extension PackedIdentityMap where Item == Term, Result == UInt64 {
         if highBit > 0 {
             string = "-\(string)"
         }
-        return Term(value: string, type: .datatype("http://www.w3.org/2001/XMLSchema#decimal"))
+        return Term(value: string, type: .datatype(.decimal))
     }
     
     private func unpack(date value: UInt64) -> Item? {
@@ -233,7 +233,7 @@ public extension PackedIdentityMap where Item == Term, Result == UInt64 {
         let month   = months % 12
         let year    = months / 12
         let date    = String(format: "%04d-%02d-%02d", year, month, day)
-        return Term(value: date, type: .datatype("http://www.w3.org/2001/XMLSchema#date"))
+        return Term(value: date, type: .datatype(.date))
     }
     
     private func unpack(dateTime value: UInt64) -> Item? {
@@ -259,7 +259,7 @@ public extension PackedIdentityMap where Item == Term, Result == UInt64 {
             }
             dateTime = dateTime + String(format: "%+03d:%02d", hours, minutes)
         }
-        return Term(value: dateTime, type: .datatype("http://www.w3.org/2001/XMLSchema#dateTime"))
+        return Term(value: dateTime, type: .datatype(.dateTime))
     }
     
     private func pack(decimal stringValue: String) -> Result? {

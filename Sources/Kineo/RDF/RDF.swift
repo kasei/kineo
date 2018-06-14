@@ -43,11 +43,11 @@ extension TermType: BufferSerializable {
     public var serializedSize: Int {
         switch self {
         case .datatype("http://www.w3.org/2001/XMLSchema#float"),
-             .datatype("http://www.w3.org/2001/XMLSchema#integer"),
+             .datatype(.integer),
              .datatype("http://www.w3.org/2001/XMLSchema#decimal"),
              .datatype("http://www.w3.org/2001/XMLSchema#dateTime"),
              .datatype("http://www.w3.org/2001/XMLSchema#date"),
-             .datatype("http://www.w3.org/2001/XMLSchema#string"):
+             .datatype(.string):
             return 1
         case .language("de"),
              .language("en"),
@@ -64,7 +64,7 @@ extension TermType: BufferSerializable {
         case .language(let lang):
             return 1 + lang.serializedSize
         case .datatype(let dt):
-            return 1 + dt.serializedSize
+            return 1 + dt.value.serializedSize
         }
     }
     public func serialize(to buffer: inout UnsafeMutableRawPointer, mediator: PageRWMediator?, maximumSize: Int) throws {
@@ -100,7 +100,7 @@ extension TermType: BufferSerializable {
         case .datatype("http://www.w3.org/2001/XMLSchema#float"):
             buffer.assumingMemoryBound(to: UInt8.self).pointee = 10
             buffer += 1
-        case .datatype("http://www.w3.org/2001/XMLSchema#integer"):
+        case .datatype(.integer):
             buffer.assumingMemoryBound(to: UInt8.self).pointee = 9
             buffer += 1
         case .datatype("http://www.w3.org/2001/XMLSchema#decimal"):
@@ -112,7 +112,7 @@ extension TermType: BufferSerializable {
         case .datatype("http://www.w3.org/2001/XMLSchema#date"):
             buffer.assumingMemoryBound(to: UInt8.self).pointee = 6
             buffer += 1
-        case .datatype("http://www.w3.org/2001/XMLSchema#string"):
+        case .datatype(.string):
             buffer.assumingMemoryBound(to: UInt8.self).pointee = 5
             buffer += 1
         case .iri:
@@ -128,7 +128,7 @@ extension TermType: BufferSerializable {
         case .datatype(let dt):
             buffer.assumingMemoryBound(to: UInt8.self).pointee = 4
             buffer += 1
-            try dt.serialize(to: &buffer)
+            try dt.value.serialize(to: &buffer)
         }
     }
     
@@ -158,7 +158,7 @@ extension TermType: BufferSerializable {
         case 10:
             return .datatype("http://www.w3.org/2001/XMLSchema#float")
         case 9:
-            return .datatype("http://www.w3.org/2001/XMLSchema#integer")
+            return .datatype(.integer)
         case 8:
             return .datatype("http://www.w3.org/2001/XMLSchema#decimal")
         case 7:
@@ -166,7 +166,7 @@ extension TermType: BufferSerializable {
         case 6:
             return .datatype("http://www.w3.org/2001/XMLSchema#date")
         case 5:
-            return .datatype("http://www.w3.org/2001/XMLSchema#string")
+            return .datatype(.string)
         case 1:
             return .iri
         case 2:
@@ -176,7 +176,7 @@ extension TermType: BufferSerializable {
             return .language(l)
         case 4:
             let dt  = try String.deserialize(from: &buffer)
-            return .datatype(dt)
+            return .datatype(TermDataType(stringLiteral: dt))
         default:
             throw DatabaseError.DataError("Unrecognized term type value \(type)")
         }

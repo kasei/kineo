@@ -127,6 +127,120 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
         return AnyIterator(j.makeIterator())
     }
     
+    private func evaluateTable(columns names: [Node], rows: [[Term?]]) throws -> AnyIterator<TermResult> {
+        var results = [TermResult]()
+        for row in rows {
+            var bindings = [String:Term]()
+            for (node, term) in zip(names, row) {
+                guard case .variable(let name, _) = node else {
+                    Logger.shared.error("Unexpected variable generated during table evaluation")
+                    throw QueryError.evaluationError("Unexpected variable generated during table evaluation")
+                }
+                if let term = term {
+                    bindings[name] = term
+                }
+            }
+            let result = TermResult(bindings: bindings)
+            results.append(result)
+        }
+        return AnyIterator(results.makeIterator())
+    }
+    
+    private func evaluateSlice(_ i: AnyIterator<TermResult>, offset: Int?, limit: Int?) throws -> AnyIterator<TermResult> {
+        if let offset = offset {
+            for _ in 0..<offset {
+                _ = i.next()
+            }
+        }
+        
+        if let limit = limit {
+            var seen = 0
+            return AnyIterator {
+                guard seen < limit else { return nil }
+                guard let item = i.next() else { return nil }
+                seen += 1
+                return item
+            }
+        } else {
+            return i
+        }
+    }
+    
+    private func evaluateExtend(_ i: AnyIterator<TermResult>, expression expr: Expression, name: String) throws -> AnyIterator<TermResult> {
+        if expr.isNumeric {
+            return AnyIterator {
+                guard var result = i.next() else { return nil }
+                do {
+                    let num = try self.ee.numericEvaluate(expression: expr, result: result)
+                    try result.extend(variable: name, value: num.term)
+                } catch let err {
+                    if self.verbose {
+                        print(err)
+                    }
+                }
+                return result
+            }
+        } else {
+            return AnyIterator {
+                guard var result = i.next() else { return nil }
+                do {
+                    let term = try self.ee.evaluate(expression: expr, result: result)
+                    try result.extend(variable: name, value: term)
+                } catch let err {
+                    if self.verbose {
+                        print(err)
+                    }
+                }
+                return result
+            }
+        }
+    }
+
+    private func evaluateFilter(_ i: AnyIterator<TermResult>, expression expr: Expression, activeGraph: Term) throws -> AnyIterator<TermResult> {
+        return AnyIterator {
+            repeat {
+                guard let result = i.next() else { return nil }
+                self.ee.nextResult()
+                do {
+                    let term = try self.ee.evaluate(expression: expr, result: result, activeGraph: activeGraph) { (algebra, graph) throws in
+                        return try self.evaluate(algebra: algebra, activeGraph: graph)
+                    }
+                    //                        print("filter \(term) <- \(expr)")
+                    let ebv = try? term.ebv()
+                    if case .some(true) = ebv {
+                        return result
+                    }
+                } catch let err {
+                    //                        print("filter error: \(err) ; \(expr)")
+                    if self.verbose {
+                        print("filter error: \(err) ; \(expr)")
+                    }
+                }
+            } while true
+        }
+    }
+    
+    private func evaluateMinus(_ l: AnyIterator<TermResult>, _ r: [TermResult]) throws -> AnyIterator<TermResult> {
+        return AnyIterator {
+            while true {
+                var candidateOK = true
+                guard let candidate = l.next() else { return nil }
+                for result in r {
+                    let domainIntersection = Set(candidate.keys).intersection(result.keys)
+                    let disjoint = (domainIntersection.count == 0)
+                    let compatible = !(candidate.join(result) == nil)
+                    if !(disjoint || !compatible) {
+                        candidateOK = false
+                        break
+                    }
+                }
+                if candidateOK {
+                    return candidate
+                }
+            }
+        }
+    }
+
     public func evaluate(algebra: Algebra, activeGraph: Term) throws -> AnyIterator<TermResult> {
         switch algebra {
         // don't require access to the underlying store:
@@ -141,22 +255,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
             let results = [TermResult(bindings: [:])]
             return AnyIterator(results.makeIterator())
         case let .table(names, rows):
-            var results = [TermResult]()
-            for row in rows {
-                var bindings = [String:Term]()
-                for (node, term) in zip(names, row) {
-                    guard case .variable(let name, _) = node else {
-                        Logger.shared.error("Unexpected variable generated during table evaluation")
-                        throw QueryError.evaluationError("Unexpected variable generated during table evaluation")
-                    }
-                    if let term = term {
-                        bindings[name] = term
-                    }
-                }
-                let result = TermResult(bindings: bindings)
-                results.append(result)
-            }
-            return AnyIterator(results.makeIterator())
+            return try evaluateTable(columns: names, rows: rows)
         case let .innerJoin(lhs, rhs):
             return try self.evaluateJoin(lhs: lhs, rhs: rhs, left: false, activeGraph: activeGraph)
         case let .leftOuterJoin(lhs, rhs, expr):
@@ -171,56 +270,14 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
             }
         case let .slice(child, offset, limit):
             let i = try self.evaluate(algebra: child, activeGraph: activeGraph)
-            if let offset = offset {
-                for _ in 0..<offset {
-                    _ = i.next()
-                }
-            }
-            
-            if let limit = limit {
-                var seen = 0
-                return AnyIterator {
-                    guard seen < limit else { return nil }
-                    guard let item = i.next() else { return nil }
-                    seen += 1
-                    return item
-                }
-            } else {
-                return i
-            }
+            return try evaluateSlice(i, offset: offset, limit: limit)
         case let .extend(child, expr, name):
             self.ee.nextResult()
             let i = try self.evaluate(algebra: child, activeGraph: activeGraph)
-            if expr.isNumeric {
-                return AnyIterator {
-                    guard var result = i.next() else { return nil }
-                    do {
-                        let num = try self.ee.numericEvaluate(expression: expr, result: result)
-                        try result.extend(variable: name, value: num.term)
-                    } catch let err {
-                        if self.verbose {
-                            print(err)
-                        }
-                    }
-                    return result
-                }
-            } else {
-                return AnyIterator {
-                    guard var result = i.next() else { return nil }
-                    do {
-                        let term = try self.ee.evaluate(expression: expr, result: result)
-                        try result.extend(variable: name, value: term)
-                    } catch let err {
-                        if self.verbose {
-                            print(err)
-                        }
-                    }
-                    return result
-                }
-            }
+            return try evaluateExtend(i, expression: expr, name: name)
         case let .order(child, orders):
-            let results = try Array(self.evaluate(algebra: child, activeGraph: activeGraph))
-            let s = _sortResults(results, comparators: orders)
+            let results = try self.evaluate(algebra: child, activeGraph: activeGraph)
+            let s = evaluateSort(results, comparators: orders)
             return AnyIterator(s.makeIterator())
         case let .aggregate(child, groups, aggs):
             if aggs.count == 1 {
@@ -237,27 +294,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
             return try evaluateWindow(algebra: child, groups: groups, functions: funcs, activeGraph: activeGraph)
         case let .filter(child, expr):
             let i = try self.evaluate(algebra: child, activeGraph: activeGraph)
-            return AnyIterator {
-                repeat {
-                    guard let result = i.next() else { return nil }
-                    self.ee.nextResult()
-                    do {
-                        let term = try self.ee.evaluate(expression: expr, result: result, activeGraph: activeGraph) { (algebra, graph) throws in
-                            return try self.evaluate(algebra: algebra, activeGraph: graph)
-                        }
-//                        print("filter \(term) <- \(expr)")
-                        let ebv = try? term.ebv()
-                        if case .some(true) = ebv {
-                            return result
-                        }
-                    } catch let err {
-//                        print("filter error: \(err) ; \(expr)")
-                        if self.verbose {
-                            print("filter error: \(err) ; \(expr)")
-                        }
-                    }
-                } while true
-            }
+            return try evaluateFilter(i, expression: expr, activeGraph: activeGraph)
         case let .distinct(child):
             let i = try self.evaluate(algebra: child, activeGraph: activeGraph)
             var seen = Set<TermResult>()
@@ -278,24 +315,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
         case let .minus(lhs, rhs):
             let l = try self.evaluate(algebra: lhs, activeGraph: activeGraph)
             let r = try Array(self.evaluate(algebra: rhs, activeGraph: activeGraph))
-            return AnyIterator {
-                while true {
-                    var candidateOK = true
-                    guard let candidate = l.next() else { return nil }
-                    for result in r {
-                        let domainIntersection = Set(candidate.keys).intersection(result.keys)
-                        let disjoint = (domainIntersection.count == 0)
-                        let compatible = !(candidate.join(result) == nil)
-                        if !(disjoint || !compatible) {
-                            candidateOK = false
-                            break
-                        }
-                    }
-                    if candidateOK {
-                        return candidate
-                    }
-                }
-            }
+            return try evaluateMinus(l, r)
         case let .service(endpoint, algebra, silent):
             return try evaluate(algebra: algebra, endpoint: endpoint, silent: silent, activeGraph: activeGraph)
         case let .namedGraph(child, .bound(g)):
@@ -548,7 +568,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
 
     func evaluateAvg<S: Sequence>(results: S, expression keyExpr: Expression, distinct: Bool) -> Term? where S.Iterator.Element == TermResult {
         var doubleSum: Double = 0.0
-        let integer = TermType.datatype("http://www.w3.org/2001/XMLSchema#integer")
+        let integer = TermType.datatype(.integer)
         var resultingType: TermType? = integer
         var count = 0
 
@@ -847,13 +867,13 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
                 var newResults = [TermResult]()
                 
                 if case .rowNumber = f {
-                    for (n, result) in _sortResults(results, comparators: comparators).enumerated() {
+                    for (n, result) in evaluateSort(results, comparators: comparators).enumerated() {
                         var r = result
                         try? r.extend(variable: name, value: Term(integer: n))
                         newResults.append(r)
                     }
                 } else if case .rank = f {
-                    let sorted = _sortResults(results, comparators: comparators)
+                    let sorted = evaluateSort(results, comparators: comparators)
                     if sorted.count > 0 {
                         var last = sorted.first!
                         var n = 0
@@ -1174,7 +1194,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
         return true
     }
     
-    private func _sortResults(_ results: [TermResult], comparators: [Algebra.SortComparator]) -> [TermResult] {
+    private func evaluateSort<S: Sequence>(_ results: S, comparators: [Algebra.SortComparator]) -> [TermResult] where S.Element == TermResult {
         let s = results.sorted { (a, b) -> Bool in
             for cmp in comparators {
                 guard var lhs = try? self.ee.evaluate(expression: cmp.expression, result: a) else { return true }

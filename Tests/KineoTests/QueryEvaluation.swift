@@ -188,7 +188,7 @@ class QueryEvaluationTest: XCTestCase {
         XCTAssertEqual(s, Term(value: "http://example.org/Berlin", type: .iri))
 
         guard let name = result["name"] else { XCTFail(); return }
-        XCTAssertEqual(name, Term(value: "Berlin", type: .datatype("http://www.w3.org/2001/XMLSchema#string")))
+        XCTAssertEqual(name, Term(value: "Berlin", type: .datatype(.string)))
 
         guard let page = result["page"] else { XCTFail(); return }
         XCTAssertEqual(page, Term(value: "http://www.berlin.de/en/", type: .iri))

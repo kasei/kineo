@@ -162,9 +162,9 @@ public struct RDFXMLParser {
         func new_literal(_ value: String) -> Term {
             if let dt = datatype {
                 if dt == "http://www.w3.org/1999/02/22-rdf-syntax-ns#XMLLiteral" {
-                    fatalError()
+                    fatalError("TODO: Implement support for rdf:XMLLiteral")
                 } else {
-                    return Term(value: value, type: .datatype(dt))
+                    return Term(value: value, type: .datatype(TermDataType(stringLiteral: dt)))
                 }
             } else if let lang = get_language() {
                 if lang.count > 0 {

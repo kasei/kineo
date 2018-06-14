@@ -35,7 +35,7 @@ public struct SPARQLXMLSerializer<T: ResultProtocol> : SPARQLSerializable where 
             root.addChild(e)
         case .datatype(let dt):
             let e = XMLNode.element(withName: "literal", stringValue: term.value) as! XMLElement
-            let attr = XMLNode.attribute(withName: "datatype", stringValue: dt) as! XMLNode
+            let attr = XMLNode.attribute(withName: "datatype", stringValue: dt.value) as! XMLNode
             e.addAttribute(attr)
             root.addChild(e)
         case .language(let lang):
@@ -190,12 +190,12 @@ public struct SPARQLXMLParser : SPARQLParsable {
                 allowCharacterData = true
                 if let dt = attributeDict["datatype"] {
                     trace("  [datatype=\(dt)]")
-                    termType = .datatype(dt)
+                    termType = .datatype(TermDataType(stringLiteral: dt))
                 } else if let lang = attributeDict["xml:lang"] {
                     trace("  [xml:lang=\(lang)]")
                     termType = .language(lang)
                 } else {
-                    termType = .datatype("http://www.w3.org/2001/XMLSchema#string")
+                    termType = .datatype(.string)
                 }
             case "uri":
                 allowCharacterData = true

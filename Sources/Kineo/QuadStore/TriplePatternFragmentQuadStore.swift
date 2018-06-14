@@ -316,7 +316,7 @@ extension Term {
         switch self.type {
         case .iri:
             return self.value
-        case .datatype("http://www.w3.org/2001/XMLSchema#string"):
+        case .datatype(.string):
             return "\"\(value)\""
         case .datatype(let dt):
             return "\"\(value)\"^^<\(dt)>"

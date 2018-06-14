@@ -138,9 +138,9 @@ open class NTriplesParser<T: LineReadable> : Sequence {
                     guard generator.next() == .some("^") else { return nil }
                     guard generator.next() == .some("^") else { return nil }
                     guard let dt = parseIRI(&generator) else { return nil }
-                    return Term(value: label, type: .datatype(dt.value))
+                    return Term(value: label, type: .datatype(TermDataType(stringLiteral: dt.value)))
                 } else {
-                    return Term(value: label, type: .datatype("http://www.w3.org/2001/XMLSchema#string"))
+                    return Term(value: label, type: .datatype(.string))
                 }
             case .some(let c):
                 label.append(String(c))
