@@ -129,9 +129,9 @@ public extension PackedIdentityMap where Item == Term, Result == UInt64 {
         switch (value.type, value.value) {
         case (.iri, let v):
             return pack(iri: v)
-        case (.datatype("http://www.w3.org/2001/XMLSchema#boolean"), "true"), (.datatype("http://www.w3.org/2001/XMLSchema#boolean"), "1"):
+        case (.datatype(.boolean), "true"), (.datatype(.boolean), "1"):
             return pack(boolean: true)
-        case (.datatype("http://www.w3.org/2001/XMLSchema#boolean"), "false"), (.datatype("http://www.w3.org/2001/XMLSchema#boolean"), "0"):
+        case (.datatype(.boolean), "false"), (.datatype(.boolean), "0"):
             return pack(boolean: false)
         case (.datatype(.dateTime), _):
             return pack(dateTime: value)
@@ -187,7 +187,7 @@ public extension PackedIdentityMap where Item == Term, Result == UInt64 {
     
     private func unpack(boolean packedBooleanValue: UInt64) -> Item? {
         let value = (packedBooleanValue > 0) ? "true" : "false"
-        return Term(value: value, type: .datatype("http://www.w3.org/2001/XMLSchema#boolean"))
+        return Term(value: value, type: .datatype(.boolean))
     }
     
     private func unpack(integer value: UInt64) -> Item? {

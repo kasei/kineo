@@ -42,11 +42,11 @@ extension TermType: BufferSerializable {
     
     public var serializedSize: Int {
         switch self {
-        case .datatype("http://www.w3.org/2001/XMLSchema#float"),
+        case .datatype(.float),
              .datatype(.integer),
-             .datatype("http://www.w3.org/2001/XMLSchema#decimal"),
-             .datatype("http://www.w3.org/2001/XMLSchema#dateTime"),
-             .datatype("http://www.w3.org/2001/XMLSchema#date"),
+             .datatype(.decimal),
+             .datatype(.dateTime),
+             .datatype(.date),
              .datatype(.string):
             return 1
         case .language("de"),
@@ -97,19 +97,19 @@ extension TermType: BufferSerializable {
         case .language("en-US"):
             buffer.assumingMemoryBound(to: UInt8.self).pointee = 255
             buffer += 1
-        case .datatype("http://www.w3.org/2001/XMLSchema#float"):
+        case .datatype(.float):
             buffer.assumingMemoryBound(to: UInt8.self).pointee = 10
             buffer += 1
         case .datatype(.integer):
             buffer.assumingMemoryBound(to: UInt8.self).pointee = 9
             buffer += 1
-        case .datatype("http://www.w3.org/2001/XMLSchema#decimal"):
+        case .datatype(.decimal):
             buffer.assumingMemoryBound(to: UInt8.self).pointee = 8
             buffer += 1
-        case .datatype("http://www.w3.org/2001/XMLSchema#dateTime"):
+        case .datatype(.dateTime):
             buffer.assumingMemoryBound(to: UInt8.self).pointee = 7
             buffer += 1
-        case .datatype("http://www.w3.org/2001/XMLSchema#date"):
+        case .datatype(.date):
             buffer.assumingMemoryBound(to: UInt8.self).pointee = 6
             buffer += 1
         case .datatype(.string):
@@ -156,15 +156,15 @@ extension TermType: BufferSerializable {
         case 200:
             return .language("de")
         case 10:
-            return .datatype("http://www.w3.org/2001/XMLSchema#float")
+            return .datatype(.float)
         case 9:
             return .datatype(.integer)
         case 8:
-            return .datatype("http://www.w3.org/2001/XMLSchema#decimal")
+            return .datatype(.decimal)
         case 7:
-            return .datatype("http://www.w3.org/2001/XMLSchema#dateTime")
+            return .datatype(.dateTime)
         case 6:
-            return .datatype("http://www.w3.org/2001/XMLSchema#date")
+            return .datatype(.date)
         case 5:
             return .datatype(.string)
         case 1:
@@ -207,7 +207,7 @@ extension Term: BufferSerializable {
 
 extension Term {
     public var booleanValue: Bool? {
-        guard case .datatype("http://www.w3.org/2001/XMLSchema#boolean") = self.type else {
+        guard case .datatype(.boolean) = self.type else {
             return nil
         }
         let lexical = self.value
@@ -248,7 +248,7 @@ extension Term {
     }
     
     public var timeZone: TimeZone? {
-        guard case .datatype("http://www.w3.org/2001/XMLSchema#dateTime") = self.type else { return nil }
+        guard case .datatype(.dateTime) = self.type else { return nil }
         let lexical = self.value
         if #available (OSX 10.12, *) {
             let f = W3CDTFLocatedDateFormatter()

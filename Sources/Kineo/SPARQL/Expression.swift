@@ -13,7 +13,7 @@ import SPARQLSyntax
 extension Term {
     func ebv() throws -> Bool {
         switch type {
-        case .datatype("http://www.w3.org/2001/XMLSchema#boolean"):
+        case .datatype(.boolean):
             return value == "true" || value == "1"
         case .language(_), .datatype(.string):
             return value.count > 0
@@ -644,7 +644,7 @@ class ExpressionEvaluator {
                 let f = ISO8601DateFormatter()
                 f.formatOptions.remove(.withTimeZone)
                 if let _ = f.date(from: term.value) {
-                    return Term(value: term.value, type: .datatype("http://www.w3.org/2001/XMLSchema#date"))
+                    return Term(value: term.value, type: .datatype(.date))
                 }
             }
             throw QueryError.typeError("Cannot coerce term to a date value")
@@ -654,7 +654,7 @@ class ExpressionEvaluator {
                 let f = ISO8601DateFormatter()
                 f.formatOptions.remove(.withTimeZone)
                 if let _ = f.date(from: term.value) {
-                    return Term(value: term.value, type: .datatype("http://www.w3.org/2001/XMLSchema#dateTime"))
+                    return Term(value: term.value, type: .datatype(.dateTime))
                 }
             }
             throw QueryError.typeError("Cannot coerce term to a dateTime value")
@@ -814,7 +814,7 @@ extension Term {
             } else {
                 return .greaterThan
             }
-        case (.datatype("http://www.w3.org/2001/XMLSchema#dateTime"), .datatype("http://www.w3.org/2001/XMLSchema#dateTime")):
+        case (.datatype(.dateTime), .datatype(.dateTime)):
             if let ld = lval.dateValue, let rd = rval.dateValue {
                 if ld == rd {
                     return .equals
@@ -826,7 +826,7 @@ extension Term {
             } else {
                 throw QueryError.typeError("Comparison on invalid xsd:dateTime")
             }
-        case (.datatype("http://www.w3.org/2001/XMLSchema#boolean"), .datatype("http://www.w3.org/2001/XMLSchema#boolean")):
+        case (.datatype(.boolean), .datatype(.boolean)):
             if let ld = lval.booleanValue, let rd = rval.booleanValue {
                 if ld == rd {
                     return .equals
