@@ -296,27 +296,47 @@ open class MediatedPageQuadStore: Sequence, QuadStoreProtocol {
     }
     
     internal func graphIDs() -> AnyIterator<IDType> {
-        guard let mapping = try? quadMapping(fromOrder: MediatedPageQuadStore.defaultIndex) else {
-            warn("Failed to compute mapping for quad index order \(MediatedPageQuadStore.defaultIndex)")
+        let (index, _) = bestIndex(for: [false, false, false, true])
+        guard let mapping = try? quadMapping(fromOrder: index) else {
+            warn("Failed to compute mapping for quad index order \(index)")
             return AnyIterator { return nil }
         }
-        guard let quadsTree: Tree<IDQuad<UInt64>, Empty> = mediator.tree(name: MediatedPageQuadStore.defaultIndex) else {
-            warn("Failed to load default index \(MediatedPageQuadStore.defaultIndex)")
+        guard let quadsTree: Tree<IDQuad<UInt64>, Empty> = mediator.tree(name: index) else {
+            warn("Failed to load default index \(index)")
             return AnyIterator { return nil }
         }
         
-        var seen = Set<UInt64>()
-        let graphs = quadsTree.lazy.map {
-            mapping($0.0)
-            }.map { (idquad) in
-                idquad[3]
-            }.compactMap { $0 }.filter { (gid) -> Bool in
-                let s = seen.contains(gid)
-                seen.insert(gid)
-                return !s
-            }.compactMap { $0 }
-        
-        return AnyIterator(graphs.makeIterator())
+        do {
+            var seen = Set<UInt64>()
+            var graphs = [UInt64]()
+            let handleIDQuad = { (q: IDQuad<UInt64>) -> () in
+                let gid = q[3]
+                if !seen.contains(gid) {
+                    seen.insert(gid)
+                    graphs.append(gid)
+                }
+            }
+            let umin = UInt64.min
+            let umax = UInt64.max
+            let qmin = IDQuad(umin, umin, umin, umin)
+            let qmax = IDQuad(umax, umax, umax, umax)
+            try quadsTree.walkLeaves(between: (qmin, qmax)) { (records) in
+                if let first = records.first, let last = records.last {
+                    if mapping(first.0)[3] == mapping(last.0)[3] {
+                        let q = mapping(first.0)
+                        handleIDQuad(q)
+                    } else {
+                        for pair in records {
+                            let q = mapping(pair.0)
+                            handleIDQuad(q)
+                        }
+                    }
+                }
+            }
+            return AnyIterator(graphs.makeIterator())
+        } catch {
+            return AnyIterator([].makeIterator())
+        }
     }
     
     public func graphs() -> AnyIterator<Term> {

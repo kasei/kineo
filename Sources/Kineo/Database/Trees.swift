@@ -221,6 +221,13 @@ public class Tree<T: BufferSerializable & Comparable, U: BufferSerializable> : S
         }
     }
 
+    public func walkLeaves(between: (T, T), onPairs: ([(T, U)]) throws -> ()) throws {
+        let (node, _) : (TreeNode<T, U>, PageStatus) = try mediator.readPage(root)
+        _ = try? node.walk(mediator: mediator, between: between) { (leaf) in
+            try onPairs(leaf.pairs)
+        }
+    }
+    
     public func walk(between: (T, T), onPairs: ([(T, U)]) throws -> ()) throws {
         let (node, _) : (TreeNode<T, U>, PageStatus) = try mediator.readPage(root)
         var elements = [(T, U)]()
@@ -870,7 +877,7 @@ public enum TreeNode<T: BufferSerializable & Comparable, U: BufferSerializable> 
             }
         }
     }
-
+    
     // FUTURE: make an Iterator version of this method
     func walk(mediator: PageRMediator, in range: Range<T>, backwards: Bool = false, onEachLeaf callback: (TreeLeaf<T, U>) throws -> ()) throws {
         switch self {
@@ -1030,7 +1037,7 @@ public enum TreeNode<T: BufferSerializable & Comparable, U: BufferSerializable> 
         }
         return maxKey
     }
-
+    
     public static func deserialize(from buffer: UnsafeRawPointer, status: PageStatus, mediator: PageRMediator) throws -> TreeNode<T, U> {
         var ptr = buffer
         guard let cookie = PageDatabaseInfo.Cookie(rawValue: try UInt32.deserialize(from: &ptr)) else { throw DatabaseError.DataError("Bad tree node cookie") }
