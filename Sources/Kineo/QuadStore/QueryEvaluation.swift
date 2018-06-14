@@ -460,6 +460,15 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
         }
 
         let intersection = seen.popLast()!
+        let boundVariables = lhsAlgebra.necessarilyBound.intersection(rhsAlgebra.necessarilyBound)
+//        if intersection != boundVariables {
+//            print("================")
+//            print(lhsAlgebra.serialize())
+//            print(rhsAlgebra.serialize())
+//            print("Necessarily bound variables: \(boundVariables)")
+//            print("Hash join key variables: \(intersection)")
+//        }
+
         if intersection.count > 0 {
 //            warn("# using hash join on: \(intersection)")
 //            warn("### \(lhsAlgebra)")
@@ -467,7 +476,13 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
             let joinVariables = intersection
             let lhs = try self.evaluate(algebra: lhsAlgebra, activeGraph: activeGraph)
             let rhs = try self.evaluate(algebra: rhsAlgebra, activeGraph: activeGraph)
-            return pipelinedHashJoin(joinVariables: joinVariables, lhs: lhs, rhs: rhs, left: left)
+            if joinVariables == boundVariables {
+//                print("using optimized hash-join algorithm based on necessarily-bound variables")
+                return pipelinedHashJoin(boundJoinVariables: boundVariables, lhs: lhs, rhs: rhs, left: left)
+            } else {
+//                print("using fallback hash-join algorithm that will handle results with unbound join variables")
+                return pipelinedHashJoin(joinVariables: joinVariables, lhs: lhs, rhs: rhs, left: left)
+            }
         }
 
         var patternResults = [[TermResult]]()
@@ -1222,6 +1237,38 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
         }
         
         return sorted.map { $0.result }
+    }
+}
+
+public func pipelinedHashJoin<R: ResultProtocol>(boundJoinVariables joinVariables: Set<String>, lhs: AnyIterator<R>, rhs: AnyIterator<R>, left: Bool = false) -> AnyIterator<R> {
+    // This version differs from pipelinedHashJoin(joinVariables:lhs:rhs:left:) in that the join variables are guaranteed to be bound; thus, we don't have to worry about handling results that are compatible, but don't have all the join variables bound.
+    let pairs = rhs.map { (result) -> (R,[R]) in
+        let key = result.projected(variables: joinVariables)
+        return (key, [result])
+    }
+    let table = Dictionary(pairs) { $0 + $1 }
+    var buffer = [R]()
+    return AnyIterator {
+        repeat {
+            if buffer.count > 0 {
+                let r = buffer.remove(at: 0)
+                return r
+            }
+            guard let result = lhs.next() else { return nil }
+            var joined = false
+            let bucket = result.projected(variables: joinVariables)
+            if let results = table[bucket] {
+                for lhs in results {
+                    if let j = lhs.join(result) {
+                        joined = true
+                        buffer.append(j)
+                    }
+                }
+            }
+            if left && !joined {
+                buffer.append(result)
+            }
+        } while true
     }
 }
 
