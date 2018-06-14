@@ -197,7 +197,7 @@ extension Term: BufferSerializable {
         do {
             let type    = try TermType.deserialize(from: &buffer)
             let value   = try String.deserialize(from: &buffer)
-            let term    = Term(value: value, type: type)
+            let term    = Term(canonicalValue: value, type: type)
             return term
         } catch let e {
             throw e
