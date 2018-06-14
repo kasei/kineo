@@ -1194,23 +1194,34 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
         return true
     }
     
+    private struct SortElem {
+        var result: TermResult
+        var terms: [Term?]
+    }
     private func evaluateSort<S: Sequence>(_ results: S, comparators: [Algebra.SortComparator]) -> [TermResult] where S.Element == TermResult {
-        let s = results.sorted { (a, b) -> Bool in
-            for cmp in comparators {
-                guard var lhs = try? self.ee.evaluate(expression: cmp.expression, result: a) else { return true }
-                guard var rhs = try? self.ee.evaluate(expression: cmp.expression, result: b) else { return false }
+        let elements = results.map { (r) -> SortElem in
+            let terms = comparators.map { (cmp) in
+                try? self.ee.evaluate(expression: cmp.expression, result: r)
+            }
+            return SortElem(result: r, terms: terms)
+        }
+        
+        let sorted = elements.sorted { (a, b) -> Bool in
+            let pairs = zip(a.terms, b.terms)
+            for (cmp, pair) in zip(comparators, pairs) {
+                guard let lhs = pair.0 else { return true }
+                guard let rhs = pair.1 else { return false }
+                
+                var sorted = lhs < rhs
                 if !cmp.ascending {
-                    (lhs, rhs) = (rhs, lhs)
+                    sorted = !sorted
                 }
-                if lhs < rhs {
-                    return true
-                } else if lhs > rhs {
-                    return false
-                }
+                return sorted
             }
             return false
         }
-        return s
+        
+        return sorted.map { $0.result }
     }
 }
 
