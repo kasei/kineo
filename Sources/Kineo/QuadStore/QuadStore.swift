@@ -9,40 +9,12 @@
 import Foundation
 import SPARQLSyntax
 
-public struct ServiceDescription {
-    public enum Language : String {
-        case sparqlQuery10 = "http://www.w3.org/ns/sparql-service-description#SPARQL10Query"
-        case sparqlQuery11 = "http://www.w3.org/ns/sparql-service-description#SPARQL11Query"
-        case sparqlUpdate11 = "http://www.w3.org/ns/sparql-service-description#SPARQL11Update"
-    }
-    
-    public enum Format : String {
-        case rdfxml = "http://www.w3.org/ns/formats/RDF_XML"
-        case turtle = "http://www.w3.org/ns/formats/Turtle"
-        case ntriples = "http://www.w3.org/ns/formats/N-Triples"
-        case sparqlXML = "http://www.w3.org/ns/formats/SPARQL_Results_XML"
-        case sparqlJSON = "http://www.w3.org/ns/formats/SPARQL_Results_JSON"
-        case sparqlCSV = "http://www.w3.org/ns/formats/SPARQL_Results_CSV"
-        case sparqlTSV = "http://www.w3.org/ns/formats/SPARQL_Results_TSV"
-    }
-    
-    public enum Feature : String {
-        case dereferencesURIs = "http://www.w3.org/ns/sparql-service-description#DereferencesURIs"
-        case unionDefaultGraph = "http://www.w3.org/ns/sparql-service-description#UnionDefaultGraph"
-        case requiresDataset = "http://www.w3.org/ns/sparql-service-description#RequiresDataset"
-        case emptyGraphs = "http://www.w3.org/ns/sparql-service-description#EmptyGraphs"
-        case basicFederatedQuery = "http://www.w3.org/ns/sparql-service-description#BasicFederatedQuery"
-    }
-    
-    public struct GraphDescription {
-        public var triplesCount: Int
-    }
-    
-    public var supportedLanguages: [Language]
-    public var resultFormats: [Format]
-    public var extensionFunctions: [URL]
-    public var features: [Feature]
-    public var graphDescriptions: [Term:GraphDescription]
+public enum QuadStoreFeature : String {
+    case emptyGraphs = "http://www.w3.org/ns/sparql-service-description#EmptyGraphs"
+}
+
+public struct GraphDescription {
+    public var triplesCount: Int
 }
 
 public protocol QuadStoreProtocol: Sequence {
@@ -53,7 +25,8 @@ public protocol QuadStoreProtocol: Sequence {
     func results(matching pattern: QuadPattern) throws -> AnyIterator<TermResult>
     func quads(matching pattern: QuadPattern) throws -> AnyIterator<Quad>
     func effectiveVersion(matching pattern: QuadPattern) throws -> Version?
-    var serviceDescription: ServiceDescription { get }
+    var graphDescriptions: [Term:GraphDescription] { get }
+    var features: [QuadStoreFeature] { get }
 }
 
 public protocol MutableQuadStoreProtocol: QuadStoreProtocol {
@@ -84,14 +57,12 @@ extension QuadStoreProtocol {
         return try effectiveVersion(matching: pattern)
     }
 
-    public var serviceDescription: ServiceDescription {
-        return ServiceDescription(
-            supportedLanguages: [.sparqlQuery10, .sparqlQuery11],
-            resultFormats: [.sparqlJSON, .sparqlXML],
-            extensionFunctions: [],
-            features: [.basicFederatedQuery],
-            graphDescriptions: [:] // TODO
-        )
+    public var features: [QuadStoreFeature] {
+        return []
+    }
+
+    public var graphDescriptions: [Term:GraphDescription] {
+        return [:] // TODO
     }
 }
 

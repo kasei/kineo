@@ -9,6 +9,19 @@
 import Foundation
 import SPARQLSyntax
 
+public enum QueryLanguage : String {
+    case sparqlQuery10 = "http://www.w3.org/ns/sparql-service-description#SPARQL10Query"
+    case sparqlQuery11 = "http://www.w3.org/ns/sparql-service-description#SPARQL11Query"
+    case sparqlUpdate11 = "http://www.w3.org/ns/sparql-service-description#SPARQL11Update"
+}
+
+public enum QueryEngineFeature : String {
+    case dereferencesURIs = "http://www.w3.org/ns/sparql-service-description#DereferencesURIs"
+    case unionDefaultGraph = "http://www.w3.org/ns/sparql-service-description#UnionDefaultGraph"
+    case requiresDataset = "http://www.w3.org/ns/sparql-service-description#RequiresDataset"
+    case basicFederatedQuery = "http://www.w3.org/ns/sparql-service-description#BasicFederatedQuery"
+}
+
 // swiftlint:disable cyclomatic_complexity
 // swiftlint:disable:next type_body_length
 open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
@@ -17,6 +30,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
     var freshVarNumber: Int
     var verbose: Bool
     var ee: ExpressionEvaluator
+    let supportedLanguages: [QueryLanguage] = [.sparqlQuery10, .sparqlQuery11]
 
     public init(store: Q, dataset: Dataset, verbose: Bool = false) {
         self.store = store

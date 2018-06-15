@@ -74,6 +74,16 @@ public struct SPARQLClient {
 }
 
 public struct SPARQLContentNegotiator {
+    public enum ResultFormat : String {
+        case rdfxml = "http://www.w3.org/ns/formats/RDF_XML"
+        case turtle = "http://www.w3.org/ns/formats/Turtle"
+        case ntriples = "http://www.w3.org/ns/formats/N-Triples"
+        case sparqlXML = "http://www.w3.org/ns/formats/SPARQL_Results_XML"
+        case sparqlJSON = "http://www.w3.org/ns/formats/SPARQL_Results_JSON"
+        case sparqlCSV = "http://www.w3.org/ns/formats/SPARQL_Results_CSV"
+        case sparqlTSV = "http://www.w3.org/ns/formats/SPARQL_Results_TSV"
+    }
+    
     public init() {
     }
     
