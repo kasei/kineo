@@ -82,8 +82,10 @@ public struct SPARQLContentNegotiator {
         case sparqlJSON = "http://www.w3.org/ns/formats/SPARQL_Results_JSON"
         case sparqlCSV = "http://www.w3.org/ns/formats/SPARQL_Results_CSV"
         case sparqlTSV = "http://www.w3.org/ns/formats/SPARQL_Results_TSV"
+        
     }
-    
+    public let supportedSerializations : [ResultFormat] = [.sparqlXML, .sparqlJSON]
+
     public init() {
     }
     
@@ -97,7 +99,7 @@ public struct SPARQLContentNegotiator {
                 return json
             } else if a.hasPrefix("application/json") {
                 return json
-            } else if a.hasPrefix("test/plain") {
+            } else if a.hasPrefix("text/plain") {
                 return json
             } else if a.hasPrefix("application/sparql-results+xml") {
                 return xml

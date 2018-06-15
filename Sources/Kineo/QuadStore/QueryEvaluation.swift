@@ -30,7 +30,8 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
     var freshVarNumber: Int
     var verbose: Bool
     var ee: ExpressionEvaluator
-    let supportedLanguages: [QueryLanguage] = [.sparqlQuery10, .sparqlQuery11]
+    public let supportedLanguages: [QueryLanguage] = [.sparqlQuery10, .sparqlQuery11]
+    public let supportedFeatures: [QueryEngineFeature] = [.basicFederatedQuery]
 
     public init(store: Q, dataset: Dataset, verbose: Bool = false) {
         self.store = store
