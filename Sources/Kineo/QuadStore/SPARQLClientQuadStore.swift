@@ -13,7 +13,7 @@ open class SPARQLClientQuadStore: Sequence, QuadStoreProtocol {
     var client: SPARQLClient
     var defaultGraph: Term
     
-    init(endpoint: URL, defaultGraph: Term) {
+    public init(endpoint: URL, defaultGraph: Term) {
         self.client = SPARQLClient(endpoint: endpoint)
         self.defaultGraph = defaultGraph
     }
@@ -150,6 +150,21 @@ open class SPARQLClientQuadStore: Sequence, QuadStoreProtocol {
     
     public func effectiveVersion(matching pattern: QuadPattern) throws -> Version? {
         return nil
+    }
+}
+
+extension SPARQLClientQuadStore : BGPQuadStoreProtocol {
+    public func results(matching triples: [TriplePattern], in graph: Term) throws -> AnyIterator<TermResult> {
+        let ser = SPARQLSerializer(prettyPrint: true)
+        let bgp = try ser.serialize(.bgp(triples))
+        let query = "SELECT * WHERE { \(bgp) }"
+        print("Evaluating BGP against \(client):\n\(query)")
+        if let r = try? client.execute(query) {
+            if case .bindings(_, let rows) = r {
+                return AnyIterator(rows.makeIterator())
+            }
+        }
+        return AnyIterator([].makeIterator())
     }
 }
 

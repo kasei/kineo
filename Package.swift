@@ -22,6 +22,10 @@ let package = Package(
             dependencies: ["Kineo", "SPARQLSyntax"]
         ),
         .target(
+            name: "kineo-client",
+            dependencies: ["Kineo", "SPARQLSyntax"]
+        ),
+        .target(
             name: "kineo-dawg-test",
             dependencies: ["Kineo", "SPARQLSyntax"]
         ),
