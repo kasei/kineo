@@ -114,7 +114,9 @@ public struct SPARQLContentNegotiator {
             for a in accept {
                 if a == "*/*" {
                     return turtle
-                } else if a.hasPrefix("applicaiton/turtle") {
+                } else if a.hasPrefix("application/turtle") {
+                    return turtle
+                } else if a.hasPrefix("text/turtle") {
                     return turtle
                 } else if a.hasPrefix("application/n-triples") {
                     return ntriples
