@@ -9,6 +9,95 @@
 import Foundation
 import SPARQLSyntax
 
+extension String {
+    var ntriplesStringEscaped: String {
+        var escaped = ""
+        for c in self {
+            switch c {
+            case Character(UnicodeScalar(0x22)):
+                escaped += "\\\""
+            case Character(UnicodeScalar(0x5c)):
+                escaped += "\\\\"
+            case Character(UnicodeScalar(0x0a)):
+                escaped += "\\n"
+            case Character(UnicodeScalar(0x5d)):
+                escaped += "\\r"
+            default:
+                escaped.append(c)
+            }
+        }
+        return escaped
+    }
+    
+    var ntriplesIRIEscaped: String {
+        var escaped = ""
+        for c in self {
+            switch c {
+            case Character(UnicodeScalar(0x00))...Character(UnicodeScalar(0x20)),
+                 Character(UnicodeScalar(0x3c)),
+                 Character(UnicodeScalar(0x3e)),
+                 Character(UnicodeScalar(0x22)),
+                 Character(UnicodeScalar(0x5c)),
+                 Character(UnicodeScalar(0x5e)),
+                 Character(UnicodeScalar(0x60)),
+                 Character(UnicodeScalar(0x7b)),
+                 Character(UnicodeScalar(0x7c)),
+                 Character(UnicodeScalar(0x7d)):
+                for s in c.unicodeScalars {
+                    escaped += String(format: "\\U%08X", s.value)
+                }
+            default:
+                escaped.append(c)
+            }
+        }
+        return escaped
+    }
+}
+
+extension Term {
+    func ntriplesData() -> Data? {
+        switch self.type {
+        case .iri:
+            return "<\(self.value.ntriplesIRIEscaped)>".data(using: .utf8)
+        case .blank:
+            return "_:\(self.value)".data(using: .utf8)
+        case .language(let l):
+            return "\"\(value.ntriplesStringEscaped)\"@\(l)".data(using: .utf8)
+        case .datatype(.string):
+            return "\"\(value.ntriplesStringEscaped)\"".data(using: .utf8)
+        case .datatype(let dt):
+            return "\"\(value.ntriplesStringEscaped)\"^^<\(dt.value)>".data(using: .utf8)
+        }
+    }
+}
+
+open class NTriplesSerializer : RDFSerializer {
+    var canonicalMediaType = "application/n-triples"
+    
+    public init() {
+        
+    }
+    
+    public func serialize(_ triple: Triple, to data: inout Data) throws {
+        for t in triple {
+            guard let termData = t.ntriplesData() else {
+                throw SerializationError.encodingError("Failed to encode term as utf-8: \(t)")
+            }
+            data.append(termData)
+            data.append(0x20)
+        }
+        data.append(contentsOf: [0x2e, 0x0a]) // dot newline
+    }
+    
+    public func serialize<S: Sequence>(_ triples: S) throws -> Data where S.Element == Triple {
+        var d = Data()
+        for t in triples {
+            try serialize(t, to: &d)
+        }
+        return d
+    }
+}
+
 open class NTriplesParser<T: LineReadable> : Sequence {
     var blanks: [String:Term]
     let reader: T

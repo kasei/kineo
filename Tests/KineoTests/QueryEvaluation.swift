@@ -35,7 +35,7 @@ extension QueryEvaluationTest {
 }
 #endif
 
-struct TestStore: QuadStoreProtocol {
+struct TestStore: QuadStoreProtocol, Sequence {
     typealias IDType = Term
 
     public func effectiveVersion(matching pattern: QuadPattern) throws -> UInt64? {
