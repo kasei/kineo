@@ -74,7 +74,7 @@ extension Term {
 }
 
 open class TurtleSerializer : RDFSerializer {
-    var canonicalMediaType = "application/turtle"
+    public var canonicalMediaType = "application/turtle"
     
     public init() {
         
@@ -138,5 +138,16 @@ open class TurtleSerializer : RDFSerializer {
             try serialize(t, forSubject: s, to: &d)
         }
         return d
+    }
+}
+
+extension TurtleSerializer : SPARQLSerializable {
+    public func serialize(_ results: QueryResult<[TermResult], [Triple]>) throws -> Data {
+        switch results {
+        case .triples(let triples):
+            return try serialize(triples)
+        default:
+            throw SerializationError.encodingError("SPARQL results cannot be serialized as Turtle")
+        }
     }
 }

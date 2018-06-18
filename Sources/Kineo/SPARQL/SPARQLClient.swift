@@ -84,28 +84,46 @@ public struct SPARQLContentNegotiator {
         case sparqlTSV = "http://www.w3.org/ns/formats/SPARQL_Results_TSV"
         
     }
-    public let supportedSerializations : [ResultFormat] = [.sparqlXML, .sparqlJSON]
+    public let supportedSerializations : [ResultFormat] = [.sparqlXML, .sparqlJSON, .ntriples, .turtle]
 
     public init() {
     }
-    
-    public func negotiateSerializer<S : Sequence>(for accept: S) -> SPARQLSerializable where S.Element == String {
+
+    public func negotiateSerializer<S : Sequence, B, T>(for result: QueryResult<B, T>, accept: S) -> SPARQLSerializable where S.Element == String {
         let xml = SPARQLXMLSerializer<TermResult>()
         let json = SPARQLJSONSerializer<TermResult>()
-        for a in accept {
-            if a == "*/*" {
-                return xml
-            } else if a.hasPrefix("application/sparql-results+json") {
-                return json
-            } else if a.hasPrefix("application/json") {
-                return json
-            } else if a.hasPrefix("text/plain") {
-                return json
-            } else if a.hasPrefix("application/sparql-results+xml") {
-                return xml
+        let turtle = TurtleSerializer()
+        let ntriples = NTriplesSerializer()
+        switch result {
+        case .bindings(_), .boolean(_):
+            for a in accept {
+                if a == "*/*" {
+                    return xml
+                } else if a.hasPrefix("application/sparql-results+json") {
+                    return json
+                } else if a.hasPrefix("application/json") {
+                    return json
+                } else if a.hasPrefix("text/plain") {
+                    return json
+                } else if a.hasPrefix("application/sparql-results+xml") {
+                    return xml
+                }
             }
+            return xml
+        case .triples(_):
+            for a in accept {
+                if a == "*/*" {
+                    return turtle
+                } else if a.hasPrefix("applicaiton/turtle") {
+                    return turtle
+                } else if a.hasPrefix("application/n-triples") {
+                    return ntriples
+                } else if a.hasPrefix("text/plain") {
+                    return ntriples
+                }
+            }
+            return ntriples
         }
-        return xml
     }
     
     public func negotiateParser(for response: URLResponse) -> SPARQLParsable {

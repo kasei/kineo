@@ -72,7 +72,7 @@ extension Term {
 }
 
 open class NTriplesSerializer : RDFSerializer {
-    var canonicalMediaType = "application/n-triples"
+    public var canonicalMediaType = "application/n-triples"
     
     public init() {
         
@@ -397,5 +397,16 @@ open class NTriplesPatternParser<T: LineReadable> : NTriplesParser<T> {
         chars.dropWhile { $0 == " " || $0 == "." }
         guard chars.peek() == nil else { return nil }
         return TriplePattern(subject: nodes[0], predicate: nodes[1], object: nodes[2])
+    }
+}
+
+extension NTriplesSerializer : SPARQLSerializable {
+    public func serialize(_ results: QueryResult<[TermResult], [Triple]>) throws -> Data {
+        switch results {
+        case .triples(let triples):
+            return try serialize(triples)
+        default:
+            throw SerializationError.encodingError("SPARQL results cannot be serialized as N-Triples")
+        }
     }
 }
