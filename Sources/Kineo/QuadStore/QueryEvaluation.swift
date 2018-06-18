@@ -322,11 +322,15 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol> {
                 } while true
             }
         case .bgp(let patterns):
-            let projection = algebra.inscope
-            let triples : [Algebra] = patterns.map { $0.bindingAllVariables }.map { .triple($0) }
-            let join: Algebra = triples.reduce(.joinIdentity) { .innerJoin($0, $1) }
-            let algebra: Algebra = .project(join, projection)
-            return try evaluate(algebra: algebra, activeGraph: activeGraph)
+            if let s = store as? BGPQuadStoreProtocol {
+                return try s.results(matching: patterns, in: activeGraph)
+            } else {
+                let projection = algebra.inscope
+                let triples : [Algebra] = patterns.map { $0.bindingAllVariables }.map { .triple($0) }
+                let join: Algebra = triples.reduce(.joinIdentity) { .innerJoin($0, $1) }
+                let algebra: Algebra = .project(join, projection)
+                return try evaluate(algebra: algebra, activeGraph: activeGraph)
+            }
         case let .minus(lhs, rhs):
             let l = try self.evaluate(algebra: lhs, activeGraph: activeGraph)
             let r = try Array(self.evaluate(algebra: rhs, activeGraph: activeGraph))

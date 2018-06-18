@@ -17,7 +17,7 @@ public struct GraphDescription {
     public var triplesCount: Int
 }
 
-public protocol QuadStoreProtocol: Sequence {
+public protocol QuadStoreProtocol {
     var count: Int { get }
     func graphs() -> AnyIterator<Term>
     func graphTerms(in: Term) -> AnyIterator<Term>
@@ -27,6 +27,10 @@ public protocol QuadStoreProtocol: Sequence {
     func effectiveVersion(matching pattern: QuadPattern) throws -> Version?
     var graphDescriptions: [Term:GraphDescription] { get }
     var features: [QuadStoreFeature] { get }
+}
+
+public protocol BGPQuadStoreProtocol: QuadStoreProtocol {
+    func results(matching bgp: [TriplePattern], in graph: Term) throws -> AnyIterator<TermResult>
 }
 
 public protocol MutableQuadStoreProtocol: QuadStoreProtocol {
