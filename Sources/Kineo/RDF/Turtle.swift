@@ -104,8 +104,7 @@ open class TurtleSerializer : RDFSerializer {
                 throw SerializationError.encodingError("Failed to encode term as utf-8: \(o)")
             }
             if i > 0 {
-                data.append(0x2c)
-                data.append(0x20)
+                data.append(contentsOf: [0x2c, 0x20]) // comma space
             }
             data.append(termData)
         }
@@ -121,13 +120,11 @@ open class TurtleSerializer : RDFSerializer {
         for (i, p) in preds.keys.sorted().enumerated() {
             let t = preds[p]!
             if i > 0 {
-                data.append(0x3b)
-                data.append(0x20)
+                data.append(contentsOf: [0x20, 0x3b, 0x0a, 0x09]) // space semicolon newline tab
             }
             try serialize(t, forPredicate: p, to: &data)
         }
-        data.append(0x20)
-        data.append(contentsOf: [0x2e, 0x0a]) // dot newline
+        data.append(contentsOf: [0x20, 0x2e, 0x0a, 0x0a]) // space dot newline newline
     }
     
     public func serialize<S: Sequence>(_ triples: S) throws -> Data where S.Element == Triple {
