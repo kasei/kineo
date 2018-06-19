@@ -84,7 +84,7 @@ public struct SPARQLContentNegotiator {
         case sparqlTSV = "http://www.w3.org/ns/formats/SPARQL_Results_TSV"
         
     }
-    public let supportedSerializations : [ResultFormat] = [.sparqlXML, .sparqlJSON, .ntriples, .turtle]
+    public let supportedSerializations : [ResultFormat] = [.sparqlXML, .sparqlJSON, .sparqlTSV, .ntriples, .turtle]
 
     public init() {
     }
@@ -92,9 +92,11 @@ public struct SPARQLContentNegotiator {
     public func negotiateSerializer<S : Sequence, B, T>(for result: QueryResult<B, T>, accept: S) -> SPARQLSerializable where S.Element == String {
         let xml = SPARQLXMLSerializer<TermResult>()
         let json = SPARQLJSONSerializer<TermResult>()
+        let tsv = SPARQLTSVSerializer<TermResult>()
         let turtle = TurtleSerializer()
         let ntriples = NTriplesSerializer()
         switch result {
+        // TODO: improve to use the media types present in each serializer class
         case .bindings(_), .boolean(_):
             for a in accept {
                 if a == "*/*" {
@@ -107,6 +109,8 @@ public struct SPARQLContentNegotiator {
                     return json
                 } else if a.hasPrefix("application/sparql-results+xml") {
                     return xml
+                } else if a.hasPrefix("text/tab-separated-values") {
+                    return tsv
                 }
             }
             return xml
