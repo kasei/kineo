@@ -15,26 +15,16 @@ extension TurtleSerializationTest {
 #endif
 
 class TurtleSerializationTest: XCTestCase {
-    var serializer: TurtleSerializer!
+    var serializer : TurtleSerializer!
     override func setUp() {
+        serializer = TurtleSerializer()
         super.setUp()
-        self.serializer = TurtleSerializer()
         // Put setup code here. This method is called before the invocation of each test method in the class.
     }
     
     override func tearDown() {
         // Put teardown code here. This method is called after the invocation of each test method in the class.
         super.tearDown()
-    }
-    
-    private func parse(query: String) -> Query? {
-        let qp      = QueryParser(reader: query)
-        do {
-            let query   = try qp.parse()
-            return query
-        } catch {
-            return nil
-        }
     }
     
     func testTriples() {
@@ -76,8 +66,21 @@ class TurtleSerializationTest: XCTestCase {
         
         guard let data = try? serializer.serialize([triple1, triple4, triple2, triple3]) else { XCTFail(); return }
         let string = String(data: data, encoding: .utf8)!
-        XCTAssertEqual(string, "_:b1 <http://example.org/i1> 1, 2; <http://example.org/i2> 1, 2 .\n")
+        XCTAssertEqual(string, "_:b1 <http://example.org/i1> 1, 2 ;\n\t<http://example.org/i2> 1, 2 .\n")
         XCTAssert(true)
     }
-    
+
+    func testPrefixes() {
+        serializer.add(name: "ex", for: "http://example.org/")
+        let i1 = Term(iri: "http://example.org/i1")
+        let i2 = Term(iri: "http://example.org/foo/bar/123")
+        let b = Term(value: "b1", type: .blank)
+        let triple1 = Triple(subject: b, predicate: i1, object: i2)
+
+        guard let data = try? serializer.serialize([triple1]) else { XCTFail(); return }
+        let string = String(data: data, encoding: .utf8)!
+        XCTAssertEqual(string, "@prefix ex: <http://example.org/> .\n\n_:b1 ex:i1 <http://example.org/foo/bar/123> .\n")
+        XCTAssert(true)
+    }
+
 }

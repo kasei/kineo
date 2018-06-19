@@ -55,10 +55,34 @@ extension String {
 }
 
 extension Term {
-    func turtleData() -> Data? {
+    func turtleData(usingPrefixes prefixes: [String:Term]? = nil) -> Data? {
         switch self.type {
         case .iri:
-            return "<\(self.value.turtleIRIEscaped)>".data(using: .utf8)
+            let v = self.value
+            if let prefixes = prefixes {
+                for (k, ns) in prefixes {
+                    if v.hasPrefix(ns.value) {
+                        let index = v.index(v.startIndex, offsetBy: ns.value.count)
+                        let rest = v[index...]
+                        let prefixname = "\(k):\(rest)"
+                        guard let pndata = prefixname.data(using: .utf8) else {
+                            continue
+                        }
+                        let istream = InputStream(data: pndata)
+                        istream.open()
+                        let lexer = SPARQLLexer(source: istream)
+                        if let token = lexer.next() {
+                            if lexer.hasRemainingContent {
+                                continue
+                            }
+                            if case .prefixname(_) = token {
+                                return prefixname.data(using: .utf8)
+                            }
+                        }
+                    }
+                }
+            }
+            return "<\(v.turtleIRIEscaped)>".data(using: .utf8)
         case .blank:
             return "_:\(self.value)".data(using: .utf8)
         case .language(let l):
@@ -75,14 +99,19 @@ extension Term {
 
 open class TurtleSerializer : RDFSerializer {
     public var canonicalMediaType = "application/turtle"
+    var prefixes: [String:Term]
     
-    public init() {
-        
+    public init(prefixes: [String:Term]? = nil) {
+        self.prefixes = prefixes ?? [:] // TODO: implement prefix use
     }
     
-    public func serialize(_ triple: Triple, to data: inout Data) throws {
+    public func add(name: String, for namespace: String) {
+        prefixes[name] = Term(iri: namespace)
+    }
+    
+    private func serialize(_ triple: Triple, to data: inout Data) throws {
         for t in triple {
-            guard let termData = t.turtleData() else {
+            guard let termData = t.turtleData(usingPrefixes: prefixes) else {
                 throw SerializationError.encodingError("Failed to encode term as utf-8: \(t)")
             }
             data.append(termData)
@@ -91,8 +120,8 @@ open class TurtleSerializer : RDFSerializer {
         data.append(contentsOf: [0x2e, 0x0a]) // dot newline
     }
     
-    public func serialize<S: Sequence>(_ triples: S, forPredicate predicate: Term, to data: inout Data) throws where S.Element == Triple {
-        guard let termData = predicate.turtleData() else {
+    private func serialize<S: Sequence>(_ triples: S, forPredicate predicate: Term, to data: inout Data) throws where S.Element == Triple {
+        guard let termData = predicate.turtleData(usingPrefixes: prefixes) else {
             throw SerializationError.encodingError("Failed to encode term as utf-8: \(predicate)")
         }
         data.append(termData)
@@ -100,7 +129,7 @@ open class TurtleSerializer : RDFSerializer {
 
         let objects = triples.map { $0.object }
         for (i, o) in objects.sorted().enumerated() {
-            guard let termData = o.turtleData() else {
+            guard let termData = o.turtleData(usingPrefixes: prefixes) else {
                 throw SerializationError.encodingError("Failed to encode term as utf-8: \(o)")
             }
             if i > 0 {
@@ -110,9 +139,9 @@ open class TurtleSerializer : RDFSerializer {
         }
     }
     
-    public func serialize<S: Sequence>(_ triples: S, forSubject subject: Term, to data: inout Data) throws where S.Element == Triple {
+    private func serialize<S: Sequence>(_ triples: S, forSubject subject: Term, to data: inout Data) throws where S.Element == Triple {
         let preds = Dictionary(grouping: triples) { $0.predicate }
-        guard let termData = subject.turtleData() else {
+        guard let termData = subject.turtleData(usingPrefixes: prefixes) else {
             throw SerializationError.encodingError("Failed to encode term as utf-8: \(subject)")
         }
         data.append(termData)
@@ -124,14 +153,29 @@ open class TurtleSerializer : RDFSerializer {
             }
             try serialize(t, forPredicate: p, to: &data)
         }
-        data.append(contentsOf: [0x20, 0x2e, 0x0a, 0x0a]) // space dot newline newline
+        data.append(contentsOf: [0x20, 0x2e, 0x0a]) // space dot newline newline
     }
     
     public func serialize<S: Sequence>(_ triples: S) throws -> Data where S.Element == Triple {
-        let subjects = Dictionary(grouping: triples) { $0.subject }
         var d = Data()
-        for s in subjects.keys.sorted() {
+        if prefixes.count > 0 {
+            for (k, t) in prefixes {
+                d.append("@prefix \(k): ".data(using: .utf8)!)
+                guard let termData = t.turtleData() else {
+                    throw SerializationError.encodingError("Failed to encode prefix as utf-8: \(t)")
+                }
+                d.append(termData)
+                d.append(" .\n".data(using: .utf8)!)
+            }
+            d.append(0x0a)
+        }
+        
+        let subjects = Dictionary(grouping: triples) { $0.subject }
+        for (i, s) in subjects.keys.sorted().enumerated() {
             let t = subjects[s]!
+            if i > 0 {
+                d.append(0x0a)
+            }
             try serialize(t, forSubject: s, to: &d)
         }
         return d
