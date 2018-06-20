@@ -40,8 +40,6 @@ public protocol SimpleQueryEvaluatorProtocol {
     func freshVariable() -> Node
     func evaluate(query: Query) throws -> QueryResult<[TermResult], [Triple]>
     func evaluate(query: Query, activeGraph: Term?) throws -> QueryResult<[TermResult], [Triple]>
-    func triples<S : Sequence>(describing node: Node, from results: S) throws -> AnyIterator<Triple> where S.Element == TermResult
-    func triples<S : Sequence>(from results: S, with template: [TriplePattern]) -> [Triple] where S.Element == TermResult
     func evaluate(algebra: Algebra, activeGraph: Term?) throws -> AnyIterator<TermResult>
     func evaluateTable(columns names: [Node], rows: [[Term?]]) throws -> AnyIterator<TermResult>
     func evaluateSlice(_ i: AnyIterator<TermResult>, offset: Int?, limit: Int?) throws -> AnyIterator<TermResult>
@@ -61,20 +59,18 @@ public protocol SimpleQueryEvaluatorProtocol {
     func evaluateAvg<S: Sequence>(results: S, expression keyExpr: Expression, distinct: Bool) -> Term? where S.Iterator.Element == TermResult
     func evaluateSum<S: Sequence>(results: S, expression keyExpr: Expression, distinct: Bool) -> Term? where S.Iterator.Element == TermResult
     func evaluateGroupConcat<S: Sequence>(results: S, expression keyExpr: Expression, separator: String, distinct: Bool) -> Term? where S.Iterator.Element == TermResult
-//    func evaluateSinglePipelinedAggregation(algebra child: Algebra, groups: [Expression], aggregation agg: Aggregation, variable name: String, activeGraph: Term) throws -> AnyIterator<TermResult>
     func evaluateWindow(algebra child: Algebra, groups: [Expression], functions: [Algebra.WindowFunctionMapping], activeGraph: Term) throws -> AnyIterator<TermResult>
-//    func alp(term: Term, path: PropertyPath, graph: Term) throws -> AnyIterator<Term>
-//    func alp(term: Term, path: PropertyPath, seen: inout Set<Term>, graph: Term) throws
-//    func evaluateNPS(subject: Node, object: Node, graph: Term, not iris: [Term]) throws -> AnyIterator<TermResult>
     func evaluatePath(subject: Node, object: Node, graph: Term, path: PropertyPath) throws -> AnyIterator<TermResult>
     func evaluateAggregation(algebra child: Algebra, groups: [Expression], aggregations aggs: Set<Algebra.AggregationMapping>, activeGraph: Term) throws -> AnyIterator<TermResult>
     func evaluateSort<S: Sequence>(_ results: S, comparators: [Algebra.SortComparator]) -> [TermResult] where S.Element == TermResult
     func resultsAreEqual(_ a : TermResult, _ b : TermResult, usingComparators: [Algebra.SortComparator]) -> Bool
     
     func evaluate(bgp: [TriplePattern], activeGraph: Term) throws -> AnyIterator<TermResult>
+    
     func evaluate(quad: QuadPattern) throws -> AnyIterator<TermResult>
     func evaluate(algebra: Algebra, inGraph: Node) throws -> AnyIterator<TermResult>
     func evaluateGraphTerms(in: Term) -> AnyIterator<Term>
+    func triples(describing term: Term) throws -> AnyIterator<Triple>
 }
 
 extension SimpleQueryEvaluatorProtocol {
@@ -1140,48 +1136,6 @@ extension SimpleQueryEvaluatorProtocol {
         return try evaluate(algebra: algebra, activeGraph: activeGraph)
     }
     
-}
-
-open class SimpleQueryEvaluator<Q: QuadStoreProtocol>: SimpleQueryEvaluatorProtocol {
-    public var store: Q
-    public var dataset: Dataset
-    public var ee: ExpressionEvaluator
-    public let supportedLanguages: [QueryLanguage] = [.sparqlQuery10, .sparqlQuery11]
-    public let supportedFeatures: [QueryEngineFeature] = [.basicFederatedQuery]
-
-    internal var freshVarNumber: Int
-    public  var verbose: Bool
-
-    public init(store: Q, dataset: Dataset, verbose: Bool = false) {
-        self.store = store
-        self.dataset = dataset
-        self.freshVarNumber = 1
-        self.verbose = verbose
-        self.ee = ExpressionEvaluator()
-    }
-    
-    convenience public init(store: Q, defaultGraph: Term, verbose: Bool = false) {
-        let dataset = store.dataset(withDefault: defaultGraph)
-        self.init(store: store, dataset: dataset, verbose: verbose)
-    }
-    
-    public func freshVariable() -> Node {
-        let n = freshVarNumber
-        freshVarNumber += 1
-        return .variable(".v\(n)", binding: true)
-    }
-    
-    internal func triples(describing term: Term) throws -> AnyIterator<Triple> {
-        let qp = QuadPattern(
-            subject: .bound(term),
-            predicate: .variable("p", binding: true),
-            object: .variable("o", binding: true),
-            graph: .variable("g", binding: true))
-        let quads = try store.quads(matching: qp)
-        let triples = quads.map { $0.triple }
-        return AnyIterator(triples.makeIterator())
-    }
-    
     public func triples<S : Sequence>(describing node: Node, from results: S) throws -> AnyIterator<Triple> where S.Element == TermResult {
         switch node {
         case .bound(let term):
@@ -1218,6 +1172,48 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol>: SimpleQueryEvaluatorProto
         }
         return Array(triples)
     }
+}
+
+open class SimpleQueryEvaluator<Q: QuadStoreProtocol>: SimpleQueryEvaluatorProtocol {
+    public var store: Q
+    public var dataset: Dataset
+    public var ee: ExpressionEvaluator
+    public let supportedLanguages: [QueryLanguage] = [.sparqlQuery10, .sparqlQuery11]
+    public let supportedFeatures: [QueryEngineFeature] = [.basicFederatedQuery]
+
+    internal var freshVarNumber: Int
+    public  var verbose: Bool
+
+    public init(store: Q, dataset: Dataset, verbose: Bool = false) {
+        self.store = store
+        self.dataset = dataset
+        self.freshVarNumber = 1
+        self.verbose = verbose
+        self.ee = ExpressionEvaluator()
+    }
+    
+    convenience public init(store: Q, defaultGraph: Term, verbose: Bool = false) {
+        let dataset = store.dataset(withDefault: defaultGraph)
+        self.init(store: store, dataset: dataset, verbose: verbose)
+    }
+    
+    public func freshVariable() -> Node {
+        let n = freshVarNumber
+        freshVarNumber += 1
+        return .variable(".v\(n)", binding: true)
+    }
+    
+    public func triples(describing term: Term) throws -> AnyIterator<Triple> {
+        let qp = QuadPattern(
+            subject: .bound(term),
+            predicate: .variable("p", binding: true),
+            object: .variable("o", binding: true),
+            graph: .variable("g", binding: true))
+        let quads = try store.quads(matching: qp)
+        let triples = quads.map { $0.triple }
+        return AnyIterator(triples.makeIterator())
+    }
+    
     
     public func evaluate(bgp patterns: [TriplePattern], activeGraph: Term) throws -> AnyIterator<TermResult> {
         if let s = store as? BGPQuadStoreProtocol {
