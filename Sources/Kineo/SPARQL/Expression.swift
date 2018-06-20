@@ -11,7 +11,7 @@ import CryptoSwift
 import SPARQLSyntax
 
 extension Term {
-    func ebv() throws -> Bool {
+    public func ebv() throws -> Bool {
         switch type {
         case .datatype(.boolean):
             return value == "true" || value == "1"
@@ -25,7 +25,7 @@ extension Term {
     }
 }
 
-class ExpressionEvaluator {
+public class ExpressionEvaluator {
     public enum ConstructorFunction : String {
         case str = "STR"
         case uri = "URI"
@@ -86,11 +86,11 @@ class ExpressionEvaluator {
 
     var bnodes: [String: String]
     var now: Date
-    var base: String?
+    public var base: String?
     var activeGraph: Term?
     var algebraEvaluator: AlgebraEvaluator?
     
-    init(base: String? = nil) {
+    public init(base: String? = nil) {
         self.base = base
         self.bnodes = [:]
         self.now = Date()

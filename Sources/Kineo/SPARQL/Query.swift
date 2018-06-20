@@ -9,7 +9,7 @@
 import Foundation
 import SPARQLSyntax
 
-enum QueryError: Error {
+public enum QueryError: Error {
     case evaluationError(String)
     case typeError(String)
     case parseError(String)
