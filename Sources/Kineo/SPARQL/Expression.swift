@@ -859,3 +859,19 @@ extension Term {
         }
     }
 }
+
+extension Expression {
+    var isConstant : Bool {
+        switch self {
+        case .node(.bound(_)):
+            return true
+        case let .and(lhs, rhs) where lhs.isConstant && rhs.isConstant, let .or(lhs, rhs) where lhs.isConstant && rhs.isConstant:
+            return true
+        case let .add(lhs, rhs) where lhs.isConstant && rhs.isConstant, let .sub(lhs, rhs) where lhs.isConstant && rhs.isConstant, let .mul(lhs, rhs) where lhs.isConstant && rhs.isConstant, let .div(lhs, rhs) where lhs.isConstant && rhs.isConstant:
+            return true
+        default:
+            print("TODO: expand recognition of constant expressions")
+            return false
+        }
+    }
+}

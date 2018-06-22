@@ -22,9 +22,15 @@ public struct SPARQLQueryRewriter {
     }
     
     public func simplify(algebra: Algebra) throws -> Algebra {
-        var a = algebra
-        a = try a.rewrite(pushdownProjection)
-        return a
+        return try algebra
+            .rewrite(mergeFilters)
+            .rewrite(simplifyExpressions)
+            .rewrite(foldConstantExpressions)
+            .rewrite(foldConstantAlgebras)
+            .rewrite(propertyPathExpansion)
+            .rewrite(pushdownProjection)
+            .rewrite(pushdownSlice)
+            .rewrite(pushdownFilter)
     }
 }
 
@@ -80,7 +86,7 @@ private func pushdownProjection(_ algebra: Algebra) throws -> RewriteStatus<Alge
     case let .project(.extend(child, expr, name), vars):
         if vars.contains(name) {
             let needed = vars.union(expr.variables)
-            return .rewriteChildren(.project(.extend(.project(child, needed), expr, name), vars))
+            return .rewriteChildren(.project(.extend(.project(child, needed.subtracting([name])), expr, name), vars))
         } else {
             // projection immediately makes the newly bound variable go away, so drop it
             return .rewriteChildren(.project(child, vars))
@@ -102,6 +108,90 @@ private func pushdownProjection(_ algebra: Algebra) throws -> RewriteStatus<Alge
     return .rewriteChildren(algebra)
 }
 
+private func pushdownSlice(_ algebra: Algebra) throws -> RewriteStatus<Algebra> {
+    switch algebra {
+    case let .slice(_, _, .some(limit)) where limit == 0:
+        return .rewrite(.unionIdentity) // LIMIT 0 -> no results
+    case let .slice(.joinIdentity, .some(offset), _) where offset > 0:
+        return .rewrite(.unionIdentity) // OFFSET >0 over a single row -> no results
+    case .slice(.table(_), _, _):
+        print("TODO: rewrite .table(_) with slicing applied")
+        break
+    case let .slice(.leftOuterJoin(lhs, rhs, expr), nil, .some(limit)), let .slice(.leftOuterJoin(lhs, rhs, expr), 0, .some(limit)):
+        // slicing an OPTIONAL with a limit but no offset can safely limit the lhs
+        return .rewriteChildren(.slice(.leftOuterJoin(.slice(lhs, 0, limit), rhs, expr), 0, limit))
+    case let .slice(.union(lhs, rhs), nil, .some(limit)), let .slice(.union(lhs, rhs), 0, .some(limit)):
+        // slicing a UNION with a limit but no offset can safely limit both sides
+        return .rewriteChildren(.slice(.union(.slice(lhs, 0, limit), .slice(rhs, 0, limit)), 0, limit))
+    case let .slice(.extend(child, expr, name), offset, limit):
+        return .rewriteChildren(.extend(.slice(child, offset, limit), expr, name))
+    default:
+        break
+    }
+    return .rewriteChildren(algebra)
+}
+
+private func mergeFilters(_ algebra: Algebra) throws -> RewriteStatus<Algebra> {
+    switch algebra {
+    case let .filter(.filter(child, inner), outer):
+        return .rewriteChildren(.filter(child, .and(inner, outer)))
+    default:
+        break
+    }
+    return .rewriteChildren(algebra)
+}
+
+private func pushdownFilter(_ algebra: Algebra) throws -> RewriteStatus<Algebra> {
+    guard case let .filter(child, expr) = algebra else {
+        return .rewriteChildren(algebra)
+    }
+    
+    let vars = expr.variables
+    
+    switch child {
+    case .table(_):
+        print("TODO: rewrite .table(_) with filtering applied")
+        break
+    case let .innerJoin(lhs, rhs):
+        let lok = vars.isSubset(of: lhs.inscope)
+        let rok = vars.isSubset(of: rhs.inscope)
+        if lok && rok {
+            return .rewriteChildren(.innerJoin(.filter(lhs, expr), .filter(rhs, expr)))
+        } else if lok {
+            return .rewriteChildren(.innerJoin(.filter(lhs, expr), rhs))
+        } else if rok {
+            return .rewriteChildren(.innerJoin(lhs, .filter(rhs, expr)))
+        }
+    case let .union(lhs, rhs):
+        return .rewriteChildren(.union(.filter(lhs, expr), .filter(rhs, expr)))
+    case let .minus(lhs, rhs):
+        return .rewriteChildren(.minus(.filter(lhs, expr), rhs))
+    case let .distinct(lhs):
+        return .rewriteChildren(.distinct(.filter(lhs, expr)))
+    case let .order(lhs, cmps):
+        return .rewriteChildren(.order(.filter(lhs, expr), cmps))
+    default:
+        break
+    }
+    return .rewriteChildren(algebra)
+}
+
+private func propertyPathExpansion(_ algebra: Algebra) throws -> RewriteStatus<Algebra> {
+    guard case let .path(s, pp, o) = algebra else {
+        return .rewriteChildren(algebra)
+    }
+    
+    switch pp {
+    case let .link(p):
+        return .rewrite(.triple(TriplePattern(subject: s, predicate: .bound(p), object: o)))
+    case let .inv(ppi):
+        return .rewrite(.path(o, ppi, s))
+    case let .alt(lhs, rhs):
+        return .rewrite(.union(.path(s, lhs, o), .path(s, rhs, o)))
+    default:
+        return .keep
+    }
+}
 
 /**
  
@@ -129,3 +219,63 @@ private func pushdownProjection(_ algebra: Algebra) throws -> RewriteStatus<Alge
     case subquery(Query)
 
  **/
+
+private func foldConstantAlgebras(_ algebra: Algebra) throws -> RewriteStatus<Algebra> {
+    switch algebra {
+    case .innerJoin(.unionIdentity, _), .innerJoin(_, .unionIdentity):
+        return .rewriteChildren(.unionIdentity)
+    case .innerJoin(.joinIdentity, let child), .innerJoin(let child, .joinIdentity):
+        return .rewriteChildren(child)
+    case .union(.unionIdentity, let child), .union(let child, .unionIdentity):
+        return .rewriteChildren(child)
+    default:
+        break
+    }
+    return .rewriteChildren(algebra)
+}
+
+private func foldConstantExpressions(_ algebra: Algebra) throws -> RewriteStatus<Algebra> {
+    switch algebra {
+    case .filter(_, .node(.bound(Term.falseValue))):
+        return .rewrite(.unionIdentity)
+    case .filter(let child, .node(.bound(Term.trueValue))):
+        return .rewrite(child)
+    case .table(_, []):
+        return .rewrite(.unionIdentity)
+    default:
+        break
+    }
+    return .rewriteChildren(algebra)
+}
+
+private func simplifyExpressions(_ algebra: Algebra) throws -> RewriteStatus<Algebra> {
+    switch algebra {
+    case let .extend(child, expr, name):
+        let e = try expr.rewrite(simplifyExpression)
+        return .rewriteChildren(.extend(child, e, name))
+    case let .filter(child, expr):
+        let e = try expr.rewrite(simplifyExpression)
+        return .rewriteChildren(.filter(child, e))
+    case let .leftOuterJoin(lhs, rhs, expr):
+        let e = try expr.rewrite(simplifyExpression)
+        return .rewriteChildren(.leftOuterJoin(lhs, rhs, e))
+    default:
+        break
+    }
+    return .rewriteChildren(algebra)
+}
+
+
+private func simplifyExpression(_ expr: Expression) throws -> RewriteStatus<Expression> {
+    guard expr.isConstant else {
+        return .rewriteChildren(expr)
+    }
+
+    let ee = ExpressionEvaluator()
+    do {
+        let term = try ee.evaluate(expression: expr, result: TermResult(bindings: [:]))
+        return .rewrite(.node(.bound(term)))
+    } catch {
+        return .rewriteChildren(expr)
+    }
+}

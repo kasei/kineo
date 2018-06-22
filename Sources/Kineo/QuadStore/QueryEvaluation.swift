@@ -74,7 +74,18 @@ public protocol SimpleQueryEvaluatorProtocol {
 }
 
 extension SimpleQueryEvaluatorProtocol {
-    public func evaluate(query: Query) throws -> QueryResult<[TermResult], [Triple]> {
+    public func evaluate(query original: Query) throws -> QueryResult<[TermResult], [Triple]> {
+        let rewriter = SPARQLQueryRewriter()
+        let query = try rewriter.simplify(query: original)
+        if verbose {
+            if query != original {
+                print("=========================================================")
+                print(original.serialize())
+                print("==>>>")
+                print(query.serialize())
+                print("---------------------------------------------------------")
+            }
+        }
         return try evaluate(query: query, activeGraph: nil)
     }
     

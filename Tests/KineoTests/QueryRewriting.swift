@@ -14,7 +14,14 @@ extension QueryRewritingTest {
 
 class QueryRewritingTest: XCTestCase {
     var rewriter : SPARQLQueryRewriter!
-    
+
+    let iriNode : Node = .bound(Term(iri: "http://example.org/食べる"))
+    let blankNode : Node = .bound(Term(value: "b1", type: .blank))
+    let langLiteralNode : Node = .bound(Term(value: "foo", type: .language("en-US")))
+    let integerNode : Node = .bound(Term(integer: 7))
+    let xVariableNode : Node = .variable("x", binding: true)
+    let yVariableNode : Node = .variable("y", binding: true)
+
     override func setUp() {
         rewriter = SPARQLQueryRewriter()
         super.setUp()
@@ -27,22 +34,16 @@ class QueryRewritingTest: XCTestCase {
     }
     
     func testProjectionPushdown() throws {
-        let i : Node = .bound(Term(iri: "http://example.org/食べる"))
-        let b : Node = .bound(Term(value: "b1", type: .blank))
-        let v : Node = .variable("x", binding: true)
-        let tp = TriplePattern(subject: b, predicate: i, object: v)
+        let tp = TriplePattern(subject: blankNode, predicate: iriNode, object: xVariableNode)
         let proj = Set(["x"])
-        let a : Algebra = .project(.distinct(.triple(tp)), proj)
+        let a : Algebra = .project(.distinct(.bgp([tp])), proj)
         
         let rewritten = try rewriter.simplify(algebra: a)
-        XCTAssertEqual(rewritten, .distinct(.project(.triple(tp), proj)))
+        XCTAssertEqual(rewritten, .distinct(.project(.bgp([tp]), proj)))
     }
     
     func testProjectionMerging() throws {
-        let i : Node = .bound(Term(iri: "http://example.org/食べる"))
-        let b : Node = .bound(Term(value: "b1", type: .blank))
-        let v : Node = .variable("x", binding: true)
-        let tp = TriplePattern(subject: b, predicate: i, object: v)
+        let tp = TriplePattern(subject: blankNode, predicate: iriNode, object: xVariableNode)
         let proj1 = Set(["x", "y", "z"])
         let proj2 = Set(["a", "b", "x"])
         let a : Algebra = .project(.project(.triple(tp), proj1), proj2)
@@ -52,12 +53,7 @@ class QueryRewritingTest: XCTestCase {
     }
     
     func testProjectionMergingPushdown() throws {
-        let i : Node = .bound(Term(iri: "http://example.org/食べる"))
-        let b : Node = .bound(Term(value: "b1", type: .blank))
-        let l : Node = .bound(Term(value: "foo", type: .language("en-US")))
-        let d : Node = .bound(Term(integer: 7))
-        let v : Node = .variable("x", binding: true)
-        let tp = TriplePattern(subject: b, predicate: i, object: v)
+        let tp = TriplePattern(subject: blankNode, predicate: iriNode, object: xVariableNode)
         let proj1 = Set(["x", "y", "z"])
         let proj2 = Set(["a", "b", "x"])
         let a : Algebra = .project(.project(.distinct(.triple(tp)), proj1), proj2)
@@ -68,13 +64,7 @@ class QueryRewritingTest: XCTestCase {
     }
     
     func testProjectionTripleInlining() throws {
-        let i : Node = .bound(Term(iri: "http://example.org/食べる"))
-        let b : Node = .bound(Term(value: "b1", type: .blank))
-        let l : Node = .bound(Term(value: "foo", type: .language("en-US")))
-        let d : Node = .bound(Term(integer: 7))
-        let x : Node = .variable("x", binding: true)
-        let y : Node = .variable("y", binding: true)
-        let tp = TriplePattern(subject: x, predicate: i, object: y)
+            let tp = TriplePattern(subject: xVariableNode, predicate: iriNode, object: yVariableNode)
         let proj = Set(["x"])
         let a : Algebra = .project(.triple(tp), proj)
         
@@ -88,26 +78,16 @@ class QueryRewritingTest: XCTestCase {
     }
     
     func testProjectionBindElission() throws {
-        let i : Node = .bound(Term(iri: "http://example.org/食べる"))
-        let d : Node = .bound(Term(integer: 7))
-        let x : Node = .variable("x", binding: true)
-        let y : Node = .variable("y", binding: true)
-        let tp = TriplePattern(subject: x, predicate: i, object: y)
+            let tp = TriplePattern(subject: xVariableNode, predicate: iriNode, object: yVariableNode)
         let proj = Set(["x"])
-        let a : Algebra = .project(.extend(.triple(tp), .node(d), "y"), proj)
+        let a : Algebra = .project(.extend(.triple(tp), .node(integerNode), "y"), proj)
         
         let rewritten = try rewriter.simplify(algebra: a)
         XCTAssertEqual(rewritten, .project(.triple(tp), Set(["x"])))
     }
 
     func testProjectionDoubleBindElission() throws {
-        let i : Node = .bound(Term(iri: "http://example.org/食べる"))
-        let b : Node = .bound(Term(value: "b1", type: .blank))
-        let l : Node = .bound(Term(value: "foo", type: .language("en-US")))
-        let d : Node = .bound(Term(integer: 7))
-        let x : Node = .variable("x", binding: true)
-        let y : Node = .variable("y", binding: true)
-        let tp = TriplePattern(subject: x, predicate: i, object: y)
+        let tp = TriplePattern(subject: xVariableNode, predicate: iriNode, object: yVariableNode)
         let proj = Set(["x", "z"])
         let a : Algebra = .project(
             .extend(
@@ -116,7 +96,7 @@ class QueryRewritingTest: XCTestCase {
                     .node(.variable("y", binding: true)),
                     "z"
                 ),
-                .node(d),
+                .node(integerNode),
                 "y"
             ),
             proj
@@ -127,4 +107,39 @@ class QueryRewritingTest: XCTestCase {
         print(rewritten.serialize())
         XCTAssertEqual(rewritten, .project(.extend(.triple(tp), .node(.variable("y", binding: true)), "z"), Set(["x", "z"])))
     }
+
+    func testSlicePushdown() throws {
+        let tp = TriplePattern(subject: blankNode, predicate: iriNode, object: xVariableNode)
+        let a : Algebra = .slice(.distinct(.bgp([tp])), 1, 2)
+        let rewritten = try rewriter.simplify(algebra: a)
+        XCTAssertEqual(rewritten, .distinct(.slice(.bgp([tp]), 1, 2)))
+    }
+
+    
+    func testConstantFolding_true() throws {
+        let tp = TriplePattern(subject: blankNode, predicate: iriNode, object: xVariableNode)
+        let expr : Expression = .node(.bound(.trueValue))
+        let a : Algebra = .filter(.triple(tp), expr)
+        let rewritten = try rewriter.simplify(algebra: a)
+        XCTAssertEqual(rewritten, .triple(tp))
+    }
+    
+    func testExpressionConstantFolding_false() throws {
+        let tp = TriplePattern(subject: blankNode, predicate: iriNode, object: xVariableNode)
+        let expr : Expression = .node(.bound(.falseValue))
+        let a : Algebra = .filter(.triple(tp), expr)
+        let rewritten = try rewriter.simplify(algebra: a)
+        XCTAssertEqual(rewritten, .unionIdentity)
+    }
+    
+    func testExpressionConstantFolding_addition() throws {
+        let tp = TriplePattern(subject: blankNode, predicate: iriNode, object: xVariableNode)
+        let expr : Expression = .add(Expression(integer: 1), Expression(integer: 2))
+        let a : Algebra = .filter(.triple(tp), expr)
+        print(a.serialize())
+        let rewritten = try rewriter.simplify(algebra: a)
+        print(rewritten.serialize())
+        XCTAssertEqual(rewritten, .filter(.triple(tp), Expression(integer: 3)))
+    }
+    
 }
