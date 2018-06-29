@@ -40,10 +40,35 @@ private func pushdownProjection(_ algebra: Algebra) throws -> RewriteStatus<Alge
         return .rewriteChildren(.project(child, inner.intersection(outer)))
     case let .project(.order(child, cmps), vars):
         return .rewriteChildren(.order(.project(child, vars), cmps))
-    case .project(.table(_), _):
-        print("TODO: coalesce projection with .table(_)")
+    case let .project(.table(columns, rows), vars):
         // make the header Nodes in the .table non-binding, and ensure that .table evaluation respects the nodes' binding flags
-        break
+        var tableVariables = [String]()
+        for c in columns {
+            guard case .variable(let v, true) = c else {
+                // table is structurally invalid, bail out of rewriting
+                return .keep
+            }
+            tableVariables.append(v)
+        }
+        let preserveVariablesSet = Set(tableVariables).intersection(vars)
+        var rewrittenRows = [[Term?]]()
+        for row in rows {
+            var rewrittenRow = [Term?]()
+            for (name, term) in zip(tableVariables, row) {
+                if preserveVariablesSet.contains(name) {
+                    rewrittenRow.append(term)
+                }
+            }
+            rewrittenRows.append(rewrittenRow)
+        }
+        let preserveColumns = columns.filter { (node) -> Bool in
+            if case .variable(let v, _) = node, preserveVariablesSet.contains(v) {
+                return true
+            } else {
+                return false
+            }
+        }
+        return .rewrite(.table(preserveColumns, rewrittenRows))
     case let .project(.triple(t), vars):
         let unbind = Algebra.triple(t).inscope.symmetricDifference(vars)
         var triple = t

@@ -142,4 +142,32 @@ class QueryRewritingTest: XCTestCase {
         XCTAssertEqual(rewritten, .filter(.triple(tp), Expression(integer: 3)))
     }
     
+    func testProjectionTableRewriting() throws {
+        let nodes = [xVariableNode, yVariableNode]
+        let rows : [[Term?]] = [
+            [iriNode.term, integerNode.term],
+            [nil, integerNode.term],
+            [blankNode.term, nil]
+        ]
+        let table : Algebra = .table(nodes, rows)
+
+        let proj = Set(["y"])
+        let a : Algebra = .project(table, proj)
+        print(a.serialize())
+        let rewritten = try rewriter.simplify(algebra: a)
+        print(rewritten.serialize())
+        XCTAssertEqual(rewritten, .table([yVariableNode], [[integerNode.term], [integerNode.term], [nil]]))
+    }
+    
+}
+
+extension Node {
+    var term : Term? {
+        switch  self {
+        case .bound(let t):
+            return t
+        default:
+            return nil
+        }
+    }
 }
