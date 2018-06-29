@@ -139,9 +139,15 @@ private func pushdownSlice(_ algebra: Algebra) throws -> RewriteStatus<Algebra> 
         return .rewrite(.unionIdentity) // LIMIT 0 -> no results
     case let .slice(.joinIdentity, .some(offset), _) where offset > 0:
         return .rewrite(.unionIdentity) // OFFSET >0 over a single row -> no results
-    case .slice(.table(_), _, _):
-        print("TODO: rewrite .table(_) with slicing applied")
-        break
+    case let .slice(.table(columns, rows), .some(offset), .some(limit)):
+        let rewrittenRows = rows.dropFirst(offset).prefix(limit)
+        return .rewrite(.table(columns, Array(rewrittenRows)))
+    case let .slice(.table(columns, rows), nil, .some(limit)):
+        let rewrittenRows = rows.prefix(limit)
+        return .rewrite(.table(columns, Array(rewrittenRows)))
+    case let .slice(.table(columns, rows), .some(offset), nil):
+        let rewrittenRows = rows.dropFirst(offset)
+        return .rewrite(.table(columns, Array(rewrittenRows)))
     case let .slice(.leftOuterJoin(lhs, rhs, expr), nil, .some(limit)), let .slice(.leftOuterJoin(lhs, rhs, expr), 0, .some(limit)):
         // slicing an OPTIONAL with a limit but no offset can safely limit the lhs
         return .rewriteChildren(.slice(.leftOuterJoin(.slice(lhs, 0, limit), rhs, expr), 0, limit))

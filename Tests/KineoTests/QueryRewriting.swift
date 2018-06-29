@@ -108,14 +108,6 @@ class QueryRewritingTest: XCTestCase {
         XCTAssertEqual(rewritten, .project(.extend(.triple(tp), .node(.variable("y", binding: true)), "z"), Set(["x", "z"])))
     }
 
-    func testSlicePushdown() throws {
-        let tp = TriplePattern(subject: blankNode, predicate: iriNode, object: xVariableNode)
-        let a : Algebra = .slice(.distinct(.bgp([tp])), 1, 2)
-        let rewritten = try rewriter.simplify(algebra: a)
-        XCTAssertEqual(rewritten, .distinct(.slice(.bgp([tp]), 1, 2)))
-    }
-
-    
     func testConstantFolding_true() throws {
         let tp = TriplePattern(subject: blankNode, predicate: iriNode, object: xVariableNode)
         let expr : Expression = .node(.bound(.trueValue))
@@ -136,9 +128,7 @@ class QueryRewritingTest: XCTestCase {
         let tp = TriplePattern(subject: blankNode, predicate: iriNode, object: xVariableNode)
         let expr : Expression = .add(Expression(integer: 1), Expression(integer: 2))
         let a : Algebra = .filter(.triple(tp), expr)
-        print(a.serialize())
         let rewritten = try rewriter.simplify(algebra: a)
-        print(rewritten.serialize())
         XCTAssertEqual(rewritten, .filter(.triple(tp), Expression(integer: 3)))
     }
     
@@ -150,15 +140,73 @@ class QueryRewritingTest: XCTestCase {
             [blankNode.term, nil]
         ]
         let table : Algebra = .table(nodes, rows)
-
+        
         let proj = Set(["y"])
         let a : Algebra = .project(table, proj)
-        print(a.serialize())
         let rewritten = try rewriter.simplify(algebra: a)
-        print(rewritten.serialize())
         XCTAssertEqual(rewritten, .table([yVariableNode], [[integerNode.term], [integerNode.term], [nil]]))
     }
     
+    func testSliceTableRewriting_limit_offset() throws {
+        let nodes = [xVariableNode, yVariableNode]
+        let rows : [[Term?]] = [
+            [iriNode.term, integerNode.term],
+            [nil, integerNode.term],
+            [blankNode.term, nil],
+            [nil, nil]
+        ]
+        let table : Algebra = .table(nodes, rows)
+        
+        let a : Algebra = .slice(table, 1, 2)
+        print(a.serialize())
+        let rewritten = try rewriter.simplify(algebra: a)
+        print(rewritten.serialize())
+        XCTAssertEqual(rewritten, .table(nodes, [
+            [nil, integerNode.term],
+            [blankNode.term, nil],
+        ]))
+    }
+    
+    func testSliceTableRewriting_limit() throws {
+        let nodes = [xVariableNode, yVariableNode]
+        let rows : [[Term?]] = [
+            [iriNode.term, integerNode.term],
+            [nil, integerNode.term],
+            [blankNode.term, nil],
+            [nil, nil]
+        ]
+        let table : Algebra = .table(nodes, rows)
+        
+        let a : Algebra = .slice(table, nil, 2)
+        print(a.serialize())
+        let rewritten = try rewriter.simplify(algebra: a)
+        print(rewritten.serialize())
+        XCTAssertEqual(rewritten, .table(nodes, [
+            [iriNode.term, integerNode.term],
+            [nil, integerNode.term],
+        ]))
+    }
+    
+    func testSliceTableRewriting_offset() throws {
+        let nodes = [xVariableNode, yVariableNode]
+        let rows : [[Term?]] = [
+            [iriNode.term, integerNode.term],
+            [nil, integerNode.term],
+            [blankNode.term, nil],
+            [nil, nil]
+        ]
+        let table : Algebra = .table(nodes, rows)
+        
+        let a : Algebra = .slice(table, 2, nil)
+        print(a.serialize())
+        let rewritten = try rewriter.simplify(algebra: a)
+        print(rewritten.serialize())
+        XCTAssertEqual(rewritten, .table(nodes, [
+            [blankNode.term, nil],
+            [nil, nil]
+        ]))
+    }
+
 }
 
 extension Node {
