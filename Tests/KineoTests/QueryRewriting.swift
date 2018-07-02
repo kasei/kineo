@@ -12,6 +12,17 @@ extension QueryRewritingTest {
 }
 #endif
 
+extension Node {
+    var term : Term? {
+        switch  self {
+        case .bound(let t):
+            return t
+        default:
+            return nil
+        }
+    }
+}
+
 class QueryRewritingTest: XCTestCase {
     var rewriter : SPARQLQueryRewriter!
 
@@ -198,24 +209,32 @@ class QueryRewritingTest: XCTestCase {
         let table : Algebra = .table(nodes, rows)
         
         let a : Algebra = .slice(table, 2, nil)
+        let rewritten = try rewriter.simplify(algebra: a)
+        XCTAssertEqual(rewritten, .table(nodes, [
+            [blankNode.term, nil],
+            [nil, nil]
+            ]))
+    }
+    
+    func testFilterTableInlining() throws {
+        let nodes = [xVariableNode, yVariableNode]
+        let rows : [[Term?]] = [
+            [iriNode.term, integerNode.term],
+            [blankNode.term, nil],
+            [nil, integerNode.term],
+            [nil, nil]
+        ]
+        let table : Algebra = .table(nodes, rows)
+        let expr : Expression = .isnumeric(.node(yVariableNode))
+        let a : Algebra = .filter(table, expr)
+        
         print(a.serialize())
         let rewritten = try rewriter.simplify(algebra: a)
         print(rewritten.serialize())
         XCTAssertEqual(rewritten, .table(nodes, [
-            [blankNode.term, nil],
-            [nil, nil]
+            [iriNode.term, integerNode.term],
+            [nil, integerNode.term],
         ]))
     }
-
-}
-
-extension Node {
-    var term : Term? {
-        switch  self {
-        case .bound(let t):
-            return t
-        default:
-            return nil
-        }
-    }
+    
 }

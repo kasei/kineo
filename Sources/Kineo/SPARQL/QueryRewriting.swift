@@ -42,13 +42,9 @@ private func pushdownProjection(_ algebra: Algebra) throws -> RewriteStatus<Alge
         return .rewriteChildren(.order(.project(child, vars), cmps))
     case let .project(.table(columns, rows), vars):
         // make the header Nodes in the .table non-binding, and ensure that .table evaluation respects the nodes' binding flags
-        var tableVariables = [String]()
-        for c in columns {
-            guard case .variable(let v, true) = c else {
-                // table is structurally invalid, bail out of rewriting
-                return .keep
-            }
-            tableVariables.append(v)
+        guard let tableVariables = Algebra.table(columns, rows).tableVariableNames else {
+            // table is structurally invalid, bail out of rewriting
+            return .keep
         }
         let preserveVariablesSet = Set(tableVariables).intersection(vars)
         var rewrittenRows = [[Term?]]()
@@ -180,9 +176,28 @@ private func pushdownFilter(_ algebra: Algebra) throws -> RewriteStatus<Algebra>
     let vars = expr.variables
     
     switch child {
-    case .table(_):
-        print("TODO: rewrite .table(_) with filtering applied")
-        break
+    case let .table(columns, rows):
+        let ee = ExpressionEvaluator()
+        do {
+            guard let names = child.tableVariableNames else {
+                // table is structurally invalid, bail out of rewriting
+                return .keep
+            }
+            let filteredRows = try rows.filter { (row) throws -> Bool in
+                ee.nextResult()
+                let pairs = zip(names, row).compactMap { (p) -> (String,Term)? in if case let .some(v) = p.1 { return (p.0,v) } else { return nil } }
+                let bindings = Dictionary(uniqueKeysWithValues: pairs)
+                let result = TermResult(bindings: bindings)
+                if let term = try? ee.evaluate(expression: expr, result: result) {
+                    return try term.ebv()
+                } else {
+                    return false
+                }
+            }
+            return .rewrite(.table(columns, filteredRows))
+        } catch {
+            return .rewriteChildren(algebra)
+        }
     case let .innerJoin(lhs, rhs):
         let lok = vars.isSubset(of: lhs.inscope)
         let rok = vars.isSubset(of: rhs.inscope)
@@ -296,6 +311,22 @@ private func simplifyExpressions(_ algebra: Algebra) throws -> RewriteStatus<Alg
     return .rewriteChildren(algebra)
 }
 
+extension Algebra {
+    var tableVariableNames: [String]? {
+        guard case let .table(columns, _) = self else {
+            return nil
+        }
+        var tableVariables = [String]()
+        for c in columns {
+            guard case .variable(let v, true) = c else {
+                // table is structurally invalid, bail out of rewriting
+                return nil
+            }
+            tableVariables.append(v)
+        }
+        return tableVariables
+    }
+}
 
 private func simplifyExpression(_ expr: Expression) throws -> RewriteStatus<Expression> {
     guard expr.isConstant else {
