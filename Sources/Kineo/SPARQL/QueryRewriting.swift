@@ -269,15 +269,17 @@ private func propertyPathExpansion(_ algebra: Algebra) throws -> RewriteStatus<A
 private func foldConstantAlgebras(_ algebra: Algebra) throws -> RewriteStatus<Algebra> {
     switch algebra {
     case .innerJoin(.unionIdentity, _), .innerJoin(_, .unionIdentity):
+        // join where one side is empty produces no results
         return .rewriteChildren(.unionIdentity)
     case .innerJoin(.joinIdentity, let child), .innerJoin(let child, .joinIdentity):
+        // join where one side is the single empty result is a no-op on the other side
         return .rewriteChildren(child)
     case .union(.unionIdentity, let child), .union(let child, .unionIdentity):
+        // union where one side is empty is a no-op on the other side
         return .rewriteChildren(child)
     default:
-        break
+        return .rewriteChildren(algebra)
     }
-    return .rewriteChildren(algebra)
 }
 
 private func foldConstantExpressions(_ algebra: Algebra) throws -> RewriteStatus<Algebra> {
