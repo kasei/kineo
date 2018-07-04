@@ -20,6 +20,7 @@ public struct SPARQLClient {
     }
     
     public func execute(_ query: String) throws -> QueryResult<[TermResult], [Triple]> {
+        let n = SPARQLContentNegotiator()
         var args : (Data?, URLResponse?, Error?) = (nil, nil, nil)
         do {
             guard var components = URLComponents(string: endpoint.absoluteString) else {
@@ -33,9 +34,12 @@ public struct SPARQLClient {
                 throw QueryError.evaluationError("Invalid URL for SERVICE evaluation: \(components)")
             }
             
+            var urlRequest = URLRequest(url: u)
+            urlRequest.addValue("application/json, application/sparql-results+json, application/sparql-results+xml, */*;q=0.1", forHTTPHeaderField: "Accept")
+
             let semaphore = DispatchSemaphore(value: 0)
             let session = URLSession.shared
-            let task = session.dataTask(with: u) {
+            let task = session.dataTask(with: urlRequest) {
                 args = ($0, $1, $2)
                 semaphore.signal()
             }
@@ -56,7 +60,6 @@ public struct SPARQLClient {
             }
             
             do {
-                let n = SPARQLContentNegotiator()
                 let parser = n.negotiateParser(for: resp)
                 return try parser.parse(data)
             } catch let e {
