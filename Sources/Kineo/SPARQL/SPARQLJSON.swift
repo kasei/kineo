@@ -29,8 +29,8 @@ enum ResultValue: Codable {
             let bindings = try results.decode([[String:Term]].self, forKey: .bindings)
             self = .bindings(vars, bindings)
         } else {
-            let value = try container.decode(String.self, forKey: .boolean)
-            self = .boolean(value == "true")
+            let value = try container.decode(Bool.self, forKey: .boolean)
+            self = .boolean(value)
         }
     }
     
