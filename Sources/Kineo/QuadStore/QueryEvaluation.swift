@@ -1312,6 +1312,8 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol>: SimpleQueryEvaluatorProto
                 mtime = max(mtime, triplemtime)
             }
             return mtime
+        case .subquery(let q):
+            return try effectiveVersion(matching: q)
         }
     }
 
