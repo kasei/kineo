@@ -44,7 +44,7 @@ class SPARQLJSONSyntaxTest: XCTestCase {
         let j = try serializer.serialize(results)
         let s = String(data: j, encoding: .utf8)!
         let expected = """
-        {"head":{"vars":["name","value"]},"results":{"bindings":[{"name":{"type":"literal","value":"Berlin","datatype":"http:\\/\\/www.w3.org\\/2001\\/XMLSchema#string"},"value":{"type":"literal","value":"1.2E0","datatype":"http:\\/\\/www.w3.org\\/2001\\/XMLSchema#double"}},{"name":{"type":"literal","value":"Berlin","datatype":"http:\\/\\/www.w3.org\\/2001\\/XMLSchema#string"},"value":{"type":"literal","value":"7","datatype":"http:\\/\\/www.w3.org\\/2001\\/XMLSchema#integer"}}]}}
+        {"head":{"vars":["name","value"]},"results":{"bindings":[{"name":{"datatype":"http:\\/\\/www.w3.org\\/2001\\/XMLSchema#string","type":"literal","value":"Berlin"},"value":{"datatype":"http:\\/\\/www.w3.org\\/2001\\/XMLSchema#double","type":"literal","value":"1.2E0"}},{"name":{"datatype":"http:\\/\\/www.w3.org\\/2001\\/XMLSchema#string","type":"literal","value":"Berlin"},"value":{"datatype":"http:\\/\\/www.w3.org\\/2001\\/XMLSchema#integer","type":"literal","value":"7"}}]}}
         """
         XCTAssertEqual(s, expected)
     }
@@ -57,7 +57,7 @@ class SPARQLJSONSyntaxTest: XCTestCase {
         let j = try serializer.serialize(results)
         let s = String(data: j, encoding: .utf8)!
         let expected = """
-        {"head":{"vars":["name","value","boolean","blank","iri"]},"results":{"bindings":[{"name":{"type":"literal","value":"Berlin","datatype":"http:\\/\\/www.w3.org\\/2001\\/XMLSchema#string"},"value":{"type":"literal","value":"1.2E0","datatype":"http:\\/\\/www.w3.org\\/2001\\/XMLSchema#double"}},{"iri":{"type":"uri","value":"http:\\/\\/example.org\\/Berlin"},"blank":{"type":"bnode","value":"b1"},"boolean":{"type":"literal","value":"true","datatype":"http:\\/\\/www.w3.org\\/2001\\/XMLSchema#boolean"}},{"name":{"type":"literal","value":"Berlin","datatype":"http:\\/\\/www.w3.org\\/2001\\/XMLSchema#string"},"value":{"type":"literal","value":"7","datatype":"http:\\/\\/www.w3.org\\/2001\\/XMLSchema#integer"}}]}}
+        {"head":{"vars":["name","value","boolean","blank","iri"]},"results":{"bindings":[{"name":{"datatype":"http:\\/\\/www.w3.org\\/2001\\/XMLSchema#string","type":"literal","value":"Berlin"},"value":{"datatype":"http:\\/\\/www.w3.org\\/2001\\/XMLSchema#double","type":"literal","value":"1.2E0"}},{"blank":{"type":"bnode","value":"b1"},"boolean":{"datatype":"http:\\/\\/www.w3.org\\/2001\\/XMLSchema#boolean","type":"literal","value":"true"},"iri":{"type":"uri","value":"http:\\/\\/example.org\\/Berlin"}},{"name":{"datatype":"http:\\/\\/www.w3.org\\/2001\\/XMLSchema#string","type":"literal","value":"Berlin"},"value":{"datatype":"http:\\/\\/www.w3.org\\/2001\\/XMLSchema#integer","type":"literal","value":"7"}}]}}
         """
         XCTAssertEqual(s, expected)
     }
@@ -69,14 +69,14 @@ class SPARQLJSONSyntaxTest: XCTestCase {
         let j = try serializer.serialize(results)
         let s = String(data: j, encoding: .utf8)!
         let expected = """
-        {"head":{},"boolean":"true"}
+        {"boolean":"true","head":{}}
         """
         XCTAssertEqual(s, expected)
     }
     
     func testJSONPretty() throws {
         let serializer = SPARQLJSONSerializer<TermResult>()
-        serializer.encoder.outputFormatting = .prettyPrinted
+        serializer.encoder.outputFormatting.insert(.prettyPrinted)
 
         let seq : [TermResult] = self.uniformLanguageResults
         let results = QueryResult<[TermResult], [Triple]>.bindings(["name", "value"], seq)
@@ -99,21 +99,21 @@ class SPARQLJSONSyntaxTest: XCTestCase {
                   "xml:lang" : "en"
                 },
                 "value" : {
+                  "datatype" : "http:\\/\\/www.w3.org\\/2001\\/XMLSchema#double",
                   "type" : "literal",
-                  "value" : "1.2E0",
-                  "datatype" : "http:\\/\\/www.w3.org\\/2001\\/XMLSchema#double"
+                  "value" : "1.2E0"
                 }
               },
               {
                 "name" : {
+                  "datatype" : "http:\\/\\/www.w3.org\\/2001\\/XMLSchema#string",
                   "type" : "literal",
-                  "value" : "Berlin",
-                  "datatype" : "http:\\/\\/www.w3.org\\/2001\\/XMLSchema#string"
+                  "value" : "Berlin"
                 },
                 "value" : {
+                  "datatype" : "http:\\/\\/www.w3.org\\/2001\\/XMLSchema#integer",
                   "type" : "literal",
-                  "value" : "7",
-                  "datatype" : "http:\\/\\/www.w3.org\\/2001\\/XMLSchema#integer"
+                  "value" : "7"
                 }
               }
             ]

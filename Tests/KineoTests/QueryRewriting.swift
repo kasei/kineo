@@ -32,6 +32,7 @@ class QueryRewritingTest: XCTestCase {
     let integerNode : Node = .bound(Term(integer: 7))
     let xVariableNode : Node = .variable("x", binding: true)
     let yVariableNode : Node = .variable("y", binding: true)
+    let yVariableNonBindingNode : Node = .variable("y", binding: false)
 
     override func setUp() {
         rewriter = SPARQLQueryRewriter()
@@ -60,7 +61,7 @@ class QueryRewritingTest: XCTestCase {
         let a : Algebra = .project(.project(.triple(tp), proj1), proj2)
         
         let rewritten = try rewriter.simplify(algebra: a)
-        XCTAssertEqual(rewritten, .project(.triple(tp), Set(["x"])))
+        XCTAssertEqual(rewritten, .triple(tp))
     }
     
     func testProjectionMergingPushdown() throws {
@@ -70,7 +71,7 @@ class QueryRewritingTest: XCTestCase {
         let a : Algebra = .project(.project(.distinct(.triple(tp)), proj1), proj2)
         
         let rewritten = try rewriter.simplify(algebra: a)
-        XCTAssertEqual(rewritten, .project(.distinct(.triple(tp)), Set(["x"])))
+        XCTAssertEqual(rewritten, .distinct(.triple(tp)))
         //        print(rewritten.serialize())
     }
     
@@ -89,12 +90,15 @@ class QueryRewritingTest: XCTestCase {
     }
     
     func testProjectionBindElission() throws {
-            let tp = TriplePattern(subject: xVariableNode, predicate: iriNode, object: yVariableNode)
+        // If projection immediately gets rid of a new binding produced by an extend(a, expr, var), get rid of the extend.
+        let tp = TriplePattern(subject: xVariableNode, predicate: iriNode, object: yVariableNode)
+        let tpXOnly = TriplePattern(subject: xVariableNode, predicate: iriNode, object: yVariableNonBindingNode)
         let proj = Set(["x"])
         let a : Algebra = .project(.extend(.triple(tp), .node(integerNode), "y"), proj)
         
         let rewritten = try rewriter.simplify(algebra: a)
-        XCTAssertEqual(rewritten, .project(.triple(tp), Set(["x"])))
+        print(rewritten)
+        XCTAssertEqual(rewritten, .triple(tpXOnly))
     }
 
     func testProjectionDoubleBindElission() throws {

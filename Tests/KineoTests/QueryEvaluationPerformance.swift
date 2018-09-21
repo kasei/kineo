@@ -3,8 +3,8 @@ import Kineo
 import SPARQLSyntax
 
 #if os(Linux)
-extension QueryEvaluationTest {
-    static var allTests : [(String, (QueryEvaluationTest) -> () throws -> Void)] {
+extension QueryEvaluationPerformanceTest {
+    static var allTests : [(String, (QueryEvaluationPerformanceTest) -> () throws -> Void)] {
         return [
             ("testPerformance_pipelinedAggregation", testPerformance_pipelinedAggregation),
             ("testPerformance_nonPipelinedAggregation", testPerformance_nonPipelinedAggregation)
