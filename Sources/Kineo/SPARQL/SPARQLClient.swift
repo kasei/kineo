@@ -35,10 +35,28 @@ public struct SPARQLClient {
             }
             
             var urlRequest = URLRequest(url: u)
-            urlRequest.addValue("application/json, application/sparql-results+json, application/sparql-results+xml, */*;q=0.1", forHTTPHeaderField: "Accept")
+            urlRequest.addValue("application/json, application/sparql-results+json, application/sparql-results+xml, */*;q=0.1", forHTTPHeaderField: "Accept") // TODO: update this to use media types available in SPARQLContentNegotiator
 
+            let sessionConfig = URLSessionConfiguration.default
+            sessionConfig.allowsCellularAccess = true
+            var userAgent : String = ""
+            let headers = sessionConfig.httpAdditionalHeaders ?? [:]
+            let spkUserAgent = "Kineo/1.0"
+            if let ua = headers["User-Agent"] as? String {
+                userAgent = "\(spkUserAgent) \(ua)"
+            } else {
+                userAgent = spkUserAgent
+            }
+            sessionConfig.httpAdditionalHeaders?["User-Agent"] = userAgent
+            sessionConfig.httpAdditionalHeaders?["Accept-Language"] = "*"
+            sessionConfig.timeoutIntervalForRequest = 60.0
+            sessionConfig.timeoutIntervalForResource = 60.0
+            sessionConfig.httpMaximumConnectionsPerHost = 1
+            sessionConfig.requestCachePolicy = .useProtocolCachePolicy
+            let session = URLSession(configuration: sessionConfig)
+
+//            let session = URLSession.shared
             let semaphore = DispatchSemaphore(value: 0)
-            let session = URLSession.shared
             let task = session.dataTask(with: urlRequest) {
                 args = ($0, $1, $2)
                 semaphore.signal()
