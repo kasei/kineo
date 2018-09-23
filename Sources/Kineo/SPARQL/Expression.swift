@@ -865,12 +865,26 @@ extension Expression {
         switch self {
         case .node(.bound(_)):
             return true
-        case let .and(lhs, rhs) where lhs.isConstant && rhs.isConstant, let .or(lhs, rhs) where lhs.isConstant && rhs.isConstant:
+        case let .and(lhs, rhs) where lhs.isConstant && rhs.isConstant,
+             let .or(lhs, rhs) where lhs.isConstant && rhs.isConstant:
             return true
-        case let .add(lhs, rhs) where lhs.isConstant && rhs.isConstant, let .sub(lhs, rhs) where lhs.isConstant && rhs.isConstant, let .mul(lhs, rhs) where lhs.isConstant && rhs.isConstant, let .div(lhs, rhs) where lhs.isConstant && rhs.isConstant:
+        case let .eq(lhs, rhs) where lhs.isConstant && rhs.isConstant,
+             let .ne(lhs, rhs) where lhs.isConstant && rhs.isConstant,
+             let .lt(lhs, rhs) where lhs.isConstant && rhs.isConstant,
+             let .gt(lhs, rhs) where lhs.isConstant && rhs.isConstant,
+             let .le(lhs, rhs) where lhs.isConstant && rhs.isConstant,
+             let .ge(lhs, rhs) where lhs.isConstant && rhs.isConstant:
+            return true
+        case let .add(lhs, rhs) where lhs.isConstant && rhs.isConstant,
+             let .sub(lhs, rhs) where lhs.isConstant && rhs.isConstant,
+             let .mul(lhs, rhs) where lhs.isConstant && rhs.isConstant,
+             let .div(lhs, rhs) where lhs.isConstant && rhs.isConstant:
+            return true
+        case let .neg(lhs) where lhs.isConstant,
+             let .not(lhs) where lhs.isConstant:
             return true
         default:
-            print("TODO: expand recognition of constant expressions")
+            // TODO: expand recognition of constant expressions
             return false
         }
     }
