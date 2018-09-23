@@ -1,4 +1,4 @@
-// swift-tools-version:4.0
+// swift-tools-version:4.2
 import PackageDescription
 
 let package = Package(
@@ -7,15 +7,15 @@ let package = Package(
 		.library(name: "Kineo", targets: ["Kineo"]),
 	],    
     dependencies: [
-		.package(url: "https://github.com/kasei/swift-sparql-syntax.git", from: "0.0.41"),
-		.package(url: "https://github.com/kasei/swift-serd.git", from: "0.0.0"),
+		.package(url: "https://github.com/kasei/swift-sparql-syntax.git", from: "0.0.72"),
+		.package(url: "https://github.com/kasei/swift-serd.git", from: "0.0.3"),
 		.package(url: "https://github.com/krzyzanowskim/CryptoSwift.git", from: "0.8.0"),
-        .package(url: "https://github.com/kylef/URITemplate.swift.git", from: "2.0.3")
+        .package(url: "https://github.com/kasei/URITemplate.git", from: "2.0.9")
     ],
     targets: [
     	.target(
     		name: "Kineo",
-			dependencies: ["CryptoSwift", "SPARQLSyntax", "URITemplate"]
+			dependencies: ["CryptoSwift", "SPARQLSyntax", "URITemplate", "serd"]
     	),
         .target(
             name: "kineo-cli",
