@@ -861,6 +861,11 @@ extension Term {
 }
 
 extension Expression {
+    /**
+     *  This variable indicates whether constant-folding can be performed
+     *  on the Expression.
+     *
+     */
     var isConstant : Bool {
         switch self {
         case .node(.bound(_)):
@@ -877,11 +882,17 @@ extension Expression {
             return true
         case let .add(lhs, rhs) where lhs.isConstant && rhs.isConstant,
              let .sub(lhs, rhs) where lhs.isConstant && rhs.isConstant,
-             let .mul(lhs, rhs) where lhs.isConstant && rhs.isConstant,
-             let .div(lhs, rhs) where lhs.isConstant && rhs.isConstant:
+             let .mul(lhs, rhs) where lhs.isConstant && rhs.isConstant:
+            // we avoid asserting that div is constant because of the possibility
+            // that it raises an error during constant propogation
             return true
         case let .neg(lhs) where lhs.isConstant,
              let .not(lhs) where lhs.isConstant:
+            return true
+        case .stringCast(let lhs) where lhs.isConstant:
+            // we avoid asserting that the numeric and date casts are constant
+            // because of the possibility that they raise a type error during
+            // constant propogation
             return true
         default:
             // TODO: expand recognition of constant expressions
