@@ -10,7 +10,7 @@ let package = Package(
 		.package(url: "https://github.com/kasei/swift-sparql-syntax.git", from: "0.0.73"),
 		.package(url: "https://github.com/kasei/swift-serd.git", from: "0.0.3"),
 		.package(url: "https://github.com/krzyzanowskim/CryptoSwift.git", from: "0.8.0"),
-        .package(url: "https://github.com/kasei/URITemplate.git", from: "2.0.9")
+        .package(url: "https://github.com/kasei/URITemplate.git", from: "2.0.10")
     ],
     targets: [
     	.target(
