@@ -231,8 +231,6 @@ open class TriplePatternFragmentQuadStore: Sequence, QuadStoreProtocol {
     }
 }
 
-
-
 extension TriplePatternFragmentQuadStore: CustomStringConvertible {
     public var description: String {
         var s = "TriplePatternFragmentQuadStore {\n"
