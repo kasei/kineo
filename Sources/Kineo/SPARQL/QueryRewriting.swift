@@ -79,9 +79,33 @@ private func pushdownProjection(_ algebra: Algebra) throws -> RewriteStatus<Alge
             quad = quad.bind(v, to: .variable(v, binding: false))
         }
         return .rewrite(.quad(quad))
-    case .project(.bgp(_), _):
-        print("TODO: coalesce projection with .bgp(_) to eliminate binding of non-join variables, and leave a wrapping projection for everything else")
-        break
+    case .project(.bgp(let tp), let pv):
+        var bgp = Algebra.bgp(tp)
+        guard let v = bgp.bgpVariables(), let jv = bgp.bgpJoinVariables(), let njv = bgp.bgpNonJoinVariables() else {
+            break
+        }
+        
+        let keep = jv.union(pv)
+        if keep == v { // all variables are needed to perform joins
+            // Nothing to project away in BGP (all variables needed for projection and/or join)
+            return .keep
+        } else {
+            // Some variables may be able to be rewritten to be non-binding in the BGP triple patterns
+            let unbind = njv.subtracting(pv)
+            for v in unbind {
+                bgp = try bgp.bind(v, to: .variable(v, binding: false), preservingProjection: false)
+            }
+
+            if bgp.inscope == pv {
+                // if the bgp now only binds variables that are projected, we can
+                // remove the explicit projection entirely
+                return .rewrite(bgp)
+            } else {
+                // otherwise we still need to perform projection to remove variables
+                // that were needed to perform the BGP join
+                return .rewrite(.project(bgp, pv))
+            }
+        }
     case let .project(.innerJoin(lhs, rhs), vars):
         let intersection = lhs.inscope.intersection(rhs.inscope)
         let needed = vars.union(intersection)
@@ -341,5 +365,45 @@ private func simplifyExpression(_ expr: Expression) throws -> RewriteStatus<Expr
         return .rewrite(.node(.bound(term)))
     } catch {
         return .rewriteChildren(expr)
+    }
+}
+
+private extension Algebra {
+    func _bgpVariableCounts() -> [String:Int]? {
+        guard case .bgp(let tp) = self else {
+            return nil
+        }
+        
+        var seen = [String:Int]()
+        for t in tp {
+            for n in t {
+                switch n {
+                case .variable(let name, binding: true):
+                    seen[name, default: 0] += 1
+                default:
+                    break
+                }
+            }
+        }
+        
+        return seen
+    }
+    
+    func bgpVariables() -> Set<String>? {
+        guard let seen = _bgpVariableCounts() else { return nil }
+        let keys = seen.keys
+        return Set(keys)
+    }
+
+    func bgpJoinVariables() -> Set<String>? {
+        guard let seen = _bgpVariableCounts() else { return nil }
+        let keys = seen.filter { $1 > 1 }.keys
+        return Set(keys)
+    }
+    
+    func bgpNonJoinVariables() -> Set<String>? {
+        guard let seen = _bgpVariableCounts() else { return nil }
+        let keys = seen.filter { $1 <= 1 }.keys
+        return Set(keys)
     }
 }

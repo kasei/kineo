@@ -7,6 +7,21 @@ extension QueryRewritingTest {
     static var allTests : [(String, (QueryRewritingTest) -> () throws -> Void)] {
         return [
             ("testProjectionPushdown", testProjectionPushdown),
+            ("testProjectionPushdownBGP1", testProjectionPushdownBGP1),
+            ("testProjectionPushdownBGP2", testProjectionPushdownBGP2),
+            ("testProjectionMerging", testProjectionMerging),
+            ("testProjectionMergingPushdown", testProjectionMergingPushdown),
+            ("testProjectionTripleInlining", testProjectionTripleInlining),
+            ("testProjectionBindElission", testProjectionBindElission),
+            ("testProjectionDoubleBindElission", testProjectionDoubleBindElission),
+            ("testConstantFolding_true", testConstantFolding_true),
+            ("testExpressionConstantFolding_false", testExpressionConstantFolding_false),
+            ("testExpressionConstantFolding_addition", testExpressionConstantFolding_addition),
+            ("testProjectionTableRewriting", testProjectionTableRewriting),
+            ("testSliceTableRewriting_limit_offset", testSliceTableRewriting_limit_offset),
+            ("testSliceTableRewriting_limit", testSliceTableRewriting_limit),
+            ("testSliceTableRewriting_offset", testSliceTableRewriting_offset),
+            ("testFilterTableInlining", testFilterTableInlining),
         ]
     }
 }
@@ -33,6 +48,8 @@ class QueryRewritingTest: XCTestCase {
     let xVariableNode : Node = .variable("x", binding: true)
     let yVariableNode : Node = .variable("y", binding: true)
     let yVariableNonBindingNode : Node = .variable("y", binding: false)
+    let zVariableNode : Node = .variable("z", binding: true)
+    let zVariableNonBindingNode : Node = .variable("z", binding: false)
 
     override func setUp() {
         rewriter = SPARQLQueryRewriter()
@@ -52,6 +69,35 @@ class QueryRewritingTest: XCTestCase {
         
         let rewritten = try rewriter.simplify(algebra: a)
         XCTAssertEqual(rewritten, .distinct(.project(.bgp([tp]), proj)))
+    }
+    
+    func testProjectionPushdownBGP1() throws {
+        // projection can be removed entirely by rewriting the appropriate `Node.variable`s to be non-binding
+        let tp1 = TriplePattern(subject: xVariableNode, predicate: iriNode, object: yVariableNode)
+        let tp2 = TriplePattern(subject: xVariableNode, predicate: iriNode, object: zVariableNode)
+        let tp2proj = TriplePattern(subject: xVariableNode, predicate: iriNode, object: zVariableNonBindingNode)
+        let bgp = Algebra.bgp([tp1, tp2])
+        
+        let proj = Set(["x", "y"])
+        let a = Algebra.project(bgp, proj)
+        
+        let rewritten = try rewriter.simplify(algebra: a)
+        XCTAssertEqual(rewritten, .bgp([tp1, tp2proj]))
+    }
+    
+    func testProjectionPushdownBGP2() throws {
+        // some `Node.variable`s can be rewritten to be non-binding, but projection
+        // must be kept to remove variables that were needed to perform the BGP join
+        let tp1 = TriplePattern(subject: xVariableNode, predicate: iriNode, object: yVariableNode)
+        let tp2 = TriplePattern(subject: xVariableNode, predicate: iriNode, object: zVariableNode)
+        let tp2proj = TriplePattern(subject: xVariableNode, predicate: iriNode, object: zVariableNonBindingNode)
+        let bgp = Algebra.bgp([tp1, tp2])
+        
+        let proj = Set(["y"])
+        let a = Algebra.project(bgp, proj)
+        
+        let rewritten = try rewriter.simplify(algebra: a)
+        XCTAssertEqual(rewritten, .project(.bgp([tp1, tp2proj]), proj))
     }
     
     func testProjectionMerging() throws {
@@ -81,12 +127,12 @@ class QueryRewritingTest: XCTestCase {
         let a : Algebra = .project(.triple(tp), proj)
         
         let rewritten = try rewriter.simplify(algebra: a)
-        print(rewritten.serialize())
+//        print(rewritten.serialize())
         guard case let .triple(t) = rewritten else { XCTFail(); return }
         let object = t.object
         guard case let .variable("y", binding: binding) = object else { XCTFail(); return }
         XCTAssertFalse(binding, "Projection changed triple pattern node to be non-binding")
-        print(rewritten.serialize())
+//        print(rewritten.serialize())
     }
     
     func testProjectionBindElission() throws {
@@ -97,7 +143,7 @@ class QueryRewritingTest: XCTestCase {
         let a : Algebra = .project(.extend(.triple(tp), .node(integerNode), "y"), proj)
         
         let rewritten = try rewriter.simplify(algebra: a)
-        print(rewritten)
+//        print(rewritten)
         XCTAssertEqual(rewritten, .triple(tpXOnly))
     }
 
@@ -118,8 +164,8 @@ class QueryRewritingTest: XCTestCase {
         )
         
         let rewritten = try rewriter.simplify(algebra: a)
-        print(a.serialize())
-        print(rewritten.serialize())
+//        print(a.serialize())
+//        print(rewritten.serialize())
         XCTAssertEqual(rewritten, .project(.extend(.triple(tp), .node(.variable("y", binding: true)), "z"), Set(["x", "z"])))
     }
 
@@ -173,9 +219,9 @@ class QueryRewritingTest: XCTestCase {
         let table : Algebra = .table(nodes, rows)
         
         let a : Algebra = .slice(table, 1, 2)
-        print(a.serialize())
+//        print(a.serialize())
         let rewritten = try rewriter.simplify(algebra: a)
-        print(rewritten.serialize())
+//        print(rewritten.serialize())
         XCTAssertEqual(rewritten, .table(nodes, [
             [nil, integerNode.term],
             [blankNode.term, nil],
@@ -193,9 +239,9 @@ class QueryRewritingTest: XCTestCase {
         let table : Algebra = .table(nodes, rows)
         
         let a : Algebra = .slice(table, nil, 2)
-        print(a.serialize())
+//        print(a.serialize())
         let rewritten = try rewriter.simplify(algebra: a)
-        print(rewritten.serialize())
+//        print(rewritten.serialize())
         XCTAssertEqual(rewritten, .table(nodes, [
             [iriNode.term, integerNode.term],
             [nil, integerNode.term],
@@ -232,9 +278,9 @@ class QueryRewritingTest: XCTestCase {
         let expr : Expression = .isnumeric(.node(yVariableNode))
         let a : Algebra = .filter(table, expr)
         
-        print(a.serialize())
+//        print(a.serialize())
         let rewritten = try rewriter.simplify(algebra: a)
-        print(rewritten.serialize())
+//        print(rewritten.serialize())
         XCTAssertEqual(rewritten, .table(nodes, [
             [iriNode.term, integerNode.term],
             [nil, integerNode.term],
