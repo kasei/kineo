@@ -48,7 +48,7 @@ public struct SPARQLXMLSerializer<T: ResultProtocol> : SPARQLSerializable where 
     
     func write(result row: TermResult, into root: XMLElement) {
         let result = XMLElement(name: "result")
-        for (name, t) in row {
+        for (name, t) in row.sorted(by: { $0 < $1 }) {
             let binding = XMLElement(name: "binding")
             let attr = XMLNode.attribute(withName: "name", stringValue: name) as! XMLNode
             binding.addAttribute(attr)
@@ -92,6 +92,7 @@ public struct SPARQLXMLSerializer<T: ResultProtocol> : SPARQLSerializable where 
         }
         
         let xml = XMLDocument(rootElement: root)
+        xml.isStandalone = true
         return xml.xmlData
     }
 
