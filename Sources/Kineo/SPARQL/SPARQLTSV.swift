@@ -94,3 +94,55 @@ private extension Term {
         }
     }
 }
+
+public struct SPARQLTSVParser : SPARQLParsable {
+    public let mediaTypes = Set(["text/tab-separated-values"])
+    var encoding: String.Encoding
+    var parser: RDFParser
+    
+    public init(encoding: String.Encoding = .utf8, produceUniqueBlankIdentifiers: Bool = true) {
+        self.encoding = encoding
+        self.parser = RDFParser(syntax: .turtle, base: "http://example.org/", produceUniqueBlankIdentifiers: produceUniqueBlankIdentifiers)
+    }
+
+    public func parse(_ data: Data) throws -> QueryResult<[TermResult], [Triple]> {
+        guard let s = String(data: data, encoding: encoding) else {
+            throw SerializationError.encodingError("Failed to decode SPARQL/TSV data as utf-8")
+        }
+        
+        let lines = s.split(separator: "\n")
+        guard let header = lines.first else {
+            throw SerializationError.parsingError("SPARQL/TSV data missing header line")
+        }
+        
+        let names = header.split(separator: "\t").map { String($0.dropFirst()) }
+        var results = [TermResult]()
+        for line in lines.dropFirst() {
+            let values = line.split(separator: "\t", omittingEmptySubsequences: false)
+            let terms = try values.map { try parseTerm(String($0)) }
+            let pairs = zip(names, terms).compactMap { (name, term) -> (String, Term)? in
+                guard let term = term else {
+                    return nil
+                }
+                return (name, term)
+            }
+            let d = Dictionary(uniqueKeysWithValues: pairs)
+            let r = TermResult(bindings: d)
+            results.append(r)
+        }
+        
+        return QueryResult.bindings(names, results)
+    }
+
+    private func parseTerm(_ string: String) throws -> Term? {
+        guard !string.isEmpty else {
+            return nil
+        }
+        var term : Term! = nil
+        let ttl = "<> <> \(string) .\n"
+        try parser.parse(string: ttl) { (s,p,o) in
+            term = o
+        }
+        return term
+    }
+}
