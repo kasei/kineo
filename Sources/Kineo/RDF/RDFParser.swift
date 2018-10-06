@@ -18,7 +18,7 @@ private class ParserContext {
     var handler: TripleHandler
     var env: OpaquePointer!
     
-    init(env: OpaquePointer, handler: @escaping TripleHandler) {
+    init(env: OpaquePointer, handler: @escaping TripleHandler, produceUniqueBlankIdentifiers: Bool = true) {
         var blankNodes = [String:Term]()
         self.count = 0
         self.env = env
@@ -30,21 +30,25 @@ private class ParserContext {
             if case .blank = subj.type {
                 if let t = blankNodes[subj.value] {
                     subj = t
-                } else {
+                } else if produceUniqueBlankIdentifiers {
                     let id = NSUUID().uuidString
                     let b = Term(value: id, type: .blank)
                     blankNodes[subj.value] = b
                     subj = b
+                } else {
+                    subj = Term(value: subj.value, type: .blank)
                 }
             }
             if case .blank = obj.type {
                 if let t = blankNodes[obj.value] {
                     obj = t
-                } else {
+                } else if produceUniqueBlankIdentifiers {
                     let id = NSUUID().uuidString
                     let b = Term(value: id, type: .blank)
                     blankNodes[obj.value] = b
                     obj = b
+                } else {
+                    obj = Term(value: obj.value, type: .blank)
                 }
             }
 
@@ -212,17 +216,19 @@ public class RDFParser {
     
     var inputSyntax: RDFSyntax
     var defaultBase: String
+    var produceUniqueBlankIdentifiers: Bool
     
-    public init(syntax: RDFSyntax = .turtle, base defaultBase: String = "http://base.example.org/") {
+    public init(syntax: RDFSyntax = .turtle, base defaultBase: String = "http://base.example.org/", produceUniqueBlankIdentifiers: Bool = true) {
         self.inputSyntax = syntax
         self.defaultBase = defaultBase
+        self.produceUniqueBlankIdentifiers = produceUniqueBlankIdentifiers
     }
 
     @discardableResult
     public func parse(string: String, handleTriple: @escaping (Term, Term, Term) -> Void) throws -> Int {
         switch inputSyntax {
         case .ntriples, .turtle:
-            return try serd_parse(string: string, handleTriple: handleTriple)
+            return try serd_parse(string: string, produceUniqueBlankIdentifiers: produceUniqueBlankIdentifiers, handleTriple: handleTriple)
         default:
             let p = RDFXMLParser()
             try p.parse(string: string, tripleHandler: handleTriple)
@@ -234,7 +240,7 @@ public class RDFParser {
     public func parse(file filename: String, base: String? = nil, handleTriple: @escaping TripleHandler) throws -> Int {
         switch inputSyntax {
         case .ntriples, .turtle:
-            return try serd_parse(file: filename, base: base, handleTriple: handleTriple)
+            return try serd_parse(file: filename, base: base, produceUniqueBlankIdentifiers: produceUniqueBlankIdentifiers, handleTriple: handleTriple)
         default:
             let fileURI = URL(fileURLWithPath: filename)
             let p = RDFXMLParser(base: fileURI.absoluteString)
@@ -246,14 +252,14 @@ public class RDFParser {
 }
 
 extension RDFParser {
-    public func serd_parse(string: String, handleTriple: @escaping (Term, Term, Term) -> Void) throws -> Int {
+    public func serd_parse(string: String, produceUniqueBlankIdentifiers: Bool = true, handleTriple: @escaping (Term, Term, Term) -> Void) throws -> Int {
         var baseUri = SERD_URI_NULL
         var base = SERD_NODE_NULL
         
         guard let env = serd_env_new(&base) else { throw RDFParserError.internalError("Failed to construct parser context") }
         base = serd_node_new_uri_from_string(defaultBase, nil, &baseUri)
         
-        var context = ParserContext(env: env, handler: handleTriple)
+        var context = ParserContext(env: env, handler: handleTriple, produceUniqueBlankIdentifiers: produceUniqueBlankIdentifiers)
         let status = withUnsafePointer(to: &context) { (ctx) -> SerdStatus in
             guard let reader = serd_reader_new(inputSyntax.serdSyntax!, UnsafeMutableRawPointer(mutating: ctx), serd_free_handle, serd_base_sink, serd_prefix_sink, serd_statement_sink, serd_end_sink) else { fatalError() }
             
@@ -275,7 +281,7 @@ extension RDFParser {
         return context.count
     }
     
-    public func serd_parse(file filename: String, base _base: String? = nil, handleTriple: @escaping TripleHandler) throws -> Int {
+    public func serd_parse(file filename: String, base _base: String? = nil, produceUniqueBlankIdentifiers: Bool = true, handleTriple: @escaping TripleHandler) throws -> Int {
         guard let input = serd_uri_to_path(filename) else { throw RDFParserError.parseError("no such file") }
         
         var baseUri = SERD_URI_NULL
@@ -288,7 +294,7 @@ extension RDFParser {
         
         guard let env = serd_env_new(&base) else { throw RDFParserError.internalError("Failed to construct parser context") }
         
-        var context = ParserContext(env: env, handler: handleTriple)
+        var context = ParserContext(env: env, handler: handleTriple, produceUniqueBlankIdentifiers: produceUniqueBlankIdentifiers)
         _ = try withUnsafePointer(to: &context) { (ctx) throws -> SerdStatus in
             guard let reader = serd_reader_new(inputSyntax.serdSyntax!, UnsafeMutableRawPointer(mutating: ctx), serd_free_handle, serd_base_sink, serd_prefix_sink, serd_statement_sink, serd_end_sink) else { fatalError() }
             
