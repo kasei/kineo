@@ -19,7 +19,7 @@ open class MemoryQuadStore: Sequence, MutableQuadStoreProtocol {
     var version: Version?
     var next: TermID
     
-    init(version: Version? = nil) {
+    public init(version: Version? = nil) {
         self.next = 1
         self.count = 0
         self.idquads = []
