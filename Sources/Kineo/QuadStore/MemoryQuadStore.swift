@@ -252,7 +252,7 @@ open class LanguageMemoryQuadStore: Sequence, QuadStoreProtocol {
         return AnyIterator(matching.makeIterator())
     }
 
-    var acceptLanguages: [(String, Double)]
+    public var acceptLanguages: [(String, Double)]
     var quadstore: MemoryQuadStore
     public var siteLanguageQuality: [String: Double]
     
