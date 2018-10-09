@@ -23,13 +23,13 @@ public struct QuadStoreConfiguration {
     public var initialize: StoreInitialization
     public var languageAware: Bool
     
-    init(type: StoreType, initialize: StoreInitialization, languageAware: Bool) {
+    public init(type: StoreType, initialize: StoreInitialization, languageAware: Bool) {
         self.type = type
         self.initialize = initialize
         self.languageAware = languageAware
     }
     
-    init(arguments: [String]) throws {
+    public init(arguments: [String]) throws {
         var args = arguments
         
         var type = StoreType.memoryDatabase
