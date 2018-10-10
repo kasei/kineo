@@ -29,6 +29,10 @@ public protocol QuadStoreProtocol {
     var features: [QuadStoreFeature] { get }
 }
 
+public protocol LanguageAwareQuadStore: QuadStoreProtocol {
+    var acceptLanguages: [(String, Double)] { get set }
+}
+
 public protocol BGPQuadStoreProtocol: QuadStoreProtocol {
     func results(matching bgp: [TriplePattern], in graph: Term) throws -> AnyIterator<TermResult>
 }

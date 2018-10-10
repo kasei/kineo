@@ -208,7 +208,7 @@ extension MemoryQuadStore: CustomStringConvertible {
     }
 }
 
-open class LanguageMemoryQuadStore: Sequence, QuadStoreProtocol {
+open class LanguageMemoryQuadStore: Sequence, LanguageAwareQuadStore {
     public var count: Int { return quadstore.count }
     public func graphs() -> AnyIterator<Term> {
         return quadstore.graphs()

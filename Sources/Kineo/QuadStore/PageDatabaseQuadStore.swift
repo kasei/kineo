@@ -86,7 +86,7 @@ open class PageQuadStore<D: PageDatabase>: Sequence, QuadStoreProtocol, MutableQ
     }
 }
 
-open class LanguagePageQuadStore<D: PageDatabase>: Sequence, QuadStoreProtocol, MutableQuadStoreProtocol {
+open class LanguagePageQuadStore<D: PageDatabase>: Sequence, LanguageAwareQuadStore, MutableQuadStoreProtocol {
     var database: D
     public typealias IDType = UInt64
     public var acceptLanguages: [(String, Double)]
