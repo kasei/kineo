@@ -193,7 +193,9 @@ open class MemoryQuadStore: Sequence, MutableQuadStoreProtocol {
     }
     public func load<S: Sequence>(version: Version, quads: S) throws where S.Iterator.Element == Quad {
         self.version = version
-        self.idquads.append(contentsOf: quads.map { idquad(from: $0) })
+        let idq = quads.map { idquad(from: $0) }
+        self.count += idq.count
+        self.idquads.append(contentsOf: idq)
     }
 }
 
