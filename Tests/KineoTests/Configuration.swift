@@ -6,9 +6,10 @@ import SPARQLSyntax
 extension ConfigurationTest {
     static var allTests : [(String, (ConfigurationTest) -> () throws -> Void)] {
         return [
-            ("testCLIConfiguration_1", testCLIConfiguration_1),
-            ("testCLIConfiguration_2", testCLIConfiguration_2),
-            ("testCLIConfiguration_3", testCLIConfiguration_3),
+            ("testCLIConfiguration_file", testCLIConfiguration_file),
+            ("testCLIConfiguration_memory", testCLIConfiguration_memory),
+            ("testCLIConfiguration_memory_language", testCLIConfiguration_memory_language),
+            ("testCLIConfiguration_memory_dataset", testCLIConfiguration_memory_dataset),
         ]
     }
 }
@@ -25,7 +26,7 @@ class ConfigurationTest: XCTestCase {
         super.tearDown()
     }
     
-    func testCLIConfiguration_1() throws {
+    func testCLIConfiguration_file() throws {
         let filename = "filename.db"
         var args = ["process-name", filename]
         let config = try QuadStoreConfiguration(arguments: &args)
@@ -38,7 +39,7 @@ class ConfigurationTest: XCTestCase {
         }
     }
     
-    func testCLIConfiguration_2() throws {
+    func testCLIConfiguration_memory() throws {
         var args = ["process-name", "-m"]
         let config = try QuadStoreConfiguration(arguments: &args)
         XCTAssertEqual(args.count, 1)
@@ -50,7 +51,7 @@ class ConfigurationTest: XCTestCase {
         }
     }
     
-    func testCLIConfiguration_3() throws {
+    func testCLIConfiguration_memory_language() throws {
         var args = ["process-name", "-l", "-m"]
         let config = try QuadStoreConfiguration(arguments: &args)
         XCTAssertEqual(args.count, 1)
@@ -59,6 +60,24 @@ class ConfigurationTest: XCTestCase {
             XCTAssert(true)
         } else {
             XCTFail("expected database type")
+        }
+    }
+    
+    func testCLIConfiguration_memory_dataset() throws {
+        var args = ["process-name", "-m", "-d", "default1", "-g", "name1", "-d", "default2"]
+        let config = try QuadStoreConfiguration(arguments: &args)
+        XCTAssertEqual(args.count, 1)
+        XCTAssertFalse(config.languageAware)
+        if case .memoryDatabase = config.type {
+            XCTAssert(true)
+        } else {
+            XCTFail("expected database type")
+        }
+        if case let .loadFiles(defaultGraphs, namedGraphs) = config.initialize {
+            XCTAssertEqual(defaultGraphs, ["default1", "default2"])
+            XCTAssertEqual(namedGraphs, [Term(iri: "name1"): "name1"])
+        } else {
+            XCTFail("expected initialization dataset")
         }
     }
 }
