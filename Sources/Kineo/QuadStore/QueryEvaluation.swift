@@ -96,10 +96,10 @@ extension SimpleQueryEvaluatorProtocol {
         let results = Array(iter) // OPTIMIZE:
         switch query.form {
         case .ask:
-            if results.count > 0 {
-                return QueryResult.boolean(true)
-            } else {
+            if results.isEmpty {
                 return QueryResult.boolean(false)
+            } else {
+                return QueryResult.boolean(true)
             }
         case .select(_):
             let variables = query.projectedVariables
