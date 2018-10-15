@@ -272,7 +272,7 @@ open class LanguageMemoryQuadStore: Sequence, LanguageAwareQuadStore {
             return try quadstore.idquads(matching: pattern)
         default:
             let i = try quadstore.idquads(matching: pattern)
-            var cachedAcceptance = [Quad: Set<String>]()
+            var cachedAcceptance = [[MemoryQuadStore.TermID]: Set<String>]()
             return AnyIterator {
                 repeat {
                     guard let idquad = i.next() else { return nil }
@@ -282,7 +282,8 @@ open class LanguageMemoryQuadStore: Sequence, LanguageAwareQuadStore {
                         return idquad
                     } else {
                         let quad = self.quadstore.quad(from: idquad)
-                        if self.accept(quad: quad, languages: self.acceptLanguages, cachedAcceptance: &cachedAcceptance) {
+                        let cacheKey : [MemoryQuadStore.TermID] = [idquad.subject, idquad.predicate, 0, idquad.graph]
+                        if self.accept(quad: quad, languages: self.acceptLanguages, cacheKey: cacheKey, cachedAcceptance: &cachedAcceptance) {
                             return idquad
                         }
                     }
@@ -305,11 +306,10 @@ open class LanguageMemoryQuadStore: Sequence, LanguageAwareQuadStore {
         return siteLanguageQuality[language] ?? 1.0
     }
     
-    private func accept(quad: Quad, languages: [(String, Double)], cachedAcceptance: inout [Quad: Set<String>]) -> Bool {
+    private func accept<K: Hashable>(quad: Quad, languages: [(String, Double)], cacheKey: K, cachedAcceptance: inout [K: Set<String>]) -> Bool {
         let object = quad.object
         switch object.type {
         case .language(let l):
-            let cacheKey = Quad(subject: quad.subject, predicate: quad.predicate, object: Term.trueValue, graph: quad.graph)
             if let acceptable = cachedAcceptance[cacheKey] {
                 return acceptable.contains(l)
             } else {
