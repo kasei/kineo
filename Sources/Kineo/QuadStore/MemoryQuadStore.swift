@@ -265,21 +265,28 @@ open class LanguageMemoryQuadStore: Sequence, LanguageAwareQuadStore {
     }
     
     internal func idquads(matching pattern: QuadPattern) throws -> AnyIterator<MemoryQuadStore.MemoryQuad> {
-        let i = try quadstore.idquads(matching: pattern)
-        return AnyIterator {
-            repeat {
-                guard let idquad = i.next() else { return nil }
-                let oid = idquad.object
-                let languageQuad = PersistentTermIdentityMap.isLanguageLiteral(id: oid)
-                if languageQuad {
-                    return idquad
-                } else {
-                    let quad = self.quadstore.quad(from: idquad)
-                    if self.accept(quad: quad, languages: self.acceptLanguages) {
+        switch pattern.object {
+        case .bound(_):
+            // if the quad pattern's object is bound, we don't need to
+            // perform filtering for language conneg
+            return try quadstore.idquads(matching: pattern)
+        default:
+            let i = try quadstore.idquads(matching: pattern)
+            return AnyIterator {
+                repeat {
+                    guard let idquad = i.next() else { return nil }
+                    let oid = idquad.object
+                    let languageQuad = PersistentTermIdentityMap.isLanguageLiteral(id: oid)
+                    if languageQuad {
                         return idquad
+                    } else {
+                        let quad = self.quadstore.quad(from: idquad)
+                        if self.accept(quad: quad, languages: self.acceptLanguages) {
+                            return idquad
+                        }
                     }
-                }
-            } while true
+                } while true
+            }
         }
     }
     
