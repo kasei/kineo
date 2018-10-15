@@ -272,6 +272,7 @@ open class LanguageMemoryQuadStore: Sequence, LanguageAwareQuadStore {
             return try quadstore.idquads(matching: pattern)
         default:
             let i = try quadstore.idquads(matching: pattern)
+            var cachedAcceptance = [Quad: Set<String>]()
             return AnyIterator {
                 repeat {
                     guard let idquad = i.next() else { return nil }
@@ -281,7 +282,7 @@ open class LanguageMemoryQuadStore: Sequence, LanguageAwareQuadStore {
                         return idquad
                     } else {
                         let quad = self.quadstore.quad(from: idquad)
-                        if self.accept(quad: quad, languages: self.acceptLanguages) {
+                        if self.accept(quad: quad, languages: self.acceptLanguages, cachedAcceptance: &cachedAcceptance) {
                             return idquad
                         }
                     }
@@ -304,33 +305,40 @@ open class LanguageMemoryQuadStore: Sequence, LanguageAwareQuadStore {
         return siteLanguageQuality[language] ?? 1.0
     }
     
-    private func accept(quad: Quad, languages: [(String, Double)]) -> Bool {
+    private func accept(quad: Quad, languages: [(String, Double)], cachedAcceptance: inout [Quad: Set<String>]) -> Bool {
         let object = quad.object
         switch object.type {
         case .language(let l):
-            let pattern = QuadPattern(subject: .bound(quad.subject), predicate: .bound(quad.predicate), object: .variable(".o", binding: true), graph: .bound(quad.graph))
-            guard let quads = try? quadstore.idquads(matching: pattern) else { return false }
-            let langs = quads.compactMap { (idquad) -> String? in
-                guard let object = quadstore.term(for: idquad.object) else { return nil }
-                if case .language(let lang) = object.type {
-                    return lang
+            let cacheKey = Quad(subject: quad.subject, predicate: quad.predicate, object: Term.trueValue, graph: quad.graph)
+            if let acceptable = cachedAcceptance[cacheKey] {
+                return acceptable.contains(l)
+            } else {
+                let pattern = QuadPattern(subject: .bound(quad.subject), predicate: .bound(quad.predicate), object: .variable(".o", binding: true), graph: .bound(quad.graph))
+                guard let quads = try? quadstore.idquads(matching: pattern) else { return false }
+                let langs = quads.compactMap { (idquad) -> String? in
+                    guard let object = quadstore.term(for: idquad.object) else { return nil }
+                    if case .language(let lang) = object.type {
+                        return lang
+                    }
+                    return nil
                 }
-                return nil
-            }
-            let pairs = langs.map { (lang) -> (String, Double) in
-                let value = self.qValue(lang, qualityValues: languages) * siteQuality(for: lang)
-                return (lang, value)
-            }
-            
-            guard var (_, maxvalue) = pairs.first else { return true }
-            for (_, value) in pairs {
-                if value > maxvalue {
-                    maxvalue = value
+                let pairs = langs.map { (lang) -> (String, Double) in
+                    let value = self.qValue(lang, qualityValues: languages) * siteQuality(for: lang)
+                    return (lang, value)
                 }
+                
+                guard var (_, maxvalue) = pairs.first else { return true }
+                for (_, value) in pairs {
+                    if value > maxvalue {
+                        maxvalue = value
+                    }
+                }
+                
+                let acceptable = Set(pairs.filter { $0.1 == maxvalue }.map { $0.0 })
+                cachedAcceptance[cacheKey] = acceptable
+
+                return acceptable.contains(l)
             }
-            
-            let acceptable = Set(pairs.filter { $0.1 == maxvalue }.map { $0.0 })
-            return acceptable.contains(l)
         default:
             return true
         }
