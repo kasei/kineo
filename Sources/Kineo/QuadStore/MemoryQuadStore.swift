@@ -18,6 +18,7 @@ open class MemoryQuadStore: Sequence, MutableQuadStoreProtocol {
     var t2i: [Term: TermID]
     var version: Version?
     var next: TermID
+    var graphIDs: Set<TermID>
     
     public init(version: Version? = nil) {
         self.next = 1
@@ -25,11 +26,12 @@ open class MemoryQuadStore: Sequence, MutableQuadStoreProtocol {
         self.idquads = []
         self.i2t = [:]
         self.t2i = [:]
+        self.graphIDs = []
         self.version = version
     }
     
     public func graphs() -> AnyIterator<Term> {
-        let graphs = Set(idquads.map { $0.graph }.map { i2t[$0]! })
+        let graphs = graphIDs.map { i2t[$0]! }
         return AnyIterator(graphs.makeIterator())
     }
     
@@ -194,7 +196,11 @@ open class MemoryQuadStore: Sequence, MutableQuadStoreProtocol {
     public func load<S: Sequence>(version: Version, quads: S) throws where S.Iterator.Element == Quad {
         self.version = version
         let idq = quads.map { idquad(from: $0) }
+        let graphs = Set(idq.map { $0.graph })
         self.count += idq.count
+        for g in graphs {
+            self.graphIDs.insert(g)
+        }
         self.idquads.append(contentsOf: idq)
     }
 }
