@@ -10,10 +10,10 @@ import SPARQLSyntax
 
 public struct SPARQLClient {
     var endpoint: URL
-    var timeout: Double
-    var silent: Bool
-    
-    public init(endpoint: URL, silent: Bool = false, timeout: Double = 5.0) {
+    public var timeout: DispatchTimeInterval
+    public var silent: Bool
+
+    public init(endpoint: URL, silent: Bool = false, timeout: DispatchTimeInterval = .seconds(5)) {
         self.endpoint = endpoint
         self.timeout = timeout
         self.silent = silent
@@ -77,11 +77,11 @@ public struct SPARQLClient {
                 throw QueryError.evaluationError("URL request did not return a response object")
             }
             
+            let parser = n.negotiateParser(for: resp)
             do {
-                let parser = n.negotiateParser(for: resp)
                 return try parser.parse(data)
             } catch let e {
-                throw QueryError.evaluationError("SPARQL Results XML parsing error: \(e)")
+                throw QueryError.evaluationError("SPARQL Results parsing error [\(parser)]: \(e)")
             }
         } catch let e {
             if silent {
