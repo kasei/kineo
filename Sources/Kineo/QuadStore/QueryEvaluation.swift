@@ -125,17 +125,17 @@ extension SimpleQueryEvaluatorProtocol {
             resultHandler(.boolean(results.isEmpty ? false : true))
         case .select(_):
             let variables = query.projectedVariables
-            iter.lazy.forEach { (r) in
+            iter.forEach { (r) in
                 resultHandler(.binding(variables, r))
             }
         case .construct(let template):
-            iter.lazy.forEach {
+            iter.forEach {
                 self.triples(from: [$0], with: template).lazy.forEach {
                     resultHandler(.triple($0))
                 }
             }
         case .describe(let nodes):
-            iter.lazy.forEach { (r) in
+            iter.forEach { (r) in
                 nodes.forEach { (node) in
                     if let triplesIterator = try? triples(describing: node, from: [r]) {
                         triplesIterator.forEach { (triple) in
@@ -390,7 +390,8 @@ extension SimpleQueryEvaluatorProtocol {
                         currentIterator = try self.evaluate(algebra: algebra, activeGraph: activeGraph)
                     }
                 } while true
-            } catch {
+            } catch let error {
+                print("*** error in union evaluation: \(error)")
                 return nil
             }
         }
