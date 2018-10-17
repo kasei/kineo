@@ -115,7 +115,7 @@ extension SimpleQueryEvaluatorProtocol {
         }
     }
     
-    public func evaluate(query: Query, activeGraph: Term?, resultHandler: @escaping (PushQueryResult) -> ()) throws {
+    public func evaluate(query: Query, activeGraph: Term?, resultHandler: (PushQueryResult) -> ()) throws {
         let algebra = query.algebra
         self.ee.base = query.base
         let iter = try self.evaluate(algebra: algebra, activeGraph: activeGraph)
