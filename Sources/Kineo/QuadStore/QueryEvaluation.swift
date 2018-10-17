@@ -115,6 +115,38 @@ extension SimpleQueryEvaluatorProtocol {
         }
     }
     
+    public func evaluate(query: Query, activeGraph: Term?, resultHandler: @escaping (PushQueryResult) -> ()) throws {
+        let algebra = query.algebra
+        self.ee.base = query.base
+        let iter = try self.evaluate(algebra: algebra, activeGraph: activeGraph)
+        switch query.form {
+        case .ask:
+            let results = Array(iter)
+            resultHandler(.boolean(results.isEmpty ? false : true))
+        case .select(_):
+            let variables = query.projectedVariables
+            iter.lazy.forEach { (r) in
+                resultHandler(.binding(variables, r))
+            }
+        case .construct(let template):
+            iter.lazy.forEach {
+                self.triples(from: [$0], with: template).lazy.forEach {
+                    resultHandler(.triple($0))
+                }
+            }
+        case .describe(let nodes):
+            iter.lazy.forEach { (r) in
+                nodes.forEach { (node) in
+                    if let triplesIterator = try? triples(describing: node, from: [r]) {
+                        triplesIterator.forEach { (triple) in
+                            resultHandler(.triple(triple))
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
     public func evaluate(algebra: Algebra, activeGraph: Term? = nil) throws -> AnyIterator<TermResult> {
         var iterators = [AnyIterator<TermResult>]()
         let graphs : [Term]
@@ -122,6 +154,10 @@ extension SimpleQueryEvaluatorProtocol {
             graphs = [g]
         } else {
             graphs = dataset.defaultGraphs
+        }
+        if graphs.isEmpty {
+            print("*** There is no active graph during algebra evaluation:")
+            print("*** \(algebra.serialize())")
         }
         for activeGraph in graphs {
             let i = try evaluate(algebra: algebra, activeGraph: activeGraph)
@@ -335,19 +371,43 @@ extension SimpleQueryEvaluatorProtocol {
         }
     }
     
-    public func evaluateUnion(_ patterns: [Algebra], activeGraph: Term) throws -> AnyIterator<TermResult> {
-        var iters = try patterns.map { try self.evaluate(algebra: $0, activeGraph: activeGraph) }
-        return AnyIterator {
-            repeat {
-                if iters.count == 0 {
-                    return nil
-                }
-                let i = iters[0]
-                guard let item = i.next() else { iters.remove(at: 0); continue }
-                return item
-            } while true
+    // NOTE: this is a lazy version of union that hides thrown exceptions in order to delay evaluation
+    //       the non-lazy version is commented below
+    public func evaluateUnion(_ _patterns: [Algebra], activeGraph: Term) throws -> AnyIterator<TermResult> {
+        var patterns = _patterns
+        var currentIterator: AnyIterator<TermResult>? = nil
+        return AnyIterator { () -> TermResult? in
+            do {
+                repeat {
+                    if let _ = currentIterator {
+                        guard let item = currentIterator!.next() else { currentIterator = nil; continue }
+                        return item
+                    } else {
+                        guard let algebra = patterns.first else {
+                            return nil
+                        }
+                        patterns.removeFirst()
+                        currentIterator = try self.evaluate(algebra: algebra, activeGraph: activeGraph)
+                    }
+                } while true
+            } catch {
+                return nil
+            }
         }
     }
+//    public func evaluateUnion(_ patterns: [Algebra], activeGraph: Term) throws -> AnyIterator<TermResult> {
+//        var iters = try patterns.lazy.map { try self.evaluate(algebra: $0, activeGraph: activeGraph) }
+//        return AnyIterator {
+//            repeat {
+//                if iters.count == 0 {
+//                    return nil
+//                }
+//                let i = iters[0]
+//                guard let item = i.next() else { iters.remove(at: 0); continue }
+//                return item
+//            } while true
+//        }
+//    }
     
     public func evaluateJoin(lhs lhsAlgebra: Algebra, rhs rhsAlgebra: Algebra, left: Bool, activeGraph: Term) throws -> AnyIterator<TermResult> {
         var seen = [Set<String>]()

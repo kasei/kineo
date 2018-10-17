@@ -151,6 +151,13 @@ public struct IDQuad<T: DefinedTestable & Equatable & Comparable & BufferSeriali
     }
 }
 
+public enum PushQueryResult {
+    case boolean(Bool)
+    case triple(Triple)
+    case binding([String], TermResult)
+}
+
+
 public enum QueryResult<S, T> where S: Sequence, S.Element == TermResult, T: Sequence, T.Element == Triple {
     case boolean(Bool)
     case triples(T)
