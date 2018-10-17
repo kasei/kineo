@@ -1193,7 +1193,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol>: SimpleQueryEvaluatorProto
     public let supportedFeatures: [QueryEngineFeature] = [.basicFederatedQuery]
 
     internal var freshVarNumber: Int
-    public  var verbose: Bool
+    public var verbose: Bool
 
     public init(store: Q, dataset: Dataset, verbose: Bool = false) {
         self.store = store
@@ -1235,7 +1235,9 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol>: SimpleQueryEvaluatorProto
             let triples : [Algebra] = patterns.map { $0.bindingAllVariables }.map { .triple($0) }
             let join: Algebra = triples.reduce(.joinIdentity) { .innerJoin($0, $1) }
             let algebra: Algebra = .project(join, projection)
-            return try evaluate(algebra: algebra, activeGraph: activeGraph)
+
+            let a = try SPARQLQueryRewriter.shared.simplify(algebra: algebra)
+            return try evaluate(algebra: a, activeGraph: activeGraph)
         }
     }
     

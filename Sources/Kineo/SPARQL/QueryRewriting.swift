@@ -9,6 +9,8 @@ import Foundation
 import SPARQLSyntax
 
 public struct SPARQLQueryRewriter {
+    static let shared = SPARQLQueryRewriter()
+    
     public init () {
     }
     
