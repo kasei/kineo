@@ -23,9 +23,9 @@ enum ResultValue: Codable {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let head = try container.nestedContainer(keyedBy: CodingKeys.self, forKey: .head)
-        if head.contains(.results) {
+        if container.contains(.results) {
             let results = try container.nestedContainer(keyedBy: CodingKeys.self, forKey: .results)
-            let vars = try results.decode([String].self, forKey: .vars)
+            let vars = try head.decode([String].self, forKey: .vars)
             let bindings = try results.decode([[String:Term]].self, forKey: .bindings)
             self = .bindings(vars, bindings)
         } else {
