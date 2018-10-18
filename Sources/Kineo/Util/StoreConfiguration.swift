@@ -76,7 +76,7 @@ public struct QuadStoreConfiguration {
             let store = MemoryQuadStore()
             if languageAware {
                 let acceptLanguages = [("*", 1.0)] // can be changed later
-                let lstore = try LanguageMemoryQuadStore(quadstore: store, acceptLanguages: acceptLanguages)
+                let lstore = LanguageMemoryQuadStore(quadstore: store, acceptLanguages: acceptLanguages)
                 try handler(lstore)
             } else {
                 try handler(store)

@@ -217,7 +217,21 @@ extension MemoryQuadStore: CustomStringConvertible {
 }
 
 open class LanguageMemoryQuadStore: Sequence, LanguageAwareQuadStore {
-    public var count: Int { return quadstore.count }
+    public var count: Int {
+        let qp = QuadPattern(
+            subject: Node(variable: "s"),
+            predicate: Node(variable: "p"),
+            object: Node(variable: "o"),
+            graph: Node(variable: "g")
+        )
+        guard let quads = try? self.quads(matching: qp) else { return 0 }
+        var count = 0
+        for _ in quads {
+            count += 1
+        }
+        return count
+    }
+    
     public func graphs() -> AnyIterator<Term> {
         return quadstore.graphs()
     }
@@ -264,7 +278,7 @@ open class LanguageMemoryQuadStore: Sequence, LanguageAwareQuadStore {
     var quadstore: MemoryQuadStore
     public var siteLanguageQuality: [String: Double]
     
-    public init(quadstore: MemoryQuadStore, acceptLanguages: [(String, Double)]) throws {
+    public init(quadstore: MemoryQuadStore, acceptLanguages: [(String, Double)]) {
         self.acceptLanguages = acceptLanguages
         self.quadstore = quadstore
         self.siteLanguageQuality = [:]
@@ -282,16 +296,19 @@ open class LanguageMemoryQuadStore: Sequence, LanguageAwareQuadStore {
             return AnyIterator {
                 repeat {
                     guard let idquad = i.next() else { return nil }
-                    let oid = idquad.object
-                    let languageQuad = PersistentTermIdentityMap.isLanguageLiteral(id: oid)
-                    if languageQuad {
+                    let quad = self.quadstore.quad(from: idquad)
+                    let object = quad.object
+                    if self.acceptLanguages.isEmpty {
+                        // special case: if there is no preference (e.g. no Accept-Language header is present),
+                        // then all quads are kept in the model
                         return idquad
-                    } else {
-                        let quad = self.quadstore.quad(from: idquad)
+                    } else if case .language(_) = object.type {
                         let cacheKey : [MemoryQuadStore.TermID] = [idquad.subject, idquad.predicate, 0, idquad.graph]
                         if self.accept(quad: quad, languages: self.acceptLanguages, cacheKey: cacheKey, cachedAcceptance: &cachedAcceptance) {
                             return idquad
                         }
+                    } else {
+                        return idquad
                     }
                 } while true
             }
@@ -300,7 +317,7 @@ open class LanguageMemoryQuadStore: Sequence, LanguageAwareQuadStore {
     
     internal func qValue(_ language: String, qualityValues: [(String, Double)]) -> Double {
         for (lang, value) in qualityValues {
-            if language.hasPrefix(lang) {
+            if language.hasPrefix(lang) || lang == "*" {
                 return value
             }
         }
@@ -340,10 +357,14 @@ open class LanguageMemoryQuadStore: Sequence, LanguageAwareQuadStore {
                     }
                 }
                 
+                guard maxvalue > 0.0 else { return false }
                 let acceptable = Set(pairs.filter { $0.1 == maxvalue }.map { $0.0 })
-                cachedAcceptance[cacheKey] = acceptable
+                
+                // NOTE: in cases where multiple languages are equally preferable, we tie-break using lexicographic ordering based on language code
+                guard let bestAcceptable = acceptable.sorted().first else { return false }
+                cachedAcceptance[cacheKey] = Set([bestAcceptable])
 
-                return acceptable.contains(l)
+                return l == bestAcceptable
             }
         default:
             return true

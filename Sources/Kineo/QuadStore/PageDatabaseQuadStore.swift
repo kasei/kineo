@@ -693,6 +693,20 @@ extension UInt64: DefinedTestable {
 
 open class MediatedLanguagePageQuadStore: MediatedPageQuadStore {
     var acceptLanguages: [(String, Double)]
+    override public var count: Int {
+        let qp = QuadPattern(
+            subject: Node(variable: "s"),
+            predicate: Node(variable: "p"),
+            object: Node(variable: "o"),
+            graph: Node(variable: "g")
+        )
+        guard let quads = try? self.quads(matching: qp) else { return 0 }
+        var count = 0
+        for _ in quads {
+            count += 1
+        }
+        return count
+    }
     public init(mediator: PageRMediator, acceptLanguages: [(String, Double)], mutable: Bool = false) throws {
         self.acceptLanguages = acceptLanguages
         try super.init(mediator: mediator, mutable: mutable)
@@ -703,18 +717,26 @@ open class MediatedLanguagePageQuadStore: MediatedPageQuadStore {
         return AnyIterator {
             repeat {
                 guard let idquad = i.next() else { return nil }
-                let oid = idquad[3]
+                let oid = idquad[2]
                 let languageQuad = PersistentTermIdentityMap.isLanguageLiteral(id: oid)
-                if languageQuad {
+                if self.acceptLanguages.isEmpty {
+                    // special case: if there is no preference (e.g. no Accept-Language header is present),
+                    // then all quads are kept in the model
                     return idquad
-                } else {
+                } else if languageQuad {
                     guard let quad = self.quad(from: idquad) else { return nil }
                     if self.accept(quad: quad, languages: self.acceptLanguages) {
                         return idquad
                     }
+                } else {
+                    return idquad
                 }
             } while true
         }
+    }
+    
+    override public func quads(matching pattern: QuadPattern) throws -> AnyIterator<Quad> {
+        return try super.quads(matching: pattern)
     }
     
 //    override public func quads(matching pattern: QuadPattern) throws -> AnyIterator<Quad> {
@@ -731,7 +753,7 @@ open class MediatedLanguagePageQuadStore: MediatedPageQuadStore {
     
     internal func qValue(_ language: String, qualityValues: [(String, Double)]) -> Double {
         for (lang, value) in qualityValues {
-            if language.hasPrefix(lang) {
+            if language.hasPrefix(lang) || lang == "*" {
                 return value
             }
         }
@@ -767,9 +789,14 @@ open class MediatedLanguagePageQuadStore: MediatedPageQuadStore {
                     maxvalue = value
                 }
             }
-            
+
+            guard maxvalue > 0.0 else { return false }
             let acceptable = Set(pairs.filter { $0.1 == maxvalue }.map { $0.0 })
-            return acceptable.contains(l)
+
+            // NOTE: in cases where multiple languages are equally preferable, we tie-break using lexicographic ordering based on language code
+            guard let bestAcceptable = acceptable.sorted().first else { return false }
+
+            return l == bestAcceptable
         default:
             return true
         }
