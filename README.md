@@ -60,10 +60,11 @@ Using default graph <file:///Users/greg/kineo/geo.nt>
 
 ### SPARQL Endpoint
 
-Finally, a SPARQL endpoint can be run, allowing SPARQL Protocol clients to access the data:
+Finally, using the companion [kineo-endpoint](https://github.com/kasei/kineo-endpoint) package,
+a SPARQL endpoint can be run allowing SPARQL Protocol clients to access the data:
 
 ```
-% ./.build/release/kineo-endpoint geo.db &
+% kineo-endpoint -f geo.db &
 % curl -H "Accept: application/sparql-results+json" -H "Content-Type: application/sparql-query" --data 'PREFIX geo: <http://www.w3.org/2003/01/geo/wgs84_pos#> SELECT ?s ?lat ?long WHERE { ?s geo:lat ?lat ; geo:long ?long } LIMIT 3' 'http://localhost:8080/sparql'
 {
   "head": {
