@@ -44,16 +44,24 @@ public struct QuadStoreConfiguration {
             }
             let arg = args.remove(at: index)
             switch arg {
-            case "-m":
+            case "-m", "--memory":
                 break
-            case "-l":
+            case "-l", "--language":
                 languageAware = true
             case "-d":
                 defaultGraphs.append(args.remove(at: index))
-            case "-g":
+            case _ where arg.hasPrefix("--default-graph="):
+                defaultGraphs.append(String(arg.dropFirst(16)))
+            case "-n":
                 namedGraphs.append(args.remove(at: index))
+            case _ where arg.hasPrefix("--named-graph="):
+                namedGraphs.append(String(arg.dropFirst(14)))
+            case "-f":
+                type = .filePageDatabase(args.remove(at: index))
+            case _ where arg.hasPrefix("--file="):
+                let filename = String(arg.dropFirst(7))
+                type = .filePageDatabase(filename)
             default:
-                type = .filePageDatabase(arg)
                 break LOOP
             }
         }
