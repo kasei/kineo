@@ -64,7 +64,7 @@ class ConfigurationTest: XCTestCase {
     }
     
     func testCLIConfiguration_memory_dataset() throws {
-        var args = ["process-name", "-m", "-d", "default1", "-g", "name1", "-d", "default2"]
+        var args = ["process-name", "-m", "-d", "default1", "-n", "name1", "--default-graph=default2"]
         let config = try QuadStoreConfiguration(arguments: &args)
         XCTAssertEqual(args.count, 1)
         XCTAssertFalse(config.languageAware)
