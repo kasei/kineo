@@ -10,47 +10,72 @@ import Foundation
 import SPARQLSyntax
 
 extension String {
-    var ntriplesStringEscaped: String {
-        var escaped = ""
-        for c in self {
-            switch c {
-            case Character(UnicodeScalar(0x22)):
-                escaped += "\\\""
-            case Character(UnicodeScalar(0x5c)):
-                escaped += "\\\\"
-            case Character(UnicodeScalar(0x0a)):
-                escaped += "\\n"
-            case Character(UnicodeScalar(0x5d)):
-                escaped += "\\r"
-            default:
-                escaped.append(c)
-            }
+    static let unicodeScalarsNeedingIRIEscaping : Set<UnicodeScalar> = {
+        var charactersNeedingEscaping = Set<UnicodeScalar>()
+        for i in 0x00...0x20 {
+            charactersNeedingEscaping.insert(UnicodeScalar(i)!)
         }
-        return escaped
+        charactersNeedingEscaping.insert(UnicodeScalar(0x3c))
+        charactersNeedingEscaping.insert(UnicodeScalar(0x3e))
+        charactersNeedingEscaping.insert(UnicodeScalar(0x22))
+        charactersNeedingEscaping.insert(UnicodeScalar(0x5c))
+        charactersNeedingEscaping.insert(UnicodeScalar(0x5e))
+        charactersNeedingEscaping.insert(UnicodeScalar(0x60))
+        charactersNeedingEscaping.insert(UnicodeScalar(0x7b))
+        charactersNeedingEscaping.insert(UnicodeScalar(0x7c))
+        charactersNeedingEscaping.insert(UnicodeScalar(0x7d))
+        return charactersNeedingEscaping
+    }()
+    
+    static let unicodeScalarsNeedingLiteralEscaping = Set<UnicodeScalar>([
+        UnicodeScalar(0x22),
+        UnicodeScalar(0x5c),
+        UnicodeScalar(0x0a),
+        UnicodeScalar(0x5d)
+        ])
+    
+    var ntriplesStringEscaped: String {
+        let needsEscaping = self.unicodeScalars.filter { String.unicodeScalarsNeedingLiteralEscaping.contains($0) }
+        if needsEscaping.isEmpty {
+            return self
+        } else {
+            var escaped = ""
+            for c in self {
+                switch c {
+                case Character(UnicodeScalar(0x22)):
+                    escaped += "\\\""
+                case Character(UnicodeScalar(0x5c)):
+                    escaped += "\\\\"
+                case Character(UnicodeScalar(0x0a)):
+                    escaped += "\\n"
+                case Character(UnicodeScalar(0x5d)):
+                    escaped += "\\r"
+                default:
+                    escaped.append(c)
+                }
+            }
+            return escaped
+        }
     }
     
     var ntriplesIRIEscaped: String {
-        var escaped = ""
-        for c in self {
-            switch c {
-            case Character(UnicodeScalar(0x00))...Character(UnicodeScalar(0x20)),
-                 Character(UnicodeScalar(0x3c)),
-                 Character(UnicodeScalar(0x3e)),
-                 Character(UnicodeScalar(0x22)),
-                 Character(UnicodeScalar(0x5c)),
-                 Character(UnicodeScalar(0x5e)),
-                 Character(UnicodeScalar(0x60)),
-                 Character(UnicodeScalar(0x7b)),
-                 Character(UnicodeScalar(0x7c)),
-                 Character(UnicodeScalar(0x7d)):
-                for s in c.unicodeScalars {
-                    escaped += String(format: "\\U%08X", s.value)
+        let needsEscaping = self.unicodeScalars.filter { String.unicodeScalarsNeedingIRIEscaping.contains($0) }
+        if needsEscaping.isEmpty {
+            return self
+        } else {
+            var escaped = ""
+            for c in self {
+                switch c {
+                case _ where String.unicodeScalarsNeedingIRIEscaping.contains(c.unicodeScalars.first!):
+                    for s in c.unicodeScalars {
+                        escaped += String(format: "\\U%08X", s.value)
+                    }
+                default:
+                    escaped.append(c)
                 }
-            default:
-                escaped.append(c)
             }
+            return escaped
         }
-        return escaped
     }
 }
 
@@ -82,17 +107,17 @@ extension Term {
             stream.write(" ")
         case .language(let l):
             stream.write("\"")
-            stream.write(self.value.ntriplesIRIEscaped)
+            stream.write(self.value.ntriplesStringEscaped)
             stream.write("\"@")
             stream.write(l)
             stream.write(" ")
         case .datatype(.string):
             stream.write("\"")
-            stream.write(self.value.ntriplesIRIEscaped)
+            stream.write(self.value.ntriplesStringEscaped)
             stream.write("\" ")
         case .datatype(let dt):
             stream.write("\"")
-            stream.write(self.value.ntriplesIRIEscaped)
+            stream.write(self.value.ntriplesStringEscaped)
             stream.write("\"^^<")
             stream.write(dt.value)
             stream.write("> ")

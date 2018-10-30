@@ -53,12 +53,12 @@ class NTriplesSerializationTest: XCTestCase {
     func testEscaping() {
         let b = Term(value: "b1", type: .blank)
         let i = Term(iri: "http://example.org/^foo")
-        let l = Term(string: "\n\"")
+        let l = Term(string: "\n \"")
         let triple = Triple(subject: b, predicate: i, object: l)
         
         guard let data = try? serializer.serialize([triple]) else { XCTFail(); return }
         let string = String(data: data, encoding: .utf8)!
-        XCTAssertEqual(string, "_:b1 <http://example.org/\\U0000005Efoo> \"\\n\\\"\" .\n")
+        XCTAssertEqual(string, "_:b1 <http://example.org/\\U0000005Efoo> \"\\n \\\"\" .\n")
         XCTAssert(true)
     }
 }

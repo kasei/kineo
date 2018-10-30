@@ -11,46 +11,56 @@ import SPARQLSyntax
 
 extension String {
     var turtleStringEscaped: String {
-        var escaped = ""
-        for c in self {
-            switch c {
-            case Character(UnicodeScalar(0x22)):
-                escaped += "\\\""
-            case Character(UnicodeScalar(0x5c)):
-                escaped += "\\\\"
-            case Character(UnicodeScalar(0x0a)):
-                escaped += "\\n"
-            case Character(UnicodeScalar(0x5d)):
-                escaped += "\\r"
-            default:
-                escaped.append(c)
+        let needsEscaping = self.unicodeScalars.filter { String.unicodeScalarsNeedingLiteralEscaping.contains($0) }
+        if needsEscaping.isEmpty {
+            return self
+        } else {
+            var escaped = ""
+            for c in self {
+                switch c {
+                case Character(UnicodeScalar(0x22)):
+                    escaped += "\\\""
+                case Character(UnicodeScalar(0x5c)):
+                    escaped += "\\\\"
+                case Character(UnicodeScalar(0x0a)):
+                    escaped += "\\n"
+                case Character(UnicodeScalar(0x5d)):
+                    escaped += "\\r"
+                default:
+                    escaped.append(c)
+                }
             }
+            return escaped
         }
-        return escaped
     }
     
     var turtleIRIEscaped: String {
-        var escaped = ""
-        for c in self {
-            switch c {
-            case Character(UnicodeScalar(0x00))...Character(UnicodeScalar(0x20)),
-                 Character(UnicodeScalar(0x3c)),
-                 Character(UnicodeScalar(0x3e)),
-                 Character(UnicodeScalar(0x22)),
-                 Character(UnicodeScalar(0x5c)),
-                 Character(UnicodeScalar(0x5e)),
-                 Character(UnicodeScalar(0x60)),
-                 Character(UnicodeScalar(0x7b)),
-                 Character(UnicodeScalar(0x7c)),
-                 Character(UnicodeScalar(0x7d)):
-                for s in c.unicodeScalars {
-                    escaped += String(format: "\\U%08X", s.value)
+        let needsEscaping = self.unicodeScalars.filter { String.unicodeScalarsNeedingIRIEscaping.contains($0) }
+        if needsEscaping.isEmpty {
+            return self
+        } else {
+            var escaped = ""
+            for c in self {
+                switch c {
+                case Character(UnicodeScalar(0x00))...Character(UnicodeScalar(0x20)),
+                     Character(UnicodeScalar(0x3c)),
+                     Character(UnicodeScalar(0x3e)),
+                     Character(UnicodeScalar(0x22)),
+                     Character(UnicodeScalar(0x5c)),
+                     Character(UnicodeScalar(0x5e)),
+                     Character(UnicodeScalar(0x60)),
+                     Character(UnicodeScalar(0x7b)),
+                     Character(UnicodeScalar(0x7c)),
+                     Character(UnicodeScalar(0x7d)):
+                    for s in c.unicodeScalars {
+                        escaped += String(format: "\\U%08X", s.value)
+                    }
+                default:
+                    escaped.append(c)
                 }
-            default:
-                escaped.append(c)
             }
+            return escaped
         }
-        return escaped
     }
 }
 
