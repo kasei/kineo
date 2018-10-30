@@ -35,8 +35,8 @@ extension String {
         ])
     
     var ntriplesStringEscaped: String {
-        let needsEscaping = self.unicodeScalars.filter { String.unicodeScalarsNeedingLiteralEscaping.contains($0) }
-        if needsEscaping.isEmpty {
+        let needsEscaping = self.unicodeScalars.contains { String.unicodeScalarsNeedingLiteralEscaping.contains($0) }
+        if !needsEscaping {
             return self
         } else {
             var escaped = ""
@@ -59,8 +59,8 @@ extension String {
     }
     
     var ntriplesIRIEscaped: String {
-        let needsEscaping = self.unicodeScalars.filter { String.unicodeScalarsNeedingIRIEscaping.contains($0) }
-        if needsEscaping.isEmpty {
+        let needsEscaping = self.unicodeScalars.contains { String.unicodeScalarsNeedingIRIEscaping.contains($0) }
+        if !needsEscaping {
             return self
         } else {
             var escaped = ""
