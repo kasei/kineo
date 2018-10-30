@@ -120,6 +120,15 @@ open class TurtleSerializer : RDFSerializer {
         data.append(contentsOf: [0x2e, 0x0a]) // dot newline
     }
     
+    public func serialize<T: TextOutputStream, S: Sequence>(_ triples: S, to stream: inout T) throws where S.Element == Triple {
+        let data = try serialize(triples)
+        if let string = String(data: data, encoding: .utf8) {
+            stream.write(string)
+        } else {
+            throw SerializationError.encodingError("Failed to encode triples as utf-8")
+        }
+    }
+    
     private func serialize<S: Sequence>(_ triples: S, forPredicate predicate: Term, to data: inout Data) throws where S.Element == Triple {
         guard let termData = predicate.turtleData(usingPrefixes: prefixes) else {
             throw SerializationError.encodingError("Failed to encode term as utf-8: \(predicate)")

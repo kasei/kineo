@@ -12,6 +12,7 @@ import SPARQLSyntax
 protocol RDFSerializer {
     var canonicalMediaType: String { get }
     func serialize<S: Sequence>(_ triples: S) throws -> Data where S.Element == Triple
+    func serialize<T: TextOutputStream, S: Sequence>(_ triples: S, to: inout T) throws where S.Element == Triple
 }
 
 extension TermType: BufferSerializable {

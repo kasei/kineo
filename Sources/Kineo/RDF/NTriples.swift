@@ -69,6 +69,35 @@ extension Term {
             return "\"\(value.ntriplesStringEscaped)\"^^<\(dt.value)>".data(using: .utf8)
         }
     }
+    
+    func printNTriplesString<T: TextOutputStream>(to stream: inout T) {
+        switch self.type {
+        case .iri:
+            stream.write("<")
+            stream.write(self.value.ntriplesIRIEscaped)
+            stream.write("> ")
+        case .blank:
+            stream.write("_:")
+            stream.write(self.value)
+            stream.write(" ")
+        case .language(let l):
+            stream.write("\"")
+            stream.write(self.value.ntriplesIRIEscaped)
+            stream.write("\"@")
+            stream.write(l)
+            stream.write(" ")
+        case .datatype(.string):
+            stream.write("\"")
+            stream.write(self.value.ntriplesIRIEscaped)
+            stream.write("\" ")
+        case .datatype(let dt):
+            stream.write("\"")
+            stream.write(self.value.ntriplesIRIEscaped)
+            stream.write("\"^^<")
+            stream.write(dt.value)
+            stream.write("> ")
+        }
+    }
 }
 
 open class NTriplesSerializer : RDFSerializer {
@@ -89,6 +118,15 @@ open class NTriplesSerializer : RDFSerializer {
         data.append(contentsOf: [0x2e, 0x0a]) // dot newline
     }
     
+    public func serialize<T: TextOutputStream, S: Sequence>(_ triples: S, to stream: inout T) throws where S.Element == Triple {
+        for triple in triples {
+            for t in triple {
+                t.printNTriplesString(to: &stream)
+            }
+            stream.write(".\n")
+        }
+    }
+
     public func serialize<S: Sequence>(_ triples: S) throws -> Data where S.Element == Triple {
         var d = Data()
         for t in triples {
