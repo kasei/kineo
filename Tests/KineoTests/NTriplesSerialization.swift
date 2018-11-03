@@ -46,7 +46,7 @@ class NTriplesSerializationTest: XCTestCase {
         
         guard let data = try? serializer.serialize([triple1, triple2]) else { XCTFail(); return }
         let string = String(data: data, encoding: .utf8)!
-        XCTAssertEqual(string, "_:b1 <http://example.org/食べる> \"foo\"@en-US .\n_:b1 <http://example.org/食べる> \"7\"^^<http://www.w3.org/2001/XMLSchema#integer> .\n")
+        XCTAssertEqual(string, "_:b1 <http://example.org/\\u98DF\\u3079\\u308B> \"foo\"@en-US .\n_:b1 <http://example.org/\\u98DF\\u3079\\u308B> \"7\"^^<http://www.w3.org/2001/XMLSchema#integer> .\n")
         XCTAssert(true)
     }
     
