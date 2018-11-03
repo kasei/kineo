@@ -57,7 +57,7 @@ extension String {
                     escaped += "\\\\"
                 case Character(UnicodeScalar(0x0a)):
                     escaped += "\\n"
-                case Character(UnicodeScalar(0x5d)):
+                case Character(UnicodeScalar(0x0d)):
                     escaped += "\\r"
                 default:
                     escaped.append(c)
