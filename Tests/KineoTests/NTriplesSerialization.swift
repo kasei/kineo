@@ -58,7 +58,7 @@ class NTriplesSerializationTest: XCTestCase {
         
         guard let data = try? serializer.serialize([triple]) else { XCTFail(); return }
         let string = String(data: data, encoding: .utf8)!
-        XCTAssertEqual(string, "_:b1 <http://example.org/\\U0000005Efoo> \"\\n \\\"\" .\n")
+        XCTAssertEqual(string, "_:b1 <http://example.org/\\u005Efoo> \"\\n \\\"\" .\n")
         XCTAssert(true)
     }
 }

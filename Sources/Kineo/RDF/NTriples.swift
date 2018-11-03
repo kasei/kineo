@@ -10,7 +10,7 @@ import Foundation
 import SPARQLSyntax
 
 extension String {
-    static let unicodeScalarsNeedingIRIEscaping : Set<UnicodeScalar> = {
+    static let unicodeScalarsNeedingNTriplesIRIEscaping : Set<UnicodeScalar> = {
         var charactersNeedingEscaping = Set<UnicodeScalar>()
         for i in 0x00...0x20 {
             charactersNeedingEscaping.insert(UnicodeScalar(i)!)
@@ -27,15 +27,15 @@ extension String {
         return charactersNeedingEscaping
     }()
     
-    static let unicodeScalarsNeedingLiteralEscaping = Set<UnicodeScalar>([
+    static let unicodeScalarsNeedingNTriplesLiteralEscaping = Set<UnicodeScalar>([
         UnicodeScalar(0x22),
         UnicodeScalar(0x5c),
         UnicodeScalar(0x0a),
-        UnicodeScalar(0x5d)
+        UnicodeScalar(0x0d)
         ])
     
     var ntriplesStringEscaped: String {
-        let needsEscaping = self.unicodeScalars.contains { String.unicodeScalarsNeedingLiteralEscaping.contains($0) }
+        let needsEscaping = self.unicodeScalars.contains { String.unicodeScalarsNeedingNTriplesLiteralEscaping.contains($0) }
         if !needsEscaping {
             return self
         } else {
@@ -59,16 +59,24 @@ extension String {
     }
     
     var ntriplesIRIEscaped: String {
-        let needsEscaping = self.unicodeScalars.contains { String.unicodeScalarsNeedingIRIEscaping.contains($0) }
+        let needsEscaping = self.unicodeScalars.contains {
+            $0.value <= 0x20 || String.unicodeScalarsNeedingNTriplesIRIEscaping.contains($0)
+        }
         if !needsEscaping {
             return self
         } else {
             var escaped = ""
             for c in self {
                 switch c {
-                case _ where String.unicodeScalarsNeedingIRIEscaping.contains(c.unicodeScalars.first!):
+                case _ where String.unicodeScalarsNeedingNTriplesIRIEscaping.contains(c.unicodeScalars.first!),
+                     _ where c.unicodeScalars.first != nil && c.unicodeScalars.first!.value >= 0x80:
                     for s in c.unicodeScalars {
-                        escaped += String(format: "\\U%08X", s.value)
+                        let value = s.value
+                        if value <= 0xFFFF {
+                            escaped += String(format: "\\u%04X", value)
+                        } else {
+                            escaped += String(format: "\\U%08X", value)
+                        }
                     }
                 default:
                     escaped.append(c)

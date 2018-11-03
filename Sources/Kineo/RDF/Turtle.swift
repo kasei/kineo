@@ -10,8 +10,32 @@ import Foundation
 import SPARQLSyntax
 
 extension String {
+    static let unicodeScalarsNeedingTurtleIRIEscaping : Set<UnicodeScalar> = {
+        var charactersNeedingEscaping = Set<UnicodeScalar>()
+        for i in 0x00...0x20 {
+            charactersNeedingEscaping.insert(UnicodeScalar(i)!)
+        }
+        charactersNeedingEscaping.insert(UnicodeScalar(0x3c))
+        charactersNeedingEscaping.insert(UnicodeScalar(0x3e))
+        charactersNeedingEscaping.insert(UnicodeScalar(0x22))
+        charactersNeedingEscaping.insert(UnicodeScalar(0x5c))
+        charactersNeedingEscaping.insert(UnicodeScalar(0x5e))
+        charactersNeedingEscaping.insert(UnicodeScalar(0x60))
+        charactersNeedingEscaping.insert(UnicodeScalar(0x7b))
+        charactersNeedingEscaping.insert(UnicodeScalar(0x7c))
+        charactersNeedingEscaping.insert(UnicodeScalar(0x7d))
+        return charactersNeedingEscaping
+    }()
+    
+    static let unicodeScalarsNeedingTurtleLiteralEscaping = Set<UnicodeScalar>([
+        UnicodeScalar(0x22),
+        UnicodeScalar(0x5c),
+        UnicodeScalar(0x0a),
+        UnicodeScalar(0x0d)
+        ])
+
     var turtleStringEscaped: String {
-        let needsEscaping = self.unicodeScalars.contains { String.unicodeScalarsNeedingLiteralEscaping.contains($0) }
+        let needsEscaping = self.unicodeScalars.contains { String.unicodeScalarsNeedingTurtleLiteralEscaping.contains($0) }
         if !needsEscaping {
             return self
         } else {
@@ -35,25 +59,23 @@ extension String {
     }
     
     var turtleIRIEscaped: String {
-        let needsEscaping = self.unicodeScalars.contains { String.unicodeScalarsNeedingIRIEscaping.contains($0) }
+        let needsEscaping = self.unicodeScalars.contains {
+            $0.value <= 0x20 || String.unicodeScalarsNeedingTurtleIRIEscaping.contains($0)
+        }
         if !needsEscaping {
             return self
         } else {
             var escaped = ""
             for c in self {
                 switch c {
-                case Character(UnicodeScalar(0x00))...Character(UnicodeScalar(0x20)),
-                     Character(UnicodeScalar(0x3c)),
-                     Character(UnicodeScalar(0x3e)),
-                     Character(UnicodeScalar(0x22)),
-                     Character(UnicodeScalar(0x5c)),
-                     Character(UnicodeScalar(0x5e)),
-                     Character(UnicodeScalar(0x60)),
-                     Character(UnicodeScalar(0x7b)),
-                     Character(UnicodeScalar(0x7c)),
-                     Character(UnicodeScalar(0x7d)):
+                case _ where String.unicodeScalarsNeedingNTriplesIRIEscaping.contains(c.unicodeScalars.first!):
                     for s in c.unicodeScalars {
-                        escaped += String(format: "\\U%08X", s.value)
+                        let value = s.value
+                        if value <= 0xFFFF {
+                            escaped += String(format: "\\u%04X", value)
+                        } else {
+                            escaped += String(format: "\\U%08X", value)
+                        }
                     }
                 default:
                     escaped.append(c)
