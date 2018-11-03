@@ -42,6 +42,15 @@ extension String {
             var escaped = ""
             for c in self {
                 switch c {
+                case _ where c.unicodeScalars.first != nil && c.unicodeScalars.first!.value >= 0x80:
+                    for s in c.unicodeScalars {
+                        let value = s.value
+                        if value <= 0xFFFF {
+                            escaped += String(format: "\\u%04X", value)
+                        } else {
+                            escaped += String(format: "\\U%08X", value)
+                        }
+                    }
                 case Character(UnicodeScalar(0x22)):
                     escaped += "\\\""
                 case Character(UnicodeScalar(0x5c)):
