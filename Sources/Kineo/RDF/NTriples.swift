@@ -42,7 +42,8 @@ extension String {
             var escaped = ""
             for c in self {
                 switch c {
-                case _ where c.unicodeScalars.first != nil && c.unicodeScalars.first!.value >= 0x80:
+                case _ where c.unicodeScalars.first != nil && c.unicodeScalars.first!.value >= 0x80,
+                     _ where c.unicodeScalars.count > 1:
                     for s in c.unicodeScalars {
                         let value = s.value
                         if value <= 0xFFFF {
@@ -78,7 +79,8 @@ extension String {
             for c in self {
                 switch c {
                 case _ where String.unicodeScalarsNeedingNTriplesIRIEscaping.contains(c.unicodeScalars.first!),
-                     _ where c.unicodeScalars.first != nil && c.unicodeScalars.first!.value >= 0x80:
+                     _ where c.unicodeScalars.first != nil && c.unicodeScalars.first!.value >= 0x80,
+                     _ where c.unicodeScalars.count > 1:
                     for s in c.unicodeScalars {
                         let value = s.value
                         if value <= 0xFFFF {
