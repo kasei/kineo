@@ -7,7 +7,8 @@ extension NTriplesSerializationTest {
     static var allTests : [(String, (NTriplesSerializationTest) -> () throws -> Void)] {
         return [
             ("testTriples", testTriples),
-            ("testEscaping", testEscaping),
+            ("testEscaping1", testEscaping1),
+            ("testEscaping2", testEscaping2),
         ]
     }
 }
@@ -50,7 +51,7 @@ class NTriplesSerializationTest: XCTestCase {
         XCTAssert(true)
     }
     
-    func testEscaping() {
+    func testEscaping1() {
         let b = Term(value: "b1", type: .blank)
         let i = Term(iri: "http://example.org/^foo")
         let l = Term(string: "\n \"")
@@ -59,6 +60,18 @@ class NTriplesSerializationTest: XCTestCase {
         guard let data = try? serializer.serialize([triple]) else { XCTFail(); return }
         let string = String(data: data, encoding: .utf8)!
         XCTAssertEqual(string, "_:b1 <http://example.org/\\u005Efoo> \"\\n \\\"\" .\n")
+        XCTAssert(true)
+    }
+    
+    func testEscaping2() {
+        let b = Term(value: "b1", type: .blank)
+        let i = Term(iri: "http://example.org/foo")
+        let l = Term(string: "a\u{0300}")
+        let triple = Triple(subject: b, predicate: i, object: l)
+        
+        guard let data = try? serializer.serialize([triple]) else { XCTFail(); return }
+        let string = String(data: data, encoding: .utf8)!
+        XCTAssertEqual(string, "_:b1 <http://example.org/foo> \"a\\u0300\" .\n")
         XCTAssert(true)
     }
 }
