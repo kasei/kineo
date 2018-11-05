@@ -46,7 +46,7 @@ extension String {
                      _ where c.unicodeScalars.count > 1:
                     for s in c.unicodeScalars {
                         let value = s.value
-                        if (value >= 0x30 && value <= 39) || (value >= 0x41 && value <= 0x5A) || (value >= 0x61 && value <= 0x7A) {
+                        if (value == 0x20 || value >= 0x30 && value <= 39) || (value >= 0x41 && value <= 0x5A) || (value >= 0x61 && value <= 0x7A) {
                             escaped.append("\(s)")
                         } else if value <= 0xFFFF {
                             escaped += String(format: "\\u%04X", value)
@@ -119,6 +119,7 @@ extension Term {
     }
     
     func printNTriplesString<T: TextOutputStream>(to stream: inout T) {
+        // OPTIMIZE: benchmark whether multiple writes or a single write of a built-up string is faster here
         switch self.type {
         case .iri:
             stream.write("<")
