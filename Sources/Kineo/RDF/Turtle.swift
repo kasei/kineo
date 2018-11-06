@@ -150,7 +150,7 @@ extension Term {
 
 open class TurtleSerializer : RDFSerializer {
     public var canonicalMediaType = "application/turtle"
-    var prefixes: [String:Term]
+    public var prefixes: [String:Term]
     
     public init(prefixes: [String:Term]? = nil) {
         self.prefixes = prefixes ?? [:] // TODO: implement prefix use
@@ -171,7 +171,7 @@ open class TurtleSerializer : RDFSerializer {
         data.append(contentsOf: [0x2e, 0x0a]) // dot newline
     }
     
-    public func serialize<T: TextOutputStream, S: Sequence>(_ triples: S, to stream: inout T) throws where S.Element == Triple {
+    public func serializeHeader<T: TextOutputStream>(to stream: inout T) {
         if prefixes.count > 0 {
             for (k, t) in prefixes {
                 stream.write("@prefix \(k): ")
@@ -180,7 +180,10 @@ open class TurtleSerializer : RDFSerializer {
             }
             stream.write("\n")
         }
-        
+    }
+    
+    public func serialize<T: TextOutputStream, S: Sequence>(_ triples: S, to stream: inout T) throws where S.Element == Triple {
+        serializeHeader(to: &stream)
         let subjects = Dictionary(grouping: triples) { $0.subject }
         for (i, s) in subjects.keys.sorted().enumerated() {
             let triples = subjects[s]!
