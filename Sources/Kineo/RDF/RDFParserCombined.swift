@@ -11,8 +11,18 @@ import Foundation
 import SPARQLSyntax
 
 public typealias TripleHandler = (Term, Term, Term) -> Void
+public protocol RDFParser {
+    init()
+    var mediaTypes: Set<String> { get }
+    func parse(string: String, mediaType: String, base: String?, handleTriple: @escaping TripleHandler) throws -> Int
+    func parseFile(_ filename: String, mediaType: String, base: String?, handleTriple: @escaping TripleHandler) throws -> Int
+}
 
-public class RDFParser {
+public class RDFParserCombined : RDFParser {
+    public var mediaTypes: Set<String> = [
+    
+    ]
+    
     public enum RDFParserError : Error {
         case parseError(String)
         case internalError(String)
@@ -63,21 +73,32 @@ public class RDFParser {
         }
     }
     
-    var inputSyntax: RDFSyntax
     var defaultBase: String
     var produceUniqueBlankIdentifiers: Bool
     
-    public init(syntax: RDFSyntax = .turtle, base defaultBase: String = "http://base.example.org/", produceUniqueBlankIdentifiers: Bool = true) {
-        self.inputSyntax = syntax
+    required public init() {
+        self.defaultBase = "http://base.example.org/"
+        self.produceUniqueBlankIdentifiers = true
+    }
+    
+    public init(base defaultBase: String = "http://base.example.org/", produceUniqueBlankIdentifiers: Bool = true) {
         self.defaultBase = defaultBase
         self.produceUniqueBlankIdentifiers = produceUniqueBlankIdentifiers
     }
 
     @discardableResult
-    public func parse(string: String, handleTriple: @escaping (Term, Term, Term) -> Void) throws -> Int {
+    public func parse(string: String, mediaType type: String, base: String? = nil, handleTriple: @escaping TripleHandler) throws -> Int {
+        
+        let inputSyntax = RDFParserCombined.guessSyntax(mediaType: type)
+        return try parse(string: string, syntax: inputSyntax, base: base, handleTriple: handleTriple)
+    }
+    
+    @discardableResult
+    public func parse(string: String, syntax inputSyntax: RDFSyntax, base: String? = nil, handleTriple: @escaping TripleHandler) throws -> Int {
+        let base = base ?? defaultBase
         switch inputSyntax {
         case .ntriples, .turtle:
-            let p = SerdParser(syntax: inputSyntax, base: defaultBase, produceUniqueBlankIdentifiers: produceUniqueBlankIdentifiers)
+            let p = SerdParser(syntax: inputSyntax, base: base, produceUniqueBlankIdentifiers: produceUniqueBlankIdentifiers)
             return try p.serd_parse(string: string, handleTriple: handleTriple)
         default:
             let p = RDFXMLParser()
@@ -85,12 +106,25 @@ public class RDFParser {
             return 0
         }
     }
-    
+
     @discardableResult
     public func parse(file filename: String, base: String? = nil, handleTriple: @escaping TripleHandler) throws -> Int {
+        let inputSyntax = RDFParserCombined.guessSyntax(filename: filename)
+        return try parse(file: filename, syntax: inputSyntax, base: base, handleTriple: handleTriple)
+    }
+    
+    @discardableResult
+    public func parseFile(_ filename: String, mediaType type: String, base: String? = nil, handleTriple: @escaping TripleHandler) throws -> Int {
+        let inputSyntax = RDFParserCombined.guessSyntax(mediaType: type)
+        return try parse(file: filename, syntax: inputSyntax, base: base, handleTriple: handleTriple)
+    }
+    
+    @discardableResult
+    public func parse(file filename: String, syntax inputSyntax: RDFSyntax, base: String? = nil, handleTriple: @escaping TripleHandler) throws -> Int {
+        let base = base ?? defaultBase
         switch inputSyntax {
         case .ntriples, .turtle:
-            let p = SerdParser(syntax: inputSyntax, base: base ?? defaultBase, produceUniqueBlankIdentifiers: produceUniqueBlankIdentifiers)
+            let p = SerdParser(syntax: inputSyntax, base: base, produceUniqueBlankIdentifiers: produceUniqueBlankIdentifiers)
             return try p.serd_parse(file: filename, base: base, handleTriple: handleTriple)
         default:
             let fileURI = URL(fileURLWithPath: filename)

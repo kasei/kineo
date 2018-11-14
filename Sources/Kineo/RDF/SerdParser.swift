@@ -114,7 +114,7 @@ let serd_error_sink : @convention(c) (UnsafeMutableRawPointer?, UnsafePointer<Se
         Logger.shared.error(msg)
         if let ptr = handle?.assumingMemoryBound(to: ParserContext.self) {
             let ctx = ptr.pointee
-            ctx.errors.append(RDFParser.RDFParserError.parseError(msg))
+            ctx.errors.append(RDFParserCombined.RDFParserError.parseError(msg))
         }
     } else {
         Logger.shared.error("serd error during parsing")
@@ -154,7 +154,7 @@ private func serd_node_as_term(env: OpaquePointer?, node: SerdNode, datatype: St
         }
         
         guard let term = t else {
-            throw RDFParser.RDFParserError.parseError("Undefined namespace prefix \(node.value)")
+            throw RDFParserCombined.RDFParserError.parseError("Undefined namespace prefix \(node.value)")
         }
         return term
     default:
@@ -163,11 +163,11 @@ private func serd_node_as_term(env: OpaquePointer?, node: SerdNode, datatype: St
 }
 
 public struct SerdParser {
-    var inputSyntax: RDFParser.RDFSyntax
+    var inputSyntax: RDFParserCombined.RDFSyntax
     var defaultBase: String
     var produceUniqueBlankIdentifiers: Bool
     
-    public init(syntax: RDFParser.RDFSyntax = .turtle, base defaultBase: String = "http://base.example.org/", produceUniqueBlankIdentifiers: Bool = true) {
+    public init(syntax: RDFParserCombined.RDFSyntax = .turtle, base defaultBase: String = "http://base.example.org/", produceUniqueBlankIdentifiers: Bool = true) {
         self.inputSyntax = syntax
         self.defaultBase = defaultBase
         self.produceUniqueBlankIdentifiers = produceUniqueBlankIdentifiers
@@ -177,7 +177,7 @@ public struct SerdParser {
         var baseUri = SERD_URI_NULL
         var base = SERD_NODE_NULL
         
-        guard let env = serd_env_new(&base) else { throw RDFParser.RDFParserError.internalError("Failed to construct parser context") }
+        guard let env = serd_env_new(&base) else { throw RDFParserCombined.RDFParserError.internalError("Failed to construct parser context") }
         base = serd_node_new_uri_from_string(defaultBase, nil, &baseUri)
         
         var context = ParserContext(env: env, handler: handleTriple, produceUniqueBlankIdentifiers: produceUniqueBlankIdentifiers)
@@ -196,14 +196,14 @@ public struct SerdParser {
         serd_node_free(&base)
         
         if status != SERD_SUCCESS {
-            throw RDFParser.RDFParserError.parseError("Failed to parse string using serd")
+            throw RDFParserCombined.RDFParserError.parseError("Failed to parse string using serd")
         }
         
         return context.count
     }
     
     public func serd_parse(file filename: String, base _base: String? = nil , handleTriple: @escaping TripleHandler) throws -> Int {
-        guard let input = serd_uri_to_path(filename) else { throw RDFParser.RDFParserError.parseError("no such file") }
+        guard let input = serd_uri_to_path(filename) else { throw RDFParserCombined.RDFParserError.parseError("no such file") }
         
         var baseUri = SERD_URI_NULL
         var base = SERD_NODE_NULL
@@ -213,7 +213,7 @@ public struct SerdParser {
             base = serd_node_new_file_uri(input, nil, &baseUri, false)
         }
         
-        guard let env = serd_env_new(&base) else { throw RDFParser.RDFParserError.internalError("Failed to construct parser context") }
+        guard let env = serd_env_new(&base) else { throw RDFParserCombined.RDFParserError.internalError("Failed to construct parser context") }
         
         var context = ParserContext(env: env, handler: handleTriple, produceUniqueBlankIdentifiers: produceUniqueBlankIdentifiers)
         _ = try withUnsafePointer(to: &context) { (ctx) throws -> SerdStatus in
@@ -225,7 +225,7 @@ public struct SerdParser {
             guard let in_fd = fopen(filename, "r") else {
                 let errptr = strerror(errno)
                 let error = errptr == .none ? "(internal error)" : String(cString: errptr!)
-                throw RDFParser.RDFParserError.parseError("Failed to open \(filename): \(error)")
+                throw RDFParserCombined.RDFParserError.parseError("Failed to open \(filename): \(error)")
             }
             
             var status = serd_reader_start_stream(reader, in_fd, filename, false)

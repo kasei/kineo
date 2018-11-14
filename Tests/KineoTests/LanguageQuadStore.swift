@@ -27,9 +27,9 @@ class LanguageQuadStoreTest: XCTestCase {
     }
     
     func load<T: MutableQuadStoreProtocol>(turtle: String, into store: T, version: Version) throws {
-        let parser = RDFParser(syntax: .turtle, base: "http://example.org/", produceUniqueBlankIdentifiers: false)
+        let parser = RDFParserCombined(base: "http://example.org/", produceUniqueBlankIdentifiers: false)
         var quads = [Quad]()
-        try parser.parse(string: "\(PREFIXES) \(turtle)") { (s, p, o) in
+        try parser.parse(string: "\(PREFIXES) \(turtle)", syntax: .turtle) { (s, p, o) in
             let t = Triple(subject: s, predicate: p, object: o)
             let q = Quad(triple: t, graph: self.graph)
             quads.append(q)

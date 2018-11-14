@@ -289,19 +289,19 @@ struct Client {
             throw TPFError.requestError("URL request did not return a response object")
         }
 
-        var syntax = RDFParser.RDFSyntax.turtle
+        var syntax = RDFParserCombined.RDFSyntax.turtle
         if let resp = resp as? HTTPURLResponse {
             if let type = resp.allHeaderFields["Content-Type"] as? String {
-                syntax = RDFParser.guessSyntax(mediaType: type)
+                syntax = RDFParserCombined.guessSyntax(mediaType: type)
             }
         }
         
         var triples = [Triple]()
-        let parser = RDFParser(syntax: syntax)
+        let parser = RDFParserCombined()
         guard let s = String(data: data, encoding: .utf8) else {
             throw TPFError.dataError("Could not decode HTTP response as utf8")
         }
-        try parser.parse(string: s) { (s,p,o) in
+        try parser.parse(string: s, syntax: syntax) { (s,p,o) in
             let t = Triple(subject: s, predicate: p, object: o)
             triples.append(t)
         }

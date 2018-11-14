@@ -48,7 +48,7 @@ func sortParse(files: [String], graph defaultGraphTerm: Term? = nil) throws -> (
 
         iris.insert(graph)
         
-        let parser = RDFParser()
+        let parser = RDFParserCombined()
         count = try parser.parse(file: filename, base: graph.value) { (s, p, o) in
             for term in [s, p, o] {
                 switch term.type {
@@ -102,7 +102,7 @@ func parse<D : PageDatabase>(_ database: D, files: [String], startTime: UInt64, 
                 #endif
                 let graph   = defaultGraphTerm ?? Term(value: path, type: .iri)
 
-                let parser = RDFParser()
+                let parser = RDFParserCombined()
                 var quads = [Quad]()
                 print("Parsing RDF...")
                 count = try parser.parse(file: filename, base: graph.value) { (s, p, o) in

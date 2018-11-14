@@ -98,11 +98,11 @@ private extension Term {
 public struct SPARQLTSVParser : SPARQLParsable {
     public let mediaTypes = Set(["text/tab-separated-values"])
     var encoding: String.Encoding
-    var parser: RDFParser
+    var parser: RDFParserCombined
     
     public init(encoding: String.Encoding = .utf8, produceUniqueBlankIdentifiers: Bool = true) {
         self.encoding = encoding
-        self.parser = RDFParser(syntax: .turtle, base: "http://example.org/", produceUniqueBlankIdentifiers: produceUniqueBlankIdentifiers)
+        self.parser = RDFParserCombined(base: "http://example.org/", produceUniqueBlankIdentifiers: produceUniqueBlankIdentifiers)
     }
 
     public func parse(_ data: Data) throws -> QueryResult<[TermResult], [Triple]> {
@@ -140,7 +140,7 @@ public struct SPARQLTSVParser : SPARQLParsable {
         }
         var term : Term! = nil
         let ttl = "<> <> \(string) .\n"
-        try parser.parse(string: ttl) { (s,p,o) in
+        try parser.parse(string: ttl, syntax: .turtle) { (s,p,o) in
             term = o
         }
         return term

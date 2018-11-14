@@ -35,11 +35,11 @@ public struct SPARQLTestRunner {
             #endif
             let graph   = defaultGraphTerm ?? Term(value: path, type: .iri)
             
-            let syntax = RDFParser.guessSyntax(filename: filename)
-            let parser = RDFParser(syntax: syntax)
+            let syntax = RDFParserCombined.guessSyntax(filename: filename)
+            let parser = RDFParserCombined()
             var quads = [Quad]()
             //                    print("Parsing RDF...")
-            _ = try parser.parse(file: filename, base: graph.value) { (s, p, o) in
+            _ = try parser.parse(file: filename, syntax: syntax, base: graph.value) { (s, p, o) in
                 let q = Quad(subject: s, predicate: p, object: o, graph: graph)
                 quads.append(q)
             }
@@ -361,10 +361,10 @@ public struct SPARQLTestRunner {
             let srxParser = SPARQLXMLParser()
             return try srxParser.parse(Data(contentsOf: url))
         } else if url.absoluteString.hasSuffix("ttl") || url.absoluteString.hasSuffix("rdf") {
-            let syntax = RDFParser.guessSyntax(filename: url.absoluteString)
-            let parser = RDFParser(syntax: syntax)
+            let syntax = RDFParserCombined.guessSyntax(filename: url.absoluteString)
+            let parser = RDFParserCombined()
             var triples = [Triple]()
-            _ = try parser.parse(file: url.path, base: url.absoluteString) { (s, p, o) in
+            _ = try parser.parse(file: url.path, syntax: syntax, base: url.absoluteString) { (s, p, o) in
                 triples.append(Triple(subject: s, predicate: p, object: o))
             }
             switch query.form {

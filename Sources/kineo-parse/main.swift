@@ -83,10 +83,10 @@ func parseSRX(_ filename: String, silent: Bool) throws -> Int32 {
 }
 
 func parseRDF(_ filename: String, silent: Bool) throws -> Int32 {
-    let syntax = RDFParser.guessSyntax(filename: filename)
-    let parser = RDFParser(syntax: syntax)
+    let syntax = RDFParserCombined.guessSyntax(filename: filename)
+    let parser = RDFParserCombined()
     let url = URL(fileURLWithPath: filename)
-    _ = try parser.parse(file: filename, base: url.absoluteString) { (s, p, o) in
+    _ = try parser.parse(file: filename, syntax: syntax, base: url.absoluteString) { (s, p, o) in
         let t = Triple(subject: s, predicate: p, object: o)
         print("\(t)")
     }
@@ -114,7 +114,7 @@ func sortParse(files: [String]) throws -> (Int, [Int:Term]) {
         
         iris.insert(graph)
         
-        let parser = RDFParser()
+        let parser = RDFParserCombined()
         count = try parser.parse(file: filename, base: graph.value) { (s, p, o) in
             for term in [s, p, o] {
                 switch term.type {
