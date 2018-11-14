@@ -33,8 +33,8 @@ public protocol RDFParser {
 public class RDFSerializationConfiguration {
     public struct ParserContext: RDFParser {
         public var mediaTypes: Set<String>
-        var parser: RDFParser
-        var mediaType: String
+        public var parser: RDFParser
+        public var mediaType: String
         
         public init() {
             fatalError("RDFSerializationConfiguration.ParserContext() must not be called directly")
