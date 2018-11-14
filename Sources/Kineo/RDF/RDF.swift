@@ -63,7 +63,7 @@ public class RDFSerializationConfiguration {
         }
     }
     
-    static let shared = { () -> RDFSerializationConfiguration in
+    public static let shared = { () -> RDFSerializationConfiguration in
         let c = RDFSerializationConfiguration()
         c.registerSerializer(NTriplesSerializer.self, withType: "text/n-triples", extensions: [".nt"], mediaTypes: [])
         c.registerSerializer(TurtleSerializer.self, withType: "text/turtle", extensions: [".ttl"], mediaTypes: [])
