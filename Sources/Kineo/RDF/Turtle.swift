@@ -9,12 +9,6 @@
 import Foundation
 import SPARQLSyntax
 
-enum TriplePosition {
-    case subject
-    case predicate
-    case object
-}
-
 extension String {
     static let unicodeScalarsNeedingTurtleIRIEscaping : Set<UnicodeScalar> = {
         var charactersNeedingEscaping = Set<UnicodeScalar>()
@@ -93,7 +87,7 @@ extension String {
 }
 
 extension Term {
-    func turtleString(usingPrefixes prefixes: [String:Term]? = nil, for position: TriplePosition = .object) -> String {
+    func turtleString(usingPrefixes prefixes: [String:Term]? = nil, for position: RDFTriplePosition = .object) -> String {
         switch self.type {
         case .iri:
             if position == .predicate && self.value == "http://www.w3.org/1999/02/22-rdf-syntax-ns#type" {
@@ -137,12 +131,12 @@ extension Term {
         }
     }
     
-    func printTurtleString<T: TextOutputStream>(to stream: inout T, usingPrefixes prefixes: [String:Term]? = nil, for position: TriplePosition = .object) {
+    func printTurtleString<T: TextOutputStream>(to stream: inout T, usingPrefixes prefixes: [String:Term]? = nil, for position: RDFTriplePosition = .object) {
         let s = turtleString(usingPrefixes: prefixes, for: position)
         stream.write(s)
     }
     
-    func turtleData(usingPrefixes prefixes: [String:Term]? = nil, for position: TriplePosition = .object) -> Data? {
+    func turtleData(usingPrefixes prefixes: [String:Term]? = nil, for position: RDFTriplePosition = .object) -> Data? {
         let s = turtleString(usingPrefixes: prefixes, for: position)
         return s.data(using: .utf8)
     }
@@ -151,6 +145,10 @@ extension Term {
 open class TurtleSerializer : RDFSerializer {
     public var canonicalMediaType = "application/turtle"
     public var prefixes: [String:Term]
+    
+    required public init() {
+        self.prefixes = [:]
+    }
     
     public init(prefixes: [String:Term]? = nil) {
         self.prefixes = prefixes ?? [:] // TODO: implement prefix use

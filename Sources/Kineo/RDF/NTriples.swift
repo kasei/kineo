@@ -152,7 +152,7 @@ extension Term {
 open class NTriplesSerializer : RDFSerializer {
     public var canonicalMediaType = "application/n-triples"
     
-    public init() {
+    required public init() {
         
     }
     
