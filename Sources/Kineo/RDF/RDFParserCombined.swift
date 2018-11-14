@@ -10,14 +10,6 @@ import serd
 import Foundation
 import SPARQLSyntax
 
-public typealias TripleHandler = (Term, Term, Term) -> Void
-public protocol RDFParser {
-    init()
-    var mediaTypes: Set<String> { get }
-    func parse(string: String, mediaType: String, base: String?, handleTriple: @escaping TripleHandler) throws -> Int
-    func parseFile(_ filename: String, mediaType: String, base: String?, handleTriple: @escaping TripleHandler) throws -> Int
-}
-
 public class RDFParserCombined : RDFParser {
     public var mediaTypes: Set<String> = [
     

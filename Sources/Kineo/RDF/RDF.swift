@@ -22,6 +22,134 @@ public protocol RDFSerializer {
     func serialize<T: TextOutputStream, S: Sequence>(_ triples: S, to: inout T) throws where S.Element == Triple
 }
 
+public typealias TripleHandler = (Term, Term, Term) -> Void
+public protocol RDFParser {
+    init()
+    var mediaTypes: Set<String> { get }
+    func parse(string: String, mediaType: String, base: String?, handleTriple: @escaping TripleHandler) throws -> Int
+    func parseFile(_ filename: String, mediaType: String, base: String?, handleTriple: @escaping TripleHandler) throws -> Int
+}
+
+public class RDFSerializationConfiguration {
+    public struct ParserContext: RDFParser {
+        public var mediaTypes: Set<String>
+        var parser: RDFParser
+        var mediaType: String
+        
+        public init() {
+            fatalError("RDFSerializationConfiguration.ParserContext() must not be called directly")
+        }
+        
+        public init(parser: RDFParser, mediaType: String) {
+            self.parser = parser
+            self.mediaType = mediaType
+            self.mediaTypes = []
+        }
+        
+        public func parse(string: String, mediaType: String, base: String? = nil, handleTriple: @escaping TripleHandler) throws -> Int {
+            return try parser.parse(string: string, mediaType: mediaType, base: base, handleTriple: handleTriple)
+        }
+        
+        public func parse(string: String, base: String? = nil, handleTriple: @escaping TripleHandler) throws -> Int {
+            return try parser.parse(string: string, mediaType: mediaType, base: base, handleTriple: handleTriple)
+        }
+        
+        public func parseFile(_ filename: String, mediaType: String, base: String? = nil, handleTriple: @escaping TripleHandler) throws -> Int {
+            return try parser.parseFile(filename, mediaType: mediaType, base: base, handleTriple: handleTriple)
+        }
+        
+        public func parseFile(_ filename: String, base: String? = nil, handleTriple: @escaping TripleHandler) throws -> Int {
+            return try parser.parseFile(filename, mediaType: mediaType, base: base, handleTriple: handleTriple)
+        }
+    }
+    
+    static let shared = { () -> RDFSerializationConfiguration in
+        let c = RDFSerializationConfiguration()
+        c.registerSerializer(NTriplesSerializer.self, withType: "text/n-triples", extensions: [".nt"], mediaTypes: [])
+        c.registerSerializer(TurtleSerializer.self, withType: "text/turtle", extensions: [".ttl"], mediaTypes: [])
+        
+        c.registerParser(RDFParserCombined.self, withType: "text/turtle", extensions: [".ttl"], mediaTypes: [])
+        c.registerParser(RDFParserCombined.self, withType: "text/n-triples", extensions: [".nt"], mediaTypes: [])
+        c.registerParser(RDFParserCombined.self, withType: "application/rdf+xml", extensions: [".rdf"], mediaTypes: [])
+        return c
+    }()
+    
+    var parserFileExtensions: [String: (RDFParser.Type, String)]
+    var parserMediaTypes: [String: (RDFParser.Type, String)]
+    var serializerFileExtensions: [String: (RDFSerializer.Type, String)]
+    var serializerMediaTypes: [String: (RDFSerializer.Type, String)]
+    internal init() {
+        parserFileExtensions = [:]
+        parserMediaTypes = [:]
+        serializerFileExtensions = [:]
+        serializerMediaTypes = [:]
+    }
+    
+    public func registerParser(_ c: RDFParser.Type, withType type: String, extensions: [String], mediaTypes types: [String]) {
+        for ext in extensions {
+            parserFileExtensions[ext] = (c, type)
+        }
+        
+        parserMediaTypes[type] = (c, type)
+        for t in types {
+            parserMediaTypes[t] = (c, type)
+        }
+    }
+    
+    public func registerSerializer(_ c: RDFSerializer.Type, withType type: String, extensions: [String], mediaTypes types: [String]) {
+        for ext in extensions {
+            serializerFileExtensions[ext] = (c, type)
+        }
+        
+        serializerMediaTypes[type] = (c, type)
+        for t in types {
+            serializerMediaTypes[t] = (c, type)
+        }
+    }
+    
+    public func serializerFor(type: String) -> RDFSerializer? {
+        for (k, v) in serializerMediaTypes {
+            if type.hasPrefix(k) {
+                let (c, _) = v
+                return c.init()
+            }
+        }
+        return nil
+    }
+    
+    public func serializerFor(filename: String) -> RDFSerializer? {
+        for (k, v) in serializerFileExtensions {
+            if filename.hasSuffix(k) {
+                let (c, _) = v
+                return c.init()
+            }
+        }
+        return nil
+    }
+    
+    public func parserFor(type: String) -> ParserContext? {
+        for (k, v) in parserMediaTypes {
+            if type.hasPrefix(k) {
+                let (c, type) = v
+                let p = c.init()
+                return ParserContext(parser: p, mediaType: type)
+            }
+        }
+        return nil
+    }
+    
+    public func parserFor(filename: String) -> ParserContext? {
+        for (k, v) in parserFileExtensions {
+            if filename.hasSuffix(k) {
+                let (c, type) = v
+                let p = c.init()
+                return ParserContext(parser: p, mediaType: type)
+            }
+        }
+        return nil
+    }
+}
+
 extension TermType: BufferSerializable {
     /**
      
