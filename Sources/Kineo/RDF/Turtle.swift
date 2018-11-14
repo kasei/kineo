@@ -181,6 +181,7 @@ open class TurtleSerializer : RDFSerializer {
     }
 
     public func serialize<T: TextOutputStream, S: Sequence>(_ triples: S, to stream: inout T) throws where S.Element == Triple {
+        serializeHeader(to: &stream)
         return try serialize(triples, to: &stream, emitHeader: true)
     }
     
