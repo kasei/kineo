@@ -37,8 +37,36 @@ public protocol BGPQuadStoreProtocol: QuadStoreProtocol {
     func results(matching bgp: [TriplePattern], in graph: Term) throws -> AnyIterator<TermResult>
 }
 
+public enum MutableQuadStoreProtocolError: Error {
+    case missingMapping(UInt64)
+}
+
 public protocol MutableQuadStoreProtocol: QuadStoreProtocol {
+    func load<S: Sequence, T: Sequence>(version: Version, dictionary: S, quads: T) throws where S.Element == (UInt64, Term), T.Element == (UInt64, UInt64, UInt64, UInt64)
     func load<S: Sequence>(version: Version, quads: S) throws where S.Iterator.Element == Quad
+}
+
+extension MutableQuadStoreProtocol {
+    public func load<S: Sequence, T: Sequence>(version: Version, dictionary: S, quads: T) throws where S.Element == (UInt64, Term), T.Element == (UInt64, UInt64, UInt64, UInt64) {
+//        print("default MutableQuadStoreProtocol.load(version:dictionary:quads:) called")
+        let d = Dictionary(uniqueKeysWithValues: dictionary)
+        let materialized = try quads.map { (s,p,o,g) throws -> Quad in
+            guard let st = d[s] else {
+                throw MutableQuadStoreProtocolError.missingMapping(s)
+            }
+            guard let pt = d[p] else {
+                throw MutableQuadStoreProtocolError.missingMapping(p)
+            }
+            guard let ot = d[o] else {
+                throw MutableQuadStoreProtocolError.missingMapping(o)
+            }
+            guard let gt = d[g] else {
+                throw MutableQuadStoreProtocolError.missingMapping(g)
+            }
+            return Quad(subject: st, predicate: pt, object: ot, graph: gt)
+        }
+        try load(version: version, quads: materialized)
+    }
 }
 
 extension Term {

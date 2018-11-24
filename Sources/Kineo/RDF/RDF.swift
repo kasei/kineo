@@ -16,9 +16,14 @@ enum RDFTriplePosition {
 }
 
 public class RDFSerializationConfiguration {
-    public struct ParserContext: RDFParser {
+    public enum SerializationError: Error {
+        case unrecognizedFileType(String)
+        case unrecognizedFormat(String)
+    }
+    
+    public struct ParserContext: RDFPushParser {
         public var mediaTypes: Set<String>
-        public var parser: RDFParser
+        public var parser: RDFPushParser
         public var mediaType: String
         
         public init() {
@@ -112,6 +117,14 @@ public class RDFSerializationConfiguration {
         return nil
     }
     
+    public func expectedSerializerFor(filename: String) throws -> RDFSerializer? {
+        guard let s = serializerFor(filename: filename) else {
+            throw SerializationError.unrecognizedFileType("Failed to determine appropriate serializer for file: \(filename)")
+        }
+        return s
+    }
+    
+
     public func parserFor(type: String) -> ParserContext? {
         for (k, v) in parserMediaTypes {
             if type.hasPrefix(k) {
@@ -121,6 +134,13 @@ public class RDFSerializationConfiguration {
             }
         }
         return nil
+    }
+    
+    public func expectedParserFor(filename: String) throws -> ParserContext {
+        guard let p = parserFor(filename: filename) else {
+            throw SerializationError.unrecognizedFileType("Failed to determine appropriate parser for file: \(filename)")
+        }
+        return p
     }
     
     public func parserFor(filename: String) -> ParserContext? {
@@ -385,5 +405,20 @@ extension Term {
         }
         
         return nil
+    }
+}
+
+extension RDFPushParser {
+    public func parseFile<Q: MutableQuadStoreProtocol>(_ filename: String, mediaType: String, base: String? = nil, into store: Q, graph: Term, version: Version) throws -> Int {
+        let p = try RDFSerializationConfiguration.shared.expectedParserFor(filename: filename)
+
+        var quads = [Quad]()
+        let count = try p.parser.parseFile(filename, mediaType: mediaType, base: base) { (s, p, o) in
+            let q = Quad(subject: s, predicate: p, object: o, graph: graph)
+            quads.append(q)
+        }
+        
+        try store.load(version: version, quads: quads)
+        return count
     }
 }

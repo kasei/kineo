@@ -10,7 +10,7 @@ import serd
 import Foundation
 import SPARQLSyntax
 
-public class RDFParserCombined : RDFParser {
+public class RDFParserCombined : RDFPushParser {
     public var mediaTypes: Set<String> = [
     
     ]

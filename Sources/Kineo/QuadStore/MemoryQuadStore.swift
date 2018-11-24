@@ -10,6 +10,10 @@ import SPARQLSyntax
 
 // swiftlint:disable:next type_body_length
 open class MemoryQuadStore: Sequence, MutableQuadStoreProtocol {
+    public enum MemoryQuadStoreError: Error {
+        case existingMapping(UInt64, Term)
+    }
+    
     typealias TermID = UInt64
     typealias MemoryQuad = (subject: TermID, predicate: TermID, object: TermID, graph: TermID)
     public var count: Int
@@ -19,6 +23,34 @@ open class MemoryQuadStore: Sequence, MutableQuadStoreProtocol {
     var version: Version?
     var next: TermID
     var graphIDs: Set<TermID>
+    
+    public init<S: Sequence, T: Sequence>(version: Version? = nil, dictionary: S, quads: T) throws where S.Element == (UInt64, Term), T.Element == (UInt64, UInt64, UInt64, UInt64) {
+        self.i2t = [:]
+        self.t2i = [:]
+        self.count = 0
+        self.idquads = []
+        self.graphIDs = []
+        self.version = version
+        self.next = 1
+        try? load(version: self.version ?? 0, dictionary: dictionary, quads: quads)
+    }
+    
+    public func load<S: Sequence, T: Sequence>(version: Version, dictionary: S, quads: T) throws where S.Element == (UInt64, Term), T.Element == (UInt64, UInt64, UInt64, UInt64) {
+//        print("optimized MemoryQuadStore.load(version:dictionary:quads:) called")
+        for (id, term) in dictionary {
+            guard i2t[id] == nil, t2i[term] == nil else {
+                throw MemoryQuadStoreError.existingMapping(id, term)
+            }
+            i2t[id] = term
+            t2i[term] = id
+        }
+        self.version = version
+        self.idquads.append(contentsOf: quads.map { (subject: $0.0, predicate: $0.1, object: $0.2, graph: $0.3) })
+        self.count = self.idquads.count
+        self.graphIDs = Set(self.idquads.map { $0.graph })
+        let m = self.i2t.keys.max() ?? 0
+        self.next = m + 1
+    }
     
     public init(version: Version? = nil) {
         self.next = 1
