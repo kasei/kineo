@@ -43,7 +43,7 @@ WHERE {
 }
 ORDER BY ?s
 
-% ./.build/release/kineo-cli geo.db sparql geo.rq
+% ./.build/release/kineo-cli geo.db query geo.rq
 Using default graph <file:///Users/greg/kineo/geo.nt>
 1	Result["s": <http://dbpedia.org/resource/Bonita,_California>]
 2	Result["s": <http://dbpedia.org/resource/Fairbanks_Ranch,_California>]
