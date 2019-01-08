@@ -1,0 +1,4591 @@
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix gml: <http://www.opengis.net/gml/> .
+@prefix georss: <http://www.georss.org/georss/> .
+@prefix dbpr: <http://dbpedia.org/resource/> .
+@prefix geo: <http://www.w3.org/2003/01/geo/wgs84_pos#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<http://dbpedia.org/resource/Acton,_California>
+    georss:point "34.47277777777778 -118.1836111111111"@en ;
+    a gml:_Feature ;
+    geo:lat "34.47277777777778"^^xsd:float ;
+    geo:long "-118.1836111111111"^^xsd:float .
+
+<http://dbpedia.org/resource/Adelanto,_California>
+    georss:point "34.57611111111111 -117.43277777777777"@en ;
+    a gml:_Feature ;
+    geo:lat "34.57611111111111"^^xsd:float ;
+    geo:long "-117.43277777777777"^^xsd:float .
+
+<http://dbpedia.org/resource/Alameda_County,_California>
+    georss:point "37.65 -121.91"@en ;
+    a gml:_Feature ;
+    geo:lat "37.65"^^xsd:float ;
+    geo:long "-121.91"^^xsd:float .
+
+<http://dbpedia.org/resource/Aliso_Viejo,_California>
+    georss:point "33.575 -117.72555555555556"@en ;
+    a gml:_Feature ;
+    geo:lat "33.575"^^xsd:float ;
+    geo:long "-117.72555555555556"^^xsd:float .
+
+<http://dbpedia.org/resource/Almanor,_California>
+    georss:point "40.216944444444444 -121.17722222222223"@en ;
+    a gml:_Feature ;
+    geo:lat "40.216944444444444"^^xsd:float ;
+    geo:long "-121.17722222222223"^^xsd:float .
+
+<http://dbpedia.org/resource/Alpine,_California>
+    georss:point "32.835 -116.76638888888888"@en ;
+    a gml:_Feature ;
+    geo:lat "32.835"^^xsd:float ;
+    geo:long "-116.76638888888888"^^xsd:float .
+
+<http://dbpedia.org/resource/Alpine_County,_California>
+    georss:point "38.58 -119.8"@en ;
+    a gml:_Feature ;
+    geo:lat "38.58"^^xsd:float ;
+    geo:long "-119.8"^^xsd:float .
+
+<http://dbpedia.org/resource/Alta_Sierra,_California>
+    georss:point "39.12888888888889 -121.0525"@en ;
+    a gml:_Feature ;
+    geo:lat "39.12888888888889"^^xsd:float ;
+    geo:long "-121.0525"^^xsd:float .
+
+<http://dbpedia.org/resource/Alturas,_California>
+    georss:point "41.48722222222222 -120.5425"@en ;
+    a gml:_Feature ;
+    geo:lat "41.48722222222222"^^xsd:float ;
+    geo:long "-120.5425"^^xsd:float .
+
+<http://dbpedia.org/resource/Alum_Rock,_California>
+    georss:point "37.3675 -121.82555555555555"@en ;
+    a gml:_Feature ;
+    geo:lat "37.3675"^^xsd:float ;
+    geo:long "-121.82555555555555"^^xsd:float .
+
+<http://dbpedia.org/resource/Amador_City,_California>
+    georss:point "38.419444444444444 -120.82416666666667"@en ;
+    a gml:_Feature ;
+    geo:lat "38.419444444444444"^^xsd:float ;
+    geo:long "-120.82416666666667"^^xsd:float .
+
+<http://dbpedia.org/resource/Amador_County,_California>
+    georss:point "38.44 -120.66"@en ;
+    a gml:_Feature ;
+    geo:lat "38.44"^^xsd:float ;
+    geo:long "-120.66"^^xsd:float .
+
+<http://dbpedia.org/resource/American_Canyon,_California>
+    georss:point "38.168055555555554 -122.2525"@en ;
+    a gml:_Feature ;
+    geo:lat "38.168055555555554"^^xsd:float ;
+    geo:long "-122.2525"^^xsd:float .
+
+<http://dbpedia.org/resource/Amesti,_California>
+    georss:point "36.95916666666667 -121.78222222222222"@en ;
+    a gml:_Feature ;
+    geo:lat "36.95916666666667"^^xsd:float ;
+    geo:long "-121.78222222222222"^^xsd:float .
+
+<http://dbpedia.org/resource/Anaheim,_California>
+    georss:point "33.836165 -117.889769"@en ;
+    a gml:_Feature ;
+    geo:lat "33.836165"^^xsd:float ;
+    geo:long "-117.889769"^^xsd:float .
+
+<http://dbpedia.org/resource/Anderson,_California>
+    georss:point "40.452092 -122.29656"@en ;
+    a gml:_Feature ;
+    geo:lat "40.452092"^^xsd:float ;
+    geo:long "-122.29656"^^xsd:float .
+
+<http://dbpedia.org/resource/Angels_Camp,_California>
+    georss:point "38.068333333333335 -120.53972222222222"@en ;
+    a gml:_Feature ;
+    geo:lat "38.068333333333335"^^xsd:float ;
+    geo:long "-120.53972222222222"^^xsd:float .
+
+<http://dbpedia.org/resource/Antioch,_California>
+    georss:point "38.005 -121.80583333333334"@en ;
+    a gml:_Feature ;
+    geo:lat "38.005"^^xsd:float ;
+    geo:long "-121.80583333333334"^^xsd:float .
+
+<http://dbpedia.org/resource/Apple_Valley,_California>
+    georss:point "34.516666666666666 -117.21666666666667"@en ;
+    a gml:_Feature ;
+    geo:lat "34.516666666666666"^^xsd:float ;
+    geo:long "-117.21666666666667"^^xsd:float .
+
+<http://dbpedia.org/resource/Aptos,_California>
+    georss:point "36.98138888888889 -121.9075"@en ;
+    a gml:_Feature ;
+    geo:lat "36.98138888888889"^^xsd:float ;
+    geo:long "-121.9075"^^xsd:float .
+
+<http://dbpedia.org/resource/Aptos_Hills-Larkin_Valley,_California>
+    georss:point "36.96083333333333 -121.8313888888889"@en ;
+    a gml:_Feature ;
+    geo:lat "36.96083333333333"^^xsd:float ;
+    geo:long "-121.8313888888889"^^xsd:float .
+
+<http://dbpedia.org/resource/Arden-Arcade,_California>
+    georss:point "38.60527777777778 -121.37972222222223"@en ;
+    a gml:_Feature ;
+    geo:lat "38.60527777777778"^^xsd:float ;
+    geo:long "-121.37972222222223"^^xsd:float .
+
+<http://dbpedia.org/resource/Armona,_California>
+    georss:point "36.31583333333333 -119.70833333333333"@en ;
+    a gml:_Feature ;
+    geo:lat "36.31583333333333"^^xsd:float ;
+    geo:long "-119.70833333333333"^^xsd:float .
+
+<http://dbpedia.org/resource/Aromas,_California>
+    georss:point "36.886944444444445 -121.64138888888888"@en ;
+    a gml:_Feature ;
+    geo:lat "36.886944444444445"^^xsd:float ;
+    geo:long "-121.64138888888888"^^xsd:float .
+
+<http://dbpedia.org/resource/Arroyo_Grande,_California>
+    georss:point "35.12083333333333 -120.58666666666667"@en ;
+    a gml:_Feature ;
+    geo:lat "35.12083333333333"^^xsd:float ;
+    geo:long "-120.58666666666667"^^xsd:float .
+
+<http://dbpedia.org/resource/Artesia,_California>
+    georss:point "33.867222222222225 -118.08055555555555"@en ;
+    a gml:_Feature ;
+    geo:lat "33.867222222222225"^^xsd:float ;
+    geo:long "-118.08055555555555"^^xsd:float .
+
+<http://dbpedia.org/resource/Atherton,_California>
+    georss:point "37.458615 -122.200099"@en ;
+    a gml:_Feature ;
+    geo:lat "37.458615"^^xsd:float ;
+    geo:long "-122.200099"^^xsd:float .
+
+<http://dbpedia.org/resource/Auburn,_California>
+    georss:point "38.898671 -121.074399"@en ;
+    a gml:_Feature ;
+    geo:lat "38.898671"^^xsd:float ;
+    geo:long "-121.074399"^^xsd:float .
+
+<http://dbpedia.org/resource/August,_California>
+    georss:point "37.98 -121.26388888888889"@en ;
+    a gml:_Feature ;
+    geo:lat "37.98"^^xsd:float ;
+    geo:long "-121.26388888888889"^^xsd:float .
+
+<http://dbpedia.org/resource/Avenal,_California>
+    georss:point "36.00416666666667 -120.12055555555555"@en ;
+    a gml:_Feature ;
+    geo:lat "36.00416666666667"^^xsd:float ;
+    geo:long "-120.12055555555555"^^xsd:float .
+
+<http://dbpedia.org/resource/Avocado_Heights,_California>
+    georss:point "34.03861111111111 -118.00444444444445"@en ;
+    a gml:_Feature ;
+    geo:lat "34.03861111111111"^^xsd:float ;
+    geo:long "-118.00444444444445"^^xsd:float .
+
+<http://dbpedia.org/resource/Azusa,_California>
+    georss:point "34.13055555555555 -117.90694444444445"@en ;
+    a gml:_Feature ;
+    geo:lat "34.13055555555555"^^xsd:float ;
+    geo:long "-117.90694444444445"^^xsd:float .
+
+dbpr:Baja_California_peninsula
+    georss:point "28.0 -113.5"@en ;
+    a gml:_Feature ;
+    geo:lat "28.0"^^xsd:float ;
+    geo:long "-113.5"^^xsd:float .
+
+<http://dbpedia.org/resource/Banning,_California>
+    georss:point "33.931666666666665 -116.8975"@en ;
+    a gml:_Feature ;
+    geo:lat "33.931666666666665"^^xsd:float ;
+    geo:long "-116.8975"^^xsd:float .
+
+<http://dbpedia.org/resource/Baywood-Los_Osos,_California>
+    georss:point "35.31666666666667 -120.83555555555556"@en ;
+    a gml:_Feature ;
+    geo:lat "35.31666666666667"^^xsd:float ;
+    geo:long "-120.83555555555556"^^xsd:float .
+
+<http://dbpedia.org/resource/Bear_Valley_Springs,_California>
+    georss:point "35.15833333333333 -118.62833333333333"@en ;
+    a gml:_Feature ;
+    geo:lat "35.15833333333333"^^xsd:float ;
+    geo:long "-118.62833333333333"^^xsd:float .
+
+<http://dbpedia.org/resource/Beaumont,_California>
+    georss:point "33.924166666666665 -116.97361111111111"@en ;
+    a gml:_Feature ;
+    geo:lat "33.924166666666665"^^xsd:float ;
+    geo:long "-116.97361111111111"^^xsd:float .
+
+<http://dbpedia.org/resource/Beckwourth,_California>
+    georss:point "39.8275 -120.4036111111111"@en ;
+    a gml:_Feature ;
+    geo:lat "39.8275"^^xsd:float ;
+    geo:long "-120.4036111111111"^^xsd:float .
+
+<http://dbpedia.org/resource/Belden,_California>
+    georss:point "40.006388888888885 -121.2525"@en ;
+    a gml:_Feature ;
+    geo:lat "40.006388888888885"^^xsd:float ;
+    geo:long "-121.2525"^^xsd:float .
+
+<http://dbpedia.org/resource/Bell_Gardens,_California>
+    georss:point "33.96805555555556 -118.15611111111112"@en ;
+    a gml:_Feature ;
+    geo:lat "33.96805555555556"^^xsd:float ;
+    geo:long "-118.15611111111112"^^xsd:float .
+
+<http://dbpedia.org/resource/Bellflower,_California>
+    georss:point "33.888165 -118.127604"@en ;
+    a gml:_Feature ;
+    geo:lat "33.888165"^^xsd:float ;
+    geo:long "-118.127604"^^xsd:float .
+
+<http://dbpedia.org/resource/Belmont,_California>
+    georss:point "37.518055555555556 -122.29166666666667"@en ;
+    a gml:_Feature ;
+    geo:lat "37.518055555555556"^^xsd:float ;
+    geo:long "-122.29166666666667"^^xsd:float .
+
+<http://dbpedia.org/resource/Belvedere,_California>
+    georss:point "37.87277777777778 -122.46444444444444"@en ;
+    a gml:_Feature ;
+    geo:lat "37.87277777777778"^^xsd:float ;
+    geo:long "-122.46444444444444"^^xsd:float .
+
+<http://dbpedia.org/resource/Ben_Lomond,_California>
+    georss:point "37.09 -122.09"@en ;
+    a gml:_Feature ;
+    geo:lat "37.09"^^xsd:float ;
+    geo:long "-122.09"^^xsd:float .
+
+<http://dbpedia.org/resource/Berkeley,_California>
+    georss:point "37.87166666666667 -122.27472222222222"@en ;
+    a gml:_Feature ;
+    geo:lat "37.87166666666667"^^xsd:float ;
+    geo:long "-122.27472222222222"^^xsd:float .
+
+<http://dbpedia.org/resource/Bermuda_Dunes,_California>
+    georss:point "33.74444444444445 -116.28527777777778"@en ;
+    a gml:_Feature ;
+    geo:lat "33.74444444444445"^^xsd:float ;
+    geo:long "-116.28527777777778"^^xsd:float .
+
+<http://dbpedia.org/resource/Bertsch-Oceanview,_California>
+    georss:point "41.7525 -124.1588888888889"@en ;
+    a gml:_Feature ;
+    geo:lat "41.7525"^^xsd:float ;
+    geo:long "-124.1588888888889"^^xsd:float .
+
+<http://dbpedia.org/resource/Big_Bear_Lake,_California>
+    georss:point "34.24138888888889 -116.90333333333334"@en ;
+    a gml:_Feature ;
+    geo:lat "34.24138888888889"^^xsd:float ;
+    geo:long "-116.90333333333334"^^xsd:float .
+
+<http://dbpedia.org/resource/Big_Bend,_California>
+    georss:point "41.01972222222222 -121.90777777777778"@en ;
+    a gml:_Feature ;
+    geo:lat "41.01972222222222"^^xsd:float ;
+    geo:long "-121.90777777777778"^^xsd:float .
+
+<http://dbpedia.org/resource/Big_River,_California>
+    georss:point "34.13388888888889 -114.36972222222222"@en ;
+    a gml:_Feature ;
+    geo:lat "34.13388888888889"^^xsd:float ;
+    geo:long "-114.36972222222222"^^xsd:float .
+
+<http://dbpedia.org/resource/Biggs,_California>
+    georss:point "39.41388888888889 -121.71027777777778"@en ;
+    a gml:_Feature ;
+    geo:lat "39.41388888888889"^^xsd:float ;
+    geo:long "-121.71027777777778"^^xsd:float .
+
+<http://dbpedia.org/resource/Blairsden,_California>
+    georss:point "39.77777777777778 -120.61638888888889"@en ;
+    a gml:_Feature ;
+    geo:lat "39.77777777777778"^^xsd:float ;
+    geo:long "-120.61638888888889"^^xsd:float .
+
+<http://dbpedia.org/resource/Bloomington,_California>
+    georss:point "34.059444444444445 -117.39861111111111"@en ;
+    a gml:_Feature ;
+    geo:lat "34.059444444444445"^^xsd:float ;
+    geo:long "-117.39861111111111"^^xsd:float .
+
+<http://dbpedia.org/resource/Bluewater,_California>
+    georss:point "34.180277777777775 -114.25055555555555"@en ;
+    a gml:_Feature ;
+    geo:lat "34.180277777777775"^^xsd:float ;
+    geo:long "-114.25055555555555"^^xsd:float .
+
+<http://dbpedia.org/resource/Bombay_Beach,_California>
+    georss:point "33.350833333333334 -115.72972222222222"@en ;
+    a gml:_Feature ;
+    geo:lat "33.350833333333334"^^xsd:float ;
+    geo:long "-115.72972222222222"^^xsd:float .
+
+<http://dbpedia.org/resource/Bonadelle_Ranchos-Madera_Ranchos,_California>
+    georss:point "36.93638888888889 -119.88666666666667"@en ;
+    a gml:_Feature ;
+    geo:lat "36.93638888888889"^^xsd:float ;
+    geo:long "-119.88666666666667"^^xsd:float .
+
+<http://dbpedia.org/resource/Bonita,_California>
+    georss:point "32.65842 -117.035336"@en ;
+    a gml:_Feature ;
+    geo:lat "32.65842"^^xsd:float ;
+    geo:long "-117.035336"^^xsd:float .
+
+<http://dbpedia.org/resource/Bootjack,_California>
+    georss:point "37.465 -119.88666666666667"@en ;
+    a gml:_Feature ;
+    geo:lat "37.465"^^xsd:float ;
+    geo:long "-119.88666666666667"^^xsd:float .
+
+<http://dbpedia.org/resource/Boron,_California>
+    georss:point "35.042901944444445 -117.67928111111111"@en ;
+    a gml:_Feature ;
+    geo:lat "35.042901944444445"^^xsd:float ;
+    geo:long "-117.67928111111111"^^xsd:float .
+
+<http://dbpedia.org/resource/Boronda,_California>
+    georss:point "36.69888888888889 -121.675"@en ;
+    a gml:_Feature ;
+    geo:lat "36.69888888888889"^^xsd:float ;
+    geo:long "-121.675"^^xsd:float .
+
+<http://dbpedia.org/resource/Borrego_Springs,_California>
+    georss:point "33.25666666666667 -116.375"@en ;
+    a gml:_Feature ;
+    geo:lat "33.25666666666667"^^xsd:float ;
+    geo:long "-116.375"^^xsd:float .
+
+<http://dbpedia.org/resource/Bostonia,_California>
+    georss:point "32.8075 -116.93638888888889"@en ;
+    a gml:_Feature ;
+    geo:lat "32.8075"^^xsd:float ;
+    geo:long "-116.93638888888889"^^xsd:float .
+
+<http://dbpedia.org/resource/Boulder_Creek,_California>
+    georss:point "37.125 -122.125"@en ;
+    a gml:_Feature ;
+    geo:lat "37.125"^^xsd:float ;
+    geo:long "-122.125"^^xsd:float .
+
+<http://dbpedia.org/resource/Bradbury,_California>
+    georss:point "34.14944444444444 -117.97444444444444"@en ;
+    a gml:_Feature ;
+    geo:lat "34.14944444444444"^^xsd:float ;
+    geo:long "-117.97444444444444"^^xsd:float .
+
+<http://dbpedia.org/resource/Bradley,_California>
+    georss:point "35.86333333333333 -120.80083333333333"@en ;
+    a gml:_Feature ;
+    geo:lat "35.86333333333333"^^xsd:float ;
+    geo:long "-120.80083333333333"^^xsd:float .
+
+<http://dbpedia.org/resource/Bret_Harte,_California>
+    georss:point "37.60305555555556 -121.00583333333333"@en ;
+    a gml:_Feature ;
+    geo:lat "37.60305555555556"^^xsd:float ;
+    geo:long "-121.00583333333333"^^xsd:float .
+
+<http://dbpedia.org/resource/Broadmoor,_California>
+    georss:point "37.6925 -122.47888888888889"@en ;
+    a gml:_Feature ;
+    geo:lat "37.6925"^^xsd:float ;
+    geo:long "-122.47888888888889"^^xsd:float .
+
+<http://dbpedia.org/resource/Bucks_Lake,_California>
+    georss:point "39.8725 -121.17805555555556"@en ;
+    a gml:_Feature ;
+    geo:lat "39.8725"^^xsd:float ;
+    geo:long "-121.17805555555556"^^xsd:float .
+
+<http://dbpedia.org/resource/Buellton,_California>
+    georss:point "34.61416666666667 -120.19388888888889"@en ;
+    a gml:_Feature ;
+    geo:lat "34.61416666666667"^^xsd:float ;
+    geo:long "-120.19388888888889"^^xsd:float .
+
+<http://dbpedia.org/resource/Buena_Park,_California>
+    georss:point "33.85611111111111 -118.00416666666666"@en ;
+    a gml:_Feature ;
+    geo:lat "33.85611111111111"^^xsd:float ;
+    geo:long "-118.00416666666666"^^xsd:float .
+
+<http://dbpedia.org/resource/Buena_Vista,_Santa_Clara_County,_California>
+    georss:point "37.32138888888889 -121.91666666666667"@en ;
+    a gml:_Feature ;
+    geo:lat "37.32138888888889"^^xsd:float ;
+    geo:long "-121.91666666666667"^^xsd:float .
+
+<http://dbpedia.org/resource/Burbank,_Santa_Clara_County,_California>
+    georss:point "37.32055555555556 -121.93166666666667"@en ;
+    a gml:_Feature ;
+    geo:lat "37.32055555555556"^^xsd:float ;
+    geo:long "-121.93166666666667"^^xsd:float .
+
+<http://dbpedia.org/resource/Butte_County,_California>
+    georss:point "39.66 -121.6"@en ;
+    a gml:_Feature ;
+    geo:lat "39.66"^^xsd:float ;
+    geo:long "-121.6"^^xsd:float .
+
+<http://dbpedia.org/resource/Byron,_California>
+    georss:point "37.848333333333336 -121.63333333333334"@en ;
+    a gml:_Feature ;
+    geo:lat "37.848333333333336"^^xsd:float ;
+    geo:long "-121.63333333333334"^^xsd:float .
+
+<http://dbpedia.org/resource/Bystrom,_California>
+    georss:point "37.62 -120.97972222222222"@en ;
+    a gml:_Feature ;
+    geo:lat "37.62"^^xsd:float ;
+    geo:long "-120.97972222222222"^^xsd:float .
+
+<http://dbpedia.org/resource/C-Road,_California>
+    georss:point "39.75944444444445 -120.58361111111111"@en ;
+    a gml:_Feature ;
+    geo:lat "39.75944444444445"^^xsd:float ;
+    geo:long "-120.58361111111111"^^xsd:float .
+
+<http://dbpedia.org/resource/Cabazon,_California>
+    georss:point "33.909166666666664 -116.76638888888888"@en ;
+    a gml:_Feature ;
+    geo:lat "33.909166666666664"^^xsd:float ;
+    geo:long "-116.76638888888888"^^xsd:float .
+
+<http://dbpedia.org/resource/Calaveras_County,_California>
+    georss:point "38.21 -120.55"@en ;
+    a gml:_Feature ;
+    geo:lat "38.21"^^xsd:float ;
+    geo:long "-120.55"^^xsd:float .
+
+<http://dbpedia.org/resource/Calexico,_California>
+    georss:point "32.67888888888889 -115.49888888888889"@en ;
+    a gml:_Feature ;
+    geo:lat "32.67888888888889"^^xsd:float ;
+    geo:long "-115.49888888888889"^^xsd:float .
+
+dbpr:California
+    georss:point "37.0 -120.0"@en ;
+    a gml:_Feature ;
+    geo:lat "37.0"^^xsd:float ;
+    geo:long "-120.0"^^xsd:float .
+
+<http://dbpedia.org/resource/California,_Kentucky>
+    georss:point "38.91916666666667 -84.26333333333334"@en ;
+    a gml:_Feature ;
+    geo:lat "38.91916666666667"^^xsd:float ;
+    geo:long "-84.26333333333334"^^xsd:float .
+
+<http://dbpedia.org/resource/California,_Maryland>
+    georss:point "38.305506 -76.494517"@en ;
+    a gml:_Feature ;
+    geo:lat "38.305506"^^xsd:float ;
+    geo:long "-76.494517"^^xsd:float .
+
+<http://dbpedia.org/resource/California,_Missouri>
+    georss:point "38.63 -92.56833333333333"@en ;
+    a gml:_Feature ;
+    geo:lat "38.63"^^xsd:float ;
+    geo:long "-92.56833333333333"^^xsd:float .
+
+dbpr:California_Gold_Rush
+    georss:point "38.8025 -120.89472222222223"@en ;
+    a gml:_Feature ;
+    geo:lat "38.8025"^^xsd:float ;
+    geo:long "-120.89472222222223"^^xsd:float .
+
+dbpr:California_Institute_of_Technology
+    georss:point "34.138577 -118.125494"@en ;
+    a gml:_Feature ;
+    geo:lat "34.138577"^^xsd:float ;
+    geo:long "-118.125494"^^xsd:float .
+
+dbpr:California_State_University
+    georss:point "33.763888888888886 -118.20111111111112"@en ;
+    a gml:_Feature ;
+    geo:lat "33.763888888888886"^^xsd:float ;
+    geo:long "-118.20111111111112"^^xsd:float .
+
+<http://dbpedia.org/resource/California_State_University,_Northridge>
+    georss:point "34.24166666666667 -118.52833333333334"@en ;
+    a gml:_Feature ;
+    geo:lat "34.24166666666667"^^xsd:float ;
+    geo:long "-118.52833333333334"^^xsd:float .
+
+<http://dbpedia.org/resource/California_Township,_Michigan>
+    georss:point "41.8 -84.88333333333334"@en ;
+    a gml:_Feature ;
+    geo:lat "41.8"^^xsd:float ;
+    geo:long "-84.88333333333334"^^xsd:float .
+
+<http://dbpedia.org/resource/Calipatria,_California>
+    georss:point "33.12555555555556 -115.51416666666667"@en ;
+    a gml:_Feature ;
+    geo:lat "33.12555555555556"^^xsd:float ;
+    geo:long "-115.51416666666667"^^xsd:float .
+
+<http://dbpedia.org/resource/Calwa,_California>
+    georss:point "36.71055555555556 -119.75861111111111"@en ;
+    a gml:_Feature ;
+    geo:lat "36.71055555555556"^^xsd:float ;
+    geo:long "-119.75861111111111"^^xsd:float .
+
+<http://dbpedia.org/resource/Camarillo,_California>
+    georss:point "34.233333333333334 -119.03333333333333"@en ;
+    a gml:_Feature ;
+    geo:lat "34.233333333333334"^^xsd:float ;
+    geo:long "-119.03333333333333"^^xsd:float .
+
+<http://dbpedia.org/resource/Cambria,_California>
+    georss:point "35.55403 -121.087394"@en ;
+    a gml:_Feature ;
+    geo:lat "35.55403"^^xsd:float ;
+    geo:long "-121.087394"^^xsd:float .
+
+<http://dbpedia.org/resource/Cambrian_Park,_California>
+    georss:point "37.25555555555555 -121.92888888888889"@en ;
+    a gml:_Feature ;
+    geo:lat "37.25555555555555"^^xsd:float ;
+    geo:long "-121.92888888888889"^^xsd:float .
+
+<http://dbpedia.org/resource/Camp_Pendleton_North,_California>
+    georss:point "33.305 -117.30611111111111"@en ;
+    a gml:_Feature ;
+    geo:lat "33.305"^^xsd:float ;
+    geo:long "-117.30611111111111"^^xsd:float .
+
+<http://dbpedia.org/resource/Camp_Pendleton_South,_California>
+    georss:point "33.21666666666667 -117.39111111111112"@en ;
+    a gml:_Feature ;
+    geo:lat "33.21666666666667"^^xsd:float ;
+    geo:long "-117.39111111111112"^^xsd:float .
+
+<http://dbpedia.org/resource/Canyondam,_California>
+    georss:point "40.17 -121.07555555555555"@en ;
+    a gml:_Feature ;
+    geo:lat "40.17"^^xsd:float ;
+    geo:long "-121.07555555555555"^^xsd:float .
+
+<http://dbpedia.org/resource/Capitola,_California>
+    georss:point "36.97638888888889 -121.95472222222222"@en ;
+    a gml:_Feature ;
+    geo:lat "36.97638888888889"^^xsd:float ;
+    geo:long "-121.95472222222222"^^xsd:float .
+
+<http://dbpedia.org/resource/Carmel_Valley_Village,_California>
+    georss:point "36.486111111111114 -121.7238888888889"@en ;
+    a gml:_Feature ;
+    geo:lat "36.486111111111114"^^xsd:float ;
+    geo:long "-121.7238888888889"^^xsd:float .
+
+<http://dbpedia.org/resource/Carmichael,_California>
+    georss:point "38.63944444444444 -121.32138888888889"@en ;
+    a gml:_Feature ;
+    geo:lat "38.63944444444444"^^xsd:float ;
+    geo:long "-121.32138888888889"^^xsd:float .
+
+<http://dbpedia.org/resource/Carrick,_California>
+    georss:point "41.44611111111111 -122.36333333333333"@en ;
+    a gml:_Feature ;
+    geo:lat "41.44611111111111"^^xsd:float ;
+    geo:long "-122.36333333333333"^^xsd:float .
+
+<http://dbpedia.org/resource/Casa_Conejo,_California>
+    georss:point "34.18611111111111 -118.94472222222223"@en ;
+    a gml:_Feature ;
+    geo:lat "34.18611111111111"^^xsd:float ;
+    geo:long "-118.94472222222223"^^xsd:float .
+
+<http://dbpedia.org/resource/Casa_de_Oro-Mount_Helix,_California>
+    georss:point "32.763333333333335 -116.9775"@en ;
+    a gml:_Feature ;
+    geo:lat "32.763333333333335"^^xsd:float ;
+    geo:long "-116.9775"^^xsd:float .
+
+<http://dbpedia.org/resource/Castroville,_California>
+    georss:point "36.76583333333333 -121.75805555555556"@en ;
+    a gml:_Feature ;
+    geo:lat "36.76583333333333"^^xsd:float ;
+    geo:long "-121.75805555555556"^^xsd:float .
+
+<http://dbpedia.org/resource/Cayucos,_California>
+    georss:point "35.43833333333333 -120.89055555555555"@en ;
+    a gml:_Feature ;
+    geo:lat "35.43833333333333"^^xsd:float ;
+    geo:long "-120.89055555555555"^^xsd:float .
+
+<http://dbpedia.org/resource/Central_Valley_(California)>
+    georss:point "37.70611111111111 -120.99138888888889"@en ;
+    a gml:_Feature ;
+    geo:lat "37.70611111111111"^^xsd:float ;
+    geo:long "-120.99138888888889"^^xsd:float .
+
+<http://dbpedia.org/resource/Cerritos,_California>
+    georss:point "33.86833333333333 -118.0675"@en ;
+    a gml:_Feature ;
+    geo:lat "33.86833333333333"^^xsd:float ;
+    geo:long "-118.0675"^^xsd:float .
+
+<http://dbpedia.org/resource/Challenge%E2%80%93Brownsville,_California>
+    georss:point "39.4725 -121.265"@en ;
+    a gml:_Feature ;
+    geo:lat "39.4725"^^xsd:float ;
+    geo:long "-121.265"^^xsd:float .
+
+<http://dbpedia.org/resource/Channel_Islands_Beach,_California>
+    georss:point "34.15777777777778 -119.22277777777778"@en ;
+    a gml:_Feature ;
+    geo:lat "34.15777777777778"^^xsd:float ;
+    geo:long "-119.22277777777778"^^xsd:float .
+
+<http://dbpedia.org/resource/Charter_Oak,_California>
+    georss:point "34.10138888888889 -117.85777777777778"@en ;
+    a gml:_Feature ;
+    geo:lat "34.10138888888889"^^xsd:float ;
+    geo:long "-117.85777777777778"^^xsd:float .
+
+<http://dbpedia.org/resource/Cherry_Valley,_California>
+    georss:point "33.97472222222222 -116.97027777777778"@en ;
+    a gml:_Feature ;
+    geo:lat "33.97472222222222"^^xsd:float ;
+    geo:long "-116.97027777777778"^^xsd:float .
+
+<http://dbpedia.org/resource/Chester,_California>
+    georss:point "40.30277777777778 -121.23472222222222"@en ;
+    a gml:_Feature ;
+    geo:lat "40.30277777777778"^^xsd:float ;
+    geo:long "-121.23472222222222"^^xsd:float .
+
+<http://dbpedia.org/resource/Chico,_California>
+    georss:point "39.7425 -121.85"@en ;
+    a gml:_Feature ;
+    geo:lat "39.7425"^^xsd:float ;
+    geo:long "-121.85"^^xsd:float .
+
+<http://dbpedia.org/resource/Chilcoot-Vinton,_California>
+    georss:point "39.800555555555555 -120.14444444444445"@en ;
+    a gml:_Feature ;
+    geo:lat "39.800555555555555"^^xsd:float ;
+    geo:long "-120.14444444444445"^^xsd:float .
+
+<http://dbpedia.org/resource/China_Lake_Acres,_California>
+    georss:point "35.64055555555556 -117.76388888888889"@en ;
+    a gml:_Feature ;
+    geo:lat "35.64055555555556"^^xsd:float ;
+    geo:long "-117.76388888888889"^^xsd:float .
+
+<http://dbpedia.org/resource/Chinese_Camp,_California>
+    georss:point "37.87027777777778 -120.4336111111111"@en ;
+    a gml:_Feature ;
+    geo:lat "37.87027777777778"^^xsd:float ;
+    geo:long "-120.4336111111111"^^xsd:float .
+
+<http://dbpedia.org/resource/Chino,_California>
+    georss:point "34.01777777777778 -117.69"@en ;
+    a gml:_Feature ;
+    geo:lat "34.01777777777778"^^xsd:float ;
+    geo:long "-117.69"^^xsd:float .
+
+<http://dbpedia.org/resource/Chino_Hills,_California>
+    georss:point "33.975267 -117.723054"@en ;
+    a gml:_Feature ;
+    geo:lat "33.975267"^^xsd:float ;
+    geo:long "-117.723054"^^xsd:float .
+
+<http://dbpedia.org/resource/Chowchilla,_California>
+    georss:point "37.11666666666667 -120.26666666666667"@en ;
+    a gml:_Feature ;
+    geo:lat "37.11666666666667"^^xsd:float ;
+    geo:long "-120.26666666666667"^^xsd:float .
+
+<http://dbpedia.org/resource/Chualar,_California>
+    georss:point "36.57055555555556 -121.51861111111111"@en ;
+    a gml:_Feature ;
+    geo:lat "36.57055555555556"^^xsd:float ;
+    geo:long "-121.51861111111111"^^xsd:float .
+
+<http://dbpedia.org/resource/Citrus,_California>
+    georss:point "34.115 -117.89166666666667"@en ;
+    a gml:_Feature ;
+    geo:lat "34.115"^^xsd:float ;
+    geo:long "-117.89166666666667"^^xsd:float .
+
+<http://dbpedia.org/resource/Citrus_Heights,_California>
+    georss:point "38.7 -121.28333333333333"@en ;
+    a gml:_Feature ;
+    geo:lat "38.7"^^xsd:float ;
+    geo:long "-121.28333333333333"^^xsd:float .
+
+<http://dbpedia.org/resource/Claremont,_California>
+    georss:point "34.11 -117.71972222222222"@en ;
+    a gml:_Feature ;
+    geo:lat "34.11"^^xsd:float ;
+    geo:long "-117.71972222222222"^^xsd:float .
+
+<http://dbpedia.org/resource/Clio,_California>
+    georss:point "39.745 -120.57138888888889"@en ;
+    a gml:_Feature ;
+    geo:lat "39.745"^^xsd:float ;
+    geo:long "-120.57138888888889"^^xsd:float .
+
+<http://dbpedia.org/resource/Coachella,_California>
+    georss:point "33.679522 -116.174488"@en ;
+    a gml:_Feature ;
+    geo:lat "33.679522"^^xsd:float ;
+    geo:long "-116.174488"^^xsd:float .
+
+<http://dbpedia.org/resource/Colfax,_California>
+    georss:point "39.09722222222222 -120.95388888888888"@en ;
+    a gml:_Feature ;
+    geo:lat "39.09722222222222"^^xsd:float ;
+    geo:long "-120.95388888888888"^^xsd:float .
+
+<http://dbpedia.org/resource/Colton,_California>
+    georss:point "34.065 -117.32166666666667"@en ;
+    a gml:_Feature ;
+    geo:lat "34.065"^^xsd:float ;
+    geo:long "-117.32166666666667"^^xsd:float .
+
+<http://dbpedia.org/resource/Columbia,_California>
+    georss:point "38.03388888888889 -120.4011111111111"@en ;
+    a gml:_Feature ;
+    geo:lat "38.03388888888889"^^xsd:float ;
+    geo:long "-120.4011111111111"^^xsd:float .
+
+<http://dbpedia.org/resource/Colusa,_California>
+    georss:point "39.214444444444446 -122.00944444444444"@en ;
+    a gml:_Feature ;
+    geo:lat "39.214444444444446"^^xsd:float ;
+    geo:long "-122.00944444444444"^^xsd:float .
+
+<http://dbpedia.org/resource/Colusa_County,_California>
+    georss:point "39.18 -122.24"@en ;
+    a gml:_Feature ;
+    geo:lat "39.18"^^xsd:float ;
+    geo:long "-122.24"^^xsd:float .
+
+<http://dbpedia.org/resource/Commerce,_California>
+    georss:point "34.00055555555556 -118.15472222222222"@en ;
+    a gml:_Feature ;
+    geo:lat "34.00055555555556"^^xsd:float ;
+    geo:long "-118.15472222222222"^^xsd:float .
+
+<http://dbpedia.org/resource/Compton,_California>
+    georss:point "33.89666666666667 -118.225"@en ;
+    a gml:_Feature ;
+    geo:lat "33.89666666666667"^^xsd:float ;
+    geo:long "-118.225"^^xsd:float .
+
+<http://dbpedia.org/resource/Concord,_California>
+    georss:point "37.97805555555556 -122.03111111111112"@en ;
+    a gml:_Feature ;
+    geo:lat "37.97805555555556"^^xsd:float ;
+    geo:long "-122.03111111111112"^^xsd:float .
+
+<http://dbpedia.org/resource/Contra_Costa_County,_California>
+    georss:point "37.93 -121.95"@en ;
+    a gml:_Feature ;
+    geo:lat "37.93"^^xsd:float ;
+    geo:long "-121.95"^^xsd:float .
+
+<http://dbpedia.org/resource/Corcoran,_California>
+    georss:point "36.098055555555554 -119.56027777777778"@en ;
+    a gml:_Feature ;
+    geo:lat "36.098055555555554"^^xsd:float ;
+    geo:long "-119.56027777777778"^^xsd:float .
+
+<http://dbpedia.org/resource/Corning,_California>
+    georss:point "39.92611111111111 -122.18055555555556"@en ;
+    a gml:_Feature ;
+    geo:lat "39.92611111111111"^^xsd:float ;
+    geo:long "-122.18055555555556"^^xsd:float .
+
+<http://dbpedia.org/resource/Corona,_California>
+    georss:point "33.86666666666667 -117.56666666666666"@en ;
+    a gml:_Feature ;
+    geo:lat "33.86666666666667"^^xsd:float ;
+    geo:long "-117.56666666666666"^^xsd:float .
+
+<http://dbpedia.org/resource/Corralitos,_California>
+    georss:point "36.99138888888889 -121.80194444444444"@en ;
+    a gml:_Feature ;
+    geo:lat "36.99138888888889"^^xsd:float ;
+    geo:long "-121.80194444444444"^^xsd:float .
+
+<http://dbpedia.org/resource/Cotati,_California>
+    georss:point "38.34325 -122.74166"@en ;
+    a gml:_Feature ;
+    geo:lat "38.34325"^^xsd:float ;
+    geo:long "-122.74166"^^xsd:float .
+
+<http://dbpedia.org/resource/Coto_de_Caza,_California>
+    georss:point "33.59583333333333 -117.58777777777777"@en ;
+    a gml:_Feature ;
+    geo:lat "33.59583333333333"^^xsd:float ;
+    geo:long "-117.58777777777777"^^xsd:float .
+
+<http://dbpedia.org/resource/Cottonwood,_California>
+    georss:point "40.388888888888886 -122.28194444444445"@en ;
+    a gml:_Feature ;
+    geo:lat "40.388888888888886"^^xsd:float ;
+    geo:long "-122.28194444444445"^^xsd:float .
+
+<http://dbpedia.org/resource/Covelo,_California>
+    georss:point "39.793055555555554 -123.24805555555555"@en ;
+    a gml:_Feature ;
+    geo:lat "39.793055555555554"^^xsd:float ;
+    geo:long "-123.24805555555555"^^xsd:float .
+
+<http://dbpedia.org/resource/Covina,_California>
+    georss:point "34.09166666666667 -117.87916666666666"@en ;
+    a gml:_Feature ;
+    geo:lat "34.09166666666667"^^xsd:float ;
+    geo:long "-117.87916666666666"^^xsd:float .
+
+<http://dbpedia.org/resource/Crescent_City_North,_California>
+    georss:point "41.76611111111111 -124.21694444444445"@en ;
+    a gml:_Feature ;
+    geo:lat "41.76611111111111"^^xsd:float ;
+    geo:long "-124.21694444444445"^^xsd:float .
+
+<http://dbpedia.org/resource/Crescent_Mills,_California>
+    georss:point "40.09638888888889 -120.91277777777778"@en ;
+    a gml:_Feature ;
+    geo:lat "40.09638888888889"^^xsd:float ;
+    geo:long "-120.91277777777778"^^xsd:float .
+
+<http://dbpedia.org/resource/Crest,_California>
+    georss:point "32.80722222222222 -116.86805555555556"@en ;
+    a gml:_Feature ;
+    geo:lat "32.80722222222222"^^xsd:float ;
+    geo:long "-116.86805555555556"^^xsd:float .
+
+<http://dbpedia.org/resource/Crestline,_California>
+    georss:point "34.2425 -117.29"@en ;
+    a gml:_Feature ;
+    geo:lat "34.2425"^^xsd:float ;
+    geo:long "-117.29"^^xsd:float .
+
+<http://dbpedia.org/resource/Cromberg,_California>
+    georss:point "39.868611111111115 -120.70694444444445"@en ;
+    a gml:_Feature ;
+    geo:lat "39.868611111111115"^^xsd:float ;
+    geo:long "-120.70694444444445"^^xsd:float .
+
+<http://dbpedia.org/resource/Cudahy,_California>
+    georss:point "33.964214 -118.182575"@en ;
+    a gml:_Feature ;
+    geo:lat "33.964214"^^xsd:float ;
+    geo:long "-118.182575"^^xsd:float .
+
+<http://dbpedia.org/resource/Culver_City,_California>
+    georss:point "34.007777777777775 -118.40083333333334"@en ;
+    a gml:_Feature ;
+    geo:lat "34.007777777777775"^^xsd:float ;
+    geo:long "-118.40083333333334"^^xsd:float .
+
+<http://dbpedia.org/resource/Cupertino,_California>
+    georss:point "37.3175 -122.04194444444444"@en ;
+    a gml:_Feature ;
+    geo:lat "37.3175"^^xsd:float ;
+    geo:long "-122.04194444444444"^^xsd:float .
+
+<http://dbpedia.org/resource/Cutler,_California>
+    georss:point "36.52472222222222 -119.28888888888889"@en ;
+    a gml:_Feature ;
+    geo:lat "36.52472222222222"^^xsd:float ;
+    geo:long "-119.28888888888889"^^xsd:float .
+
+<http://dbpedia.org/resource/Cypress,_California>
+    georss:point "33.818333333333335 -118.03916666666667"@en ;
+    a gml:_Feature ;
+    geo:lat "33.818333333333335"^^xsd:float ;
+    geo:long "-118.03916666666667"^^xsd:float .
+
+<http://dbpedia.org/resource/Davis,_California>
+    georss:point "38.56722222222222 -121.88666666666667"@en ;
+    a gml:_Feature ;
+    geo:lat "38.56722222222222"^^xsd:float ;
+    geo:long "-121.88666666666667"^^xsd:float .
+
+<http://dbpedia.org/resource/Day_Valley,_California>
+    georss:point "37.00888888888889 -121.85666666666667"@en ;
+    a gml:_Feature ;
+    geo:lat "37.00888888888889"^^xsd:float ;
+    geo:long "-121.85666666666667"^^xsd:float .
+
+<http://dbpedia.org/resource/Deer_Park,_California>
+    georss:point "38.53722222222222 -122.4725"@en ;
+    a gml:_Feature ;
+    geo:lat "38.53722222222222"^^xsd:float ;
+    geo:long "-122.4725"^^xsd:float .
+
+<http://dbpedia.org/resource/Del_Aire,_California>
+    georss:point "33.916111111111114 -118.36916666666667"@en ;
+    a gml:_Feature ;
+    geo:lat "33.916111111111114"^^xsd:float ;
+    geo:long "-118.36916666666667"^^xsd:float .
+
+<http://dbpedia.org/resource/Del_Norte_County,_California>
+    georss:point "41.74 -123.96"@en ;
+    a gml:_Feature ;
+    geo:lat "41.74"^^xsd:float ;
+    geo:long "-123.96"^^xsd:float .
+
+<http://dbpedia.org/resource/Del_Rey_Oaks,_California>
+    georss:point "36.593333333333334 -121.835"@en ;
+    a gml:_Feature ;
+    geo:lat "36.593333333333334"^^xsd:float ;
+    geo:long "-121.835"^^xsd:float .
+
+<http://dbpedia.org/resource/Del_Rio,_California>
+    georss:point "37.74638888888889 -121.01166666666667"@en ;
+    a gml:_Feature ;
+    geo:lat "37.74638888888889"^^xsd:float ;
+    geo:long "-121.01166666666667"^^xsd:float .
+
+<http://dbpedia.org/resource/Delano,_California>
+    georss:point "35.75416666666667 -119.28527777777778"@en ;
+    a gml:_Feature ;
+    geo:lat "35.75416666666667"^^xsd:float ;
+    geo:long "-119.28527777777778"^^xsd:float .
+
+<http://dbpedia.org/resource/Delhi,_California>
+    georss:point "37.43222222222222 -120.7786111111111"@en ;
+    a gml:_Feature ;
+    geo:lat "37.43222222222222"^^xsd:float ;
+    geo:long "-120.7786111111111"^^xsd:float .
+
+<http://dbpedia.org/resource/Delleker,_California>
+    georss:point "39.81138888888889 -120.49777777777778"@en ;
+    a gml:_Feature ;
+    geo:lat "39.81138888888889"^^xsd:float ;
+    geo:long "-120.49777777777778"^^xsd:float .
+
+<http://dbpedia.org/resource/Denair,_California>
+    georss:point "37.5275 -120.79972222222223"@en ;
+    a gml:_Feature ;
+    geo:lat "37.5275"^^xsd:float ;
+    geo:long "-120.79972222222223"^^xsd:float .
+
+<http://dbpedia.org/resource/Derby_Acres,_California>
+    georss:point "35.24722222222222 -119.59527777777778"@en ;
+    a gml:_Feature ;
+    geo:lat "35.24722222222222"^^xsd:float ;
+    geo:long "-119.59527777777778"^^xsd:float .
+
+<http://dbpedia.org/resource/Desert_Shores,_California>
+    georss:point "33.40416666666667 -116.03972222222222"@en ;
+    a gml:_Feature ;
+    geo:lat "33.40416666666667"^^xsd:float ;
+    geo:long "-116.03972222222222"^^xsd:float .
+
+<http://dbpedia.org/resource/Desert_View_Highlands,_California>
+    georss:point "34.58972222222222 -118.1536111111111"@en ;
+    a gml:_Feature ;
+    geo:lat "34.58972222222222"^^xsd:float ;
+    geo:long "-118.1536111111111"^^xsd:float .
+
+<http://dbpedia.org/resource/Diamond_Bar,_California>
+    georss:point "34.001666666666665 -117.82083333333334"@en ;
+    a gml:_Feature ;
+    geo:lat "34.001666666666665"^^xsd:float ;
+    geo:long "-117.82083333333334"^^xsd:float .
+
+<http://dbpedia.org/resource/Dillon_Beach,_California>
+    georss:point "38.25083333333333 -122.96527777777777"@en ;
+    a gml:_Feature ;
+    geo:lat "38.25083333333333"^^xsd:float ;
+    geo:long "-122.96527777777777"^^xsd:float .
+
+<http://dbpedia.org/resource/Dinuba,_California>
+    georss:point "36.545 -119.38916666666667"@en ;
+    a gml:_Feature ;
+    geo:lat "36.545"^^xsd:float ;
+    geo:long "-119.38916666666667"^^xsd:float .
+
+<http://dbpedia.org/resource/Dixon,_California>
+    georss:point "38.44916666666666 -121.82694444444445"@en ;
+    a gml:_Feature ;
+    geo:lat "38.44916666666666"^^xsd:float ;
+    geo:long "-121.82694444444445"^^xsd:float .
+
+<http://dbpedia.org/resource/Dixon_Lane-Meadow_Creek,_California>
+    georss:point "37.38333333333333 -118.41694444444444"@en ;
+    a gml:_Feature ;
+    geo:lat "37.38333333333333"^^xsd:float ;
+    geo:long "-118.41694444444444"^^xsd:float .
+
+<http://dbpedia.org/resource/Dollar_Point,_California>
+    georss:point "39.18861111111111 -120.10888888888888"@en ;
+    a gml:_Feature ;
+    geo:lat "39.18861111111111"^^xsd:float ;
+    geo:long "-120.10888888888888"^^xsd:float .
+
+<http://dbpedia.org/resource/Dorris,_California>
+    georss:point "41.965 -121.91888888888889"@en ;
+    a gml:_Feature ;
+    geo:lat "41.965"^^xsd:float ;
+    geo:long "-121.91888888888889"^^xsd:float .
+
+<http://dbpedia.org/resource/Dos_Palos,_California>
+    georss:point "36.983333333333334 -120.63333333333334"@en ;
+    a gml:_Feature ;
+    geo:lat "36.983333333333334"^^xsd:float ;
+    geo:long "-120.63333333333334"^^xsd:float .
+
+<http://dbpedia.org/resource/Downey,_California>
+    georss:point "33.93805555555556 -118.13083333333333"@en ;
+    a gml:_Feature ;
+    geo:lat "33.93805555555556"^^xsd:float ;
+    geo:long "-118.13083333333333"^^xsd:float .
+
+<http://dbpedia.org/resource/Duarte,_California>
+    georss:point "34.140416 -117.961678"@en ;
+    a gml:_Feature ;
+    geo:lat "34.140416"^^xsd:float ;
+    geo:long "-117.961678"^^xsd:float .
+
+<http://dbpedia.org/resource/Ducor,_California>
+    georss:point "35.89222222222222 -119.04805555555555"@en ;
+    a gml:_Feature ;
+    geo:lat "35.89222222222222"^^xsd:float ;
+    geo:long "-119.04805555555555"^^xsd:float .
+
+<http://dbpedia.org/resource/Dunsmuir,_California>
+    georss:point "41.221666666666664 -122.27305555555556"@en ;
+    a gml:_Feature ;
+    geo:lat "41.221666666666664"^^xsd:float ;
+    geo:long "-122.27305555555556"^^xsd:float .
+
+<http://dbpedia.org/resource/Dustin_Acres,_California>
+    georss:point "35.21944444444444 -119.39055555555555"@en ;
+    a gml:_Feature ;
+    geo:lat "35.21944444444444"^^xsd:float ;
+    geo:long "-119.39055555555555"^^xsd:float .
+
+<http://dbpedia.org/resource/Earlimart,_California>
+    georss:point "35.8825 -119.27"@en ;
+    a gml:_Feature ;
+    geo:lat "35.8825"^^xsd:float ;
+    geo:long "-119.27"^^xsd:float .
+
+<http://dbpedia.org/resource/East_Foothills,_California>
+    georss:point "37.38388888888889 -121.8225"@en ;
+    a gml:_Feature ;
+    geo:lat "37.38388888888889"^^xsd:float ;
+    geo:long "-121.8225"^^xsd:float .
+
+<http://dbpedia.org/resource/East_Hemet,_California>
+    georss:point "33.736111111111114 -116.94027777777778"@en ;
+    a gml:_Feature ;
+    geo:lat "33.736111111111114"^^xsd:float ;
+    geo:long "-116.94027777777778"^^xsd:float .
+
+<http://dbpedia.org/resource/East_La_Mirada,_California>
+    georss:point "33.92444444444445 -117.9888888888889"@en ;
+    a gml:_Feature ;
+    geo:lat "33.92444444444445"^^xsd:float ;
+    geo:long "-117.9888888888889"^^xsd:float .
+
+<http://dbpedia.org/resource/East_Los_Angeles,_California>
+    georss:point "34.03333333333333 -118.16666666666667"@en ;
+    a gml:_Feature ;
+    geo:lat "34.03333333333333"^^xsd:float ;
+    geo:long "-118.16666666666667"^^xsd:float .
+
+<http://dbpedia.org/resource/East_Oakdale,_California>
+    georss:point "37.79361111111111 -120.80666666666667"@en ;
+    a gml:_Feature ;
+    geo:lat "37.79361111111111"^^xsd:float ;
+    geo:long "-120.80666666666667"^^xsd:float .
+
+<http://dbpedia.org/resource/East_Orosi,_California>
+    georss:point "36.5475 -119.2611111111111"@en ;
+    a gml:_Feature ;
+    geo:lat "36.5475"^^xsd:float ;
+    geo:long "-119.2611111111111"^^xsd:float .
+
+<http://dbpedia.org/resource/East_Palo_Alto,_California>
+    georss:point "37.466944444444444 -122.13972222222222"@en ;
+    a gml:_Feature ;
+    geo:lat "37.466944444444444"^^xsd:float ;
+    geo:long "-122.13972222222222"^^xsd:float .
+
+<http://dbpedia.org/resource/East_Pasadena,_California>
+    georss:point "34.14 -118.07777777777778"@en ;
+    a gml:_Feature ;
+    geo:lat "34.14"^^xsd:float ;
+    geo:long "-118.07777777777778"^^xsd:float .
+
+<http://dbpedia.org/resource/East_Porterville,_California>
+    georss:point "36.056111111111115 -118.98388888888888"@en ;
+    a gml:_Feature ;
+    geo:lat "36.056111111111115"^^xsd:float ;
+    geo:long "-118.98388888888888"^^xsd:float .
+
+<http://dbpedia.org/resource/East_Quincy,_California>
+    georss:point "39.93527777777778 -120.90777777777778"@en ;
+    a gml:_Feature ;
+    geo:lat "39.93527777777778"^^xsd:float ;
+    geo:long "-120.90777777777778"^^xsd:float .
+
+<http://dbpedia.org/resource/East_Rancho_Dominguez,_California>
+    georss:point "33.897777777777776 -118.19416666666666"@en ;
+    a gml:_Feature ;
+    geo:lat "33.897777777777776"^^xsd:float ;
+    geo:long "-118.19416666666666"^^xsd:float .
+
+<http://dbpedia.org/resource/East_San_Gabriel,_California>
+    georss:point "34.119166666666665 -118.08194444444445"@en ;
+    a gml:_Feature ;
+    geo:lat "34.119166666666665"^^xsd:float ;
+    geo:long "-118.08194444444445"^^xsd:float .
+
+<http://dbpedia.org/resource/East_Shore,_California>
+    georss:point "40.2425 -121.07722222222222"@en ;
+    a gml:_Feature ;
+    geo:lat "40.2425"^^xsd:float ;
+    geo:long "-121.07722222222222"^^xsd:float .
+
+<http://dbpedia.org/resource/East_Sonora,_California>
+    georss:point "37.980555555555554 -120.34805555555556"@en ;
+    a gml:_Feature ;
+    geo:lat "37.980555555555554"^^xsd:float ;
+    geo:long "-120.34805555555556"^^xsd:float .
+
+<http://dbpedia.org/resource/Edgewood,_California>
+    georss:point "41.461666666666666 -122.42722222222223"@en ;
+    a gml:_Feature ;
+    geo:lat "41.461666666666666"^^xsd:float ;
+    geo:long "-122.42722222222223"^^xsd:float .
+
+<http://dbpedia.org/resource/El_Cajon,_California>
+    georss:point "32.79833333333333 -116.96"@en ;
+    a gml:_Feature ;
+    geo:lat "32.79833333333333"^^xsd:float ;
+    geo:long "-116.96"^^xsd:float .
+
+<http://dbpedia.org/resource/El_Centro,_California>
+    georss:point "32.79194444444445 -115.56305555555555"@en ;
+    a gml:_Feature ;
+    geo:lat "32.79194444444445"^^xsd:float ;
+    geo:long "-115.56305555555555"^^xsd:float .
+
+<http://dbpedia.org/resource/El_Cerrito,_Riverside_County,_California>
+    georss:point "33.834166 -117.525527"@en ;
+    a gml:_Feature ;
+    geo:lat "33.834166"^^xsd:float ;
+    geo:long "-117.525527"^^xsd:float .
+
+<http://dbpedia.org/resource/El_Dorado_County,_California>
+    georss:point "38.78 -120.53"@en ;
+    a gml:_Feature ;
+    geo:lat "38.78"^^xsd:float ;
+    geo:long "-120.53"^^xsd:float .
+
+<http://dbpedia.org/resource/El_Granada,_California>
+    georss:point "37.50388888888889 -122.47333333333333"@en ;
+    a gml:_Feature ;
+    geo:lat "37.50388888888889"^^xsd:float ;
+    geo:long "-122.47333333333333"^^xsd:float .
+
+<http://dbpedia.org/resource/El_Monte,_California>
+    georss:point "34.07333333333333 -118.0275"@en ;
+    a gml:_Feature ;
+    geo:lat "34.07333333333333"^^xsd:float ;
+    geo:long "-118.0275"^^xsd:float .
+
+<http://dbpedia.org/resource/El_Rio,_California>
+    georss:point "34.23916666666667 -119.1588888888889"@en ;
+    a gml:_Feature ;
+    geo:lat "34.23916666666667"^^xsd:float ;
+    geo:long "-119.1588888888889"^^xsd:float .
+
+<http://dbpedia.org/resource/El_Segundo,_California>
+    georss:point "33.92138888888889 -118.40611111111112"@en ;
+    a gml:_Feature ;
+    geo:lat "33.92138888888889"^^xsd:float ;
+    geo:long "-118.40611111111112"^^xsd:float .
+
+<http://dbpedia.org/resource/El_Verano,_California>
+    georss:point "38.299166666666665 -122.48805555555556"@en ;
+    a gml:_Feature ;
+    geo:lat "38.299166666666665"^^xsd:float ;
+    geo:long "-122.48805555555556"^^xsd:float .
+
+<http://dbpedia.org/resource/Elkhorn,_California>
+    georss:point "36.824444444444445 -121.74055555555556"@en ;
+    a gml:_Feature ;
+    geo:lat "36.824444444444445"^^xsd:float ;
+    geo:long "-121.74055555555556"^^xsd:float .
+
+<http://dbpedia.org/resource/Elmira,_California>
+    georss:point "38.35 -121.90805555555555"@en ;
+    a gml:_Feature ;
+    geo:lat "38.35"^^xsd:float ;
+    geo:long "-121.90805555555555"^^xsd:float .
+
+<http://dbpedia.org/resource/Emerald_Lake_Hills,_California>
+    georss:point "37.464444444444446 -122.26638888888888"@en ;
+    a gml:_Feature ;
+    geo:lat "37.464444444444446"^^xsd:float ;
+    geo:long "-122.26638888888888"^^xsd:float .
+
+<http://dbpedia.org/resource/Empire,_California>
+    georss:point "37.64416666666666 -120.9075"@en ;
+    a gml:_Feature ;
+    geo:lat "37.64416666666666"^^xsd:float ;
+    geo:long "-120.9075"^^xsd:float .
+
+<http://dbpedia.org/resource/Encinitas,_California>
+    georss:point "33.044444444444444 -117.27166666666666"@en ;
+    a gml:_Feature ;
+    geo:lat "33.044444444444444"^^xsd:float ;
+    geo:long "-117.27166666666666"^^xsd:float .
+
+<http://dbpedia.org/resource/Esparto,_California>
+    georss:point "38.69305555555555 -122.0188888888889"@en ;
+    a gml:_Feature ;
+    geo:lat "38.69305555555555"^^xsd:float ;
+    geo:long "-122.0188888888889"^^xsd:float .
+
+<http://dbpedia.org/resource/Etna,_California>
+    georss:point "41.45722222222222 -122.89694444444444"@en ;
+    a gml:_Feature ;
+    geo:lat "41.45722222222222"^^xsd:float ;
+    geo:long "-122.89694444444444"^^xsd:float .
+
+<http://dbpedia.org/resource/Eureka,_California>
+    georss:point "40.79 -124.16277777777778"@en ;
+    a gml:_Feature ;
+    geo:lat "40.79"^^xsd:float ;
+    geo:long "-124.16277777777778"^^xsd:float .
+
+<http://dbpedia.org/resource/Exeter,_California>
+    georss:point "36.29416666666667 -119.14277777777778"@en ;
+    a gml:_Feature ;
+    geo:lat "36.29416666666667"^^xsd:float ;
+    geo:long "-119.14277777777778"^^xsd:float .
+
+<http://dbpedia.org/resource/Fair_Oaks,_California>
+    georss:point "38.65138888888889 -121.25916666666667"@en ;
+    a gml:_Feature ;
+    geo:lat "38.65138888888889"^^xsd:float ;
+    geo:long "-121.25916666666667"^^xsd:float .
+
+<http://dbpedia.org/resource/Fairbanks_Ranch,_California>
+    georss:point "32.99583333333333 -117.18305555555555"@en ;
+    a gml:_Feature ;
+    geo:lat "32.99583333333333"^^xsd:float ;
+    geo:long "-117.18305555555555"^^xsd:float .
+
+<http://dbpedia.org/resource/Fall_River_Mills,_California>
+    georss:point "41.005833333333335 -121.44083333333333"@en ;
+    a gml:_Feature ;
+    geo:lat "41.005833333333335"^^xsd:float ;
+    geo:long "-121.44083333333333"^^xsd:float .
+
+<http://dbpedia.org/resource/Fallbrook,_California>
+    georss:point "33.37166666666667 -117.23611111111111"@en ;
+    a gml:_Feature ;
+    geo:lat "33.37166666666667"^^xsd:float ;
+    geo:long "-117.23611111111111"^^xsd:float .
+
+<http://dbpedia.org/resource/Farmersville,_California>
+    georss:point "36.30111111111111 -119.2075"@en ;
+    a gml:_Feature ;
+    geo:lat "36.30111111111111"^^xsd:float ;
+    geo:long "-119.2075"^^xsd:float .
+
+<http://dbpedia.org/resource/Farmington,_California>
+    georss:point "37.929722222222225 -120.99944444444445"@en ;
+    a gml:_Feature ;
+    geo:lat "37.929722222222225"^^xsd:float ;
+    geo:long "-120.99944444444445"^^xsd:float .
+
+<http://dbpedia.org/resource/Fellows,_California>
+    georss:point "35.17861111111111 -119.5411111111111"@en ;
+    a gml:_Feature ;
+    geo:lat "35.17861111111111"^^xsd:float ;
+    geo:long "-119.5411111111111"^^xsd:float .
+
+<http://dbpedia.org/resource/Ferndale,_California>
+    georss:point "40.57666666666667 -124.26333333333334"@en ;
+    a gml:_Feature ;
+    geo:lat "40.57666666666667"^^xsd:float ;
+    geo:long "-124.26333333333334"^^xsd:float .
+
+<http://dbpedia.org/resource/Florence-Graham,_California>
+    georss:point "33.969364 -118.243881"@en ;
+    a gml:_Feature ;
+    geo:lat "33.969364"^^xsd:float ;
+    geo:long "-118.243881"^^xsd:float .
+
+<http://dbpedia.org/resource/Florin,_California>
+    georss:point "38.49027777777778 -121.41083333333333"@en ;
+    a gml:_Feature ;
+    geo:lat "38.49027777777778"^^xsd:float ;
+    geo:long "-121.41083333333333"^^xsd:float .
+
+<http://dbpedia.org/resource/Folsom,_California>
+    georss:point "38.672127 -121.157838"@en ;
+    a gml:_Feature ;
+    geo:lat "38.672127"^^xsd:float ;
+    geo:long "-121.157838"^^xsd:float .
+
+<http://dbpedia.org/resource/Foothill_Farms,_California>
+    georss:point "38.681666666666665 -121.34833333333333"@en ;
+    a gml:_Feature ;
+    geo:lat "38.681666666666665"^^xsd:float ;
+    geo:long "-121.34833333333333"^^xsd:float .
+
+<http://dbpedia.org/resource/Foothill_Ranch,_Lake_Forest,_California>
+    georss:point "33.688524 -117.664281"@en ;
+    a gml:_Feature ;
+    geo:lat "33.688524"^^xsd:float ;
+    geo:long "-117.664281"^^xsd:float .
+
+<http://dbpedia.org/resource/Ford_City,_California>
+    georss:point "35.154444444444444 -119.45611111111111"@en ;
+    a gml:_Feature ;
+    geo:lat "35.154444444444444"^^xsd:float ;
+    geo:long "-119.45611111111111"^^xsd:float .
+
+<http://dbpedia.org/resource/Fort_Bragg,_California>
+    georss:point "39.44583333333333 -123.80527777777777"@en ;
+    a gml:_Feature ;
+    geo:lat "39.44583333333333"^^xsd:float ;
+    geo:long "-123.80527777777777"^^xsd:float .
+
+<http://dbpedia.org/resource/Fort_Jones,_California>
+    georss:point "41.60722222222222 -122.84194444444445"@en ;
+    a gml:_Feature ;
+    geo:lat "41.60722222222222"^^xsd:float ;
+    geo:long "-122.84194444444445"^^xsd:float .
+
+<http://dbpedia.org/resource/Fountain_Valley,_California>
+    georss:point "33.70861111111111 -117.9563888888889"@en ;
+    a gml:_Feature ;
+    geo:lat "33.70861111111111"^^xsd:float ;
+    geo:long "-117.9563888888889"^^xsd:float .
+
+<http://dbpedia.org/resource/Freedom,_California>
+    georss:point "36.940555555555555 -121.78944444444444"@en ;
+    a gml:_Feature ;
+    geo:lat "36.940555555555555"^^xsd:float ;
+    geo:long "-121.78944444444444"^^xsd:float .
+
+<http://dbpedia.org/resource/Fremont,_California>
+    georss:point "37.55416666666667 -121.99916666666667"@en ;
+    a gml:_Feature ;
+    geo:lat "37.55416666666667"^^xsd:float ;
+    geo:long "-121.99916666666667"^^xsd:float .
+
+<http://dbpedia.org/resource/French_Camp,_California>
+    georss:point "37.882777777777775 -121.27972222222222"@en ;
+    a gml:_Feature ;
+    geo:lat "37.882777777777775"^^xsd:float ;
+    geo:long "-121.27972222222222"^^xsd:float .
+
+<http://dbpedia.org/resource/French_Gulch,_California>
+    georss:point "40.70527777777778 -122.63527777777777"@en ;
+    a gml:_Feature ;
+    geo:lat "40.70527777777778"^^xsd:float ;
+    geo:long "-122.63527777777777"^^xsd:float .
+
+<http://dbpedia.org/resource/Fresno,_California>
+    georss:point "36.74777777777778 -119.7725"@en ;
+    a gml:_Feature ;
+    geo:lat "36.74777777777778"^^xsd:float ;
+    geo:long "-119.7725"^^xsd:float .
+
+<http://dbpedia.org/resource/Fresno_County,_California>
+    georss:point "36.75 -119.65"@en ;
+    a gml:_Feature ;
+    geo:lat "36.75"^^xsd:float ;
+    geo:long "-119.65"^^xsd:float .
+
+<http://dbpedia.org/resource/Friant,_California>
+    georss:point "36.98777777777778 -119.71194444444444"@en ;
+    a gml:_Feature ;
+    geo:lat "36.98777777777778"^^xsd:float ;
+    geo:long "-119.71194444444444"^^xsd:float .
+
+<http://dbpedia.org/resource/Fruitdale,_California>
+    georss:point "37.312777777777775 -121.93583333333333"@en ;
+    a gml:_Feature ;
+    geo:lat "37.312777777777775"^^xsd:float ;
+    geo:long "-121.93583333333333"^^xsd:float .
+
+<http://dbpedia.org/resource/Fullerton,_California>
+    georss:point "33.88 -117.92861111111111"@en ;
+    a gml:_Feature ;
+    geo:lat "33.88"^^xsd:float ;
+    geo:long "-117.92861111111111"^^xsd:float .
+
+<http://dbpedia.org/resource/Galt,_California>
+    georss:point "38.260842 -121.303122"@en ;
+    a gml:_Feature ;
+    geo:lat "38.260842"^^xsd:float ;
+    geo:long "-121.303122"^^xsd:float .
+
+<http://dbpedia.org/resource/Garden_Acres,_California>
+    georss:point "37.96138888888889 -121.23138888888889"@en ;
+    a gml:_Feature ;
+    geo:lat "37.96138888888889"^^xsd:float ;
+    geo:long "-121.23138888888889"^^xsd:float .
+
+<http://dbpedia.org/resource/Gardena,_California>
+    georss:point "33.89361111111111 -118.30777777777777"@en ;
+    a gml:_Feature ;
+    geo:lat "33.89361111111111"^^xsd:float ;
+    geo:long "-118.30777777777777"^^xsd:float .
+
+<http://dbpedia.org/resource/Gazelle,_California>
+    georss:point "41.52166666666667 -122.52083333333333"@en ;
+    a gml:_Feature ;
+    geo:lat "41.52166666666667"^^xsd:float ;
+    geo:long "-122.52083333333333"^^xsd:float .
+
+dbpr:Geography_of_California
+    georss:point "37.220555555555556 -119.5075"@en ;
+    a gml:_Feature ;
+    geo:lat "37.220555555555556"^^xsd:float ;
+    geo:long "-119.5075"^^xsd:float .
+
+<http://dbpedia.org/resource/Gerber-Las_Flores,_California>
+    georss:point "40.05972222222222 -122.15138888888889"@en ;
+    a gml:_Feature ;
+    geo:lat "40.05972222222222"^^xsd:float ;
+    geo:long "-122.15138888888889"^^xsd:float .
+
+<http://dbpedia.org/resource/Gilroy,_California>
+    georss:point "37.001666666666665 -121.54083333333334"@en ;
+    a gml:_Feature ;
+    geo:lat "37.001666666666665"^^xsd:float ;
+    geo:long "-121.54083333333334"^^xsd:float .
+
+<http://dbpedia.org/resource/Glen_Avon,_California>
+    georss:point "34.01722222222222 -117.49194444444444"@en ;
+    a gml:_Feature ;
+    geo:lat "34.01722222222222"^^xsd:float ;
+    geo:long "-117.49194444444444"^^xsd:float .
+
+<http://dbpedia.org/resource/Glendora,_California>
+    georss:point "34.130833333333335 -117.85416666666667"@en ;
+    a gml:_Feature ;
+    geo:lat "34.130833333333335"^^xsd:float ;
+    geo:long "-117.85416666666667"^^xsd:float .
+
+<http://dbpedia.org/resource/Glenn_County,_California>
+    georss:point "39.59 -122.39"@en ;
+    a gml:_Feature ;
+    geo:lat "39.59"^^xsd:float ;
+    geo:long "-122.39"^^xsd:float .
+
+<http://dbpedia.org/resource/Gold_River,_California>
+    georss:point "38.623333333333335 -121.24777777777778"@en ;
+    a gml:_Feature ;
+    geo:lat "38.623333333333335"^^xsd:float ;
+    geo:long "-121.24777777777778"^^xsd:float .
+
+<http://dbpedia.org/resource/Golden_Hills,_California>
+    georss:point "35.1425 -118.49027777777778"@en ;
+    a gml:_Feature ;
+    geo:lat "35.1425"^^xsd:float ;
+    geo:long "-118.49027777777778"^^xsd:float .
+
+<http://dbpedia.org/resource/Gonzales,_California>
+    georss:point "36.50666666666667 -121.44444444444444"@en ;
+    a gml:_Feature ;
+    geo:lat "36.50666666666667"^^xsd:float ;
+    geo:long "-121.44444444444444"^^xsd:float .
+
+<http://dbpedia.org/resource/Goshen,_California>
+    georss:point "36.3475 -119.42"@en ;
+    a gml:_Feature ;
+    geo:lat "36.3475"^^xsd:float ;
+    geo:long "-119.42"^^xsd:float .
+
+<http://dbpedia.org/resource/Graeagle,_California>
+    georss:point "39.76444444444444 -120.62333333333333"@en ;
+    a gml:_Feature ;
+    geo:lat "39.76444444444444"^^xsd:float ;
+    geo:long "-120.62333333333333"^^xsd:float .
+
+<http://dbpedia.org/resource/Grand_Terrace,_California>
+    georss:point "34.03111111111111 -117.31666666666666"@en ;
+    a gml:_Feature ;
+    geo:lat "34.03111111111111"^^xsd:float ;
+    geo:long "-117.31666666666666"^^xsd:float .
+
+<http://dbpedia.org/resource/Granite_Bay,_California>
+    georss:point "38.74861111111111 -121.17972222222222"@en ;
+    a gml:_Feature ;
+    geo:lat "38.74861111111111"^^xsd:float ;
+    geo:long "-121.17972222222222"^^xsd:float .
+
+<http://dbpedia.org/resource/Granite_Hills,_California>
+    georss:point "32.80305555555555 -116.90472222222222"@en ;
+    a gml:_Feature ;
+    geo:lat "32.80305555555555"^^xsd:float ;
+    geo:long "-116.90472222222222"^^xsd:float .
+
+<http://dbpedia.org/resource/Grass_Valley,_California>
+    georss:point "39.219166666666666 -121.05833333333334"@en ;
+    a gml:_Feature ;
+    geo:lat "39.219166666666666"^^xsd:float ;
+    geo:long "-121.05833333333334"^^xsd:float .
+
+<http://dbpedia.org/resource/Graton,_California>
+    georss:point "38.437613 -122.866375"@en ;
+    a gml:_Feature ;
+    geo:lat "38.437613"^^xsd:float ;
+    geo:long "-122.866375"^^xsd:float .
+
+<http://dbpedia.org/resource/Grayson,_California>
+    georss:point "37.56472222222222 -121.18083333333334"@en ;
+    a gml:_Feature ;
+    geo:lat "37.56472222222222"^^xsd:float ;
+    geo:long "-121.18083333333334"^^xsd:float .
+
+<http://dbpedia.org/resource/Green_Valley,_Solano_County,_California>
+    georss:point "38.25944444444445 -122.16444444444444"@en ;
+    a gml:_Feature ;
+    geo:lat "38.25944444444445"^^xsd:float ;
+    geo:long "-122.16444444444444"^^xsd:float .
+
+<http://dbpedia.org/resource/Greenhorn,_California>
+    georss:point "39.905833333333334 -120.74861111111112"@en ;
+    a gml:_Feature ;
+    geo:lat "39.905833333333334"^^xsd:float ;
+    geo:long "-120.74861111111112"^^xsd:float .
+
+<http://dbpedia.org/resource/Greenview,_California>
+    georss:point "41.54944444444445 -122.92055555555555"@en ;
+    a gml:_Feature ;
+    geo:lat "41.54944444444445"^^xsd:float ;
+    geo:long "-122.92055555555555"^^xsd:float .
+
+<http://dbpedia.org/resource/Greenville,_California>
+    georss:point "40.14 -120.95138888888889"@en ;
+    a gml:_Feature ;
+    geo:lat "40.14"^^xsd:float ;
+    geo:long "-120.95138888888889"^^xsd:float .
+
+<http://dbpedia.org/resource/Grenada,_California>
+    georss:point "41.644444444444446 -122.52277777777778"@en ;
+    a gml:_Feature ;
+    geo:lat "41.644444444444446"^^xsd:float ;
+    geo:long "-122.52277777777778"^^xsd:float .
+
+<http://dbpedia.org/resource/Gridley,_California>
+    georss:point "39.3675 -121.68944444444445"@en ;
+    a gml:_Feature ;
+    geo:lat "39.3675"^^xsd:float ;
+    geo:long "-121.68944444444445"^^xsd:float .
+
+<http://dbpedia.org/resource/Groveland-Big_Oak_Flat,_California>
+    georss:point "37.845867 -120.207697"@en ;
+    a gml:_Feature ;
+    geo:lat "37.845867"^^xsd:float ;
+    geo:long "-120.207697"^^xsd:float .
+
+<http://dbpedia.org/resource/Grover_Beach,_California>
+    georss:point "35.12083333333333 -120.61944444444444"@en ;
+    a gml:_Feature ;
+    geo:lat "35.12083333333333"^^xsd:float ;
+    geo:long "-120.61944444444444"^^xsd:float .
+
+<http://dbpedia.org/resource/Guerneville,_California>
+    georss:point "38.506349 -122.990834"@en ;
+    a gml:_Feature ;
+    geo:lat "38.506349"^^xsd:float ;
+    geo:long "-122.990834"^^xsd:float .
+
+<http://dbpedia.org/resource/Gustine,_California>
+    georss:point "37.257777777777775 -120.99888888888889"@en ;
+    a gml:_Feature ;
+    geo:lat "37.257777777777775"^^xsd:float ;
+    geo:long "-120.99888888888889"^^xsd:float .
+
+<http://dbpedia.org/resource/Hacienda_Heights,_California>
+    georss:point "34.00055555555556 -117.96944444444445"@en ;
+    a gml:_Feature ;
+    geo:lat "34.00055555555556"^^xsd:float ;
+    geo:long "-117.96944444444445"^^xsd:float .
+
+<http://dbpedia.org/resource/Half_Moon_Bay,_California>
+    georss:point "37.45884 -122.436848"@en ;
+    a gml:_Feature ;
+    geo:lat "37.45884"^^xsd:float ;
+    geo:long "-122.436848"^^xsd:float .
+
+<http://dbpedia.org/resource/Hamilton_Branch,_California>
+    georss:point "40.27388888888889 -121.09583333333333"@en ;
+    a gml:_Feature ;
+    geo:lat "40.27388888888889"^^xsd:float ;
+    geo:long "-121.09583333333333"^^xsd:float .
+
+<http://dbpedia.org/resource/Hanford,_California>
+    georss:point "36.3275 -119.64555555555556"@en ;
+    a gml:_Feature ;
+    geo:lat "36.3275"^^xsd:float ;
+    geo:long "-119.64555555555556"^^xsd:float .
+
+<http://dbpedia.org/resource/Harbison_Canyon,_California>
+    georss:point "32.820277777777775 -116.83"@en ;
+    a gml:_Feature ;
+    geo:lat "32.820277777777775"^^xsd:float ;
+    geo:long "-116.83"^^xsd:float .
+
+<http://dbpedia.org/resource/Hawaiian_Gardens,_California>
+    georss:point "33.82861111111111 -118.0736111111111"@en ;
+    a gml:_Feature ;
+    geo:lat "33.82861111111111"^^xsd:float ;
+    geo:long "-118.0736111111111"^^xsd:float .
+
+<http://dbpedia.org/resource/Hawthorne,_California>
+    georss:point "33.917214 -118.348607"@en ;
+    a gml:_Feature ;
+    geo:lat "33.917214"^^xsd:float ;
+    geo:long "-118.348607"^^xsd:float .
+
+<http://dbpedia.org/resource/Hayfork,_California>
+    georss:point "40.57138888888889 -123.14666666666666"@en ;
+    a gml:_Feature ;
+    geo:lat "40.57138888888889"^^xsd:float ;
+    geo:long "-123.14666666666666"^^xsd:float .
+
+<http://dbpedia.org/resource/Heber,_California>
+    georss:point "32.73083333333334 -115.52972222222222"@en ;
+    a gml:_Feature ;
+    geo:lat "32.73083333333334"^^xsd:float ;
+    geo:long "-115.52972222222222"^^xsd:float .
+
+<http://dbpedia.org/resource/Hemet,_California>
+    georss:point "33.74194444444444 -116.98305555555555"@en ;
+    a gml:_Feature ;
+    geo:lat "33.74194444444444"^^xsd:float ;
+    geo:long "-116.98305555555555"^^xsd:float .
+
+<http://dbpedia.org/resource/Hercules,_California>
+    georss:point "38.01722222222222 -122.28861111111111"@en ;
+    a gml:_Feature ;
+    geo:lat "38.01722222222222"^^xsd:float ;
+    geo:long "-122.28861111111111"^^xsd:float .
+
+<http://dbpedia.org/resource/Hermosa_Beach,_California>
+    georss:point "33.86638888888889 -118.39972222222222"@en ;
+    a gml:_Feature ;
+    geo:lat "33.86638888888889"^^xsd:float ;
+    geo:long "-118.39972222222222"^^xsd:float .
+
+<http://dbpedia.org/resource/Hickman,_California>
+    georss:point "37.62416666666667 -120.75777777777778"@en ;
+    a gml:_Feature ;
+    geo:lat "37.62416666666667"^^xsd:float ;
+    geo:long "-120.75777777777778"^^xsd:float .
+
+<http://dbpedia.org/resource/Hidden_Hills,_California>
+    georss:point "34.1675 -118.66083333333333"@en ;
+    a gml:_Feature ;
+    geo:lat "34.1675"^^xsd:float ;
+    geo:long "-118.66083333333333"^^xsd:float .
+
+<http://dbpedia.org/resource/Hidden_Meadows,_California>
+    georss:point "33.22944444444445 -117.12472222222222"@en ;
+    a gml:_Feature ;
+    geo:lat "33.22944444444445"^^xsd:float ;
+    geo:long "-117.12472222222222"^^xsd:float .
+
+<http://dbpedia.org/resource/Highgrove,_California>
+    georss:point "34.015253 -117.330926"@en ;
+    a gml:_Feature ;
+    geo:lat "34.015253"^^xsd:float ;
+    geo:long "-117.330926"^^xsd:float .
+
+<http://dbpedia.org/resource/Highland,_California>
+    georss:point "34.11833333333333 -117.2025"@en ;
+    a gml:_Feature ;
+    geo:lat "34.11833333333333"^^xsd:float ;
+    geo:long "-117.2025"^^xsd:float .
+
+<http://dbpedia.org/resource/Highlands-Baywood_Park,_California>
+    georss:point "37.525 -122.34333333333333"@en ;
+    a gml:_Feature ;
+    geo:lat "37.525"^^xsd:float ;
+    geo:long "-122.34333333333333"^^xsd:float .
+
+<http://dbpedia.org/resource/Hillsborough,_California>
+    georss:point "37.560199 -122.356277"@en ;
+    a gml:_Feature ;
+    geo:lat "37.560199"^^xsd:float ;
+    geo:long "-122.356277"^^xsd:float .
+
+<http://dbpedia.org/resource/Hilmar-Irwin,_California>
+    georss:point "37.40833333333333 -120.85083333333333"@en ;
+    a gml:_Feature ;
+    geo:lat "37.40833333333333"^^xsd:float ;
+    geo:long "-120.85083333333333"^^xsd:float .
+
+<http://dbpedia.org/resource/Hollister,_California>
+    georss:point "36.833888888888886 -121.3861111111111"@en ;
+    a gml:_Feature ;
+    geo:lat "36.833888888888886"^^xsd:float ;
+    geo:long "-121.3861111111111"^^xsd:float .
+
+<http://dbpedia.org/resource/Home_Garden,_California>
+    georss:point "36.303333333333335 -119.6361111111111"@en ;
+    a gml:_Feature ;
+    geo:lat "36.303333333333335"^^xsd:float ;
+    geo:long "-119.6361111111111"^^xsd:float .
+
+<http://dbpedia.org/resource/Home_Gardens,_California>
+    georss:point "33.879444444444445 -117.51194444444444"@en ;
+    a gml:_Feature ;
+    geo:lat "33.879444444444445"^^xsd:float ;
+    geo:long "-117.51194444444444"^^xsd:float .
+
+<http://dbpedia.org/resource/Homeland,_California>
+    georss:point "33.74194444444444 -117.11333333333333"@en ;
+    a gml:_Feature ;
+    geo:lat "33.74194444444444"^^xsd:float ;
+    geo:long "-117.11333333333333"^^xsd:float .
+
+<http://dbpedia.org/resource/Homewood_Canyon-Valley_Wells,_California>
+    georss:point "35.844166666666666 -117.33972222222222"@en ;
+    a gml:_Feature ;
+    geo:lat "35.844166666666666"^^xsd:float ;
+    geo:long "-117.33972222222222"^^xsd:float .
+
+<http://dbpedia.org/resource/Hornbrook,_California>
+    georss:point "41.90972222222222 -122.5575"@en ;
+    a gml:_Feature ;
+    geo:lat "41.90972222222222"^^xsd:float ;
+    geo:long "-122.5575"^^xsd:float .
+
+<http://dbpedia.org/resource/Hughson,_California>
+    georss:point "37.60305555555556 -120.86694444444444"@en ;
+    a gml:_Feature ;
+    geo:lat "37.60305555555556"^^xsd:float ;
+    geo:long "-120.86694444444444"^^xsd:float .
+
+<http://dbpedia.org/resource/Humboldt_County,_California>
+    georss:point "40.8 -123.8"@en ;
+    a gml:_Feature ;
+    geo:lat "40.8"^^xsd:float ;
+    geo:long "-123.8"^^xsd:float .
+
+<http://dbpedia.org/resource/Huntington_Park,_California>
+    georss:point "33.983333333333334 -118.21666666666667"@en ;
+    a gml:_Feature ;
+    geo:lat "33.983333333333334"^^xsd:float ;
+    geo:long "-118.21666666666667"^^xsd:float .
+
+<http://dbpedia.org/resource/Idyllwild-Pine_Cove,_California>
+    georss:point "33.745509 -116.716114"@en ;
+    a gml:_Feature ;
+    geo:lat "33.745509"^^xsd:float ;
+    geo:long "-116.716114"^^xsd:float .
+
+<http://dbpedia.org/resource/Imperial,_California>
+    georss:point "32.8475 -115.56944444444444"@en ;
+    a gml:_Feature ;
+    geo:lat "32.8475"^^xsd:float ;
+    geo:long "-115.56944444444444"^^xsd:float .
+
+<http://dbpedia.org/resource/Imperial_Beach,_California>
+    georss:point "32.57833333333333 -117.11722222222222"@en ;
+    a gml:_Feature ;
+    geo:lat "32.57833333333333"^^xsd:float ;
+    geo:long "-117.11722222222222"^^xsd:float .
+
+<http://dbpedia.org/resource/Imperial_County,_California>
+    georss:point "33.25413888888889 -115.4726111111111"@en ;
+    a gml:_Feature ;
+    geo:lat "33.25413888888889"^^xsd:float ;
+    geo:long "-115.4726111111111"^^xsd:float .
+
+<http://dbpedia.org/resource/Indian_Falls,_California>
+    georss:point "40.05083333333334 -120.98"@en ;
+    a gml:_Feature ;
+    geo:lat "40.05083333333334"^^xsd:float ;
+    geo:long "-120.98"^^xsd:float .
+
+<http://dbpedia.org/resource/Indian_Wells,_California>
+    georss:point "33.715833333333336 -116.3411111111111"@en ;
+    a gml:_Feature ;
+    geo:lat "33.715833333333336"^^xsd:float ;
+    geo:long "-116.3411111111111"^^xsd:float .
+
+<http://dbpedia.org/resource/Indio,_California>
+    georss:point "33.72 -116.23194444444445"@en ;
+    a gml:_Feature ;
+    geo:lat "33.72"^^xsd:float ;
+    geo:long "-116.23194444444445"^^xsd:float .
+
+<http://dbpedia.org/resource/Industry,_California>
+    georss:point "34.016666666666666 -117.95"@en ;
+    a gml:_Feature ;
+    geo:lat "34.016666666666666"^^xsd:float ;
+    geo:long "-117.95"^^xsd:float .
+
+<http://dbpedia.org/resource/Interlaken,_California>
+    georss:point "36.95638888888889 -121.74555555555555"@en ;
+    a gml:_Feature ;
+    geo:lat "36.95638888888889"^^xsd:float ;
+    geo:long "-121.74555555555555"^^xsd:float .
+
+<http://dbpedia.org/resource/Inverness,_California>
+    georss:point "38.10111111111111 -122.85694444444445"@en ;
+    a gml:_Feature ;
+    geo:lat "38.10111111111111"^^xsd:float ;
+    geo:long "-122.85694444444445"^^xsd:float .
+
+<http://dbpedia.org/resource/Inyokern,_California>
+    georss:point "35.64694444444444 -117.8125"@en ;
+    a gml:_Feature ;
+    geo:lat "35.64694444444444"^^xsd:float ;
+    geo:long "-117.8125"^^xsd:float .
+
+<http://dbpedia.org/resource/Ione,_California>
+    georss:point "38.352777777777774 -120.93277777777777"@en ;
+    a gml:_Feature ;
+    geo:lat "38.352777777777774"^^xsd:float ;
+    geo:long "-120.93277777777777"^^xsd:float .
+
+<http://dbpedia.org/resource/Iron_Horse,_California>
+    georss:point "39.789722222222224 -120.49555555555555"@en ;
+    a gml:_Feature ;
+    geo:lat "39.789722222222224"^^xsd:float ;
+    geo:long "-120.49555555555555"^^xsd:float .
+
+<http://dbpedia.org/resource/Irwindale,_California>
+    georss:point "34.1125 -117.96444444444444"@en ;
+    a gml:_Feature ;
+    geo:lat "34.1125"^^xsd:float ;
+    geo:long "-117.96444444444444"^^xsd:float .
+
+<http://dbpedia.org/resource/Isleton,_California>
+    georss:point "38.161944444444444 -121.60916666666667"@en ;
+    a gml:_Feature ;
+    geo:lat "38.161944444444444"^^xsd:float ;
+    geo:long "-121.60916666666667"^^xsd:float .
+
+<http://dbpedia.org/resource/Ivanhoe,_California>
+    georss:point "36.38777777777778 -119.21916666666667"@en ;
+    a gml:_Feature ;
+    geo:lat "36.38777777777778"^^xsd:float ;
+    geo:long "-119.21916666666667"^^xsd:float .
+
+<http://dbpedia.org/resource/Jamestown,_California>
+    georss:point "37.954956 -120.405306"@en ;
+    a gml:_Feature ;
+    geo:lat "37.954956"^^xsd:float ;
+    geo:long "-120.405306"^^xsd:float .
+
+<http://dbpedia.org/resource/Jamul,_California>
+    georss:point "32.726557 -116.882336"@en ;
+    a gml:_Feature ;
+    geo:lat "32.726557"^^xsd:float ;
+    geo:long "-116.882336"^^xsd:float .
+
+<http://dbpedia.org/resource/Johannesburg,_California>
+    georss:point "35.37277777777778 -117.63472222222222"@en ;
+    a gml:_Feature ;
+    geo:lat "35.37277777777778"^^xsd:float ;
+    geo:long "-117.63472222222222"^^xsd:float .
+
+<http://dbpedia.org/resource/Johnsville,_California>
+    georss:point "39.779444444444444 -120.69388888888889"@en ;
+    a gml:_Feature ;
+    geo:lat "39.779444444444444"^^xsd:float ;
+    geo:long "-120.69388888888889"^^xsd:float .
+
+<http://dbpedia.org/resource/Joshua_Tree,_California>
+    georss:point "34.12694444444445 -116.31861111111111"@en ;
+    a gml:_Feature ;
+    geo:lat "34.12694444444445"^^xsd:float ;
+    geo:long "-116.31861111111111"^^xsd:float .
+
+<http://dbpedia.org/resource/Julian,_California>
+    georss:point "33.07083333333333 -116.58555555555556"@en ;
+    a gml:_Feature ;
+    geo:lat "33.07083333333333"^^xsd:float ;
+    geo:long "-116.58555555555556"^^xsd:float .
+
+<http://dbpedia.org/resource/Keddie,_California>
+    georss:point "40.005833333333335 -120.95694444444445"@en ;
+    a gml:_Feature ;
+    geo:lat "40.005833333333335"^^xsd:float ;
+    geo:long "-120.95694444444445"^^xsd:float .
+
+<http://dbpedia.org/resource/Keene,_California>
+    georss:point "35.22361111111111 -118.56222222222222"@en ;
+    a gml:_Feature ;
+    geo:lat "35.22361111111111"^^xsd:float ;
+    geo:long "-118.56222222222222"^^xsd:float .
+
+<http://dbpedia.org/resource/Kennedy,_California>
+    georss:point "37.931666666666665 -121.25166666666667"@en ;
+    a gml:_Feature ;
+    geo:lat "37.931666666666665"^^xsd:float ;
+    geo:long "-121.25166666666667"^^xsd:float .
+
+<http://dbpedia.org/resource/Kentfield,_California>
+    georss:point "37.952222222222225 -122.55722222222222"@en ;
+    a gml:_Feature ;
+    geo:lat "37.952222222222225"^^xsd:float ;
+    geo:long "-122.55722222222222"^^xsd:float .
+
+<http://dbpedia.org/resource/Kern_County,_California>
+    georss:point "35.34 -118.72"@en ;
+    a gml:_Feature ;
+    geo:lat "35.34"^^xsd:float ;
+    geo:long "-118.72"^^xsd:float .
+
+<http://dbpedia.org/resource/Kettleman_City,_California>
+    georss:point "36.00833333333333 -119.96166666666667"@en ;
+    a gml:_Feature ;
+    geo:lat "36.00833333333333"^^xsd:float ;
+    geo:long "-119.96166666666667"^^xsd:float .
+
+<http://dbpedia.org/resource/Keyes,_California>
+    georss:point "37.56166666666667 -120.91722222222222"@en ;
+    a gml:_Feature ;
+    geo:lat "37.56166666666667"^^xsd:float ;
+    geo:long "-120.91722222222222"^^xsd:float .
+
+<http://dbpedia.org/resource/Kings_Beach,_California>
+    georss:point "39.24111111111111 -120.02333333333333"@en ;
+    a gml:_Feature ;
+    geo:lat "39.24111111111111"^^xsd:float ;
+    geo:long "-120.02333333333333"^^xsd:float .
+
+<http://dbpedia.org/resource/Kings_County,_California>
+    georss:point "36.07 -119.81"@en ;
+    a gml:_Feature ;
+    geo:lat "36.07"^^xsd:float ;
+    geo:long "-119.81"^^xsd:float .
+
+<http://dbpedia.org/resource/Kingsburg,_California>
+    georss:point "36.513888888888886 -119.55388888888889"@en ;
+    a gml:_Feature ;
+    geo:lat "36.513888888888886"^^xsd:float ;
+    geo:long "-119.55388888888889"^^xsd:float .
+
+<http://dbpedia.org/resource/La_Ca%C3%B1ada_Flintridge,_California>
+    georss:point "34.207721 -118.206979"@en ;
+    a gml:_Feature ;
+    geo:lat "34.207721"^^xsd:float ;
+    geo:long "-118.206979"^^xsd:float .
+
+<http://dbpedia.org/resource/La_Habra_Heights,_California>
+    georss:point "33.96388888888889 -117.95277777777778"@en ;
+    a gml:_Feature ;
+    geo:lat "33.96388888888889"^^xsd:float ;
+    geo:long "-117.95277777777778"^^xsd:float .
+
+<http://dbpedia.org/resource/La_Mesa,_California>
+    georss:point "32.771388888888886 -117.02277777777778"@en ;
+    a gml:_Feature ;
+    geo:lat "32.771388888888886"^^xsd:float ;
+    geo:long "-117.02277777777778"^^xsd:float .
+
+<http://dbpedia.org/resource/La_Palma,_California>
+    georss:point "33.849444444444444 -118.04388888888889"@en ;
+    a gml:_Feature ;
+    geo:lat "33.849444444444444"^^xsd:float ;
+    geo:long "-118.04388888888889"^^xsd:float .
+
+<http://dbpedia.org/resource/La_Porte,_California>
+    georss:point "39.68194444444445 -120.98472222222222"@en ;
+    a gml:_Feature ;
+    geo:lat "39.68194444444445"^^xsd:float ;
+    geo:long "-120.98472222222222"^^xsd:float .
+
+<http://dbpedia.org/resource/La_Presa,_California>
+    georss:point "32.71194444444444 -117.0038888888889"@en ;
+    a gml:_Feature ;
+    geo:lat "32.71194444444444"^^xsd:float ;
+    geo:long "-117.0038888888889"^^xsd:float .
+
+<http://dbpedia.org/resource/La_Puente,_California>
+    georss:point "34.0325 -117.95527777777778"@en ;
+    a gml:_Feature ;
+    geo:lat "34.0325"^^xsd:float ;
+    geo:long "-117.95527777777778"^^xsd:float .
+
+<http://dbpedia.org/resource/La_Quinta,_California>
+    georss:point "33.67527777777778 -116.2975"@en ;
+    a gml:_Feature ;
+    geo:lat "33.67527777777778"^^xsd:float ;
+    geo:long "-116.2975"^^xsd:float .
+
+<http://dbpedia.org/resource/La_Riviera,_California>
+    georss:point "38.56666666666667 -121.35666666666667"@en ;
+    a gml:_Feature ;
+    geo:lat "38.56666666666667"^^xsd:float ;
+    geo:long "-121.35666666666667"^^xsd:float .
+
+<http://dbpedia.org/resource/Lafayette,_California>
+    georss:point "37.88583333333333 -122.11805555555556"@en ;
+    a gml:_Feature ;
+    geo:lat "37.88583333333333"^^xsd:float ;
+    geo:long "-122.11805555555556"^^xsd:float .
+
+<http://dbpedia.org/resource/Laguna_Creek,_Elk_Grove,_California>
+    georss:point "38.42388888888889 -121.4275"@en ;
+    a gml:_Feature ;
+    geo:lat "38.42388888888889"^^xsd:float ;
+    geo:long "-121.4275"^^xsd:float .
+
+<http://dbpedia.org/resource/Laguna_Niguel,_California>
+    georss:point "33.53194444444444 -117.7025"@en ;
+    a gml:_Feature ;
+    geo:lat "33.53194444444444"^^xsd:float ;
+    geo:long "-117.7025"^^xsd:float .
+
+<http://dbpedia.org/resource/Laguna_West-Lakeside,_Elk_Grove,_California>
+    georss:point "38.418055555555554 -121.46916666666667"@en ;
+    a gml:_Feature ;
+    geo:lat "38.418055555555554"^^xsd:float ;
+    geo:long "-121.46916666666667"^^xsd:float .
+
+<http://dbpedia.org/resource/Laguna_Woods,_California>
+    georss:point "33.60916666666667 -117.73277777777778"@en ;
+    a gml:_Feature ;
+    geo:lat "33.60916666666667"^^xsd:float ;
+    geo:long "-117.73277777777778"^^xsd:float .
+
+<http://dbpedia.org/resource/Lagunitas-Forest_Knolls,_California>
+    georss:point "38.015 -122.69388888888889"@en ;
+    a gml:_Feature ;
+    geo:lat "38.015"^^xsd:float ;
+    geo:long "-122.69388888888889"^^xsd:float .
+
+<http://dbpedia.org/resource/Lake_Almanor_Country_Club,_California>
+    georss:point "40.24805555555555 -121.1475"@en ;
+    a gml:_Feature ;
+    geo:lat "40.24805555555555"^^xsd:float ;
+    geo:long "-121.1475"^^xsd:float .
+
+<http://dbpedia.org/resource/Lake_Almanor_Peninsula,_California>
+    georss:point "40.27527777777778 -121.12666666666667"@en ;
+    a gml:_Feature ;
+    geo:lat "40.27527777777778"^^xsd:float ;
+    geo:long "-121.12666666666667"^^xsd:float .
+
+<http://dbpedia.org/resource/Lake_Almanor_West,_California>
+    georss:point "40.235277777777775 -121.20416666666667"@en ;
+    a gml:_Feature ;
+    geo:lat "40.235277777777775"^^xsd:float ;
+    geo:long "-121.20416666666667"^^xsd:float .
+
+<http://dbpedia.org/resource/Lake_Arrowhead,_California>
+    georss:point "34.248333333333335 -117.18916666666667"@en ;
+    a gml:_Feature ;
+    geo:lat "34.248333333333335"^^xsd:float ;
+    geo:long "-117.18916666666667"^^xsd:float .
+
+<http://dbpedia.org/resource/Lake_County,_California>
+    georss:point "39.09 -122.76"@en ;
+    a gml:_Feature ;
+    geo:lat "39.09"^^xsd:float ;
+    geo:long "-122.76"^^xsd:float .
+
+<http://dbpedia.org/resource/Lake_Davis,_California>
+    georss:point "39.86888888888889 -120.47222222222223"@en ;
+    a gml:_Feature ;
+    geo:lat "39.86888888888889"^^xsd:float ;
+    geo:long "-120.47222222222223"^^xsd:float .
+
+<http://dbpedia.org/resource/Lake_Isabella,_California>
+    georss:point "35.61805555555556 -118.47305555555556"@en ;
+    a gml:_Feature ;
+    geo:lat "35.61805555555556"^^xsd:float ;
+    geo:long "-118.47305555555556"^^xsd:float .
+
+<http://dbpedia.org/resource/Lake_Nacimiento,_California>
+    georss:point "35.7375 -120.88138888888889"@en ;
+    a gml:_Feature ;
+    geo:lat "35.7375"^^xsd:float ;
+    geo:long "-120.88138888888889"^^xsd:float .
+
+<http://dbpedia.org/resource/Lake_San_Marcos,_California>
+    georss:point "33.1225 -117.20944444444444"@en ;
+    a gml:_Feature ;
+    geo:lat "33.1225"^^xsd:float ;
+    geo:long "-117.20944444444444"^^xsd:float .
+
+<http://dbpedia.org/resource/Lake_Wildwood,_California>
+    georss:point "39.235 -121.20305555555555"@en ;
+    a gml:_Feature ;
+    geo:lat "39.235"^^xsd:float ;
+    geo:long "-121.20305555555555"^^xsd:float .
+
+<http://dbpedia.org/resource/Lake_of_the_Pines,_California>
+    georss:point "39.038571 -121.061354"@en ;
+    a gml:_Feature ;
+    geo:lat "39.038571"^^xsd:float ;
+    geo:long "-121.061354"^^xsd:float .
+
+<http://dbpedia.org/resource/Lakehead-Lakeshore,_California>
+    georss:point "40.90111111111111 -122.39222222222222"@en ;
+    a gml:_Feature ;
+    geo:lat "40.90111111111111"^^xsd:float ;
+    geo:long "-122.39222222222222"^^xsd:float .
+
+<http://dbpedia.org/resource/Lakeport,_California>
+    georss:point "39.043055555555554 -122.91583333333334"@en ;
+    a gml:_Feature ;
+    geo:lat "39.043055555555554"^^xsd:float ;
+    geo:long "-122.91583333333334"^^xsd:float .
+
+<http://dbpedia.org/resource/Lakeside,_California>
+    georss:point "32.849444444444444 -116.90555555555555"@en ;
+    a gml:_Feature ;
+    geo:lat "32.849444444444444"^^xsd:float ;
+    geo:long "-116.90555555555555"^^xsd:float .
+
+<http://dbpedia.org/resource/Lamont,_California>
+    georss:point "35.25972222222222 -118.91416666666667"@en ;
+    a gml:_Feature ;
+    geo:lat "35.25972222222222"^^xsd:float ;
+    geo:long "-118.91416666666667"^^xsd:float .
+
+<http://dbpedia.org/resource/Las_Lomas,_California>
+    georss:point "36.86527777777778 -121.735"@en ;
+    a gml:_Feature ;
+    geo:lat "36.86527777777778"^^xsd:float ;
+    geo:long "-121.735"^^xsd:float .
+
+<http://dbpedia.org/resource/Lassen_County,_California>
+    georss:point "40.65 -120.58"@en ;
+    a gml:_Feature ;
+    geo:lat "40.65"^^xsd:float ;
+    geo:long "-120.58"^^xsd:float .
+
+<http://dbpedia.org/resource/Lathrop,_California>
+    georss:point "37.816944444444445 -121.28861111111111"@en ;
+    a gml:_Feature ;
+    geo:lat "37.816944444444445"^^xsd:float ;
+    geo:long "-121.28861111111111"^^xsd:float .
+
+<http://dbpedia.org/resource/Laytonville,_California>
+    georss:point "39.68833333333333 -123.48277777777778"@en ;
+    a gml:_Feature ;
+    geo:lat "39.68833333333333"^^xsd:float ;
+    geo:long "-123.48277777777778"^^xsd:float .
+
+<http://dbpedia.org/resource/Le_Grand,_California>
+    georss:point "37.228611111111114 -120.24833333333333"@en ;
+    a gml:_Feature ;
+    geo:lat "37.228611111111114"^^xsd:float ;
+    geo:long "-120.24833333333333"^^xsd:float .
+
+<http://dbpedia.org/resource/Lemon_Cove,_California>
+    georss:point "36.381388888888885 -119.02583333333334"@en ;
+    a gml:_Feature ;
+    geo:lat "36.381388888888885"^^xsd:float ;
+    geo:long "-119.02583333333334"^^xsd:float .
+
+<http://dbpedia.org/resource/Lemon_Grove,_California>
+    georss:point "32.733333333333334 -117.03361111111111"@en ;
+    a gml:_Feature ;
+    geo:lat "32.733333333333334"^^xsd:float ;
+    geo:long "-117.03361111111111"^^xsd:float .
+
+<http://dbpedia.org/resource/Lemoore,_California>
+    georss:point "36.30083333333334 -119.78277777777778"@en ;
+    a gml:_Feature ;
+    geo:lat "36.30083333333334"^^xsd:float ;
+    geo:long "-119.78277777777778"^^xsd:float .
+
+<http://dbpedia.org/resource/Lemoore_Station,_California>
+    georss:point "36.260555555555555 -119.89194444444445"@en ;
+    a gml:_Feature ;
+    geo:lat "36.260555555555555"^^xsd:float ;
+    geo:long "-119.89194444444445"^^xsd:float .
+
+<http://dbpedia.org/resource/Lenwood,_California>
+    georss:point "34.88333333333333 -117.1"@en ;
+    a gml:_Feature ;
+    geo:lat "34.88333333333333"^^xsd:float ;
+    geo:long "-117.1"^^xsd:float .
+
+<http://dbpedia.org/resource/Lewiston,_California>
+    georss:point "40.69916666666667 -122.81055555555555"@en ;
+    a gml:_Feature ;
+    geo:lat "40.69916666666667"^^xsd:float ;
+    geo:long "-122.81055555555555"^^xsd:float .
+
+<http://dbpedia.org/resource/Lexington_Hills,_California>
+    georss:point "37.157695 -121.984013"@en ;
+    a gml:_Feature ;
+    geo:lat "37.157695"^^xsd:float ;
+    geo:long "-121.984013"^^xsd:float .
+
+<http://dbpedia.org/resource/Lincoln,_California>
+    georss:point "38.88722222222222 -121.29611111111112"@en ;
+    a gml:_Feature ;
+    geo:lat "38.88722222222222"^^xsd:float ;
+    geo:long "-121.29611111111112"^^xsd:float .
+
+<http://dbpedia.org/resource/Lincoln_Village,_California>
+    georss:point "38.00416666666667 -121.33444444444444"@en ;
+    a gml:_Feature ;
+    geo:lat "38.00416666666667"^^xsd:float ;
+    geo:long "-121.33444444444444"^^xsd:float .
+
+<http://dbpedia.org/resource/Linda,_California>
+    georss:point "39.12777777777778 -121.55083333333333"@en ;
+    a gml:_Feature ;
+    geo:lat "39.12777777777778"^^xsd:float ;
+    geo:long "-121.55083333333333"^^xsd:float .
+
+<http://dbpedia.org/resource/Linden,_California>
+    georss:point "38.02 -121.09138888888889"@en ;
+    a gml:_Feature ;
+    geo:lat "38.02"^^xsd:float ;
+    geo:long "-121.09138888888889"^^xsd:float .
+
+<http://dbpedia.org/resource/Lindsay,_California>
+    georss:point "36.2 -119.08333333333333"@en ;
+    a gml:_Feature ;
+    geo:lat "36.2"^^xsd:float ;
+    geo:long "-119.08333333333333"^^xsd:float .
+
+<http://dbpedia.org/resource/Little_Grass_Valley,_California>
+    georss:point "39.774166666666666 -121.00527777777778"@en ;
+    a gml:_Feature ;
+    geo:lat "39.774166666666666"^^xsd:float ;
+    geo:long "-121.00527777777778"^^xsd:float .
+
+<http://dbpedia.org/resource/Live_Oak,_Santa_Cruz_County,_California>
+    georss:point "36.98138888888889 -121.98055555555555"@en ;
+    a gml:_Feature ;
+    geo:lat "36.98138888888889"^^xsd:float ;
+    geo:long "-121.98055555555555"^^xsd:float .
+
+<http://dbpedia.org/resource/Live_Oak,_Sutter_County,_California>
+    georss:point "39.27444444444444 -121.66194444444444"@en ;
+    a gml:_Feature ;
+    geo:lat "39.27444444444444"^^xsd:float ;
+    geo:long "-121.66194444444444"^^xsd:float .
+
+<http://dbpedia.org/resource/Livingston,_California>
+    georss:point "37.386944444444445 -120.72361111111111"@en ;
+    a gml:_Feature ;
+    geo:lat "37.386944444444445"^^xsd:float ;
+    geo:long "-120.72361111111111"^^xsd:float .
+
+<http://dbpedia.org/resource/Lockeford,_California>
+    georss:point "38.1575 -121.15138888888889"@en ;
+    a gml:_Feature ;
+    geo:lat "38.1575"^^xsd:float ;
+    geo:long "-121.15138888888889"^^xsd:float .
+
+<http://dbpedia.org/resource/Loma_Rica,_California>
+    georss:point "39.31194444444444 -121.41777777777777"@en ;
+    a gml:_Feature ;
+    geo:lat "39.31194444444444"^^xsd:float ;
+    geo:long "-121.41777777777777"^^xsd:float .
+
+<http://dbpedia.org/resource/Lomita,_California>
+    georss:point "33.79333333333334 -118.31611111111111"@en ;
+    a gml:_Feature ;
+    geo:lat "33.79333333333334"^^xsd:float ;
+    geo:long "-118.31611111111111"^^xsd:float .
+
+<http://dbpedia.org/resource/Lompoc,_California>
+    georss:point "34.64611111111111 -120.46027777777778"@en ;
+    a gml:_Feature ;
+    geo:lat "34.64611111111111"^^xsd:float ;
+    geo:long "-120.46027777777778"^^xsd:float .
+
+<http://dbpedia.org/resource/London,_California>
+    georss:point "36.47611111111111 -119.44222222222223"@en ;
+    a gml:_Feature ;
+    geo:lat "36.47611111111111"^^xsd:float ;
+    geo:long "-119.44222222222223"^^xsd:float .
+
+<http://dbpedia.org/resource/Lone_Pine,_California>
+    georss:point "36.588055555555556 -118.05194444444444"@en ;
+    a gml:_Feature ;
+    geo:lat "36.588055555555556"^^xsd:float ;
+    geo:long "-118.05194444444444"^^xsd:float .
+
+<http://dbpedia.org/resource/Loomis,_California>
+    georss:point "38.81638888888889 -121.19277777777778"@en ;
+    a gml:_Feature ;
+    geo:lat "38.81638888888889"^^xsd:float ;
+    geo:long "-121.19277777777778"^^xsd:float .
+
+<http://dbpedia.org/resource/Los_Alamos,_California>
+    georss:point "34.74194444444444 -120.27527777777777"@en ;
+    a gml:_Feature ;
+    geo:lat "34.74194444444444"^^xsd:float ;
+    geo:long "-120.27527777777777"^^xsd:float .
+
+<http://dbpedia.org/resource/Los_Altos,_California>
+    georss:point "37.36805555555556 -122.0975"@en ;
+    a gml:_Feature ;
+    geo:lat "37.36805555555556"^^xsd:float ;
+    geo:long "-122.0975"^^xsd:float .
+
+<http://dbpedia.org/resource/Los_Altos_Hills,_California>
+    georss:point "37.37138888888889 -122.1375"@en ;
+    a gml:_Feature ;
+    geo:lat "37.37138888888889"^^xsd:float ;
+    geo:long "-122.1375"^^xsd:float .
+
+<http://dbpedia.org/resource/Los_Banos,_California>
+    georss:point "37.05833333333333 -120.85"@en ;
+    a gml:_Feature ;
+    geo:lat "37.05833333333333"^^xsd:float ;
+    geo:long "-120.85"^^xsd:float .
+
+<http://dbpedia.org/resource/Los_Gatos,_California>
+    georss:point "37.236111111111114 -121.96166666666667"@en ;
+    a gml:_Feature ;
+    geo:lat "37.236111111111114"^^xsd:float ;
+    geo:long "-121.96166666666667"^^xsd:float .
+
+<http://dbpedia.org/resource/Los_Molinos,_California>
+    georss:point "40.02444444444444 -122.09944444444444"@en ;
+    a gml:_Feature ;
+    geo:lat "40.02444444444444"^^xsd:float ;
+    geo:long "-122.09944444444444"^^xsd:float .
+
+<http://dbpedia.org/resource/Lost_Hills,_California>
+    georss:point "35.61638888888889 -119.69416666666666"@en ;
+    a gml:_Feature ;
+    geo:lat "35.61638888888889"^^xsd:float ;
+    geo:long "-119.69416666666666"^^xsd:float .
+
+<http://dbpedia.org/resource/Loyalton,_California>
+    georss:point "39.67666666666667 -120.24305555555556"@en ;
+    a gml:_Feature ;
+    geo:lat "39.67666666666667"^^xsd:float ;
+    geo:long "-120.24305555555556"^^xsd:float .
+
+<http://dbpedia.org/resource/Loyola,_California>
+    georss:point "37.35138888888889 -122.10055555555556"@en ;
+    a gml:_Feature ;
+    geo:lat "37.35138888888889"^^xsd:float ;
+    geo:long "-122.10055555555556"^^xsd:float .
+
+<http://dbpedia.org/resource/Macdoel,_California>
+    georss:point "41.82666666666667 -122.00527777777778"@en ;
+    a gml:_Feature ;
+    geo:lat "41.82666666666667"^^xsd:float ;
+    geo:long "-122.00527777777778"^^xsd:float .
+
+<http://dbpedia.org/resource/Madera,_California>
+    georss:point "36.96138888888889 -120.06083333333333"@en ;
+    a gml:_Feature ;
+    geo:lat "36.96138888888889"^^xsd:float ;
+    geo:long "-120.06083333333333"^^xsd:float .
+
+<http://dbpedia.org/resource/Madera_Acres,_California>
+    georss:point "37.01916666666666 -120.06694444444445"@en ;
+    a gml:_Feature ;
+    geo:lat "37.01916666666666"^^xsd:float ;
+    geo:long "-120.06694444444445"^^xsd:float .
+
+<http://dbpedia.org/resource/Madera_County,_California>
+    georss:point "37.22 -119.77"@en ;
+    a gml:_Feature ;
+    geo:lat "37.22"^^xsd:float ;
+    geo:long "-119.77"^^xsd:float .
+
+<http://dbpedia.org/resource/Malibu,_California>
+    georss:point "34.03055555555556 -118.7786111111111"@en ;
+    a gml:_Feature ;
+    geo:lat "34.03055555555556"^^xsd:float ;
+    geo:long "-118.7786111111111"^^xsd:float .
+
+<http://dbpedia.org/resource/Manhattan_Beach,_California>
+    georss:point "33.888888888888886 -118.40527777777778"@en ;
+    a gml:_Feature ;
+    geo:lat "33.888888888888886"^^xsd:float ;
+    geo:long "-118.40527777777778"^^xsd:float .
+
+<http://dbpedia.org/resource/Manton,_California>
+    georss:point "40.41888888888889 -121.86361111111111"@en ;
+    a gml:_Feature ;
+    geo:lat "40.41888888888889"^^xsd:float ;
+    geo:long "-121.86361111111111"^^xsd:float .
+
+<http://dbpedia.org/resource/Marin_County,_California>
+    georss:point "38.04 -122.74"@en ;
+    a gml:_Feature ;
+    geo:lat "38.04"^^xsd:float ;
+    geo:long "-122.74"^^xsd:float .
+
+<http://dbpedia.org/resource/Marina,_California>
+    georss:point "36.684444444444445 -121.80222222222223"@en ;
+    a gml:_Feature ;
+    geo:lat "36.684444444444445"^^xsd:float ;
+    geo:long "-121.80222222222223"^^xsd:float .
+
+<http://dbpedia.org/resource/Mariposa,_California>
+    georss:point "37.485 -119.96638888888889"@en ;
+    a gml:_Feature ;
+    geo:lat "37.485"^^xsd:float ;
+    geo:long "-119.96638888888889"^^xsd:float .
+
+<http://dbpedia.org/resource/Mariposa_County,_California>
+    georss:point "37.58 -119.91"@en ;
+    a gml:_Feature ;
+    geo:lat "37.58"^^xsd:float ;
+    geo:long "-119.91"^^xsd:float .
+
+<http://dbpedia.org/resource/Marysville,_California>
+    georss:point "39.145833333333336 -121.59138888888889"@en ;
+    a gml:_Feature ;
+    geo:lat "39.145833333333336"^^xsd:float ;
+    geo:long "-121.59138888888889"^^xsd:float .
+
+<http://dbpedia.org/resource/Maywood,_California>
+    georss:point "33.98777777777778 -118.18666666666667"@en ;
+    a gml:_Feature ;
+    geo:lat "33.98777777777778"^^xsd:float ;
+    geo:long "-118.18666666666667"^^xsd:float .
+
+<http://dbpedia.org/resource/McArthur,_California>
+    georss:point "41.050555555555555 -121.39972222222222"@en ;
+    a gml:_Feature ;
+    geo:lat "41.050555555555555"^^xsd:float ;
+    geo:long "-121.39972222222222"^^xsd:float .
+
+<http://dbpedia.org/resource/McCloud,_California>
+    georss:point "41.25472222222222 -122.13638888888889"@en ;
+    a gml:_Feature ;
+    geo:lat "41.25472222222222"^^xsd:float ;
+    geo:long "-122.13638888888889"^^xsd:float .
+
+<http://dbpedia.org/resource/McKittrick,_California>
+    georss:point "35.30555555555556 -119.6225"@en ;
+    a gml:_Feature ;
+    geo:lat "35.30555555555556"^^xsd:float ;
+    geo:long "-119.6225"^^xsd:float .
+
+<http://dbpedia.org/resource/Meadow_Valley,_California>
+    georss:point "39.93694444444444 -121.06194444444445"@en ;
+    a gml:_Feature ;
+    geo:lat "39.93694444444444"^^xsd:float ;
+    geo:long "-121.06194444444445"^^xsd:float .
+
+<http://dbpedia.org/resource/Meadow_Vista,_California>
+    georss:point "39.00388888888889 -121.02916666666667"@en ;
+    a gml:_Feature ;
+    geo:lat "39.00388888888889"^^xsd:float ;
+    geo:long "-121.02916666666667"^^xsd:float .
+
+<http://dbpedia.org/resource/Meiners_Oaks,_California>
+    georss:point "34.44972222222222 -119.27527777777777"@en ;
+    a gml:_Feature ;
+    geo:lat "34.44972222222222"^^xsd:float ;
+    geo:long "-119.27527777777777"^^xsd:float .
+
+<http://dbpedia.org/resource/Mendocino,_California>
+    georss:point "39.30777777777778 -123.79944444444445"@en ;
+    a gml:_Feature ;
+    geo:lat "39.30777777777778"^^xsd:float ;
+    geo:long "-123.79944444444445"^^xsd:float .
+
+<http://dbpedia.org/resource/Mendocino_County,_California>
+    georss:point "39.43 -123.43"@en ;
+    a gml:_Feature ;
+    geo:lat "39.43"^^xsd:float ;
+    geo:long "-123.43"^^xsd:float .
+
+<http://dbpedia.org/resource/Mentone,_California>
+    georss:point "34.06472222222222 -117.12027777777777"@en ;
+    a gml:_Feature ;
+    geo:lat "34.06472222222222"^^xsd:float ;
+    geo:long "-117.12027777777777"^^xsd:float .
+
+<http://dbpedia.org/resource/Merced,_California>
+    georss:point "37.3 -120.48333333333333"@en ;
+    a gml:_Feature ;
+    geo:lat "37.3"^^xsd:float ;
+    geo:long "-120.48333333333333"^^xsd:float .
+
+<http://dbpedia.org/resource/Merced_County,_California>
+    georss:point "37.19 -120.71"@en ;
+    a gml:_Feature ;
+    geo:lat "37.19"^^xsd:float ;
+    geo:long "-120.71"^^xsd:float .
+
+<http://dbpedia.org/resource/Mesa,_California>
+    georss:point "37.42166666666667 -118.54416666666667"@en ;
+    a gml:_Feature ;
+    geo:lat "37.42166666666667"^^xsd:float ;
+    geo:long "-118.54416666666667"^^xsd:float .
+
+<http://dbpedia.org/resource/Mettler,_California>
+    georss:point "35.06388888888889 -118.97"@en ;
+    a gml:_Feature ;
+    geo:lat "35.06388888888889"^^xsd:float ;
+    geo:long "-118.97"^^xsd:float .
+
+<http://dbpedia.org/resource/Mi-Wuk_Village,_California>
+    georss:point "38.06111111111111 -120.1875"@en ;
+    a gml:_Feature ;
+    geo:lat "38.06111111111111"^^xsd:float ;
+    geo:long "-120.1875"^^xsd:float .
+
+<http://dbpedia.org/resource/Millville,_California>
+    georss:point "40.55583333333333 -122.18527777777778"@en ;
+    a gml:_Feature ;
+    geo:lat "40.55583333333333"^^xsd:float ;
+    geo:long "-122.18527777777778"^^xsd:float .
+
+<http://dbpedia.org/resource/Mineral,_California>
+    georss:point "40.355555555555554 -121.56722222222223"@en ;
+    a gml:_Feature ;
+    geo:lat "40.355555555555554"^^xsd:float ;
+    geo:long "-121.56722222222223"^^xsd:float .
+
+<http://dbpedia.org/resource/Mira_Monte,_California>
+    georss:point "34.427463 -119.290725"@en ;
+    a gml:_Feature ;
+    geo:lat "34.427463"^^xsd:float ;
+    geo:long "-119.290725"^^xsd:float .
+
+<http://dbpedia.org/resource/Mission_Canyon,_California>
+    georss:point "34.44972222222222 -119.71638888888889"@en ;
+    a gml:_Feature ;
+    geo:lat "34.44972222222222"^^xsd:float ;
+    geo:long "-119.71638888888889"^^xsd:float .
+
+<http://dbpedia.org/resource/Mission_Hills,_California>
+    georss:point "34.689166666666665 -120.43611111111112"@en ;
+    a gml:_Feature ;
+    geo:lat "34.689166666666665"^^xsd:float ;
+    geo:long "-120.43611111111112"^^xsd:float .
+
+<http://dbpedia.org/resource/Mission_Viejo,_California>
+    georss:point "33.61277777777778 -117.65611111111112"@en ;
+    a gml:_Feature ;
+    geo:lat "33.61277777777778"^^xsd:float ;
+    geo:long "-117.65611111111112"^^xsd:float .
+
+<http://dbpedia.org/resource/Modoc_County,_California>
+    georss:point "41.6 -120.72"@en ;
+    a gml:_Feature ;
+    geo:lat "41.6"^^xsd:float ;
+    geo:long "-120.72"^^xsd:float .
+
+<http://dbpedia.org/resource/Mohawk_Vista,_California>
+    georss:point "39.781666666666666 -120.58027777777778"@en ;
+    a gml:_Feature ;
+    geo:lat "39.781666666666666"^^xsd:float ;
+    geo:long "-120.58027777777778"^^xsd:float .
+
+<http://dbpedia.org/resource/Mojave,_California>
+    georss:point "35.0525 -118.17388888888888"@en ;
+    a gml:_Feature ;
+    geo:lat "35.0525"^^xsd:float ;
+    geo:long "-118.17388888888888"^^xsd:float .
+
+<http://dbpedia.org/resource/Mono_Vista,_California>
+    georss:point "38.01222222222222 -120.27083333333333"@en ;
+    a gml:_Feature ;
+    geo:lat "38.01222222222222"^^xsd:float ;
+    geo:long "-120.27083333333333"^^xsd:float .
+
+<http://dbpedia.org/resource/Montague,_California>
+    georss:point "41.727222222222224 -122.52638888888889"@en ;
+    a gml:_Feature ;
+    geo:lat "41.727222222222224"^^xsd:float ;
+    geo:long "-122.52638888888889"^^xsd:float .
+
+<http://dbpedia.org/resource/Montara,_California>
+    georss:point "37.539722222222224 -122.50638888888889"@en ;
+    a gml:_Feature ;
+    geo:lat "37.539722222222224"^^xsd:float ;
+    geo:long "-122.50638888888889"^^xsd:float .
+
+<http://dbpedia.org/resource/Monte_Sereno,_California>
+    georss:point "37.238194 -121.989475"@en ;
+    a gml:_Feature ;
+    geo:lat "37.238194"^^xsd:float ;
+    geo:long "-121.989475"^^xsd:float .
+
+<http://dbpedia.org/resource/Monterey_County,_California>
+    georss:point "36.24 -121.31"@en ;
+    a gml:_Feature ;
+    geo:lat "36.24"^^xsd:float ;
+    geo:long "-121.31"^^xsd:float .
+
+<http://dbpedia.org/resource/Monterey_Park,_California>
+    georss:point "34.049199 -118.135561"@en ;
+    a gml:_Feature ;
+    geo:lat "34.049199"^^xsd:float ;
+    geo:long "-118.135561"^^xsd:float .
+
+<http://dbpedia.org/resource/Montgomery_Creek,_California>
+    georss:point "40.84027777777778 -121.91972222222222"@en ;
+    a gml:_Feature ;
+    geo:lat "40.84027777777778"^^xsd:float ;
+    geo:long "-121.91972222222222"^^xsd:float .
+
+<http://dbpedia.org/resource/Morada,_California>
+    georss:point "38.04 -121.24944444444445"@en ;
+    a gml:_Feature ;
+    geo:lat "38.04"^^xsd:float ;
+    geo:long "-121.24944444444445"^^xsd:float .
+
+<http://dbpedia.org/resource/Morongo_Valley,_California>
+    georss:point "34.055277777777775 -116.58222222222223"@en ;
+    a gml:_Feature ;
+    geo:lat "34.055277777777775"^^xsd:float ;
+    geo:long "-116.58222222222223"^^xsd:float .
+
+<http://dbpedia.org/resource/Morro_Bay,_California>
+    georss:point "35.37916666666667 -120.85333333333334"@en ;
+    a gml:_Feature ;
+    geo:lat "35.37916666666667"^^xsd:float ;
+    geo:long "-120.85333333333334"^^xsd:float .
+
+<http://dbpedia.org/resource/Moss_Landing,_California>
+    georss:point "36.80444444444444 -121.78694444444444"@en ;
+    a gml:_Feature ;
+    geo:lat "36.80444444444444"^^xsd:float ;
+    geo:long "-121.78694444444444"^^xsd:float .
+
+<http://dbpedia.org/resource/Mount_Hebron,_California>
+    georss:point "41.78638888888889 -122.005"@en ;
+    a gml:_Feature ;
+    geo:lat "41.78638888888889"^^xsd:float ;
+    geo:long "-122.005"^^xsd:float .
+
+<http://dbpedia.org/resource/Mountain_Mesa,_California>
+    georss:point "35.63944444444444 -118.40555555555555"@en ;
+    a gml:_Feature ;
+    geo:lat "35.63944444444444"^^xsd:float ;
+    geo:long "-118.40555555555555"^^xsd:float .
+
+<http://dbpedia.org/resource/Mountain_View,_California>
+    georss:point "37.42194444444444 -122.08444444444444"@en ;
+    a gml:_Feature ;
+    geo:lat "37.42194444444444"^^xsd:float ;
+    geo:long "-122.08444444444444"^^xsd:float .
+
+<http://dbpedia.org/resource/Mountain_View_Acres,_California>
+    georss:point "34.496944444444445 -117.34861111111111"@en ;
+    a gml:_Feature ;
+    geo:lat "34.496944444444445"^^xsd:float ;
+    geo:long "-117.34861111111111"^^xsd:float .
+
+<http://dbpedia.org/resource/Murrieta,_California>
+    georss:point "33.56944444444444 -117.2025"@en ;
+    a gml:_Feature ;
+    geo:lat "33.56944444444444"^^xsd:float ;
+    geo:long "-117.2025"^^xsd:float .
+
+<http://dbpedia.org/resource/Murrieta_Hot_Springs,_California>
+    georss:point "33.562777777777775 -117.15555555555555"@en ;
+    a gml:_Feature ;
+    geo:lat "33.562777777777775"^^xsd:float ;
+    geo:long "-117.15555555555555"^^xsd:float .
+
+<http://dbpedia.org/resource/Muscoy,_California>
+    georss:point "34.15611111111111 -117.34666666666666"@en ;
+    a gml:_Feature ;
+    geo:lat "34.15611111111111"^^xsd:float ;
+    geo:long "-117.34666666666666"^^xsd:float .
+
+<http://dbpedia.org/resource/Napa_County,_California>
+    georss:point "38.5 -122.32"@en ;
+    a gml:_Feature ;
+    geo:lat "38.5"^^xsd:float ;
+    geo:long "-122.32"^^xsd:float .
+
+<http://dbpedia.org/resource/National_City,_California>
+    georss:point "32.670833333333334 -117.09277777777778"@en ;
+    a gml:_Feature ;
+    geo:lat "32.670833333333334"^^xsd:float ;
+    geo:long "-117.09277777777778"^^xsd:float .
+
+<http://dbpedia.org/resource/Nebo_Center,_California>
+    georss:point "34.870737 -116.950718"@en ;
+    a gml:_Feature ;
+    geo:lat "34.870737"^^xsd:float ;
+    geo:long "-116.950718"^^xsd:float .
+
+<http://dbpedia.org/resource/Nevada_City,_California>
+    georss:point "39.261435 -121.018602"@en ;
+    a gml:_Feature ;
+    geo:lat "39.261435"^^xsd:float ;
+    geo:long "-121.018602"^^xsd:float .
+
+<http://dbpedia.org/resource/Nevada_County,_California>
+    georss:point "39.3 -120.77"@en ;
+    a gml:_Feature ;
+    geo:lat "39.3"^^xsd:float ;
+    geo:long "-120.77"^^xsd:float .
+
+<http://dbpedia.org/resource/Newman,_California>
+    georss:point "37.315 -121.0225"@en ;
+    a gml:_Feature ;
+    geo:lat "37.315"^^xsd:float ;
+    geo:long "-121.0225"^^xsd:float .
+
+<http://dbpedia.org/resource/Newport_Beach,_California>
+    georss:point "33.61666666666667 -117.8975"@en ;
+    a gml:_Feature ;
+    geo:lat "33.61666666666667"^^xsd:float ;
+    geo:long "-117.8975"^^xsd:float .
+
+<http://dbpedia.org/resource/Nipomo,_California>
+    georss:point "35.03 -120.49"@en ;
+    a gml:_Feature ;
+    geo:lat "35.03"^^xsd:float ;
+    geo:long "-120.49"^^xsd:float .
+
+<http://dbpedia.org/resource/Norco,_California>
+    georss:point "33.92722222222222 -117.56138888888889"@en ;
+    a gml:_Feature ;
+    geo:lat "33.92722222222222"^^xsd:float ;
+    geo:long "-117.56138888888889"^^xsd:float .
+
+<http://dbpedia.org/resource/North_Auburn,_California>
+    georss:point "38.93388888888889 -121.0838888888889"@en ;
+    a gml:_Feature ;
+    geo:lat "38.93388888888889"^^xsd:float ;
+    geo:long "-121.0838888888889"^^xsd:float .
+
+<http://dbpedia.org/resource/North_Edwards,_California>
+    georss:point "35.016666666666666 -117.83277777777778"@en ;
+    a gml:_Feature ;
+    geo:lat "35.016666666666666"^^xsd:float ;
+    geo:long "-117.83277777777778"^^xsd:float .
+
+<http://dbpedia.org/resource/North_El_Monte,_California>
+    georss:point "34.10305555555556 -118.02333333333333"@en ;
+    a gml:_Feature ;
+    geo:lat "34.10305555555556"^^xsd:float ;
+    geo:long "-118.02333333333333"^^xsd:float .
+
+<http://dbpedia.org/resource/North_Fair_Oaks,_California>
+    georss:point "37.47527777777778 -122.20361111111112"@en ;
+    a gml:_Feature ;
+    geo:lat "37.47527777777778"^^xsd:float ;
+    geo:long "-122.20361111111112"^^xsd:float .
+
+<http://dbpedia.org/resource/North_Highlands,_California>
+    georss:point "38.67305555555556 -121.37277777777778"@en ;
+    a gml:_Feature ;
+    geo:lat "38.67305555555556"^^xsd:float ;
+    geo:long "-121.37277777777778"^^xsd:float .
+
+<http://dbpedia.org/resource/North_Tustin,_California>
+    georss:point "33.765 -117.79916666666666"@en ;
+    a gml:_Feature ;
+    geo:lat "33.765"^^xsd:float ;
+    geo:long "-117.79916666666666"^^xsd:float .
+
+<http://dbpedia.org/resource/North_Woodbridge,_California>
+    georss:point "38.16027777777778 -121.30888888888889"@en ;
+    a gml:_Feature ;
+    geo:lat "38.16027777777778"^^xsd:float ;
+    geo:long "-121.30888888888889"^^xsd:float .
+
+<http://dbpedia.org/resource/Norwalk,_California>
+    georss:point "33.90694444444444 -118.08333333333333"@en ;
+    a gml:_Feature ;
+    geo:lat "33.90694444444444"^^xsd:float ;
+    geo:long "-118.08333333333333"^^xsd:float .
+
+<http://dbpedia.org/resource/Nuevo,_California>
+    georss:point "33.80694444444445 -117.12861111111111"@en ;
+    a gml:_Feature ;
+    geo:lat "33.80694444444445"^^xsd:float ;
+    geo:long "-117.12861111111111"^^xsd:float .
+
+<http://dbpedia.org/resource/Oak_View,_California>
+    georss:point "34.3975 -119.3"@en ;
+    a gml:_Feature ;
+    geo:lat "34.3975"^^xsd:float ;
+    geo:long "-119.3"^^xsd:float .
+
+<http://dbpedia.org/resource/Oakhurst,_California>
+    georss:point "37.32805555555556 -119.64944444444444"@en ;
+    a gml:_Feature ;
+    geo:lat "37.32805555555556"^^xsd:float ;
+    geo:long "-119.64944444444444"^^xsd:float .
+
+<http://dbpedia.org/resource/Oakland,_California>
+    georss:point "37.805302 -122.272539"@en ;
+    a gml:_Feature ;
+    geo:lat "37.805302"^^xsd:float ;
+    geo:long "-122.272539"^^xsd:float .
+
+<http://dbpedia.org/resource/Occidental,_California>
+    georss:point "38.4074146 -122.9483307"@en ;
+    a gml:_Feature ;
+    geo:lat "38.4074146"^^xsd:float ;
+    geo:long "-122.9483307"^^xsd:float .
+
+<http://dbpedia.org/resource/Oceano,_California>
+    georss:point "35.102777777777774 -120.61138888888888"@en ;
+    a gml:_Feature ;
+    geo:lat "35.102777777777774"^^xsd:float ;
+    geo:long "-120.61138888888888"^^xsd:float .
+
+<http://dbpedia.org/resource/Oceanside,_California>
+    georss:point "33.211666666666666 -117.32583333333334"@en ;
+    a gml:_Feature ;
+    geo:lat "33.211666666666666"^^xsd:float ;
+    geo:long "-117.32583333333334"^^xsd:float .
+
+<http://dbpedia.org/resource/Ocotillo,_California>
+    georss:point "32.73861111111111 -115.99416666666667"@en ;
+    a gml:_Feature ;
+    geo:lat "32.73861111111111"^^xsd:float ;
+    geo:long "-115.99416666666667"^^xsd:float .
+
+<http://dbpedia.org/resource/Ojai,_California>
+    georss:point "34.44916666666666 -119.24666666666667"@en ;
+    a gml:_Feature ;
+    geo:lat "34.44916666666666"^^xsd:float ;
+    geo:long "-119.24666666666667"^^xsd:float .
+
+<http://dbpedia.org/resource/Olivehurst,_California>
+    georss:point "39.095555555555556 -121.55222222222223"@en ;
+    a gml:_Feature ;
+    geo:lat "39.095555555555556"^^xsd:float ;
+    geo:long "-121.55222222222223"^^xsd:float .
+
+<http://dbpedia.org/resource/Onyx,_California>
+    georss:point "35.69027777777778 -118.22055555555555"@en ;
+    a gml:_Feature ;
+    geo:lat "35.69027777777778"^^xsd:float ;
+    geo:long "-118.22055555555555"^^xsd:float .
+
+<http://dbpedia.org/resource/Opal_Cliffs,_California>
+    georss:point "36.96138888888889 -121.97083333333333"@en ;
+    a gml:_Feature ;
+    geo:lat "36.96138888888889"^^xsd:float ;
+    geo:long "-121.97083333333333"^^xsd:float .
+
+<http://dbpedia.org/resource/Orange_County,_California>
+    georss:point "33.67 -117.78"@en ;
+    a gml:_Feature ;
+    geo:lat "33.67"^^xsd:float ;
+    geo:long "-117.78"^^xsd:float .
+
+<http://dbpedia.org/resource/Orangevale,_California>
+    georss:point "38.68194444444445 -121.21388888888889"@en ;
+    a gml:_Feature ;
+    geo:lat "38.68194444444445"^^xsd:float ;
+    geo:long "-121.21388888888889"^^xsd:float .
+
+<http://dbpedia.org/resource/Orcutt,_California>
+    georss:point "34.87444444444444 -120.42805555555556"@en ;
+    a gml:_Feature ;
+    geo:lat "34.87444444444444"^^xsd:float ;
+    geo:long "-120.42805555555556"^^xsd:float .
+
+<http://dbpedia.org/resource/Orosi,_California>
+    georss:point "36.5425 -119.28888888888889"@en ;
+    a gml:_Feature ;
+    geo:lat "36.5425"^^xsd:float ;
+    geo:long "-119.28888888888889"^^xsd:float .
+
+<http://dbpedia.org/resource/Oroville,_California>
+    georss:point "39.48861111111111 -121.48861111111111"@en ;
+    a gml:_Feature ;
+    geo:lat "39.48861111111111"^^xsd:float ;
+    geo:long "-121.48861111111111"^^xsd:float .
+
+<http://dbpedia.org/resource/Oroville_East,_California>
+    georss:point "39.51166666666666 -121.50444444444445"@en ;
+    a gml:_Feature ;
+    geo:lat "39.51166666666666"^^xsd:float ;
+    geo:long "-121.50444444444445"^^xsd:float .
+
+<http://dbpedia.org/resource/Oxnard,_California>
+    georss:point "34.19138888888889 -119.1825"@en ;
+    a gml:_Feature ;
+    geo:lat "34.19138888888889"^^xsd:float ;
+    geo:long "-119.1825"^^xsd:float .
+
+<http://dbpedia.org/resource/Pacific_Grove,_California>
+    georss:point "36.619166666666665 -121.92111111111112"@en ;
+    a gml:_Feature ;
+    geo:lat "36.619166666666665"^^xsd:float ;
+    geo:long "-121.92111111111112"^^xsd:float .
+
+<http://dbpedia.org/resource/Pajaro,_California>
+    georss:point "36.90416666666667 -121.74861111111112"@en ;
+    a gml:_Feature ;
+    geo:lat "36.90416666666667"^^xsd:float ;
+    geo:long "-121.74861111111112"^^xsd:float .
+
+<http://dbpedia.org/resource/Palmdale,_California>
+    georss:point "34.57944444444445 -118.11666666666666"@en ;
+    a gml:_Feature ;
+    geo:lat "34.57944444444445"^^xsd:float ;
+    geo:long "-118.11666666666666"^^xsd:float .
+
+<http://dbpedia.org/resource/Palo_Alto,_California>
+    georss:point "37.44555555555556 -122.16083333333333"@en ;
+    a gml:_Feature ;
+    geo:lat "37.44555555555556"^^xsd:float ;
+    geo:long "-122.16083333333333"^^xsd:float .
+
+<http://dbpedia.org/resource/Palo_Cedro,_California>
+    georss:point "40.55111111111111 -122.23416666666667"@en ;
+    a gml:_Feature ;
+    geo:lat "40.55111111111111"^^xsd:float ;
+    geo:long "-122.23416666666667"^^xsd:float .
+
+<http://dbpedia.org/resource/Palo_Verde,_California>
+    georss:point "33.43277777777778 -114.73222222222222"@en ;
+    a gml:_Feature ;
+    geo:lat "33.43277777777778"^^xsd:float ;
+    geo:long "-114.73222222222222"^^xsd:float .
+
+<http://dbpedia.org/resource/Palos_Verdes_Estates,_California>
+    georss:point "33.786944444444444 -118.39666666666666"@en ;
+    a gml:_Feature ;
+    geo:lat "33.786944444444444"^^xsd:float ;
+    geo:long "-118.39666666666666"^^xsd:float .
+
+<http://dbpedia.org/resource/Paradise,_California>
+    georss:point "39.75694444444444 -121.57111111111111"@en ;
+    a gml:_Feature ;
+    geo:lat "39.75694444444444"^^xsd:float ;
+    geo:long "-121.57111111111111"^^xsd:float .
+
+<http://dbpedia.org/resource/Parksdale,_California>
+    georss:point "36.94722222222222 -120.02305555555556"@en ;
+    a gml:_Feature ;
+    geo:lat "36.94722222222222"^^xsd:float ;
+    geo:long "-120.02305555555556"^^xsd:float .
+
+<http://dbpedia.org/resource/Parkway%E2%80%93South_Sacramento,_California>
+    georss:point "38.51166666666666 -121.45222222222222"@en ;
+    a gml:_Feature ;
+    geo:lat "38.51166666666666"^^xsd:float ;
+    geo:long "-121.45222222222222"^^xsd:float .
+
+<http://dbpedia.org/resource/Parkwood,_California>
+    georss:point "36.926944444444445 -120.04472222222222"@en ;
+    a gml:_Feature ;
+    geo:lat "36.926944444444445"^^xsd:float ;
+    geo:long "-120.04472222222222"^^xsd:float .
+
+<http://dbpedia.org/resource/Pasadena,_California>
+    georss:point "34.15611111111111 -118.13194444444444"@en ;
+    a gml:_Feature ;
+    geo:lat "34.15611111111111"^^xsd:float ;
+    geo:long "-118.13194444444444"^^xsd:float .
+
+<http://dbpedia.org/resource/Patterson,_California>
+    georss:point "37.473055555555554 -121.13277777777778"@en ;
+    a gml:_Feature ;
+    geo:lat "37.473055555555554"^^xsd:float ;
+    geo:long "-121.13277777777778"^^xsd:float .
+
+<http://dbpedia.org/resource/Paxton,_California>
+    georss:point "40.03666666666667 -120.99583333333334"@en ;
+    a gml:_Feature ;
+    geo:lat "40.03666666666667"^^xsd:float ;
+    geo:long "-120.99583333333334"^^xsd:float .
+
+<http://dbpedia.org/resource/Penn_Valley,_California>
+    georss:point "39.19833333333333 -121.18888888888888"@en ;
+    a gml:_Feature ;
+    geo:lat "39.19833333333333"^^xsd:float ;
+    geo:long "-121.18888888888888"^^xsd:float .
+
+<http://dbpedia.org/resource/Perris,_California>
+    georss:point "33.796576 -117.224382"@en ;
+    a gml:_Feature ;
+    geo:lat "33.796576"^^xsd:float ;
+    geo:long "-117.224382"^^xsd:float .
+
+<http://dbpedia.org/resource/Phoenix_Lake-Cedar_Ridge,_California>
+    georss:point "38.019444444444446 -120.29777777777778"@en ;
+    a gml:_Feature ;
+    geo:lat "38.019444444444446"^^xsd:float ;
+    geo:long "-120.29777777777778"^^xsd:float .
+
+<http://dbpedia.org/resource/Pico_Rivera,_California>
+    georss:point "33.98888888888889 -118.08916666666667"@en ;
+    a gml:_Feature ;
+    geo:lat "33.98888888888889"^^xsd:float ;
+    geo:long "-118.08916666666667"^^xsd:float .
+
+<http://dbpedia.org/resource/Piedmont,_California>
+    georss:point "37.821994 -122.231405"@en ;
+    a gml:_Feature ;
+    geo:lat "37.821994"^^xsd:float ;
+    geo:long "-122.231405"^^xsd:float .
+
+<http://dbpedia.org/resource/Pine_Hills,_California>
+    georss:point "40.73305555555555 -124.15222222222222"@en ;
+    a gml:_Feature ;
+    geo:lat "40.73305555555555"^^xsd:float ;
+    geo:long "-124.15222222222222"^^xsd:float .
+
+<http://dbpedia.org/resource/Pine_Valley,_California>
+    georss:point "32.82138888888889 -116.52916666666667"@en ;
+    a gml:_Feature ;
+    geo:lat "32.82138888888889"^^xsd:float ;
+    geo:long "-116.52916666666667"^^xsd:float .
+
+<http://dbpedia.org/resource/Piru,_California>
+    georss:point "34.407222222222224 -118.79972222222223"@en ;
+    a gml:_Feature ;
+    geo:lat "34.407222222222224"^^xsd:float ;
+    geo:long "-118.79972222222223"^^xsd:float .
+
+<http://dbpedia.org/resource/Pismo_Beach,_California>
+    georss:point "35.1552532 -120.672395"@en ;
+    a gml:_Feature ;
+    geo:lat "35.1552532"^^xsd:float ;
+    geo:long "-120.672395"^^xsd:float .
+
+<http://dbpedia.org/resource/Pixley,_California>
+    georss:point "35.97027777777778 -119.29083333333334"@en ;
+    a gml:_Feature ;
+    geo:lat "35.97027777777778"^^xsd:float ;
+    geo:long "-119.29083333333334"^^xsd:float .
+
+<http://dbpedia.org/resource/Placentia,_California>
+    georss:point "33.8825 -117.855"@en ;
+    a gml:_Feature ;
+    geo:lat "33.8825"^^xsd:float ;
+    geo:long "-117.855"^^xsd:float .
+
+<http://dbpedia.org/resource/Placer_County,_California>
+    georss:point "39.06 -120.73"@en ;
+    a gml:_Feature ;
+    geo:lat "39.06"^^xsd:float ;
+    geo:long "-120.73"^^xsd:float .
+
+<http://dbpedia.org/resource/Placerville,_California>
+    georss:point "38.729267 -120.803"@en ;
+    a gml:_Feature ;
+    geo:lat "38.729267"^^xsd:float ;
+    geo:long "-120.803"^^xsd:float .
+
+<http://dbpedia.org/resource/Planada,_California>
+    georss:point "37.28333333333333 -120.31666666666666"@en ;
+    a gml:_Feature ;
+    geo:lat "37.28333333333333"^^xsd:float ;
+    geo:long "-120.31666666666666"^^xsd:float .
+
+<http://dbpedia.org/resource/Pleasanton,_California>
+    georss:point "37.6725 -121.8825"@en ;
+    a gml:_Feature ;
+    geo:lat "37.6725"^^xsd:float ;
+    geo:long "-121.8825"^^xsd:float .
+
+<http://dbpedia.org/resource/Plumas_County,_California>
+    georss:point "40.01 -120.83"@en ;
+    a gml:_Feature ;
+    geo:lat "40.01"^^xsd:float ;
+    geo:long "-120.83"^^xsd:float .
+
+<http://dbpedia.org/resource/Plumas_Eureka,_California>
+    georss:point "39.789722222222224 -120.65166666666667"@en ;
+    a gml:_Feature ;
+    geo:lat "39.789722222222224"^^xsd:float ;
+    geo:long "-120.65166666666667"^^xsd:float .
+
+<http://dbpedia.org/resource/Plymouth,_California>
+    georss:point "38.481944444444444 -120.84472222222222"@en ;
+    a gml:_Feature ;
+    geo:lat "38.481944444444444"^^xsd:float ;
+    geo:long "-120.84472222222222"^^xsd:float .
+
+<http://dbpedia.org/resource/Point_Arena,_California>
+    georss:point "38.90888888888889 -123.69305555555556"@en ;
+    a gml:_Feature ;
+    geo:lat "38.90888888888889"^^xsd:float ;
+    geo:long "-123.69305555555556"^^xsd:float .
+
+<http://dbpedia.org/resource/Point_Reyes_Station,_California>
+    georss:point "38.06916666666667 -122.80694444444444"@en ;
+    a gml:_Feature ;
+    geo:lat "38.06916666666667"^^xsd:float ;
+    geo:long "-122.80694444444444"^^xsd:float .
+
+<http://dbpedia.org/resource/Pomona,_California>
+    georss:point "34.060833333333335 -117.75583333333333"@en ;
+    a gml:_Feature ;
+    geo:lat "34.060833333333335"^^xsd:float ;
+    geo:long "-117.75583333333333"^^xsd:float .
+
+<http://dbpedia.org/resource/Poplar-Cotton_Center,_California>
+    georss:point "36.05388888888889 -119.14472222222223"@en ;
+    a gml:_Feature ;
+    geo:lat "36.05388888888889"^^xsd:float ;
+    geo:long "-119.14472222222223"^^xsd:float .
+
+<http://dbpedia.org/resource/Port_Hueneme,_California>
+    georss:point "34.16027777777778 -119.19444444444444"@en ;
+    a gml:_Feature ;
+    geo:lat "34.16027777777778"^^xsd:float ;
+    geo:long "-119.19444444444444"^^xsd:float .
+
+<http://dbpedia.org/resource/Porterville,_California>
+    georss:point "36.06861111111111 -119.0275"@en ;
+    a gml:_Feature ;
+    geo:lat "36.06861111111111"^^xsd:float ;
+    geo:long "-119.0275"^^xsd:float .
+
+<http://dbpedia.org/resource/Portola,_California>
+    georss:point "39.810151 -120.469843"@en ;
+    a gml:_Feature ;
+    geo:lat "39.810151"^^xsd:float ;
+    geo:long "-120.469843"^^xsd:float .
+
+<http://dbpedia.org/resource/Portola_Hills,_California>
+    georss:point "33.68361111111111 -117.63277777777778"@en ;
+    a gml:_Feature ;
+    geo:lat "33.68361111111111"^^xsd:float ;
+    geo:long "-117.63277777777778"^^xsd:float .
+
+<http://dbpedia.org/resource/Portola_Valley,_California>
+    georss:point "37.375 -122.21861111111112"@en ;
+    a gml:_Feature ;
+    geo:lat "37.375"^^xsd:float ;
+    geo:long "-122.21861111111112"^^xsd:float .
+
+<http://dbpedia.org/resource/Poway,_California>
+    georss:point "32.97 -117.03861111111111"@en ;
+    a gml:_Feature ;
+    geo:lat "32.97"^^xsd:float ;
+    geo:long "-117.03861111111111"^^xsd:float .
+
+<http://dbpedia.org/resource/Prattville,_California>
+    georss:point "40.20805555555555 -121.15666666666667"@en ;
+    a gml:_Feature ;
+    geo:lat "40.20805555555555"^^xsd:float ;
+    geo:long "-121.15666666666667"^^xsd:float .
+
+<http://dbpedia.org/resource/Prunedale,_California>
+    georss:point "36.77583333333333 -121.66972222222222"@en ;
+    a gml:_Feature ;
+    geo:lat "36.77583333333333"^^xsd:float ;
+    geo:long "-121.66972222222222"^^xsd:float .
+
+<http://dbpedia.org/resource/Quail_Valley,_Menifee,_California>
+    georss:point "33.706595 -117.246094"@en ;
+    a gml:_Feature ;
+    geo:lat "33.706595"^^xsd:float ;
+    geo:long "-117.246094"^^xsd:float .
+
+<http://dbpedia.org/resource/Quartz_Hill,_California>
+    georss:point "34.65222222222222 -118.22055555555555"@en ;
+    a gml:_Feature ;
+    geo:lat "34.65222222222222"^^xsd:float ;
+    geo:long "-118.22055555555555"^^xsd:float .
+
+<http://dbpedia.org/resource/Quincy,_California>
+    georss:point "39.93638888888889 -120.94805555555556"@en ;
+    a gml:_Feature ;
+    geo:lat "39.93638888888889"^^xsd:float ;
+    geo:long "-120.94805555555556"^^xsd:float .
+
+<http://dbpedia.org/resource/Rainbow,_California>
+    georss:point "33.41111111111111 -117.14916666666667"@en ;
+    a gml:_Feature ;
+    geo:lat "33.41111111111111"^^xsd:float ;
+    geo:long "-117.14916666666667"^^xsd:float .
+
+<http://dbpedia.org/resource/Ramona,_California>
+    georss:point "33.041666666666664 -116.86805555555556"@en ;
+    a gml:_Feature ;
+    geo:lat "33.041666666666664"^^xsd:float ;
+    geo:long "-116.86805555555556"^^xsd:float .
+
+<http://dbpedia.org/resource/Rancho_Cordova,_California>
+    georss:point "38.585 -121.29722222222222"@en ;
+    a gml:_Feature ;
+    geo:lat "38.585"^^xsd:float ;
+    geo:long "-121.29722222222222"^^xsd:float .
+
+<http://dbpedia.org/resource/Rancho_Cucamonga,_California>
+    georss:point "34.123333333333335 -117.57944444444445"@en ;
+    a gml:_Feature ;
+    geo:lat "34.123333333333335"^^xsd:float ;
+    geo:long "-117.57944444444445"^^xsd:float .
+
+<http://dbpedia.org/resource/Rancho_Palos_Verdes,_California>
+    georss:point "33.75833333333333 -118.36416666666666"@en ;
+    a gml:_Feature ;
+    geo:lat "33.75833333333333"^^xsd:float ;
+    geo:long "-118.36416666666666"^^xsd:float .
+
+<http://dbpedia.org/resource/Rancho_San_Diego,_California>
+    georss:point "32.76611111111111 -116.92138888888888"@en ;
+    a gml:_Feature ;
+    geo:lat "32.76611111111111"^^xsd:float ;
+    geo:long "-116.92138888888888"^^xsd:float .
+
+<http://dbpedia.org/resource/Rancho_Santa_Fe,_California>
+    georss:point "33.02388888888889 -117.2"@en ;
+    a gml:_Feature ;
+    geo:lat "33.02388888888889"^^xsd:float ;
+    geo:long "-117.2"^^xsd:float .
+
+<http://dbpedia.org/resource/Rancho_Santa_Margarita,_California>
+    georss:point "33.64138888888889 -117.59444444444445"@en ;
+    a gml:_Feature ;
+    geo:lat "33.64138888888889"^^xsd:float ;
+    geo:long "-117.59444444444445"^^xsd:float .
+
+<http://dbpedia.org/resource/Rancho_Tehama_Reserve,_California>
+    georss:point "40.01583333333333 -122.38972222222222"@en ;
+    a gml:_Feature ;
+    geo:lat "40.01583333333333"^^xsd:float ;
+    geo:long "-122.38972222222222"^^xsd:float .
+
+<http://dbpedia.org/resource/Randsburg,_California>
+    georss:point "35.368611111111115 -117.65805555555555"@en ;
+    a gml:_Feature ;
+    geo:lat "35.368611111111115"^^xsd:float ;
+    geo:long "-117.65805555555555"^^xsd:float .
+
+<http://dbpedia.org/resource/Red_Bluff,_California>
+    georss:point "40.17666666666667 -122.23805555555556"@en ;
+    a gml:_Feature ;
+    geo:lat "40.17666666666667"^^xsd:float ;
+    geo:long "-122.23805555555556"^^xsd:float .
+
+<http://dbpedia.org/resource/Redding,_California>
+    georss:point "40.57666666666667 -122.37027777777777"@en ;
+    a gml:_Feature ;
+    geo:lat "40.57666666666667"^^xsd:float ;
+    geo:long "-122.37027777777777"^^xsd:float .
+
+<http://dbpedia.org/resource/Redondo_Beach,_California>
+    georss:point "33.85638888888889 -118.37694444444445"@en ;
+    a gml:_Feature ;
+    geo:lat "33.85638888888889"^^xsd:float ;
+    geo:long "-118.37694444444445"^^xsd:float .
+
+<http://dbpedia.org/resource/Rialto,_California>
+    georss:point "34.11138888888889 -117.3825"@en ;
+    a gml:_Feature ;
+    geo:lat "34.11138888888889"^^xsd:float ;
+    geo:long "-117.3825"^^xsd:float .
+
+<http://dbpedia.org/resource/Richgrove,_California>
+    georss:point "35.79666666666667 -119.10666666666667"@en ;
+    a gml:_Feature ;
+    geo:lat "35.79666666666667"^^xsd:float ;
+    geo:long "-119.10666666666667"^^xsd:float .
+
+<http://dbpedia.org/resource/Richmond,_California>
+    georss:point "37.935833333333335 -122.34777777777778"@en ;
+    a gml:_Feature ;
+    geo:lat "37.935833333333335"^^xsd:float ;
+    geo:long "-122.34777777777778"^^xsd:float .
+
+<http://dbpedia.org/resource/Ridgemark,_California>
+    georss:point "36.810353 -121.362816"@en ;
+    a gml:_Feature ;
+    geo:lat "36.810353"^^xsd:float ;
+    geo:long "-121.362816"^^xsd:float .
+
+<http://dbpedia.org/resource/Rio_Linda,_California>
+    georss:point "38.69027777777778 -121.45388888888888"@en ;
+    a gml:_Feature ;
+    geo:lat "38.69027777777778"^^xsd:float ;
+    geo:long "-121.45388888888888"^^xsd:float .
+
+<http://dbpedia.org/resource/Rio_del_Mar,_California>
+    georss:point "36.96388888888889 -121.88777777777777"@en ;
+    a gml:_Feature ;
+    geo:lat "36.96388888888889"^^xsd:float ;
+    geo:long "-121.88777777777777"^^xsd:float .
+
+<http://dbpedia.org/resource/Ripon,_California>
+    georss:point "37.7405 -121.1282"@en ;
+    a gml:_Feature ;
+    geo:lat "37.7405"^^xsd:float ;
+    geo:long "-121.1282"^^xsd:float .
+
+<http://dbpedia.org/resource/Riverbank,_California>
+    georss:point "37.73138888888889 -120.94361111111111"@en ;
+    a gml:_Feature ;
+    geo:lat "37.73138888888889"^^xsd:float ;
+    geo:long "-120.94361111111111"^^xsd:float .
+
+<http://dbpedia.org/resource/Riverdale_Park,_California>
+    georss:point "37.611111111111114 -121.04388888888889"@en ;
+    a gml:_Feature ;
+    geo:lat "37.611111111111114"^^xsd:float ;
+    geo:long "-121.04388888888889"^^xsd:float .
+
+<http://dbpedia.org/resource/Rocklin,_California>
+    georss:point "38.800011 -121.246731"@en ;
+    a gml:_Feature ;
+    geo:lat "38.800011"^^xsd:float ;
+    geo:long "-121.246731"^^xsd:float .
+
+<http://dbpedia.org/resource/Rolling_Hills,_California>
+    georss:point "33.75944444444445 -118.34166666666667"@en ;
+    a gml:_Feature ;
+    geo:lat "33.75944444444445"^^xsd:float ;
+    geo:long "-118.34166666666667"^^xsd:float .
+
+<http://dbpedia.org/resource/Rolling_Hills_Estates,_California>
+    georss:point "33.77361111111111 -118.36083333333333"@en ;
+    a gml:_Feature ;
+    geo:lat "33.77361111111111"^^xsd:float ;
+    geo:long "-118.36083333333333"^^xsd:float .
+
+<http://dbpedia.org/resource/Romoland,_California>
+    georss:point "33.74583333333333 -117.17416666666666"@en ;
+    a gml:_Feature ;
+    geo:lat "33.74583333333333"^^xsd:float ;
+    geo:long "-117.17416666666666"^^xsd:float .
+
+<http://dbpedia.org/resource/Rosamond,_California>
+    georss:point "34.87083333333333 -118.2088888888889"@en ;
+    a gml:_Feature ;
+    geo:lat "34.87083333333333"^^xsd:float ;
+    geo:long "-118.2088888888889"^^xsd:float .
+
+<http://dbpedia.org/resource/Rosedale,_California>
+    georss:point "35.38361111111111 -119.14527777777778"@en ;
+    a gml:_Feature ;
+    geo:lat "35.38361111111111"^^xsd:float ;
+    geo:long "-119.14527777777778"^^xsd:float .
+
+<http://dbpedia.org/resource/Rosemead,_California>
+    georss:point "34.06666666666667 -118.08333333333333"@en ;
+    a gml:_Feature ;
+    geo:lat "34.06666666666667"^^xsd:float ;
+    geo:long "-118.08333333333333"^^xsd:float .
+
+<http://dbpedia.org/resource/Rosemont,_California>
+    georss:point "38.54944444444445 -121.3561111111111"@en ;
+    a gml:_Feature ;
+    geo:lat "38.54944444444445"^^xsd:float ;
+    geo:long "-121.3561111111111"^^xsd:float .
+
+<http://dbpedia.org/resource/Roseville,_California>
+    georss:point "38.752434 -121.289338"@en ;
+    a gml:_Feature ;
+    geo:lat "38.752434"^^xsd:float ;
+    geo:long "-121.289338"^^xsd:float .
+
+<http://dbpedia.org/resource/Round_Mountain,_California>
+    georss:point "40.79972222222222 -121.94305555555556"@en ;
+    a gml:_Feature ;
+    geo:lat "40.79972222222222"^^xsd:float ;
+    geo:long "-121.94305555555556"^^xsd:float .
+
+<http://dbpedia.org/resource/Rowland_Heights,_California>
+    georss:point "33.98083333333334 -117.88972222222222"@en ;
+    a gml:_Feature ;
+    geo:lat "33.98083333333334"^^xsd:float ;
+    geo:long "-117.88972222222222"^^xsd:float .
+
+<http://dbpedia.org/resource/Rubidoux,_California>
+    georss:point "33.99583333333333 -117.41833333333334"@en ;
+    a gml:_Feature ;
+    geo:lat "33.99583333333333"^^xsd:float ;
+    geo:long "-117.41833333333334"^^xsd:float .
+
+<http://dbpedia.org/resource/Running_Springs,_California>
+    georss:point "34.20777777777778 -117.10833333333333"@en ;
+    a gml:_Feature ;
+    geo:lat "34.20777777777778"^^xsd:float ;
+    geo:long "-117.10833333333333"^^xsd:float .
+
+<http://dbpedia.org/resource/Sacramento_County,_California>
+    georss:point "38.45 -121.35"@en ;
+    a gml:_Feature ;
+    geo:lat "38.45"^^xsd:float ;
+    geo:long "-121.35"^^xsd:float .
+
+<http://dbpedia.org/resource/Salida,_California>
+    georss:point "37.71 -121.08916666666667"@en ;
+    a gml:_Feature ;
+    geo:lat "37.71"^^xsd:float ;
+    geo:long "-121.08916666666667"^^xsd:float .
+
+<http://dbpedia.org/resource/Salton_City,_California>
+    georss:point "33.298611111111114 -115.95611111111111"@en ;
+    a gml:_Feature ;
+    geo:lat "33.298611111111114"^^xsd:float ;
+    geo:long "-115.95611111111111"^^xsd:float .
+
+<http://dbpedia.org/resource/San_Antonio_Heights,_California>
+    georss:point "34.153055555555554 -117.6613888888889"@en ;
+    a gml:_Feature ;
+    geo:lat "34.153055555555554"^^xsd:float ;
+    geo:long "-117.6613888888889"^^xsd:float .
+
+<http://dbpedia.org/resource/San_Ardo,_California>
+    georss:point "36.02055555555555 -120.90527777777778"@en ;
+    a gml:_Feature ;
+    geo:lat "36.02055555555555"^^xsd:float ;
+    geo:long "-120.90527777777778"^^xsd:float .
+
+<http://dbpedia.org/resource/San_Benito_County,_California>
+    georss:point "36.61 -121.08"@en ;
+    a gml:_Feature ;
+    geo:lat "36.61"^^xsd:float ;
+    geo:long "-121.08"^^xsd:float .
+
+<http://dbpedia.org/resource/San_Bernardino,_California>
+    georss:point "34.1255 -117.2946"@en ;
+    a gml:_Feature ;
+    geo:lat "34.1255"^^xsd:float ;
+    geo:long "-117.2946"^^xsd:float .
+
+<http://dbpedia.org/resource/San_Bernardino_County,_California>
+    georss:point "34.83 -116.19"@en ;
+    a gml:_Feature ;
+    geo:lat "34.83"^^xsd:float ;
+    geo:long "-116.19"^^xsd:float .
+
+<http://dbpedia.org/resource/San_Bruno,_California>
+    georss:point "37.625288 -122.425266"@en ;
+    a gml:_Feature ;
+    geo:lat "37.625288"^^xsd:float ;
+    geo:long "-122.425266"^^xsd:float .
+
+<http://dbpedia.org/resource/San_Carlos,_California>
+    georss:point "37.499187 -122.263278"@en ;
+    a gml:_Feature ;
+    geo:lat "37.499187"^^xsd:float ;
+    geo:long "-122.263278"^^xsd:float .
+
+<http://dbpedia.org/resource/San_Clemente,_California>
+    georss:point "33.437777777777775 -117.62027777777777"@en ;
+    a gml:_Feature ;
+    geo:lat "33.437777777777775"^^xsd:float ;
+    geo:long "-117.62027777777777"^^xsd:float .
+
+<http://dbpedia.org/resource/San_Diego_Country_Estates,_California>
+    georss:point "33.0025 -116.79888888888888"@en ;
+    a gml:_Feature ;
+    geo:lat "33.0025"^^xsd:float ;
+    geo:long "-116.79888888888888"^^xsd:float .
+
+<http://dbpedia.org/resource/San_Gabriel,_California>
+    georss:point "34.094166666666666 -118.09833333333333"@en ;
+    a gml:_Feature ;
+    geo:lat "34.094166666666666"^^xsd:float ;
+    geo:long "-118.09833333333333"^^xsd:float .
+
+<http://dbpedia.org/resource/San_Geronimo,_California>
+    georss:point "38.013333333333335 -122.66388888888889"@en ;
+    a gml:_Feature ;
+    geo:lat "38.013333333333335"^^xsd:float ;
+    geo:long "-122.66388888888889"^^xsd:float .
+
+<http://dbpedia.org/resource/San_Jacinto,_California>
+    georss:point "33.78722222222222 -116.96666666666667"@en ;
+    a gml:_Feature ;
+    geo:lat "33.78722222222222"^^xsd:float ;
+    geo:long "-116.96666666666667"^^xsd:float .
+
+<http://dbpedia.org/resource/San_Jose,_California>
+    georss:point "37.335278 -121.891944"@en ;
+    a gml:_Feature ;
+    geo:lat "37.335278"^^xsd:float ;
+    geo:long "-121.891944"^^xsd:float .
+
+<http://dbpedia.org/resource/San_Juan_Capistrano,_California>
+    georss:point "33.49944444444444 -117.66166666666666"@en ;
+    a gml:_Feature ;
+    geo:lat "33.49944444444444"^^xsd:float ;
+    geo:long "-117.66166666666666"^^xsd:float .
+
+<http://dbpedia.org/resource/San_Lucas,_California>
+    georss:point "36.12888888888889 -121.02055555555556"@en ;
+    a gml:_Feature ;
+    geo:lat "36.12888888888889"^^xsd:float ;
+    geo:long "-121.02055555555556"^^xsd:float .
+
+<http://dbpedia.org/resource/San_Luis_Obispo_County,_California>
+    georss:point "35.38 -120.45"@en ;
+    a gml:_Feature ;
+    geo:lat "35.38"^^xsd:float ;
+    geo:long "-120.45"^^xsd:float .
+
+<http://dbpedia.org/resource/San_Marcos,_California>
+    georss:point "33.14194444444445 -117.17027777777778"@en ;
+    a gml:_Feature ;
+    geo:lat "33.14194444444445"^^xsd:float ;
+    geo:long "-117.17027777777778"^^xsd:float .
+
+<http://dbpedia.org/resource/San_Marino,_California>
+    georss:point "34.12277777777778 -118.11305555555556"@en ;
+    a gml:_Feature ;
+    geo:lat "34.12277777777778"^^xsd:float ;
+    geo:long "-118.11305555555556"^^xsd:float .
+
+<http://dbpedia.org/resource/San_Martin,_California>
+    georss:point "37.08777777777778 -121.6"@en ;
+    a gml:_Feature ;
+    geo:lat "37.08777777777778"^^xsd:float ;
+    geo:long "-121.6"^^xsd:float .
+
+<http://dbpedia.org/resource/San_Mateo,_California>
+    georss:point "37.55416666666667 -122.31305555555555"@en ;
+    a gml:_Feature ;
+    geo:lat "37.55416666666667"^^xsd:float ;
+    geo:long "-122.31305555555555"^^xsd:float .
+
+<http://dbpedia.org/resource/San_Mateo_County,_California>
+    georss:point "37.44 -122.36"@en ;
+    a gml:_Feature ;
+    geo:lat "37.44"^^xsd:float ;
+    geo:long "-122.36"^^xsd:float .
+
+<http://dbpedia.org/resource/San_Ramon,_California>
+    georss:point "37.78 -121.97805555555556"@en ;
+    a gml:_Feature ;
+    geo:lat "37.78"^^xsd:float ;
+    geo:long "-121.97805555555556"^^xsd:float .
+
+<http://dbpedia.org/resource/Sand_City,_California>
+    georss:point "36.617222222222225 -121.84833333333333"@en ;
+    a gml:_Feature ;
+    geo:lat "36.617222222222225"^^xsd:float ;
+    geo:long "-121.84833333333333"^^xsd:float .
+
+<http://dbpedia.org/resource/Santa_Ana,_California>
+    georss:point "33.740833333333335 -117.88138888888889"@en ;
+    a gml:_Feature ;
+    geo:lat "33.740833333333335"^^xsd:float ;
+    geo:long "-117.88138888888889"^^xsd:float .
+
+<http://dbpedia.org/resource/Santa_Barbara_County,_California>
+    georss:point "34.54 -120.03"@en ;
+    a gml:_Feature ;
+    geo:lat "34.54"^^xsd:float ;
+    geo:long "-120.03"^^xsd:float .
+
+<http://dbpedia.org/resource/Santa_Cruz_County,_California>
+    georss:point "37.03 -122.01"@en ;
+    a gml:_Feature ;
+    geo:lat "37.03"^^xsd:float ;
+    geo:long "-122.01"^^xsd:float .
+
+<http://dbpedia.org/resource/Santa_Fe_Springs,_California>
+    georss:point "33.937443 -118.067155"@en ;
+    a gml:_Feature ;
+    geo:lat "33.937443"^^xsd:float ;
+    geo:long "-118.067155"^^xsd:float .
+
+<http://dbpedia.org/resource/Santa_Maria,_California>
+    georss:point "34.951388888888886 -120.43333333333334"@en ;
+    a gml:_Feature ;
+    geo:lat "34.951388888888886"^^xsd:float ;
+    geo:long "-120.43333333333334"^^xsd:float .
+
+<http://dbpedia.org/resource/Santa_Paula,_California>
+    georss:point "34.35583333333334 -119.06833333333333"@en ;
+    a gml:_Feature ;
+    geo:lat "34.35583333333334"^^xsd:float ;
+    geo:long "-119.06833333333333"^^xsd:float .
+
+<http://dbpedia.org/resource/Santa_Rosa,_California>
+    georss:point "38.448611 -122.704722"@en ;
+    a gml:_Feature ;
+    geo:lat "38.448611"^^xsd:float ;
+    geo:long "-122.704722"^^xsd:float .
+
+<http://dbpedia.org/resource/Santa_Venetia,_California>
+    georss:point "37.99861111111111 -122.52527777777777"@en ;
+    a gml:_Feature ;
+    geo:lat "37.99861111111111"^^xsd:float ;
+    geo:long "-122.52527777777777"^^xsd:float .
+
+<http://dbpedia.org/resource/Santa_Ynez,_California>
+    georss:point "34.61194444444445 -120.08833333333334"@en ;
+    a gml:_Feature ;
+    geo:lat "34.61194444444445"^^xsd:float ;
+    geo:long "-120.08833333333334"^^xsd:float .
+
+<http://dbpedia.org/resource/Saratoga,_California>
+    georss:point "37.272443 -122.019538"@en ;
+    a gml:_Feature ;
+    geo:lat "37.272443"^^xsd:float ;
+    geo:long "-122.019538"^^xsd:float .
+
+<http://dbpedia.org/resource/Sausalito,_California>
+    georss:point "37.85916666666667 -122.48527777777778"@en ;
+    a gml:_Feature ;
+    geo:lat "37.85916666666667"^^xsd:float ;
+    geo:long "-122.48527777777778"^^xsd:float .
+
+<http://dbpedia.org/resource/Scotts_Valley,_California>
+    georss:point "37.05138888888889 -122.01333333333334"@en ;
+    a gml:_Feature ;
+    geo:lat "37.05138888888889"^^xsd:float ;
+    geo:long "-122.01333333333334"^^xsd:float .
+
+dbpr:Scouting_in_California
+    georss:point "34.166 -116.897"@en ;
+    a gml:_Feature ;
+    geo:lat "34.166"^^xsd:float ;
+    geo:long "-116.897"^^xsd:float .
+
+<http://dbpedia.org/resource/Seal_Beach,_California>
+    georss:point "33.759166666666665 -118.0825"@en ;
+    a gml:_Feature ;
+    geo:lat "33.759166666666665"^^xsd:float ;
+    geo:long "-118.0825"^^xsd:float .
+
+<http://dbpedia.org/resource/Seaside,_California>
+    georss:point "36.611111111111114 -121.84472222222222"@en ;
+    a gml:_Feature ;
+    geo:lat "36.611111111111114"^^xsd:float ;
+    geo:long "-121.84472222222222"^^xsd:float .
+
+<http://dbpedia.org/resource/Sedco_Hills,_California>
+    georss:point "33.64055555555556 -117.28583333333333"@en ;
+    a gml:_Feature ;
+    geo:lat "33.64055555555556"^^xsd:float ;
+    geo:long "-117.28583333333333"^^xsd:float .
+
+<http://dbpedia.org/resource/Seeley,_California>
+    georss:point "32.793055555555554 -115.69111111111111"@en ;
+    a gml:_Feature ;
+    geo:lat "32.793055555555554"^^xsd:float ;
+    geo:long "-115.69111111111111"^^xsd:float .
+
+<http://dbpedia.org/resource/Seven_Trees,_California>
+    georss:point "37.28777777777778 -121.83777777777777"@en ;
+    a gml:_Feature ;
+    geo:lat "37.28777777777778"^^xsd:float ;
+    geo:long "-121.83777777777777"^^xsd:float .
+
+<http://dbpedia.org/resource/Shackelford,_California>
+    georss:point "37.615 -120.99083333333333"@en ;
+    a gml:_Feature ;
+    geo:lat "37.615"^^xsd:float ;
+    geo:long "-120.99083333333333"^^xsd:float .
+
+<http://dbpedia.org/resource/Shandon,_California>
+    georss:point "35.65611111111111 -120.3788888888889"@en ;
+    a gml:_Feature ;
+    geo:lat "35.65611111111111"^^xsd:float ;
+    geo:long "-120.3788888888889"^^xsd:float .
+
+<http://dbpedia.org/resource/Shasta_County,_California>
+    georss:point "40.76 -122.04"@en ;
+    a gml:_Feature ;
+    geo:lat "40.76"^^xsd:float ;
+    geo:long "-122.04"^^xsd:float .
+
+<http://dbpedia.org/resource/Shasta_Lake,_California>
+    georss:point "40.67805555555555 -122.37"@en ;
+    a gml:_Feature ;
+    geo:lat "40.67805555555555"^^xsd:float ;
+    geo:long "-122.37"^^xsd:float .
+
+<http://dbpedia.org/resource/Shingletown,_California>
+    georss:point "40.49611111111111 -121.86361111111111"@en ;
+    a gml:_Feature ;
+    geo:lat "40.49611111111111"^^xsd:float ;
+    geo:long "-121.86361111111111"^^xsd:float .
+
+<http://dbpedia.org/resource/Sierra_County,_California>
+    georss:point "39.59 -120.5"@en ;
+    a gml:_Feature ;
+    geo:lat "39.59"^^xsd:float ;
+    geo:long "-120.5"^^xsd:float .
+
+<http://dbpedia.org/resource/Sierra_Madre,_California>
+    georss:point "34.164722222222224 -118.05083333333333"@en ;
+    a gml:_Feature ;
+    geo:lat "34.164722222222224"^^xsd:float ;
+    geo:long "-118.05083333333333"^^xsd:float .
+
+<http://dbpedia.org/resource/Signal_Hill,_California>
+    georss:point "33.79935 -118.16558"@en ;
+    a gml:_Feature ;
+    geo:lat "33.79935"^^xsd:float ;
+    geo:long "-118.16558"^^xsd:float .
+
+<http://dbpedia.org/resource/Solana_Beach,_California>
+    georss:point "32.99527777777778 -117.26027777777777"@en ;
+    a gml:_Feature ;
+    geo:lat "32.99527777777778"^^xsd:float ;
+    geo:long "-117.26027777777777"^^xsd:float .
+
+<http://dbpedia.org/resource/Solano_County,_California>
+    georss:point "38.27 -121.94"@en ;
+    a gml:_Feature ;
+    geo:lat "38.27"^^xsd:float ;
+    geo:long "-121.94"^^xsd:float .
+
+<http://dbpedia.org/resource/Soledad,_California>
+    georss:point "36.42472222222222 -121.32638888888889"@en ;
+    a gml:_Feature ;
+    geo:lat "36.42472222222222"^^xsd:float ;
+    geo:long "-121.32638888888889"^^xsd:float .
+
+<http://dbpedia.org/resource/Solvang,_California>
+    georss:point "34.59388888888889 -120.13972222222222"@en ;
+    a gml:_Feature ;
+    geo:lat "34.59388888888889"^^xsd:float ;
+    geo:long "-120.13972222222222"^^xsd:float .
+
+<http://dbpedia.org/resource/Sonoma_County,_California>
+    georss:point "38.51 -122.93"@en ;
+    a gml:_Feature ;
+    geo:lat "38.51"^^xsd:float ;
+    geo:long "-122.93"^^xsd:float .
+
+<http://dbpedia.org/resource/Sonora,_California>
+    georss:point "37.984361 -120.381767"@en ;
+    a gml:_Feature ;
+    geo:lat "37.984361"^^xsd:float ;
+    geo:long "-120.381767"^^xsd:float .
+
+<http://dbpedia.org/resource/Soquel,_California>
+    georss:point "36.98694444444445 -121.94555555555556"@en ;
+    a gml:_Feature ;
+    geo:lat "36.98694444444445"^^xsd:float ;
+    geo:long "-121.94555555555556"^^xsd:float .
+
+<http://dbpedia.org/resource/Soulsbyville,_California>
+    georss:point "37.995 -120.26027777777777"@en ;
+    a gml:_Feature ;
+    geo:lat "37.995"^^xsd:float ;
+    geo:long "-120.26027777777777"^^xsd:float .
+
+<http://dbpedia.org/resource/South_Dos_Palos,_California>
+    georss:point "36.964444444444446 -120.65333333333334"@en ;
+    a gml:_Feature ;
+    geo:lat "36.964444444444446"^^xsd:float ;
+    geo:long "-120.65333333333334"^^xsd:float .
+
+<http://dbpedia.org/resource/South_El_Monte,_California>
+    georss:point "34.04888888888889 -118.04833333333333"@en ;
+    a gml:_Feature ;
+    geo:lat "34.04888888888889"^^xsd:float ;
+    geo:long "-118.04833333333333"^^xsd:float .
+
+<http://dbpedia.org/resource/South_Gate,_California>
+    georss:point "33.94416666666667 -118.195"@en ;
+    a gml:_Feature ;
+    geo:lat "33.94416666666667"^^xsd:float ;
+    geo:long "-118.195"^^xsd:float .
+
+<http://dbpedia.org/resource/South_Lake_Tahoe,_California>
+    georss:point "38.92916666666667 -119.98444444444445"@en ;
+    a gml:_Feature ;
+    geo:lat "38.92916666666667"^^xsd:float ;
+    geo:long "-119.98444444444445"^^xsd:float .
+
+<http://dbpedia.org/resource/South_Pasadena,_California>
+    georss:point "34.113055555555555 -118.15583333333333"@en ;
+    a gml:_Feature ;
+    geo:lat "34.113055555555555"^^xsd:float ;
+    geo:long "-118.15583333333333"^^xsd:float .
+
+<http://dbpedia.org/resource/South_San_Francisco,_California>
+    georss:point "37.65611111111111 -122.42555555555556"@en ;
+    a gml:_Feature ;
+    geo:lat "37.65611111111111"^^xsd:float ;
+    geo:long "-122.42555555555556"^^xsd:float .
+
+<http://dbpedia.org/resource/South_San_Gabriel,_California>
+    georss:point "34.049166666666665 -118.09527777777778"@en ;
+    a gml:_Feature ;
+    geo:lat "34.049166666666665"^^xsd:float ;
+    geo:long "-118.09527777777778"^^xsd:float .
+
+<http://dbpedia.org/resource/South_Taft,_California>
+    georss:point "35.13472222222222 -119.45611111111111"@en ;
+    a gml:_Feature ;
+    geo:lat "35.13472222222222"^^xsd:float ;
+    geo:long "-119.45611111111111"^^xsd:float .
+
+<http://dbpedia.org/resource/South_Whittier,_California>
+    georss:point "33.93472222222222 -118.03083333333333"@en ;
+    a gml:_Feature ;
+    geo:lat "33.93472222222222"^^xsd:float ;
+    geo:long "-118.03083333333333"^^xsd:float .
+
+<http://dbpedia.org/resource/South_Woodbridge,_California>
+    georss:point "38.15416666666667 -121.30611111111111"@en ;
+    a gml:_Feature ;
+    geo:lat "38.15416666666667"^^xsd:float ;
+    geo:long "-121.30611111111111"^^xsd:float .
+
+<http://dbpedia.org/resource/South_Yuba_City,_California>
+    georss:point "39.11222222222222 -121.63888888888889"@en ;
+    a gml:_Feature ;
+    geo:lat "39.11222222222222"^^xsd:float ;
+    geo:long "-121.63888888888889"^^xsd:float .
+
+dbpr:Southern_California
+    georss:point "34.0 -117.0"@en ;
+    a gml:_Feature ;
+    geo:lat "34.0"^^xsd:float ;
+    geo:long "-117.0"^^xsd:float .
+
+<http://dbpedia.org/resource/Spreckels,_California>
+    georss:point "36.621944444444445 -121.64694444444444"@en ;
+    a gml:_Feature ;
+    geo:lat "36.621944444444445"^^xsd:float ;
+    geo:long "-121.64694444444444"^^xsd:float .
+
+<http://dbpedia.org/resource/Spring_Garden,_California>
+    georss:point "39.907076 -120.796812"@en ;
+    a gml:_Feature ;
+    geo:lat "39.907076"^^xsd:float ;
+    geo:long "-120.796812"^^xsd:float .
+
+<http://dbpedia.org/resource/Spring_Valley,_San_Diego_County,_California>
+    georss:point "32.74472222222222 -116.99888888888889"@en ;
+    a gml:_Feature ;
+    geo:lat "32.74472222222222"^^xsd:float ;
+    geo:long "-116.99888888888889"^^xsd:float .
+
+<http://dbpedia.org/resource/Springville,_California>
+    georss:point "36.12833333333333 -118.81888888888889"@en ;
+    a gml:_Feature ;
+    geo:lat "36.12833333333333"^^xsd:float ;
+    geo:long "-118.81888888888889"^^xsd:float .
+
+<http://dbpedia.org/resource/Squirrel_Mountain_Valley,_California>
+    georss:point "35.623333333333335 -118.40972222222223"@en ;
+    a gml:_Feature ;
+    geo:lat "35.623333333333335"^^xsd:float ;
+    geo:long "-118.40972222222223"^^xsd:float .
+
+<http://dbpedia.org/resource/St._Helena,_California>
+    georss:point "38.50277777777778 -122.46972222222222"@en ;
+    a gml:_Feature ;
+    geo:lat "38.50277777777778"^^xsd:float ;
+    geo:long "-122.46972222222222"^^xsd:float .
+
+<http://dbpedia.org/resource/Stallion_Springs,_California>
+    georss:point "35.08888888888889 -118.6425"@en ;
+    a gml:_Feature ;
+    geo:lat "35.08888888888889"^^xsd:float ;
+    geo:long "-118.6425"^^xsd:float .
+
+<http://dbpedia.org/resource/Stanford,_California>
+    georss:point "37.4225 -122.16527777777777"@en ;
+    a gml:_Feature ;
+    geo:lat "37.4225"^^xsd:float ;
+    geo:long "-122.16527777777777"^^xsd:float .
+
+<http://dbpedia.org/resource/Stanislaus_County,_California>
+    georss:point "37.56 -120.99"@en ;
+    a gml:_Feature ;
+    geo:lat "37.56"^^xsd:float ;
+    geo:long "-120.99"^^xsd:float .
+
+<http://dbpedia.org/resource/Stanton,_California>
+    georss:point "33.8025 -117.99444444444444"@en ;
+    a gml:_Feature ;
+    geo:lat "33.8025"^^xsd:float ;
+    geo:long "-117.99444444444444"^^xsd:float .
+
+<http://dbpedia.org/resource/Stinson_Beach,_California>
+    georss:point "37.900555555555556 -122.64444444444445"@en ;
+    a gml:_Feature ;
+    geo:lat "37.900555555555556"^^xsd:float ;
+    geo:long "-122.64444444444445"^^xsd:float .
+
+<http://dbpedia.org/resource/Stratford,_California>
+    georss:point "36.18944444444445 -119.82305555555556"@en ;
+    a gml:_Feature ;
+    geo:lat "36.18944444444445"^^xsd:float ;
+    geo:long "-119.82305555555556"^^xsd:float .
+
+<http://dbpedia.org/resource/Strathmore,_California>
+    georss:point "36.145 -119.05944444444444"@en ;
+    a gml:_Feature ;
+    geo:lat "36.145"^^xsd:float ;
+    geo:long "-119.05944444444444"^^xsd:float .
+
+<http://dbpedia.org/resource/Strawberry,_Marin_County,_California>
+    georss:point "37.89694444444444 -122.50888888888889"@en ;
+    a gml:_Feature ;
+    geo:lat "37.89694444444444"^^xsd:float ;
+    geo:long "-122.50888888888889"^^xsd:float .
+
+<http://dbpedia.org/resource/Suisun_City,_California>
+    georss:point "38.245 -122.01694444444445"@en ;
+    a gml:_Feature ;
+    geo:lat "38.245"^^xsd:float ;
+    geo:long "-122.01694444444445"^^xsd:float .
+
+<http://dbpedia.org/resource/Summerland,_California>
+    georss:point "34.42138888888889 -119.59583333333333"@en ;
+    a gml:_Feature ;
+    geo:lat "34.42138888888889"^^xsd:float ;
+    geo:long "-119.59583333333333"^^xsd:float .
+
+<http://dbpedia.org/resource/Sun_City,_Menifee,_California>
+    georss:point "33.708291 -117.199152"@en ;
+    a gml:_Feature ;
+    geo:lat "33.708291"^^xsd:float ;
+    geo:long "-117.199152"^^xsd:float .
+
+<http://dbpedia.org/resource/Sunnyslope,_California>
+    georss:point "34.02055555555555 -117.42333333333333"@en ;
+    a gml:_Feature ;
+    geo:lat "34.02055555555555"^^xsd:float ;
+    geo:long "-117.42333333333333"^^xsd:float .
+
+<http://dbpedia.org/resource/Sunnyvale,_California>
+    georss:point "37.368766666666666 -122.03705555555555"@en ;
+    a gml:_Feature ;
+    geo:lat "37.368766666666666"^^xsd:float ;
+    geo:long "-122.03705555555555"^^xsd:float .
+
+<http://dbpedia.org/resource/Sunol-Midtown,_California>
+    georss:point "37.32472222222222 -121.91027777777778"@en ;
+    a gml:_Feature ;
+    geo:lat "37.32472222222222"^^xsd:float ;
+    geo:long "-121.91027777777778"^^xsd:float .
+
+<http://dbpedia.org/resource/Susanville,_California>
+    georss:point "40.41638888888889 -120.65305555555555"@en ;
+    a gml:_Feature ;
+    geo:lat "40.41638888888889"^^xsd:float ;
+    geo:long "-120.65305555555555"^^xsd:float .
+
+<http://dbpedia.org/resource/Sutter_County,_California>
+    georss:point "39.04 -121.69"@en ;
+    a gml:_Feature ;
+    geo:lat "39.04"^^xsd:float ;
+    geo:long "-121.69"^^xsd:float .
+
+<http://dbpedia.org/resource/Taft_Heights,_California>
+    georss:point "35.13472222222222 -119.4725"@en ;
+    a gml:_Feature ;
+    geo:lat "35.13472222222222"^^xsd:float ;
+    geo:long "-119.4725"^^xsd:float .
+
+<http://dbpedia.org/resource/Taft_Mosswood,_California>
+    georss:point "37.91638888888889 -121.28166666666667"@en ;
+    a gml:_Feature ;
+    geo:lat "37.91638888888889"^^xsd:float ;
+    geo:long "-121.28166666666667"^^xsd:float .
+
+<http://dbpedia.org/resource/Tahoe_Vista,_California>
+    georss:point "39.24638888888889 -120.04888888888888"@en ;
+    a gml:_Feature ;
+    geo:lat "39.24638888888889"^^xsd:float ;
+    geo:long "-120.04888888888888"^^xsd:float .
+
+<http://dbpedia.org/resource/Talmage,_California>
+    georss:point "39.13333333333333 -123.16777777777777"@en ;
+    a gml:_Feature ;
+    geo:lat "39.13333333333333"^^xsd:float ;
+    geo:long "-123.16777777777777"^^xsd:float .
+
+<http://dbpedia.org/resource/Tamalpais-Homestead_Valley,_California>
+    georss:point "37.888526 -122.539609"@en ;
+    a gml:_Feature ;
+    geo:lat "37.888526"^^xsd:float ;
+    geo:long "-122.539609"^^xsd:float .
+
+<http://dbpedia.org/resource/Taylorsville,_California>
+    georss:point "40.07361111111111 -120.83805555555556"@en ;
+    a gml:_Feature ;
+    geo:lat "40.07361111111111"^^xsd:float ;
+    geo:long "-120.83805555555556"^^xsd:float .
+
+<http://dbpedia.org/resource/Tehama,_California>
+    georss:point "40.02444444444444 -122.12388888888889"@en ;
+    a gml:_Feature ;
+    geo:lat "40.02444444444444"^^xsd:float ;
+    geo:long "-122.12388888888889"^^xsd:float .
+
+<http://dbpedia.org/resource/Tehama_County,_California>
+    georss:point "40.13 -122.23"@en ;
+    a gml:_Feature ;
+    geo:lat "40.13"^^xsd:float ;
+    geo:long "-122.23"^^xsd:float .
+
+<http://dbpedia.org/resource/Temple_City,_California>
+    georss:point "34.102777777777774 -118.05805555555555"@en ;
+    a gml:_Feature ;
+    geo:lat "34.102777777777774"^^xsd:float ;
+    geo:long "-118.05805555555555"^^xsd:float .
+
+<http://dbpedia.org/resource/Templeton,_California>
+    georss:point "35.55388888888889 -120.70944444444444"@en ;
+    a gml:_Feature ;
+    geo:lat "35.55388888888889"^^xsd:float ;
+    geo:long "-120.70944444444444"^^xsd:float .
+
+<http://dbpedia.org/resource/Tennant,_California>
+    georss:point "41.585 -121.91166666666666"@en ;
+    a gml:_Feature ;
+    geo:lat "41.585"^^xsd:float ;
+    geo:long "-121.91166666666666"^^xsd:float .
+
+<http://dbpedia.org/resource/Terra_Bella,_California>
+    georss:point "35.96138888888889 -119.04083333333334"@en ;
+    a gml:_Feature ;
+    geo:lat "35.96138888888889"^^xsd:float ;
+    geo:long "-119.04083333333334"^^xsd:float .
+
+<http://dbpedia.org/resource/Thousand_Oaks,_California>
+    georss:point "34.18944444444445 -118.875"@en ;
+    a gml:_Feature ;
+    geo:lat "34.18944444444445"^^xsd:float ;
+    geo:long "-118.875"^^xsd:float .
+
+<http://dbpedia.org/resource/Thousand_Palms,_California>
+    georss:point "33.816868 -116.387143"@en ;
+    a gml:_Feature ;
+    geo:lat "33.816868"^^xsd:float ;
+    geo:long "-116.387143"^^xsd:float .
+
+<http://dbpedia.org/resource/Tiburon,_California>
+    georss:point "37.87361111111111 -122.45666666666666"@en ;
+    a gml:_Feature ;
+    geo:lat "37.87361111111111"^^xsd:float ;
+    geo:long "-122.45666666666666"^^xsd:float .
+
+<http://dbpedia.org/resource/Tipton,_California>
+    georss:point "36.05916666666667 -119.31027777777778"@en ;
+    a gml:_Feature ;
+    geo:lat "36.05916666666667"^^xsd:float ;
+    geo:long "-119.31027777777778"^^xsd:float .
+
+<http://dbpedia.org/resource/Tobin,_California>
+    georss:point "39.92055555555555 -121.29888888888888"@en ;
+    a gml:_Feature ;
+    geo:lat "39.92055555555555"^^xsd:float ;
+    geo:long "-121.29888888888888"^^xsd:float .
+
+<http://dbpedia.org/resource/Torrance,_California>
+    georss:point "33.834722222222226 -118.34138888888889"@en ;
+    a gml:_Feature ;
+    geo:lat "33.834722222222226"^^xsd:float ;
+    geo:long "-118.34138888888889"^^xsd:float .
+
+<http://dbpedia.org/resource/Traver,_California>
+    georss:point "36.454166666666666 -119.48416666666667"@en ;
+    a gml:_Feature ;
+    geo:lat "36.454166666666666"^^xsd:float ;
+    geo:long "-119.48416666666667"^^xsd:float .
+
+<http://dbpedia.org/resource/Trinity_County,_California>
+    georss:point "40.66 -123.12"@en ;
+    a gml:_Feature ;
+    geo:lat "40.66"^^xsd:float ;
+    geo:long "-123.12"^^xsd:float .
+
+<http://dbpedia.org/resource/Truckee,_California>
+    georss:point "39.34222222222222 -120.20361111111112"@en ;
+    a gml:_Feature ;
+    geo:lat "39.34222222222222"^^xsd:float ;
+    geo:long "-120.20361111111112"^^xsd:float .
+
+<http://dbpedia.org/resource/Tulare,_California>
+    georss:point "36.20666666666666 -119.3425"@en ;
+    a gml:_Feature ;
+    geo:lat "36.20666666666666"^^xsd:float ;
+    geo:long "-119.3425"^^xsd:float .
+
+<http://dbpedia.org/resource/Tulare_County,_California>
+    georss:point "36.23 -118.8"@en ;
+    a gml:_Feature ;
+    geo:lat "36.23"^^xsd:float ;
+    geo:long "-118.8"^^xsd:float .
+
+<http://dbpedia.org/resource/Tulelake,_California>
+    georss:point "41.954166666666666 -121.47583333333333"@en ;
+    a gml:_Feature ;
+    geo:lat "41.954166666666666"^^xsd:float ;
+    geo:long "-121.47583333333333"^^xsd:float .
+
+<http://dbpedia.org/resource/Tuolumne_City,_California>
+    georss:point "37.961666666666666 -120.23694444444445"@en ;
+    a gml:_Feature ;
+    geo:lat "37.961666666666666"^^xsd:float ;
+    geo:long "-120.23694444444445"^^xsd:float .
+
+<http://dbpedia.org/resource/Tuolumne_County,_California>
+    georss:point "38.02 -119.94"@en ;
+    a gml:_Feature ;
+    geo:lat "38.02"^^xsd:float ;
+    geo:long "-119.94"^^xsd:float .
+
+<http://dbpedia.org/resource/Tupman,_California>
+    georss:point "35.29805555555556 -119.35111111111111"@en ;
+    a gml:_Feature ;
+    geo:lat "35.29805555555556"^^xsd:float ;
+    geo:long "-119.35111111111111"^^xsd:float .
+
+<http://dbpedia.org/resource/Turlock,_California>
+    georss:point "37.505833333333335 -120.8488888888889"@en ;
+    a gml:_Feature ;
+    geo:lat "37.505833333333335"^^xsd:float ;
+    geo:long "-120.8488888888889"^^xsd:float .
+
+<http://dbpedia.org/resource/Tustin,_California>
+    georss:point "33.739618 -117.813533"@en ;
+    a gml:_Feature ;
+    geo:lat "33.739618"^^xsd:float ;
+    geo:long "-117.813533"^^xsd:float .
+
+<http://dbpedia.org/resource/Twain,_California>
+    georss:point "40.018055555555556 -121.04888888888888"@en ;
+    a gml:_Feature ;
+    geo:lat "40.018055555555556"^^xsd:float ;
+    geo:long "-121.04888888888888"^^xsd:float .
+
+<http://dbpedia.org/resource/Twain_Harte,_California>
+    georss:point "38.040277777777774 -120.23361111111112"@en ;
+    a gml:_Feature ;
+    geo:lat "38.040277777777774"^^xsd:float ;
+    geo:long "-120.23361111111112"^^xsd:float .
+
+<http://dbpedia.org/resource/Twin_Lakes,_California>
+    georss:point "36.96333333333333 -121.99361111111111"@en ;
+    a gml:_Feature ;
+    geo:lat "36.96333333333333"^^xsd:float ;
+    geo:long "-121.99361111111111"^^xsd:float .
+
+<http://dbpedia.org/resource/Ukiah,_California>
+    georss:point "39.15027777777778 -123.20777777777778"@en ;
+    a gml:_Feature ;
+    geo:lat "39.15027777777778"^^xsd:float ;
+    geo:long "-123.20777777777778"^^xsd:float .
+
+dbpr:University_of_California
+    georss:point "37.802168 -122.271281"@en ;
+    a gml:_Feature ;
+    geo:lat "37.802168"^^xsd:float ;
+    geo:long "-122.271281"^^xsd:float .
+
+<http://dbpedia.org/resource/University_of_California,_Berkeley>
+    georss:point "37.87 -122.259"@en ;
+    a gml:_Feature ;
+    geo:lat "37.87"^^xsd:float ;
+    geo:long "-122.259"^^xsd:float .
+
+<http://dbpedia.org/resource/University_of_California,_Davis>
+    georss:point "38.54 -121.75"@en ;
+    a gml:_Feature ;
+    geo:lat "38.54"^^xsd:float ;
+    geo:long "-121.75"^^xsd:float .
+
+<http://dbpedia.org/resource/University_of_California,_Irvine>
+    georss:point "33.64535 -117.84264166666667"@en ;
+    a gml:_Feature ;
+    geo:lat "33.64535"^^xsd:float ;
+    geo:long "-117.84264166666667"^^xsd:float .
+
+<http://dbpedia.org/resource/University_of_California,_Los_Angeles>
+    georss:point "34.07222222222222 -118.44409722222223"@en ;
+    a gml:_Feature ;
+    geo:lat "34.07222222222222"^^xsd:float ;
+    geo:long "-118.44409722222223"^^xsd:float .
+
+<http://dbpedia.org/resource/University_of_California,_San_Diego>
+    georss:point "32.881 -117.238"@en ;
+    a gml:_Feature ;
+    geo:lat "32.881"^^xsd:float ;
+    geo:long "-117.238"^^xsd:float .
+
+<http://dbpedia.org/resource/University_of_California,_San_Francisco>
+    georss:point "37.76331944444444 -122.4585388888889"@en ;
+    a gml:_Feature ;
+    geo:lat "37.76331944444444"^^xsd:float ;
+    geo:long "-122.4585388888889"^^xsd:float .
+
+<http://dbpedia.org/resource/University_of_California,_Santa_Cruz>
+    georss:point "37.0 -122.06"@en ;
+    a gml:_Feature ;
+    geo:lat "37.0"^^xsd:float ;
+    geo:long "-122.06"^^xsd:float .
+
+dbpr:University_of_Southern_California
+    georss:point "34.02051 -118.28563"@en ;
+    a gml:_Feature ;
+    geo:lat "34.02051"^^xsd:float ;
+    geo:long "-118.28563"^^xsd:float .
+
+<http://dbpedia.org/resource/Val_Verde,_California>
+    georss:point "34.445277777777775 -118.65722222222222"@en ;
+    a gml:_Feature ;
+    geo:lat "34.445277777777775"^^xsd:float ;
+    geo:long "-118.65722222222222"^^xsd:float .
+
+<http://dbpedia.org/resource/Valinda,_California>
+    georss:point "34.03777777777778 -117.92888888888889"@en ;
+    a gml:_Feature ;
+    geo:lat "34.03777777777778"^^xsd:float ;
+    geo:long "-117.92888888888889"^^xsd:float .
+
+<http://dbpedia.org/resource/Valle_Vista,_California>
+    georss:point "33.75277777777778 -116.89805555555556"@en ;
+    a gml:_Feature ;
+    geo:lat "33.75277777777778"^^xsd:float ;
+    geo:long "-116.89805555555556"^^xsd:float .
+
+<http://dbpedia.org/resource/Valley_Acres,_California>
+    georss:point "35.20611111111111 -119.40666666666667"@en ;
+    a gml:_Feature ;
+    geo:lat "35.20611111111111"^^xsd:float ;
+    geo:long "-119.40666666666667"^^xsd:float .
+
+<http://dbpedia.org/resource/Valley_Center,_California>
+    georss:point "33.240485 -117.014262"@en ;
+    a gml:_Feature ;
+    geo:lat "33.240485"^^xsd:float ;
+    geo:long "-117.014262"^^xsd:float .
+
+<http://dbpedia.org/resource/Valley_Ranch,_California>
+    georss:point "39.73833333333333 -120.56777777777778"@en ;
+    a gml:_Feature ;
+    geo:lat "39.73833333333333"^^xsd:float ;
+    geo:long "-120.56777777777778"^^xsd:float .
+
+dbpr:Vandenberg_Air_Force_Base
+    georss:point "34.7325 -120.56805555555556"@en ;
+    a gml:_Feature ;
+    geo:lat "34.7325"^^xsd:float ;
+    geo:long "-120.56805555555556"^^xsd:float .
+
+<http://dbpedia.org/resource/Ventura,_California>
+    georss:point "34.275 -119.22777777777777"@en ;
+    a gml:_Feature ;
+    geo:lat "34.275"^^xsd:float ;
+    geo:long "-119.22777777777777"^^xsd:float .
+
+<http://dbpedia.org/resource/Ventura_County,_California>
+    georss:point "34.280823 -119.294599"@en ;
+    a gml:_Feature ;
+    geo:lat "34.280823"^^xsd:float ;
+    geo:long "-119.294599"^^xsd:float .
+
+<http://dbpedia.org/resource/Vernon,_California>
+    georss:point "34.00111111111111 -118.21111111111111"@en ;
+    a gml:_Feature ;
+    geo:lat "34.00111111111111"^^xsd:float ;
+    geo:long "-118.21111111111111"^^xsd:float .
+
+<http://dbpedia.org/resource/View_Park-Windsor_Hills,_California>
+    georss:point "33.993611111111115 -118.34694444444445"@en ;
+    a gml:_Feature ;
+    geo:lat "33.993611111111115"^^xsd:float ;
+    geo:long "-118.34694444444445"^^xsd:float .
+
+<http://dbpedia.org/resource/Villa_Park,_California>
+    georss:point "33.81611111111111 -117.81111111111112"@en ;
+    a gml:_Feature ;
+    geo:lat "33.81611111111111"^^xsd:float ;
+    geo:long "-117.81111111111112"^^xsd:float .
+
+<http://dbpedia.org/resource/Vincent,_California>
+    georss:point "34.09861111111111 -117.92444444444445"@en ;
+    a gml:_Feature ;
+    geo:lat "34.09861111111111"^^xsd:float ;
+    geo:long "-117.92444444444445"^^xsd:float .
+
+<http://dbpedia.org/resource/Vineyard,_California>
+    georss:point "38.464444444444446 -121.34694444444445"@en ;
+    a gml:_Feature ;
+    geo:lat "38.464444444444446"^^xsd:float ;
+    geo:long "-121.34694444444445"^^xsd:float .
+
+<http://dbpedia.org/resource/Visalia,_California>
+    georss:point "36.31666666666667 -119.3"@en ;
+    a gml:_Feature ;
+    geo:lat "36.31666666666667"^^xsd:float ;
+    geo:long "-119.3"^^xsd:float .
+
+<http://dbpedia.org/resource/Walnut_Creek,_California>
+    georss:point "37.90638888888889 -122.065"@en ;
+    a gml:_Feature ;
+    geo:lat "37.90638888888889"^^xsd:float ;
+    geo:long "-122.065"^^xsd:float .
+
+<http://dbpedia.org/resource/Walnut_Grove,_California>
+    georss:point "38.243611111111115 -121.51222222222222"@en ;
+    a gml:_Feature ;
+    geo:lat "38.243611111111115"^^xsd:float ;
+    geo:long "-121.51222222222222"^^xsd:float .
+
+<http://dbpedia.org/resource/Walnut_Park,_California>
+    georss:point "33.96888888888889 -118.2238888888889"@en ;
+    a gml:_Feature ;
+    geo:lat "33.96888888888889"^^xsd:float ;
+    geo:long "-118.2238888888889"^^xsd:float .
+
+<http://dbpedia.org/resource/Waterford,_California>
+    georss:point "37.645 -120.7675"@en ;
+    a gml:_Feature ;
+    geo:lat "37.645"^^xsd:float ;
+    geo:long "-120.7675"^^xsd:float .
+
+<http://dbpedia.org/resource/Watsonville,_California>
+    georss:point "36.92 -121.76361111111112"@en ;
+    a gml:_Feature ;
+    geo:lat "36.92"^^xsd:float ;
+    geo:long "-121.76361111111112"^^xsd:float .
+
+<http://dbpedia.org/resource/Weaverville,_California>
+    georss:point "40.736666666666665 -122.93611111111112"@en ;
+    a gml:_Feature ;
+    geo:lat "40.736666666666665"^^xsd:float ;
+    geo:long "-122.93611111111112"^^xsd:float .
+
+<http://dbpedia.org/resource/Weedpatch,_California>
+    georss:point "35.238055555555555 -118.915"@en ;
+    a gml:_Feature ;
+    geo:lat "35.238055555555555"^^xsd:float ;
+    geo:long "-118.915"^^xsd:float .
+
+<http://dbpedia.org/resource/Weldon,_California>
+    georss:point "35.66583333333333 -118.29027777777777"@en ;
+    a gml:_Feature ;
+    geo:lat "35.66583333333333"^^xsd:float ;
+    geo:long "-118.29027777777777"^^xsd:float .
+
+<http://dbpedia.org/resource/West_Athens,_California>
+    georss:point "33.9225 -118.30111111111111"@en ;
+    a gml:_Feature ;
+    geo:lat "33.9225"^^xsd:float ;
+    geo:long "-118.30111111111111"^^xsd:float .
+
+<http://dbpedia.org/resource/West_Carson,_California>
+    georss:point "33.826388888888886 -118.2925"@en ;
+    a gml:_Feature ;
+    geo:lat "33.826388888888886"^^xsd:float ;
+    geo:long "-118.2925"^^xsd:float .
+
+<http://dbpedia.org/resource/West_Modesto,_California>
+    georss:point "37.62222222222222 -121.02888888888889"@en ;
+    a gml:_Feature ;
+    geo:lat "37.62222222222222"^^xsd:float ;
+    geo:long "-121.02888888888889"^^xsd:float .
+
+<http://dbpedia.org/resource/West_Puente_Valley,_California>
+    georss:point "34.05083333333334 -117.96972222222222"@en ;
+    a gml:_Feature ;
+    geo:lat "34.05083333333334"^^xsd:float ;
+    geo:long "-117.96972222222222"^^xsd:float .
+
+<http://dbpedia.org/resource/West_Sacramento,_California>
+    georss:point "38.580555555555556 -121.53027777777778"@en ;
+    a gml:_Feature ;
+    geo:lat "38.580555555555556"^^xsd:float ;
+    geo:long "-121.53027777777778"^^xsd:float .
+
+<http://dbpedia.org/resource/West_Whittier-Los_Nietos,_California>
+    georss:point "33.97611111111111 -118.06888888888889"@en ;
+    a gml:_Feature ;
+    geo:lat "33.97611111111111"^^xsd:float ;
+    geo:long "-118.06888888888889"^^xsd:float .
+
+<http://dbpedia.org/resource/Westlake_Village,_California>
+    georss:point "34.14194444444445 -118.81944444444444"@en ;
+    a gml:_Feature ;
+    geo:lat "34.14194444444445"^^xsd:float ;
+    geo:long "-118.81944444444444"^^xsd:float .
+
+<http://dbpedia.org/resource/Westley,_California>
+    georss:point "37.54833333333333 -121.20138888888889"@en ;
+    a gml:_Feature ;
+    geo:lat "37.54833333333333"^^xsd:float ;
+    geo:long "-121.20138888888889"^^xsd:float .
+
+<http://dbpedia.org/resource/Westminster,_California>
+    georss:point "33.75138888888889 -117.99388888888889"@en ;
+    a gml:_Feature ;
+    geo:lat "33.75138888888889"^^xsd:float ;
+    geo:long "-117.99388888888889"^^xsd:float .
+
+<http://dbpedia.org/resource/Westmont,_California>
+    georss:point "33.94138888888889 -118.30222222222223"@en ;
+    a gml:_Feature ;
+    geo:lat "33.94138888888889"^^xsd:float ;
+    geo:long "-118.30222222222223"^^xsd:float .
+
+<http://dbpedia.org/resource/Westmorland,_California>
+    georss:point "33.03722222222222 -115.62138888888889"@en ;
+    a gml:_Feature ;
+    geo:lat "33.03722222222222"^^xsd:float ;
+    geo:long "-115.62138888888889"^^xsd:float .
+
+<http://dbpedia.org/resource/Westwood,_California>
+    georss:point "40.306111111111115 -121.00583333333333"@en ;
+    a gml:_Feature ;
+    geo:lat "40.306111111111115"^^xsd:float ;
+    geo:long "-121.00583333333333"^^xsd:float .
+
+<http://dbpedia.org/resource/Wheatland,_California>
+    georss:point "39.01 -121.42305555555555"@en ;
+    a gml:_Feature ;
+    geo:lat "39.01"^^xsd:float ;
+    geo:long "-121.42305555555555"^^xsd:float .
+
+<http://dbpedia.org/resource/Whitehawk,_California>
+    georss:point "39.723055555555554 -120.54888888888888"@en ;
+    a gml:_Feature ;
+    geo:lat "39.723055555555554"^^xsd:float ;
+    geo:long "-120.54888888888888"^^xsd:float .
+
+<http://dbpedia.org/resource/Whittier,_California>
+    georss:point "33.965555555555554 -118.02444444444444"@en ;
+    a gml:_Feature ;
+    geo:lat "33.965555555555554"^^xsd:float ;
+    geo:long "-118.02444444444444"^^xsd:float .
+
+<http://dbpedia.org/resource/Wildomar,_California>
+    georss:point "33.6075 -117.26027777777777"@en ;
+    a gml:_Feature ;
+    geo:lat "33.6075"^^xsd:float ;
+    geo:long "-117.26027777777777"^^xsd:float .
+
+<http://dbpedia.org/resource/Wilkerson,_California>
+    georss:point "37.279444444444444 -118.38777777777777"@en ;
+    a gml:_Feature ;
+    geo:lat "37.279444444444444"^^xsd:float ;
+    geo:long "-118.38777777777777"^^xsd:float .
+
+<http://dbpedia.org/resource/Willowbrook,_California>
+    georss:point "33.9175 -118.25277777777778"@en ;
+    a gml:_Feature ;
+    geo:lat "33.9175"^^xsd:float ;
+    geo:long "-118.25277777777778"^^xsd:float .
+
+<http://dbpedia.org/resource/Wilton,_California>
+    georss:point "38.409444444444446 -121.22416666666666"@en ;
+    a gml:_Feature ;
+    geo:lat "38.409444444444446"^^xsd:float ;
+    geo:long "-121.22416666666666"^^xsd:float .
+
+<http://dbpedia.org/resource/Winchester,_California>
+    georss:point "33.70777777777778 -117.08694444444444"@en ;
+    a gml:_Feature ;
+    geo:lat "33.70777777777778"^^xsd:float ;
+    geo:long "-117.08694444444444"^^xsd:float .
+
+<http://dbpedia.org/resource/Winter_Gardens,_California>
+    georss:point "32.84111111111111 -116.92777777777778"@en ;
+    a gml:_Feature ;
+    geo:lat "32.84111111111111"^^xsd:float ;
+    geo:long "-116.92777777777778"^^xsd:float .
+
+<http://dbpedia.org/resource/Winterhaven,_California>
+    georss:point "32.739444444444445 -114.63472222222222"@en ;
+    a gml:_Feature ;
+    geo:lat "32.739444444444445"^^xsd:float ;
+    geo:long "-114.63472222222222"^^xsd:float .
+
+<http://dbpedia.org/resource/Winters,_California>
+    georss:point "38.525 -121.97083333333333"@en ;
+    a gml:_Feature ;
+    geo:lat "38.525"^^xsd:float ;
+    geo:long "-121.97083333333333"^^xsd:float .
+
+<http://dbpedia.org/resource/Winton,_California>
+    georss:point "37.388333333333335 -120.61333333333333"@en ;
+    a gml:_Feature ;
+    geo:lat "37.388333333333335"^^xsd:float ;
+    geo:long "-120.61333333333333"^^xsd:float .
+
+<http://dbpedia.org/resource/Wofford_Heights,_California>
+    georss:point "35.706944444444446 -118.45611111111111"@en ;
+    a gml:_Feature ;
+    geo:lat "35.706944444444446"^^xsd:float ;
+    geo:long "-118.45611111111111"^^xsd:float .
+
+<http://dbpedia.org/resource/Woodacre,_California>
+    georss:point "38.01277777777778 -122.64527777777778"@en ;
+    a gml:_Feature ;
+    geo:lat "38.01277777777778"^^xsd:float ;
+    geo:long "-122.64527777777778"^^xsd:float .
+
+<http://dbpedia.org/resource/Woodcrest,_California>
+    georss:point "33.88333333333333 -117.3638888888889"@en ;
+    a gml:_Feature ;
+    geo:lat "33.88333333333333"^^xsd:float ;
+    geo:long "-117.3638888888889"^^xsd:float .
+
+<http://dbpedia.org/resource/Woodlake,_California>
+    georss:point "36.41638888888889 -119.09944444444444"@en ;
+    a gml:_Feature ;
+    geo:lat "36.41638888888889"^^xsd:float ;
+    geo:long "-119.09944444444444"^^xsd:float .
+
+<http://dbpedia.org/resource/Woodside,_California>
+    georss:point "37.420833333333334 -122.25972222222222"@en ;
+    a gml:_Feature ;
+    geo:lat "37.420833333333334"^^xsd:float ;
+    geo:long "-122.25972222222222"^^xsd:float .
+
+<http://dbpedia.org/resource/Woodville,_California>
+    georss:point "36.091944444444444 -119.2"@en ;
+    a gml:_Feature ;
+    geo:lat "36.091944444444444"^^xsd:float ;
+    geo:long "-119.2"^^xsd:float .
+
+<http://dbpedia.org/resource/Wrightwood,_California>
+    georss:point "34.35583333333334 -117.62916666666666"@en ;
+    a gml:_Feature ;
+    geo:lat "34.35583333333334"^^xsd:float ;
+    geo:long "-117.62916666666666"^^xsd:float .
+
+<http://dbpedia.org/resource/Yosemite_Lakes,_California>
+    georss:point "37.19111111111111 -119.77277777777778"@en ;
+    a gml:_Feature ;
+    geo:lat "37.19111111111111"^^xsd:float ;
+    geo:long "-119.77277777777778"^^xsd:float .
+
+<http://dbpedia.org/resource/Yosemite_Valley,_California>
+    georss:point "37.74333333333333 -119.57583333333334"@en ;
+    a gml:_Feature ;
+    geo:lat "37.74333333333333"^^xsd:float ;
+    geo:long "-119.57583333333334"^^xsd:float .
+
+<http://dbpedia.org/resource/Yreka,_California>
+    georss:point "41.72666666666667 -122.6375"@en ;
+    a gml:_Feature ;
+    geo:lat "41.72666666666667"^^xsd:float ;
+    geo:long "-122.6375"^^xsd:float .
+
+<http://dbpedia.org/resource/Yuba_County,_California>
+    georss:point "39.27 -121.35"@en ;
+    a gml:_Feature ;
+    geo:lat "39.27"^^xsd:float ;
+    geo:long "-121.35"^^xsd:float .
+

@@ -11,16 +11,17 @@ Install [serd](http://drobilla.net/software/serd):
 
 ### Build
 
-```
-% swift build -c release
-```
+* MacOS: `swift build -Xswiftc "-target" -Xswiftc "x86_64-apple-macosx10.14" -c release`
+* Linux: `swift build -c release`
+
+(On MacOS, the `-Xswiftc` arguments set the build target to 10.14.)
 
 ### Load data
 
 Create a database file (`geo.db`) and load one or more N-Triples files:
 
 ```
-% ./.build/release/kineo-cli geo.db load dbpedia-geo.nt
+% ./.build/release/kineo-cli geo.db load examples/geo-data/geo.ttl
 ```
 
 Each file will be loaded into its own graph. By default, the first graph created
@@ -30,7 +31,7 @@ Alternatively, data can be loaded into a specific named graph (similarly, a
 custom graph name can be used for the query default graph):
 
 ```
-% ./.build/release/kineo-cli geo.db load -g http://example.org/dbpedia dbpedia-geo.nt
+% ./.build/release/kineo-cli geo.db load -g http://example.org/dbpedia examples/geo-data/geo.ttl
 ```
 
 ### Query
@@ -44,25 +45,24 @@ SELECT  ?s
 WHERE {
 	?s geo:lat ?lat ;
 	   geo:long ?long ;
-	FILTER(?long < -117.0)
-	FILTER(?lat >= 31.0)
-	FILTER(?lat <= 33.0)
+	FILTER(?long < -120)
+	FILTER(?lat >= 34.0)
+	FILTER(?lat <= 35.0)
 }
 ORDER BY ?s
 
-% ./.build/release/kineo-cli geo.db query geo.rq
-Using default graph <file:///Users/greg/kineo/geo.nt>
-1	Result["s": <http://dbpedia.org/resource/Bonita,_California>]
-2	Result["s": <http://dbpedia.org/resource/Fairbanks_Ranch,_California>]
-3	Result["s": <http://dbpedia.org/resource/Imperial_Beach,_California>]
-4	Result["s": <http://dbpedia.org/resource/La_Mesa,_California>]
-5	Result["s": <http://dbpedia.org/resource/La_Presa,_California>]
-6	Result["s": <http://dbpedia.org/resource/Lemon_Grove,_California>]
-7	Result["s": <http://dbpedia.org/resource/National_City,_California>]
-8	Result["s": <http://dbpedia.org/resource/Poway,_California>]
-9	Result["s": <http://dbpedia.org/resource/Solana_Beach,_California>]
-10	Result["s": <http://dbpedia.org/resource/Tijuana>]
-11	Result["s": <http://dbpedia.org/resource/University_of_California,_San_Diego>]
+% ./.build/release/kineo-cli geo.db query examples/geo-data/geo.rq
+Using default graph <file://examples/geo-data/geo.ttl>
+1	Result[s: <http://dbpedia.org/resource/Buellton,_California>]
+2	Result[s: <http://dbpedia.org/resource/Lompoc,_California>]
+3	Result[s: <http://dbpedia.org/resource/Los_Alamos,_California>]
+4	Result[s: <http://dbpedia.org/resource/Mission_Hills,_California>]
+5	Result[s: <http://dbpedia.org/resource/Orcutt,_California>]
+6	Result[s: <http://dbpedia.org/resource/Santa_Barbara_County,_California>]
+7	Result[s: <http://dbpedia.org/resource/Santa_Maria,_California>]
+8	Result[s: <http://dbpedia.org/resource/Santa_Ynez,_California>]
+9	Result[s: <http://dbpedia.org/resource/Solvang,_California>]
+10	Result[s: <http://dbpedia.org/resource/Vandenberg_Air_Force_Base>]
 ```
 
 ### SPARQL Endpoint
