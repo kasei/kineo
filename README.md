@@ -2,6 +2,13 @@
 
 ## A persistent RDF quadstore and SPARQL engine
 
+### Install dependencies
+
+Install [serd](http://drobilla.net/software/serd):
+
+* MacOS: `brew install serd`
+* Linux: `apt-get install libserd-dev`
+
 ### Build
 
 ```
