@@ -78,6 +78,14 @@ open class PageQuadStore<D: PageDatabase>: Sequence, QuadStoreProtocol, MutableQ
         return v
     }
     
+    public func load<S: Sequence, T: Sequence>(version: Version, dictionary: S, quads: T) throws where S.Element == (UInt64, Term), T.Element == (UInt64, UInt64, UInt64, UInt64) {
+        print("optimized PageDatabaseQuadStore.load(version:dictionary:quads:) called")
+        try database.update(version: version) { (m) in
+            let store       = try MediatedPageQuadStore(mediator: m)
+            try store.load(dictionary: dictionary, quads: quads)
+        }
+    }
+
     public func load<S>(version: Version, quads: S) throws where S : Sequence, S.Element == Quad {
         try database.update(version: version) { (m) in
             let store       = try MediatedPageQuadStore(mediator: m)
@@ -237,6 +245,58 @@ open class MediatedPageQuadStore: Sequence, QuadStoreProtocol {
             idquads.append(IDQuad(ids[0], ids[1], ids[2], ids[3]))
         }
         return AnyIterator(idquads.makeIterator())
+    }
+    
+    public func load<S: Sequence, T: Sequence>(dictionary: S, quads: T) throws where S.Element == (UInt64, Term), T.Element == (UInt64, UInt64, UInt64, UInt64) {
+        print("Using optimized PageDatabase loading")
+        let defaultIndex = MediatedPageQuadStore.defaultIndex
+        guard let m = self.mediator as? PageRWMediator else { throw DatabaseError.PermissionError("Cannot load quads into a read-only quadstore") }
+        
+        do {
+            var externalToInternalMapping = [UInt64:UInt64]()
+            for (externalID, term) in dictionary {
+                let internalID = try self.id.getOrSetID(for: term)
+                externalToInternalMapping[externalID] = internalID
+            }
+            
+            let idquads = quads.map {
+                IDQuad(
+                    externalToInternalMapping[$0.0]!,
+                    externalToInternalMapping[$0.1]!,
+                    externalToInternalMapping[$0.2]!,
+                    externalToInternalMapping[$0.3]!
+                )
+            }
+            
+            //            print("Adding RDF triples to database...")
+            let empty = Empty()
+            
+            let toIndex = quadMapping(toOrder: defaultIndex)
+            guard let defaultQuadsIndex: Tree<IDQuad<UInt64>, Empty> = m.tree(name: defaultIndex) else { throw DatabaseError.DataError("Missing default index \(defaultIndex)") }
+            
+            let spog = idquads.sorted()
+            //            print("Loading quads into primary index \(defaultIndex)")
+            for spogquad in spog {
+                let indexOrder = toIndex(spogquad)
+                let pair = (indexOrder, empty)
+                try defaultQuadsIndex.insertIgnore(pair: pair)
+            }
+            
+            for secondaryIndex in self.availableQuadIndexes.filter({ $0 != MediatedPageQuadStore.defaultIndex }) {
+                //                print("Loading quads into secondary index \(secondaryIndex)")
+                guard let secondaryQuadIndex: Tree<IDQuad<UInt64>, Empty> = m.tree(name: secondaryIndex) else { throw DatabaseError.DataError("Missing secondary index \(secondaryIndex)") }
+                let toSecondaryIndex = quadMapping(toOrder: secondaryIndex)
+                let indexOrdered = spog.map { toSecondaryIndex($0) }.sorted()
+                for indexOrder in indexOrdered {
+                    let pair = (indexOrder, empty)
+                    try secondaryQuadIndex.insertIgnore(pair: pair)
+                }
+            }
+        } catch let e {
+            warn("*** \(e)")
+            throw DatabaseUpdateError.rollback
+        }
+
     }
     
     public func load<S: Sequence>(quads: S) throws where S.Iterator.Element == Quad {
