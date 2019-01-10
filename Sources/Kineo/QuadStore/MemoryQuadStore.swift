@@ -225,6 +225,7 @@ open class MemoryQuadStore: Sequence, MutableQuadStoreProtocol {
         let t = i2t[id]
         return t
     }
+    
     public func load<S: Sequence>(version: Version, quads: S) throws where S.Iterator.Element == Quad {
         self.version = version
         let idq = quads.map { idquad(from: $0) }

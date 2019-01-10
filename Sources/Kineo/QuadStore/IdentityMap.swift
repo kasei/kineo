@@ -99,7 +99,7 @@ public extension PackedIdentityMap where Item == Term, Result == UInt64 {
         return type == .datatype
     }
     
-    public func unpack(id: Result) -> Item? {
+    func unpack(id: Result) -> Item? {
         let byte = id >> 56
         let value = id & 0x00ffffffffffffff
         guard let type = PackedTermType(rawValue: UInt8(byte)) else { return nil }
@@ -125,7 +125,7 @@ public extension PackedIdentityMap where Item == Term, Result == UInt64 {
         }
     }
     
-    public func pack(value: Item) -> Result? {
+    func pack(value: Item) -> Result? {
         switch (value.type, value.value) {
         case (.iri, let v):
             return pack(iri: v)
@@ -275,7 +275,6 @@ public extension PackedIdentityMap where Item == Term, Result == UInt64 {
         guard let value = UInt64(combined) else { return nil }
         let scale = UInt8(c[1].count)
         guard value <= 0x00007fffffffffff else { return nil }
-        guard scale >= 0 else { return nil }
         let id = PackedTermType.decimal.typedEmptyValue + (UInt64(scale) << 48) + (sign | value)
         return id
     }

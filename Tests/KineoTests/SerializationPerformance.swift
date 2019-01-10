@@ -18,7 +18,7 @@ class SerializationPerformanceTest: XCTestCase {
     }
     
     private func testTriples(_ scale: Int = 1_000) -> AnySequence<Triple> {
-        var counter = sequence(first: 1) { $0 + 1 }.prefix(scale)
+        let counter = sequence(first: 1) { $0 + 1 }.prefix(scale)
 
         let s1 = Term(iri: "http://example.org/s1")
         let s2 = Term(iri: "http://example.org/s2")

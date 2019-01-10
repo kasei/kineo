@@ -89,14 +89,14 @@ class LanguageQuadStoreTest: XCTestCase {
 //            print("======> Accept-Language: *")
             XCTAssertEqual(lstore.count, 2)
             try XCTAssertEqual(Array(lstore.quads(matching: nicks)).count, 1)
-            if lstore.count == 4 {
-                let qp = QuadPattern(
-                    subject: Node(variable: "s"),
-                    predicate: Node(variable: "p"),
-                    object: Node(variable: "o"),
-                    graph: Node(variable: "g")
-                )
-            }
+//            if lstore.count == 4 {
+//                let qp = QuadPattern(
+//                    subject: Node(variable: "s"),
+//                    predicate: Node(variable: "p"),
+//                    object: Node(variable: "o"),
+//                    graph: Node(variable: "g")
+//                )
+//            }
         }
         
         try withStore(turtle, [("en", 1.0)]) { (lstore) throws in

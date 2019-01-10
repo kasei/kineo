@@ -403,8 +403,6 @@ extension Term {
         } else {
             fatalError("OSX 10.12 is required to use date functions")
         }
-        
-        return nil
     }
 }
 

@@ -446,7 +446,7 @@ public class ExpressionEvaluator {
                 fatalError()
             }
         }
-        throw QueryError.evaluationError("Unrecognized numeric function: \(numericFunction)")
+//        throw QueryError.evaluationError("Unrecognized numeric function: \(numericFunction)")
     }
 
     // NOTE: this isn't really an escaping closure, but swift can't tell that
