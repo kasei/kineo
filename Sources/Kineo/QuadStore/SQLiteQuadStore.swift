@@ -16,8 +16,10 @@ import enum SPARQLSyntax.Node
 // swiftlint:disable:next type_body_length
 open class SQLiteQuadStore: Sequence, MutableQuadStoreProtocol {
     typealias TermID = Int64
+    let schemaVersion : Int64 = 1
     let sysTable = SQLite.Table("kineo_sys")
-    let versionColumn = Expression<Int64>("version")
+    let versionColumn = Expression<Int64>("dataset_version")
+    let schemaVersionColumn = Expression<Int64>("schema_version")
 
     let quadsTable = SQLite.Table("quads")
     let subjColumn = Expression<Int64>("subject")
@@ -59,7 +61,8 @@ open class SQLiteQuadStore: Sequence, MutableQuadStoreProtocol {
     internal func initializeTables() throws {
         try db.run(sysTable.create { t in     // CREATE TABLE "kineo_sys" (
             t.column(idColumn, primaryKey: .autoincrement) //     "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-            t.column(versionColumn) //     "version" INTEGER NOT NULL,
+            t.column(schemaVersionColumn) //     "schema_version" INTEGER NOT NULL,
+            t.column(versionColumn) //     "dataset_version" INTEGER NOT NULL,
             // )
         })
         
@@ -80,9 +83,10 @@ open class SQLiteQuadStore: Sequence, MutableQuadStoreProtocol {
             t.column(termValueColumn) //     "value" TEXT NOT NULL,
             t.column(termDatatypeColumn, references: termsTable, idColumn) //     "datatype" INTEGER NULL REFERENCES terms(id),
             t.column(termLangColumn) //     "language" TEXT NULL,
-            t.unique([termValueColumn, termTypeColumn, termLangColumn]) // UNIQUE("type", "value", "language")
+            t.unique([termValueColumn, termTypeColumn, termDatatypeColumn, termLangColumn]) // UNIQUE("type", "value", "datatype", "language")
             // )
         })
+        try db.run(termsTable.createIndex(termTypeColumn))
         try db.run(termsTable.createIndex(termValueColumn))
         try db.run(termsTable.createIndex(termLangColumn))
         
@@ -99,6 +103,7 @@ open class SQLiteQuadStore: Sequence, MutableQuadStoreProtocol {
 
         try db.run(sysTable.insert(or: .replace,
             idColumn <- 0,
+            schemaVersionColumn <- schemaVersion,
             versionColumn <- 0
         ))
 
@@ -114,10 +119,7 @@ open class SQLiteQuadStore: Sequence, MutableQuadStoreProtocol {
         db = try Connection()
         try initializeTables()
         if let v = version {
-            try db.run(sysTable.insert(or: .replace,
-                                       idColumn <- 0,
-                                       versionColumn <- Int64(v)
-            ))
+            try db.run(sysTable.update(versionColumn <- Int64(v)))
         }
     }
     
@@ -359,17 +361,16 @@ open class SQLiteQuadStore: Sequence, MutableQuadStoreProtocol {
     }
     
     public func load<S: Sequence>(version: Version, quads: S) throws where S.Iterator.Element == Quad {
-        for q in quads {
-            let sid = try assignID(for: q.subject)
-            let pid = try assignID(for: q.predicate)
-            let oid = try assignID(for: q.object)
-            let gid = try assignID(for: q.graph)
-            try db.run(quadsTable.insert(or: .ignore, subjColumn <- sid, predColumn <- pid, objColumn <- oid, graphColumn <- gid))
+        try db.transaction {
+            for q in quads {
+                let sid = try assignID(for: q.subject)
+                let pid = try assignID(for: q.predicate)
+                let oid = try assignID(for: q.object)
+                let gid = try assignID(for: q.graph)
+                try db.run(quadsTable.insert(or: .ignore, subjColumn <- sid, predColumn <- pid, objColumn <- oid, graphColumn <- gid))
+            }
+            try db.run(sysTable.update(versionColumn <- Int64(version)))
         }
-        try db.run(sysTable.insert(or: .replace,
-                                   idColumn <- 0,
-                                   versionColumn <- Int64(version)
-        ))
     }
 }
 
