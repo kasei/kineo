@@ -38,6 +38,12 @@ open class SQLiteQuadStore: Sequence, MutableQuadStoreProtocol {
         case idAssignmentError
     }
     
+    internal enum TermType: Int64 {
+        case blank = 1
+        case iri = 2
+        case literal = 3
+    }
+    
     public var count: Int {
         let count = try? db.scalar(quadsTable.count)
         return count ?? 0
@@ -50,12 +56,6 @@ open class SQLiteQuadStore: Sequence, MutableQuadStoreProtocol {
         if initialize {
             try initializeTables()
         }
-    }
-    
-    internal enum TermType: Int64 {
-        case blank = 1
-        case iri = 2
-        case literal = 3
     }
     
     internal func initializeTables() throws {
@@ -92,26 +92,30 @@ open class SQLiteQuadStore: Sequence, MutableQuadStoreProtocol {
         
         let iris = [
             "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
-            "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
             "http://www.w3.org/1999/02/22-rdf-syntax-ns#langString",
             "http://www.w3.org/1999/02/22-rdf-syntax-ns#first",
             "http://www.w3.org/1999/02/22-rdf-syntax-ns#rest",
             "http://www.w3.org/1999/02/22-rdf-syntax-ns#nil",
-            "http://www.w3.org/1999/02/22-rdf-syntax-ns#rest",
-            "http://www.w3.org/2001/XMLSchema#string"
+            "http://www.w3.org/2001/XMLSchema#string",
+            "http://www.w3.org/2001/XMLSchema#integer",
+            "http://www.w3.org/2001/XMLSchema#decimal",
+            "http://www.w3.org/2001/XMLSchema#double",
+            "http://www.w3.org/2001/XMLSchema#float"
         ]
 
-        try db.run(sysTable.insert(or: .replace,
-            idColumn <- 0,
-            schemaVersionColumn <- schemaVersion,
-            versionColumn <- 0
-        ))
-
-        for iri in iris {
-            try db.run(termsTable.insert(
-                termTypeColumn <- TermType.iri.rawValue,
-                termValueColumn <- iri
+        try db.transaction {
+            try db.run(sysTable.insert(or: .replace,
+                                       idColumn <- 0,
+                                       schemaVersionColumn <- schemaVersion,
+                                       versionColumn <- 0
+            ))
+            
+            for iri in iris {
+                try db.run(termsTable.insert(
+                    termTypeColumn <- TermType.iri.rawValue,
+                    termValueColumn <- iri
                 ))
+            }
         }
     }
     
