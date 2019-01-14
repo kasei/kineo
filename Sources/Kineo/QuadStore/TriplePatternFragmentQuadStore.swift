@@ -17,10 +17,6 @@ enum TPFError : Error {
 }
 // swiftlint:disable:next type_body_length
 open class TriplePatternFragmentQuadStore: Sequence, QuadStoreProtocol {
-    let rdf = "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
-    let hydra = "http://www.w3.org/ns/hydra/core#"
-    let void = "http://rdfs.org/ns/void#"
-    let foaf = "http://xmlns.com/foaf/0.1/"
     let emptyPattern = QuadPattern(
         subject: .variable("s", binding: true),
         predicate: .variable("p", binding: true),

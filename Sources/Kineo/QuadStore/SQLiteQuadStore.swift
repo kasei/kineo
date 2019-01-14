@@ -7,6 +7,7 @@
 
 import Foundation
 import SQLite
+import struct SPARQLSyntax.Namespace
 import struct SPARQLSyntax.Term
 import struct SPARQLSyntax.Quad
 import struct SPARQLSyntax.QuadPattern
@@ -91,16 +92,18 @@ open class SQLiteQuadStore: Sequence, MutableQuadStoreProtocol {
         try db.run(termsTable.createIndex(termLangColumn))
         
         let iris = [
-            "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
-            "http://www.w3.org/1999/02/22-rdf-syntax-ns#langString",
-            "http://www.w3.org/1999/02/22-rdf-syntax-ns#first",
-            "http://www.w3.org/1999/02/22-rdf-syntax-ns#rest",
-            "http://www.w3.org/1999/02/22-rdf-syntax-ns#nil",
-            "http://www.w3.org/2001/XMLSchema#string",
-            "http://www.w3.org/2001/XMLSchema#integer",
-            "http://www.w3.org/2001/XMLSchema#decimal",
-            "http://www.w3.org/2001/XMLSchema#double",
-            "http://www.w3.org/2001/XMLSchema#float"
+            Namespace.rdf.type,
+            Namespace.rdf.langString,
+            Namespace.rdf.List,
+            Namespace.rdf.Resource,
+            Namespace.rdf.first,
+            Namespace.rdf.rest,
+            Namespace.rdf.nil,
+            Namespace.xsd.string,
+            Namespace.xsd.integer,
+            Namespace.xsd.decimal,
+            Namespace.xsd.double,
+            Namespace.xsd.float
         ]
 
         try db.transaction {
@@ -180,7 +183,7 @@ open class SQLiteQuadStore: Sequence, MutableQuadStoreProtocol {
             insert = termsTable.insert(
                 termTypeColumn <- TermType.literal.rawValue,
                 termValueColumn <- term.value,
-                termDatatypeColumn <- id(for: Term(iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#langString")),
+                termDatatypeColumn <- id(for: Term(iri: Namespace.rdf.langString)),
                 termLangColumn <- lang)
         case .datatype(let dt):
             insert = try termsTable.insert(
@@ -249,7 +252,7 @@ open class SQLiteQuadStore: Sequence, MutableQuadStoreProtocol {
                     return nil
                 }
                 let dt = dtTerm.value
-                if dt == "http://www.w3.org/1999/02/22-rdf-syntax-ns#langString" {
+                if dt == Namespace.rdf.langString {
                     guard let lang = row[termLangColumn] else {
                         return nil
                     }

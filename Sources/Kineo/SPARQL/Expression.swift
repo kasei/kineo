@@ -578,7 +578,7 @@ public class ExpressionEvaluator {
             if case .datatype(let dt) = val.type {
                 return Term(value: dt.value, type: .iri)
             } else if case .language(_) = val.type {
-                return Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#langString", type: .iri)
+                return Term(value: Namespace.rdf.langString, type: .iri)
             } else {
                 throw QueryError.typeError("DATATYPE called with non-literal")
             }

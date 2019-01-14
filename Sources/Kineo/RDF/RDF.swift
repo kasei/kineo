@@ -369,7 +369,7 @@ extension Term {
             return nil
         }
         let lexical = self.value
-        if dt == "http://www.w3.org/2001/XMLSchema#dateTime" {
+        if dt.value == Namespace.xsd.dateTime {
             if #available (OSX 10.12, *) {
                 let f = W3CDTFLocatedDateFormatter()
                 f.formatOptions.remove(.withTimeZone)
@@ -379,7 +379,7 @@ extension Term {
             } else {
                 fatalError("OSX 10.12 is required to use date functions")
             }
-        } else if dt == "http://www.w3.org/2001/XMLSchema#date" {
+        } else if dt.value == Namespace.xsd.date {
             if #available (OSX 10.12, *) {
                 let f = W3CDTFLocatedDateFormatter()
                 f.formatOptions = [.withYear, .withMonth, .withDay, .withDashSeparatorInDate]

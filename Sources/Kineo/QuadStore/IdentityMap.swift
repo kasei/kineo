@@ -369,15 +369,15 @@ public extension PackedIdentityMap where Item == Term, Result == UInt64 {
     private func unpack(iri value: UInt64) -> Item? {
         switch value {
         case 1:
-            return Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type", type: .iri)
+            return Term(value: Namespace.rdf.type, type: .iri)
         case 2:
-            return Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#List", type: .iri)
+            return Term(value: Namespace.rdf.List, type: .iri)
         case 3:
-            return Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#Resource", type: .iri)
+            return Term(value: Namespace.rdf.Resource, type: .iri)
         case 4:
-            return Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#first", type: .iri)
+            return Term(value: Namespace.rdf.first, type: .iri)
         case 5:
-            return Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#rest", type: .iri)
+            return Term(value: Namespace.rdf.rest, type: .iri)
         case 6:
             return Term(value: "http://www.w3.org/2000/01/rdf-schema#comment", type: .iri)
         case 7:
@@ -396,15 +396,15 @@ public extension PackedIdentityMap where Item == Term, Result == UInt64 {
     private func pack(iri: String) -> Result? {
         let mask    = PackedTermType.commonIRI.typedEmptyValue
         switch iri {
-        case "http://www.w3.org/1999/02/22-rdf-syntax-ns#type":
+        case Namespace.rdf.type:
             return mask + 1
-        case "http://www.w3.org/1999/02/22-rdf-syntax-ns#List":
+        case Namespace.rdf.List:
             return mask + 2
-        case "http://www.w3.org/1999/02/22-rdf-syntax-ns#Resource":
+        case Namespace.rdf.Resource:
             return mask + 3
-        case "http://www.w3.org/1999/02/22-rdf-syntax-ns#first":
+        case Namespace.rdf.first:
             return mask + 4
-        case "http://www.w3.org/1999/02/22-rdf-syntax-ns#rest":
+        case Namespace.rdf.rest:
             return mask + 5
         case "http://www.w3.org/2000/01/rdf-schema#comment":
             return mask + 6

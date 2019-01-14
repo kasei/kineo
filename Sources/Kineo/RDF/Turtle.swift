@@ -90,7 +90,7 @@ extension Term {
     func turtleString(usingPrefixes prefixes: [String:Term]? = nil, for position: RDFTriplePosition = .object) -> String {
         switch self.type {
         case .iri:
-            if position == .predicate && self.value == "http://www.w3.org/1999/02/22-rdf-syntax-ns#type" {
+            if position == .predicate && self.value == Namespace.rdf.type {
                 return "a"
             }
             let v = self.value
