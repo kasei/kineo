@@ -10,12 +10,13 @@ let package = Package(
 		.package(url: "https://github.com/kasei/swift-sparql-syntax.git", .upToNextMinor(from: "0.0.85")),
 		.package(url: "https://github.com/kasei/swift-serd.git", .upToNextMinor(from: "0.0.3")),
 		.package(url: "https://github.com/krzyzanowskim/CryptoSwift.git", from: "0.8.0"),
-        .package(url: "https://github.com/kasei/URITemplate.git", .upToNextMinor(from: "2.0.10"))
+        .package(url: "https://github.com/kasei/URITemplate.git", .upToNextMinor(from: "2.0.10")),
+        .package(url: "https://github.com/stephencelis/SQLite.swift.git", from: "0.11.5")
     ],
     targets: [
     	.target(
     		name: "Kineo",
-			dependencies: ["CryptoSwift", "SPARQLSyntax", "URITemplate", "serd"]
+			dependencies: ["CryptoSwift", "SPARQLSyntax", "URITemplate", "serd", "SQLite"]
     	),
         .target(
             name: "kineo-cli",
