@@ -51,9 +51,13 @@ open class SQLiteQuadStore: Sequence, MutableQuadStoreProtocol {
     }
     
     var db: Connection
-    
+    var t2icache: LRUCache<Term, TermID>
+    var i2tcache: LRUCache<TermID, Term>
+
     public init(filename: String, initialize: Bool = false) throws {
         db = try Connection(filename)
+        i2tcache = LRUCache(capacity: 1024)
+        t2icache = LRUCache(capacity: 1024)
         if initialize {
             try initializeTables()
         }
@@ -124,6 +128,8 @@ open class SQLiteQuadStore: Sequence, MutableQuadStoreProtocol {
     
     public init(version: Version? = nil) throws {
         db = try Connection()
+        i2tcache = LRUCache(capacity: 1024)
+        t2icache = LRUCache(capacity: 1024)
         try initializeTables()
         if let v = version {
             try db.run(sysTable.update(versionColumn <- Int64(v)))
@@ -200,6 +206,10 @@ open class SQLiteQuadStore: Sequence, MutableQuadStoreProtocol {
     }
     
     internal func id(for term: Term) -> TermID? {
+        if let i = t2icache[term] {
+            return i
+        }
+        
         var query = termsTable.select(idColumn).filter(termValueColumn == term.value)
         switch term.type {
         case .blank:
@@ -223,12 +233,18 @@ open class SQLiteQuadStore: Sequence, MutableQuadStoreProtocol {
 //                print("------------")
                 return nil
             }
-            return row[idColumn]
+            let i = row[idColumn]
+            t2icache[term] = i
+            return i
         } catch {}
         return nil
     }
     
     internal func term(for id: TermID) -> Term? {
+        if let t = i2tcache[id] {
+            return t
+        }
+        
         let query = termsTable.select(termsTable[*]).filter(idColumn == id)
         do {
             guard let row = try db.pluck(query) else {
@@ -241,9 +257,13 @@ open class SQLiteQuadStore: Sequence, MutableQuadStoreProtocol {
             let value = row[termValueColumn]
             switch type {
             case .iri:
-                return Term(iri: value)
+                let t = Term(iri: value)
+                i2tcache[id] = t
+                return t
             case .blank:
-                return Term(value: value, type: .blank)
+                let t = Term(value: value, type: .blank)
+                i2tcache[id] = t
+                return t
             case .literal:
                 guard let datatypeID = row[termDatatypeColumn] else {
                     return nil
@@ -256,9 +276,13 @@ open class SQLiteQuadStore: Sequence, MutableQuadStoreProtocol {
                     guard let lang = row[termLangColumn] else {
                         return nil
                     }
-                    return Term(value: value, type: .language(lang))
+                    let t = Term(value: value, type: .language(lang))
+                    i2tcache[id] = t
+                    return t
                 } else {
-                    return Term(value: value, type: .datatype(TermDataType(stringLiteral: dt)))
+                    let t = Term(value: value, type: .datatype(TermDataType(stringLiteral: dt)))
+                    i2tcache[id] = t
+                    return t
                 }
             }
         } catch {}
@@ -303,17 +327,17 @@ open class SQLiteQuadStore: Sequence, MutableQuadStoreProtocol {
         guard let dbh = try? db.prepare(query) else {
             return AnyIterator { return nil }
         }
-        let results = dbh.compactMap { (row) -> TermResult? in
+        let results = dbh.lazy.compactMap { (row) -> TermResult? in
             var bindings = [String: Term]()
             for (name, cols) in mapping {
                 if cols.count == 1 {
                     let col = cols.first!
                     let id = row[col]
-                    guard let t = term(for: id) else { return nil }
+                    guard let t = self.term(for: id) else { return nil }
                     bindings[name] = t
                 } else {
                     let ids = cols.map { row[$0] }
-                    let terms = ids.compactMap { term(for: $0) }
+                    let terms = ids.compactMap { self.term(for: $0) }
                     guard terms.count == cols.count else { return nil }
                     if let t = terms.first {
                         guard terms.allSatisfy({ t == $0 }) else {
@@ -350,11 +374,11 @@ open class SQLiteQuadStore: Sequence, MutableQuadStoreProtocol {
         guard let dbh = try? db.prepare(query) else {
             return AnyIterator { return nil }
         }
-        let quads = dbh.compactMap { (row) -> Quad? in
-            guard let s = term(for: row[subjColumn]) else { return nil }
-            guard let p = term(for: row[subjColumn]) else { return nil }
-            guard let o = term(for: row[subjColumn]) else { return nil }
-            guard let g = term(for: row[subjColumn]) else { return nil }
+        let quads = dbh.lazy.compactMap { (row) -> Quad? in
+            guard let s = self.term(for: row[self.subjColumn]) else { return nil }
+            guard let p = self.term(for: row[self.predColumn]) else { return nil }
+            guard let o = self.term(for: row[self.objColumn]) else { return nil }
+            guard let g = self.term(for: row[self.graphColumn]) else { return nil }
             return Quad(subject: s, predicate: p, object: o, graph: g)
         }
         return AnyIterator(quads.makeIterator())
