@@ -138,7 +138,7 @@ private func serd_node_as_term(env: OpaquePointer?, node: SerdNode, datatype: St
         if let lang = language {
             return Term(value: node.value, type: .language(lang))
         } else {
-            let dt = TermDataType(stringLiteral: datatype ?? "http://www.w3.org/2001/XMLSchema#string")
+            let dt = TermDataType(stringLiteral: datatype ?? Namespace.xsd.string)
             return Term(value:node.value, type: .datatype(dt))
         }
     case SERD_CURIE:

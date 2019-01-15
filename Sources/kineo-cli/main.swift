@@ -40,12 +40,12 @@ func sortParse(files: [String], graph defaultGraphTerm: Term? = nil) throws -> (
     var literals = Set<Term>()
     for filename in files {
         #if os (OSX)
-            guard let path = NSURL(fileURLWithPath: filename).absoluteString else { throw DatabaseError.DataError("Not a valid graph path: \(filename)") }
+        guard let path = NSURL(fileURLWithPath: filename).absoluteString else { throw DatabaseError.DataError("Not a valid graph path: \(filename)") }
         #else
-            let path = NSURL(fileURLWithPath: filename).absoluteString
+        let path = NSURL(fileURLWithPath: filename).absoluteString
         #endif
         let graph   = defaultGraphTerm ?? Term(value: path, type: .iri)
-
+        
         iris.insert(graph)
         
         let parser = RDFParserCombined()
@@ -66,7 +66,7 @@ func sortParse(files: [String], graph defaultGraphTerm: Term? = nil) throws -> (
     
     let blanksCount = blanks.count
     let irisAndBlanksCount = iris.count + blanksCount
-
+    
     var mapping = [Int:Term]()
     for (i, term) in blanks.enumerated() { // blanks don't have inherent ordering amongst themselves
         mapping[i] = term
@@ -96,12 +96,12 @@ func parse<D : PageDatabase>(_ database: D, files: [String], startTime: UInt64, 
         do {
             for filename in files {
                 #if os (OSX)
-                    guard let path = NSURL(fileURLWithPath: filename).absoluteString else { throw DatabaseError.DataError("Not a valid graph path: \(filename)") }
+                guard let path = NSURL(fileURLWithPath: filename).absoluteString else { throw DatabaseError.DataError("Not a valid graph path: \(filename)") }
                 #else
-                    let path = NSURL(fileURLWithPath: filename).absoluteString
+                let path = NSURL(fileURLWithPath: filename).absoluteString
                 #endif
                 let graph   = defaultGraphTerm ?? Term(value: path, type: .iri)
-
+                
                 let parser = RDFParserCombined()
                 var quads = [Quad]()
                 print("Parsing RDF...")
@@ -109,7 +109,7 @@ func parse<D : PageDatabase>(_ database: D, files: [String], startTime: UInt64, 
                     let q = Quad(subject: s, predicate: p, object: o, graph: graph)
                     quads.append(q)
                 }
-
+                
                 print("Loading RDF...")
                 let store = try MediatedPageQuadStore.create(mediator: m)
                 try store.load(quads: quads)
@@ -139,7 +139,7 @@ func explain<D : PageDatabase>(_ database: D, query: Query, graph: Term? = nil, 
     print("- explaining query")
     try database.read { (m) in
         print("- mediator: \(m)")
-//        let store       = try MediatedLanguagePageQuadStore(mediator: m, acceptLanguages: [("en", 1.0), ("", 0.5)])
+        //        let store       = try MediatedLanguagePageQuadStore(mediator: m, acceptLanguages: [("en", 1.0), ("", 0.5)])
         let store       = try MediatedPageQuadStore(mediator: m)
         print("- store: \(store)")
         var defaultGraph: Term
@@ -160,13 +160,12 @@ func explain<D : PageDatabase>(_ database: D, query: Query, graph: Term? = nil, 
 /**
  Evaluate the supplied Query against the database's QuadStore and print the results.
  If a graph argument is given, use it as the initial active graph.
-
+ 
  - parameter query: The query to evaluate.
  - parameter graph: The graph name to use as the initial active graph.
  - parameter verbose: A flag indicating whether verbose debugging should be emitted during query evaluation.
  */
 func query<D : PageDatabase>(_ database: D, query: Query, graph: Term? = nil, verbose: Bool) throws -> Int {
-    var count       = 0
     let startTime = getCurrentTime()
     let store = try PageQuadStore(database: database)
     var defaultGraph: Term
@@ -186,6 +185,17 @@ func query<D : PageDatabase>(_ database: D, query: Query, graph: Term? = nil, ve
         }
     }
     let results = try e.evaluate(query: query)
+    let count = printResult(results)
+    if verbose {
+        let endTime = getCurrentTime()
+        let elapsed = endTime - startTime
+        warn("query time: \(elapsed)s")
+    }
+    return count
+}
+
+private func printResult<R, T>(_ results: QueryResult<R, T>) -> Int {
+    var count       = 0
     switch results {
     case .bindings(_, let iter):
         for result in iter {
@@ -199,12 +209,6 @@ func query<D : PageDatabase>(_ database: D, query: Query, graph: Term? = nil, ve
             count += 1
             print("\(count)\t\(triple.description)")
         }
-    }
-
-    if verbose {
-        let endTime = getCurrentTime()
-        let elapsed = endTime - startTime
-        warn("query time: \(elapsed)s")
     }
     return count
 }
@@ -222,7 +226,7 @@ private func print(quad: Quad, lastGraph: Term?) {
 /**
  Print all the quads present in the database's QuadStore. If an index name is supplied,
  use it to print quads in its native order.
-
+ 
  - parameter index: The name of an index to use to sort the resulting output.
  */
 func serialize<D : PageDatabase>(_ database: D, index: String? = nil) throws -> Int {
@@ -265,7 +269,7 @@ func printSummary<D : PageDatabase>(of database: D) throws {
             print("Version: \(versionDate)")
         }
         print("Quads: \(store.count)")
-
+        
         let indexes = store.availableQuadIndexes.joined(separator: ", ")
         print("Indexes: \(indexes)")
         
@@ -337,7 +341,7 @@ func printPageInfo(mediator: FilePageRMediator, name: String, page: PageId) {
         case .some(let value):
             prev = "Previous page: \(value)"
         }
-
+        
         let name_padded = name.padding(toLength: 16, withPad: " ", startingAt: 0)
         let type_padded = type.padding(toLength: 24, withPad: " ", startingAt: 0)
         print("  \(page)\t\(date)\t\(name_padded)\t\(type_padded)\t\t\(prev)")
@@ -403,121 +407,177 @@ if let next = args.peek(), next == "-v" {
 }
 
 guard let filename = args.next() else { fatalError("Missing filename") }
-guard let database = FilePageDatabase(filename, size: pageSize) else { warn("Failed to open \(filename)"); exit(1) }
 let startTime = getCurrentTime()
 let startSecond = getCurrentDateSeconds()
 var count = 0
 
 if let op = args.next() {
-    try setup(database, version: Version(startSecond))
-    if op == "load" {
+    if op == "sqlite" {
         do {
+            let subop = args.next() ?? "serialize"
+            let qs : SQLiteQuadStore
+            if subop == "init" {
+                qs = try SQLiteQuadStore(filename: filename, initialize: true)
+            } else {
+                qs = try SQLiteQuadStore(filename: filename)
+            }
+
+            if subop == "load" {
+                guard let rdfFilename = args.next() else {
+                    warn("Missing RDF filename")
+                    exit(1)
+                }
+                #if os (OSX)
+                guard let path = NSURL(fileURLWithPath: rdfFilename).absoluteString else { throw DatabaseError.DataError("Not a valid graph path: \(rdfFilename)") }
+                #else
+                let path = NSURL(fileURLWithPath: rdfFilename).absoluteString
+                #endif
+                let graph   = Term(value: path, type: .iri)
+                
+                let parser = RDFParserCombined()
+                var quads = [Quad]()
+                print("Parsing RDF...")
+                count = try parser.parse(file: rdfFilename, base: graph.value) { (s, p, o) in
+                    let q = Quad(subject: s, predicate: p, object: o, graph: graph)
+                    quads.append(q)
+                }
+                
+                print("Loading RDF...")
+                let v = try qs.effectiveVersion() ?? 0
+                try qs.load(version: v+1, quads: quads)
+            } else if subop == "query" {
+                guard let sparql = args.next() else {
+                    warn("Missing SPARQL")
+                    exit(1)
+                }
+                guard var p = SPARQLParser(data: sparql.data(using: .utf8)!) else { fatalError("Failed to construct SPARQL parser") }
+                let q = try p.parseQuery()
+                let defaultGraph = qs.graphs().next() ?? Term(iri: "tag:kasei.us,2018:default-graph")
+                let dataset = qs.dataset(withDefault: defaultGraph)
+                let e = SimpleQueryEvaluator(store: qs, dataset: dataset)
+                let r = try e.evaluate(query: q)
+                _ = printResult(r)
+            } else {
+                for q in qs {
+                    print("\(q)")
+                }
+            }
+        } catch {
+            print(error)
+        }
+    } else {
+        guard let database = FilePageDatabase(filename, size: pageSize) else { warn("Failed to open \(filename)"); exit(1) }
+        try setup(database, version: Version(startSecond))
+        if op == "load" {
+            do {
+                var graph: Term? = nil
+                if let next = args.peek(), next == "-g" {
+                    _ = args.next()
+                    guard let iri = args.next() else { fatalError("No IRI value given after -g") }
+                    graph = Term(value: iri, type: .iri)
+                }
+                
+                count = try parse(database, files: args.elements(), startTime: startSecond, graph: graph)
+            } catch let e {
+                warn("*** Failed to load data: \(e)")
+            }
+        } else if op == "terms" {
+            count = try printTerms(from: database)
+        } else if op == "graphs" {
+            count = try printGraphs(from: database)
+        } else if op == "indexes" {
+            count = try printIndexes(from: database)
+        } else if op == "explain" {
             var graph: Term? = nil
             if let next = args.peek(), next == "-g" {
                 _ = args.next()
                 guard let iri = args.next() else { fatalError("No IRI value given after -g") }
                 graph = Term(value: iri, type: .iri)
             }
-            
-            count = try parse(database, files: args.elements(), startTime: startSecond, graph: graph)
-        } catch let e {
-            warn("*** Failed to load data: \(e)")
-        }
-    } else if op == "terms" {
-        count = try printTerms(from: database)
-    } else if op == "graphs" {
-        count = try printGraphs(from: database)
-    } else if op == "indexes" {
-        count = try printIndexes(from: database)
-    } else if op == "explain" {
-        var graph: Term? = nil
-        if let next = args.peek(), next == "-g" {
-            _ = args.next()
-            guard let iri = args.next() else { fatalError("No IRI value given after -g") }
-            graph = Term(value: iri, type: .iri)
-        }
-        guard let qfile = args.next() else { fatalError("No query file given") }
-        let sparql = try data(fromFileOrString: qfile)
-        guard var p = SPARQLParser(data: sparql) else { fatalError("Failed to construct SPARQL parser") }
-        do {
-            let q = try p.parseQuery()
-            print("Parsed query:")
-            print(q.serialize())
-            try explain(database, query: q, graph: graph, verbose: verbose)
-        } catch let e {
-            warn("*** Failed to explain query: \(e)")
-        }
-    } else if op == "query" {
-        var graph: Term? = nil
-        if let next = args.peek(), next == "-g" {
-            _ = args.next()
-            guard let iri = args.next() else { fatalError("No IRI value given after -g") }
-            graph = Term(value: iri, type: .iri)
-        }
-        guard let qfile = args.next() else { fatalError("No query file given") }
-        do {
+            guard let qfile = args.next() else { fatalError("No query file given") }
             let sparql = try data(fromFileOrString: qfile)
             guard var p = SPARQLParser(data: sparql) else { fatalError("Failed to construct SPARQL parser") }
-            let q = try p.parseQuery()
-            count = try query(database, query: q, graph: graph, verbose: verbose)
-        } catch let e {
-            warn("*** Failed to evaluate query:")
-            warn("*** - \(e)")
-        }
-    } else if op == "dump" {
-        let index = args.next() ?? MediatedPageQuadStore.defaultIndex
-        count = try serialize(database, index: index)
-    } else if op == "index", let index = args.next() {
-        try database.update(version: startSecond) { (m) in
             do {
-                let store = try MediatedPageQuadStore.create(mediator: m)
-                try store.addQuadIndex(index)
+                let q = try p.parseQuery()
+                print("Parsed query:")
+                print(q.serialize())
+                try explain(database, query: q, graph: graph, verbose: verbose)
             } catch let e {
-                warn("*** \(e)")
-                throw DatabaseUpdateError.rollback
+                warn("*** Failed to explain query: \(e)")
             }
-        }
-    } else if op == "roots" {
-        database.read { (m) in
-            let roots = m.rootNames
-            if roots.count > 0 {
-                print("Roots:")
-                for name in roots {
-                    if let i = try? m.getRoot(named: name) {
-                        printPageInfo(mediator: m, name: name, page: i)
+        } else if op == "query" {
+            var graph: Term? = nil
+            if let next = args.peek(), next == "-g" {
+                _ = args.next()
+                guard let iri = args.next() else { fatalError("No IRI value given after -g") }
+                graph = Term(value: iri, type: .iri)
+            }
+            guard let qfile = args.next() else { fatalError("No query file given") }
+            do {
+                let sparql = try data(fromFileOrString: qfile)
+                guard var p = SPARQLParser(data: sparql) else { fatalError("Failed to construct SPARQL parser") }
+                let q = try p.parseQuery()
+                count = try query(database, query: q, graph: graph, verbose: verbose)
+            } catch let e {
+                warn("*** Failed to evaluate query:")
+                warn("*** - \(e)")
+            }
+        } else if op == "dump" {
+            let index = args.next() ?? MediatedPageQuadStore.defaultIndex
+            count = try serialize(database, index: index)
+        } else if op == "index", let index = args.next() {
+            try database.update(version: startSecond) { (m) in
+                do {
+                    let store = try MediatedPageQuadStore.create(mediator: m)
+                    try store.addQuadIndex(index)
+                } catch let e {
+                    warn("*** \(e)")
+                    throw DatabaseUpdateError.rollback
+                }
+            }
+        } else if op == "roots" {
+            database.read { (m) in
+                let roots = m.rootNames
+                if roots.count > 0 {
+                    print("Roots:")
+                    for name in roots {
+                        if let i = try? m.getRoot(named: name) {
+                            printPageInfo(mediator: m, name: name, page: i)
+                        }
                     }
                 }
             }
-        }
-    } else if op == "pages" {
-        print("Page size: \(database.pageSize)")
-        database.read { (m) in
-            var roots = [Int:String]()
-            for name in m.rootNames {
-                if let i = try? m.getRoot(named: name) {
-                    roots[Int(i)] = name
+        } else if op == "pages" {
+            print("Page size: \(database.pageSize)")
+            database.read { (m) in
+                var roots = [Int:String]()
+                for name in m.rootNames {
+                    if let i = try? m.getRoot(named: name) {
+                        roots[Int(i)] = name
+                    }
+                }
+                
+                var pages = Array(args.elements().compactMap { Int($0) })
+                if pages.count == 0 {
+                    pages = Array(0..<m.pageCount)
+                }
+                for pid in pages {
+                    let name = roots[pid] ?? "_"
+                    printPageInfo(mediator: m, name: name, page: pid)
                 }
             }
-
-            var pages = Array(args.elements().compactMap { Int($0) })
-            if pages.count == 0 {
-                pages = Array(0..<m.pageCount)
+        } else if op == "dot" {
+            database.read { (m) in
+                let indexName = args.next() ?? MediatedPageQuadStore.defaultIndex
+                m.printTreeDOT(name: indexName)
             }
-            for pid in pages {
-                let name = roots[pid] ?? "_"
-                printPageInfo(mediator: m, name: name, page: pid)
-            }
+        } else {
+            warn("Unrecognized operation: '\(op)'")
+            exit(1)
         }
-    } else if op == "dot" {
-        database.read { (m) in
-            let indexName = args.next() ?? MediatedPageQuadStore.defaultIndex
-            m.printTreeDOT(name: indexName)
-        }
-    } else {
-        warn("Unrecognized operation: '\(op)'")
-        exit(1)
     }
 } else {
+    guard let database = FilePageDatabase(filename, size: pageSize) else { warn("Failed to open \(filename)"); exit(1) }
     try printSummary(of: database)
 }
 
@@ -525,6 +585,6 @@ let endTime = getCurrentTime()
 let elapsed = Double(endTime - startTime)
 let tps = Double(count) / elapsed
 if verbose {
-//    Logger.shared.printSummary()
+    //    Logger.shared.printSummary()
     warn("elapsed time: \(elapsed)s (\(tps)/s)")
 }
