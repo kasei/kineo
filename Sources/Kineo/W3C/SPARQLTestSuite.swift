@@ -9,6 +9,8 @@ import Foundation
 import SPARQLSyntax
 
 public struct SPARQLTestRunner {
+    typealias TestedQuadStore = SQLiteQuadStore
+    
     var quadstore: MemoryQuadStore
     public var verbose: Bool
     
@@ -49,18 +51,8 @@ public struct SPARQLTestRunner {
         }
     }
     
-    func parse<D: PageDatabase>(_ database: D, files: [String], graph defaultGraphTerm: Term? = nil) throws {
-        let store = try PageQuadStore(database: database)
-        do {
-            try parse(version: Version(0), quadstore: store, files: files, graph: defaultGraphTerm)
-        } catch let e {
-            warn("*** Failed during load of RDF; \(e)")
-            throw DatabaseUpdateError.rollback
-        }
-    }
-    
-    func quadStore(from dataset: Dataset, defaultGraph: Term) throws -> MemoryQuadStore {
-        let q = MemoryQuadStore()
+    func quadStore(from dataset: Dataset, defaultGraph: Term) throws -> TestedQuadStore {
+        let q = try TestedQuadStore()
         do {
             let defaultUrls = dataset.defaultGraphs.compactMap { URL(string: $0.value) }
             try parse(version: Version(0), quadstore: q, files: defaultUrls.map{ $0.path }, graph: defaultGraph)
