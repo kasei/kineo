@@ -6,37 +6,57 @@
 //
 
 import Foundation
+import SPARQLSyntax
 import SQLite
-import struct SPARQLSyntax.Namespace
-import struct SPARQLSyntax.Term
-import struct SPARQLSyntax.Quad
-import struct SPARQLSyntax.QuadPattern
-import enum SPARQLSyntax.TermDataType
-import enum SPARQLSyntax.Node
+
+public struct SQLitePlan: NullaryQueryPlan {
+    var query: SQLite.Table
+    var projected: [String: SQLite.Expression<Int64>]
+    var store: SQLiteQuadStore
+    public var selfDescription: String { return "SQLite Plan" }
+    public func evaluate() throws -> AnyIterator<TermResult> {
+        guard let dbh = try? store.db.prepare(query) else {
+            return AnyIterator { return nil }
+        }
+        let projected = self.projected
+        let results = try dbh.lazy.compactMap { (row) -> TermResult? in
+            let d = try projected.map({ (name, id) throws -> (String, Term) in
+                guard let t = store.term(for: row[id]) else {
+                    throw SQLiteQuadStore.SQLiteQuadStoreError.idAccessError
+                }
+                return (name, t)
+            })
+            let r = TermResult(bindings: Dictionary(uniqueKeysWithValues: d))
+            return r
+        }
+        return AnyIterator(results.makeIterator())
+    }
+}
 
 // swiftlint:disable:next type_body_length
 open class SQLiteQuadStore: Sequence, MutableQuadStoreProtocol {
     typealias TermID = Int64
     let schemaVersion : Int64 = 1
     let sysTable = SQLite.Table("kineo_sys")
-    let versionColumn = Expression<Int64>("dataset_version")
-    let schemaVersionColumn = Expression<Int64>("schema_version")
+    let versionColumn = SQLite.Expression<Int64>("dataset_version")
+    let schemaVersionColumn = SQLite.Expression<Int64>("schema_version")
 
     let quadsTable = SQLite.Table("quads")
-    let subjColumn = Expression<Int64>("subject")
-    let predColumn = Expression<Int64>("predicate")
-    let objColumn = Expression<Int64>("object")
-    let graphColumn = Expression<Int64>("graph")
+    let subjColumn = SQLite.Expression<Int64>("subject")
+    let predColumn = SQLite.Expression<Int64>("predicate")
+    let objColumn = SQLite.Expression<Int64>("object")
+    let graphColumn = SQLite.Expression<Int64>("graph")
 
     let termsTable = SQLite.Table("terms")
-    let idColumn = Expression<Int64>("id")
-    let termValueColumn = Expression<String>("value")
-    let termTypeColumn = Expression<Int64>("type")
-    let termDatatypeColumn = Expression<Int64?>("datatype")
-    let termLangColumn = Expression<String?>("language")
+    let idColumn = SQLite.Expression<Int64>("id")
+    let termValueColumn = SQLite.Expression<String>("value")
+    let termTypeColumn = SQLite.Expression<Int64>("type")
+    let termDatatypeColumn = SQLite.Expression<Int64?>("datatype")
+    let termLangColumn = SQLite.Expression<String?>("language")
 
     public enum SQLiteQuadStoreError: Error {
         case idAssignmentError
+        case idAccessError
     }
     
     internal enum TermType: Int64 {
@@ -56,6 +76,7 @@ open class SQLiteQuadStore: Sequence, MutableQuadStoreProtocol {
 
     public init(filename: String, initialize: Bool = false) throws {
         db = try Connection(filename)
+//        db.trace { print($0) }
         i2tcache = LRUCache(capacity: 1024)
         t2icache = LRUCache(capacity: 1024)
         if initialize {
@@ -309,7 +330,7 @@ open class SQLiteQuadStore: Sequence, MutableQuadStoreProtocol {
         
         let quadPatternKeyPaths : [KeyPath<QuadPattern, Node>] = [\.subject, \.predicate, \.object, \.graph]
         let quadColumns = [subjColumn, predColumn, objColumn, graphColumn]
-        var mapping = [String: [Expression<Int64>]]()
+        var mapping = [String: [SQLite.Expression<Int64>]]()
         for (qpkp, col) in zip(quadPatternKeyPaths, quadColumns) {
             switch pattern[keyPath: qpkp] {
             case .bound(let t):
@@ -409,5 +430,95 @@ extension SQLiteQuadStore: CustomStringConvertible {
     public var description: String {
         let s = "SQLiteQuadStore { \(db) }\n"
         return s
+    }
+}
+
+extension SQLiteQuadStore: PlanningQuadStore {
+    public func plan(algebra: Algebra, activeGraph: Term, dataset: Dataset) throws -> QueryPlan? {
+        switch algebra {
+        case .distinct(let a):
+            if let qp = try plan(algebra: a, activeGraph: activeGraph, dataset: dataset) {
+                if let q = qp as? SQLitePlan {
+                    let query = q.query
+                    let projected = q.projected
+                    let d = query.select(distinct: Array(projected.values))
+                    return SQLitePlan(query: d, projected: projected, store: self)
+                }
+            }
+            return nil
+        case .quad(let qp):
+            let (q, projected, _) = try query(quad: qp, alias: "t")
+            return SQLitePlan(query: q, projected: projected, store: self)
+        case .bgp(let triples):
+            return try plan(bgp: triples, activeGraph: activeGraph)
+        default:
+            return nil
+        }
+    }
+    
+    private func plan(bgp: [TriplePattern], activeGraph: Term) throws -> QueryPlan? {
+//        let seq = sequence(first: 0) { $0 + 1 }
+        if bgp.isEmpty {
+            return TablePlan.joinIdentity
+        } else if bgp.count == 1 {
+            let tp = bgp.first!
+            let qp = QuadPattern(triplePattern: tp, graph: .bound(activeGraph))
+            let (q, projected, _) = try query(quad: qp, alias: "t")
+            return SQLitePlan(query: q, projected: projected, store: self)
+        } else {
+            let tp = bgp.first!
+            let qp = QuadPattern(triplePattern: tp, graph: .bound(activeGraph))
+            var (bgpQuery, projected, mapping) = try query(quad: qp, alias: "t")
+            for (i, tp) in bgp.dropFirst().enumerated() {
+                let qp = QuadPattern(triplePattern: tp, graph: .bound(activeGraph))
+                let (q, p, m) = try query(quad: qp, alias: "t\(i)")
+                let joinVars = Set(m.keys).intersection(mapping.keys)
+                var joinExpression = SQLite.Expression<Bool>(value: true)
+                for v in joinVars {
+                    if let ll = m[v], let lhs = ll.first, let rr = mapping[v], let rhs = rr.first {
+//                        print("Add join condition on \(v) between \(lhs) and \(rhs)")
+                        joinExpression = joinExpression && (lhs == rhs)
+                    }
+                }
+
+                for (name, cols) in m {
+                    mapping[name, default: []] += cols
+                }
+                projected.merge(p) { $1 }
+                
+                bgpQuery = bgpQuery.join(q, on: joinExpression)
+            }
+            bgpQuery = bgpQuery.select(Array(projected.values))
+            return SQLitePlan(query: bgpQuery, projected: projected, store: self)
+        }
+    }
+    
+    func query(quad qp: QuadPattern, alias: String) throws -> (SQLite.Table, [String: SQLite.Expression<Int64>], [String: [SQLite.Expression<Int64>]]) {
+        let nodes = [qp.subject, qp.predicate, qp.object, qp.graph]
+        var projected = [String: SQLite.Expression<Int64>]()
+        var mapping = [String: [SQLite.Expression<Int64>]]()
+        let tt = quadsTable.alias(alias)
+        if case .variable(let name, true) = nodes[0] { projected[name] = tt[subjColumn]; mapping[name, default: []].append(tt[subjColumn]) }
+        if case .variable(let name, true) = nodes[1] { projected[name] = tt[predColumn]; mapping[name, default: []].append(tt[predColumn]) }
+        if case .variable(let name, true) = nodes[2] { projected[name] = tt[objColumn]; mapping[name, default: []].append(tt[objColumn]) }
+        if case .variable(let name, true) = nodes[3] { projected[name] = tt[graphColumn]; mapping[name, default: []].append(tt[graphColumn]) }
+        var q = tt.select(Array(projected.values))
+        if case .bound(let t) = nodes[0] {
+            guard let sid = id(for: t) else { throw SQLiteQuadStoreError.idAccessError }
+            q = q.filter(tt[subjColumn] == sid)
+        }
+        if case .bound(let t) = nodes[1] {
+            guard let pid = id(for: t) else { throw SQLiteQuadStoreError.idAccessError }
+            q = q.filter(tt[predColumn] == pid)
+        }
+        if case .bound(let t) = nodes[2] {
+            guard let oid = id(for: t) else { throw SQLiteQuadStoreError.idAccessError }
+            q = q.filter(tt[objColumn] == oid)
+        }
+        if case .bound(let t) = nodes[3] {
+            guard let gid = id(for: t) else { throw SQLiteQuadStoreError.idAccessError }
+            q = q.filter(tt[graphColumn] == gid)
+        }
+        return (q, projected, mapping)
     }
 }

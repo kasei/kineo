@@ -10,55 +10,46 @@ import Foundation
 import Kineo
 import SPARQLSyntax
 
-guard CommandLine.arguments.dropFirst().count >= 1 else {
-    fatalError("No template URL given.")
-}
-
-guard let template = CommandLine.arguments.dropFirst().first else {
-    fatalError("No template URL given.")
-}
-
 Logger.shared.level = .silent
 
-let defaultGraph = Term(iri: "http://example.org/graph")
-guard let store = TriplePatternFragmentQuadStore(urlTemplate: template, defaultGraph: defaultGraph) else {
-    fatalError("Failed to construct TPF QuadStore")
-}
+//let store = try SQLiteQuadStore(filename: "/tmp/qs.sqlite3")
+let store = try SQLiteQuadStore(filename: "/tmp/foaf.sqlite3")
+let defaultGraph = store.graphs().next() ?? Term(iri: "tag:kasei.us,2018:default-graph")
 
-//let qp = QuadPattern(
-//    subject: .variable("s", binding: true),
-////    predicate: .bound(Term(iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type")),
-//    predicate: .bound(Term(iri: "http://purl.org/dc/terms/title")),
-//    //    predicate: .bound(Term(iri: "http://xmlns.com/foaf/0.1/name")),
-//    //    predicate: .variable("p", binding: true),
-//    object: .variable("o", binding: true),
-//    graph: .bound(defaultGraph)
-//)
-//
-//
-//print("Getting triples matching: \(qp)")
-//let quads = try store.quads(matching: qp)
-//for (i, q) in quads.enumerated() {
-//    let t = q.triple
-//    print("\(i) >>> \(t)")
-//}
+//let sparql = "SELECT DISTINCT ?type ?p WHERE { ?s a ?type ; ?p ?o . ?q <q> 3 } ORDER BY ?type LIMIT 10"
+//let sparql = """
+//    PREFIX geo: <http://www.w3.org/2003/01/geo/wgs84_pos#>
+//    SELECT DISTINCT * WHERE {
+//        ?s geo:lat ?lat ;
+//            geo:long ?long
+//        FILTER NOT EXISTS { ?s <p> <q> }
+//    }
+//    OFFSET 1
+//    LIMIT 10
+//    """
+//let sparql = """
+//    PREFIX foaf: <http://xmlns.com/foaf/0.1/>
+//    SELECT DISTINCT * WHERE {
+//        ?s a ?class ;
+//            foaf:name ?name .
+//        FILTER (EXISTS { ?s foaf:knows ?knows })
+//    }
+//    """
+let sparql = """
+    PREFIX foaf: <http://xmlns.com/foaf/0.1/>
+    SELECT DISTINCT * WHERE {
+        ?s a foaf:Person ; foaf:name ?name .
+    }
+    """
+guard var p = SPARQLParser(data: sparql.data(using: .utf8)!) else { fatalError("Failed to construct SPARQL parser") }
+let q = try p.parseQuery()
 
+let dataset = store.dataset(withDefault: defaultGraph)
 
+let planner = QueryPlanner(store: store, dataset: dataset)
+let plan = try planner.plan(query: q, activeGraph: dataset.defaultGraphs.first!)
+print(plan.serialize())
 
-let type = TriplePattern(
-    subject: .variable("s", binding: true),
-    predicate: .bound(Term(iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type")),
-    object: .bound(Term(iri: "http://dbpedia.org/ontology/Document"))
-)
-let title = TriplePattern(
-    subject: .variable("s", binding: true),
-    predicate: .bound(Term(iri: "http://purl.org/dc/terms/title")),
-    object: .variable("title", binding: true)
-)
-
-let bgp = [type, title]
-print("Getting results matching: \(bgp)")
-let results = try store.evaluate(bgp: bgp, activeGraph: defaultGraph)
-for (i, r) in results.enumerated() {
+for (i, r) in try plan.evaluate().enumerated() {
     print("\(i) >>> \(r)")
 }

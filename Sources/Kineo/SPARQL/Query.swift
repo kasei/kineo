@@ -9,6 +9,19 @@
 import Foundation
 import SPARQLSyntax
 
+public enum QueryLanguage : String {
+    case sparqlQuery10 = "http://www.w3.org/ns/sparql-service-description#SPARQL10Query"
+    case sparqlQuery11 = "http://www.w3.org/ns/sparql-service-description#SPARQL11Query"
+    case sparqlUpdate11 = "http://www.w3.org/ns/sparql-service-description#SPARQL11Update"
+}
+
+public enum QueryEngineFeature : String {
+    case dereferencesURIs = "http://www.w3.org/ns/sparql-service-description#DereferencesURIs"
+    case unionDefaultGraph = "http://www.w3.org/ns/sparql-service-description#UnionDefaultGraph"
+    case requiresDataset = "http://www.w3.org/ns/sparql-service-description#RequiresDataset"
+    case basicFederatedQuery = "http://www.w3.org/ns/sparql-service-description#BasicFederatedQuery"
+}
+
 public enum QueryError: Error {
     case evaluationError(String)
     case typeError(String)
