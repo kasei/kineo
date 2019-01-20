@@ -15,19 +15,24 @@ public struct SQLitePlan: NullaryQueryPlan {
     var store: SQLiteQuadStore
     public var selfDescription: String { return "SQLite Plan" }
     public func evaluate() throws -> AnyIterator<TermResult> {
+        let store = self.store
         guard let dbh = try? store.db.prepare(query) else {
             return AnyIterator { return nil }
         }
         let projected = self.projected
-        let results = try dbh.lazy.compactMap { (row) -> TermResult? in
-            let d = try projected.map({ (name, id) throws -> (String, Term) in
-                guard let t = store.term(for: row[id]) else {
-                    throw SQLiteQuadStore.SQLiteQuadStoreError.idAccessError
-                }
-                return (name, t)
-            })
-            let r = TermResult(bindings: Dictionary(uniqueKeysWithValues: d))
-            return r
+        let results = dbh.lazy.compactMap { (row) -> TermResult? in
+            do {
+                let d = try projected.map({ (name, id) throws -> (String, Term) in
+                    guard let t = store.term(for: row[id]) else {
+                        throw SQLiteQuadStore.SQLiteQuadStoreError.idAccessError
+                    }
+                    return (name, t)
+                })
+                let r = TermResult(bindings: Dictionary(uniqueKeysWithValues: d))
+                return r
+            } catch {
+                return nil
+            }
         }
         return AnyIterator(results.makeIterator())
     }
@@ -436,6 +441,17 @@ extension SQLiteQuadStore: CustomStringConvertible {
 extension SQLiteQuadStore: PlanningQuadStore {
     public func plan(algebra: Algebra, activeGraph: Term, dataset: Dataset) throws -> QueryPlan? {
         switch algebra {
+        case let .project(a, vars):
+            if let qp = try plan(algebra: a, activeGraph: activeGraph, dataset: dataset) {
+                if let q = qp as? SQLitePlan {
+                    let query = q.query
+                    let projected = q.projected
+                    let d = query.select(distinct: vars.compactMap { projected[$0] })
+                    let p = projected.filter { vars.contains($0.key) }
+                    return SQLitePlan(query: d, projected: p, store: self)
+                }
+            }
+            return nil
         case .distinct(let a):
             if let qp = try plan(algebra: a, activeGraph: activeGraph, dataset: dataset) {
                 if let q = qp as? SQLitePlan {
@@ -449,11 +465,34 @@ extension SQLiteQuadStore: PlanningQuadStore {
         case .quad(let qp):
             let (q, projected, _) = try query(quad: qp, alias: "t")
             return SQLitePlan(query: q, projected: projected, store: self)
+        case .triple(let t):
+            return try plan(bgp: [t], activeGraph: activeGraph)
         case .bgp(let triples):
             return try plan(bgp: triples, activeGraph: activeGraph)
+        case let .aggregate(a, groups, aggs) where aggs.count == 1:
+            guard groups.allSatisfy({ if case .node(.variable(_)) = $0 { return true } else { return false } }) else {
+                return nil
+            }
+            let agg = aggs.first!
+            // this is a single aggregation, grouped by only simple variables
+            let groupVars = groups.compactMap { (e) -> String? in
+                if case .node(.variable(let name, _)) = e {
+                    return name
+                }
+                return nil
+            }
+            if case .countAll = agg.aggregation {
+                if let qp = try plan(algebra: a, activeGraph: activeGraph, dataset: dataset) {
+                    if let q = qp as? SQLitePlan {
+                        // TODO: update term(for:) to accept packed term IDs for e.g. integer counts that might not exist in the terms table
+                        // ... then generate a packed ID here for the COUNT aggregate
+                    }
+                }
+            }
         default:
             return nil
         }
+        return nil
     }
     
     private func plan(bgp: [TriplePattern], activeGraph: Term) throws -> QueryPlan? {
