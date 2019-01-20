@@ -310,3 +310,41 @@ extension Expression {
         return (expr, mapping)
     }
 }
+
+public struct QueryPlanEvaluator<Q: QuadStoreProtocol> {
+    var dataset: Dataset
+    var planner: QueryPlanner<Q>
+    
+    public init(dataset: Dataset, store: Q) {
+        self.dataset = dataset
+        self.planner = QueryPlanner(store: store, dataset: dataset)
+    }
+    
+    public func evaluate(query q: Query) throws -> QueryResult<AnySequence<TermResult>, [Triple]> {
+        let plan = try planner.plan(query: q, activeGraph: dataset.defaultGraphs.first!)
+        print(plan.serialize())
+        
+        let seq = AnySequence { () -> AnyIterator<TermResult> in
+            let i = try? plan.evaluate()
+            return i ?? AnyIterator([].makeIterator())
+        }
+        switch q.form {
+        case .ask:
+            let i = seq.makeIterator()
+            if let _ = i.next() {
+                return QueryResult.boolean(true)
+            } else {
+                return QueryResult.boolean(false)
+            }
+        case .select(.star):
+            return QueryResult.bindings(Array(q.inscope), seq)
+        case .select(.variables(let vars)):
+            return QueryResult.bindings(vars, seq)
+        case .construct(let pattern):
+            fatalError("unimplemented") // TODO: implement
+        case .describe(let nodes):
+            fatalError("unimplemented") // TODO: implement
+        }
+    }
+}
+
