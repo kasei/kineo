@@ -38,6 +38,44 @@ public struct SQLitePlan: NullaryQueryPlan {
     }
 }
 
+public struct SQLiteSingleIntegerAggregationPlan<D: Value>: NullaryQueryPlan {
+    var query: SQLite.Table
+    var aggregateColumn: SQLite.Expression<D>
+    var aggregateName: String
+    var projected: [String: SQLite.Expression<Int64>]
+    var store: SQLiteQuadStore
+    public var selfDescription: String { return "SQLite Plan" }
+    public func evaluate() throws -> AnyIterator<TermResult> {
+        let store = self.store
+        guard let dbh = try? store.db.prepare(query) else {
+            return AnyIterator { return nil }
+        }
+        let projected = self.projected
+        let aggregateColumn = self.aggregateColumn
+        let aggregateName = self.aggregateName
+        let results = dbh.lazy.compactMap { (row : Row) -> TermResult? in
+            do {
+                let aggValue: D? = try row.get(aggregateColumn)
+                var d = try projected.map({ (name, id) throws -> (String, Term) in
+                    guard let t = store.term(for: row[id]) else {
+                        throw SQLiteQuadStore.SQLiteQuadStoreError.idAccessError
+                    }
+                    return (name, t)
+                })
+                if let value = aggValue as? Int {
+                    d.append((aggregateName, Term(integer: value)))
+                }
+                let r = TermResult(bindings: Dictionary(uniqueKeysWithValues: d))
+                return r
+            } catch {
+                return nil
+            }
+        }
+        return AnyIterator(results.makeIterator())
+    }
+}
+
+
 // swiftlint:disable:next type_body_length
 open class SQLiteQuadStore: Sequence, MutableQuadStoreProtocol {
     typealias TermID = Int64
@@ -484,8 +522,21 @@ extension SQLiteQuadStore: PlanningQuadStore {
             if case .countAll = agg.aggregation {
                 if let qp = try plan(algebra: a, activeGraph: activeGraph, dataset: dataset) {
                     if let q = qp as? SQLitePlan {
-                        // TODO: update term(for:) to accept packed term IDs for e.g. integer counts that might not exist in the terms table
-                        // ... then generate a packed ID here for the COUNT aggregate
+                        let query = q.query
+                        let projected = q.projected.filter { groupVars.contains($0.key) }
+                        var d = query
+                        if !projected.isEmpty {
+                            d = d.group(Array(projected.values))
+                        }
+                        let aggCol = SQLite.count(*)
+                        d = d.select(Array(projected.values) + [aggCol])
+                        return SQLiteSingleIntegerAggregationPlan(
+                            query: d,
+                            aggregateColumn: aggCol,
+                            aggregateName: agg.variableName,
+                            projected: projected,
+                            store: self
+                        )
                     }
                 }
             }
