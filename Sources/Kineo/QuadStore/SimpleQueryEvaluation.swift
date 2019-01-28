@@ -1174,6 +1174,9 @@ extension SimpleQueryEvaluatorProtocol {
                 guard let lhs = pair.0 else { return true }
                 guard let rhs = pair.1 else { return false }
                 
+                if lhs == rhs {
+                    continue
+                }
                 var sorted = lhs < rhs
                 if !cmp.ascending {
                     sorted = !sorted
