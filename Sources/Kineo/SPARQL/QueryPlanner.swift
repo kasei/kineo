@@ -34,16 +34,42 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
         return ".v\(n)"
     }
     
-    public func plan(query: Query, activeGraph: Term) throws -> QueryPlan {
+    public func plan(query: Query, activeGraph: Term? = nil) throws -> QueryPlan {
         // The plan returned here does not fully handle the query form; it only sets up the correct query plan.
         // For CONSTRUCT and DESCRIBE queries, the production of triples must still be handled elsewhere.
         // For ASK queries, code must handle conversion of the iterator into a boolean result
         let algebra = query.algebra
-        let p = try plan(algebra: algebra, activeGraph: activeGraph)
+        
+        let graphs : [Term]
+        if let g = activeGraph {
+            graphs = [g]
+        } else {
+            graphs = dataset.defaultGraphs
+        }
+        if graphs.isEmpty {
+            print("*** There is no active graph during query planning:")
+            print("*** \(algebra.serialize())")
+        }
+        
+        var plans = [QueryPlan]()
+        for activeGraph in graphs {
+            let p = try plan(algebra: algebra, activeGraph: activeGraph)
+            plans.append(p)
+        }
+
+        let f = plans.first!
+        let p = plans.dropFirst().reduce(f) { UnionPlan(lhs: $0, rhs: $1) }
+        
         switch query.form {
         case .select(.star):
             return p
         case .select(.variables(let proj)):
+            if let pp = p as? ProjectPlan {
+                if pp.variables.count == proj.count && pp.variables == Set(proj) {
+                    // avoid duplicating projection
+                    return p
+                }
+            }
             return ProjectPlan(child: p, variables: Set(proj))
         case .ask, .construct(_), .describe(_):
             return p
@@ -51,23 +77,28 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
     }
     
     func plan(bgp: [TriplePattern], activeGraph g: Node) throws -> QueryPlan {
+        let proj = Algebra.bgp(bgp).inscope
         // TODO: implement smarter planning here
-        guard let f = bgp.first else {
+        guard let f = bgp.first?.bindingAllVariables else {
             return TablePlan.joinIdentity
         }
         
         let rest = bgp.dropFirst()
         
-        let q = QuadPattern(triplePattern: f, graph: g)
+        let q = QuadPattern(triplePattern: f, graph: g).bindingAllVariables
         let qp = QuadPlan(quad: q, store: store)
         let tuple : (QueryPlan, Set<String>) = (qp, Algebra.triple(f).inscope)
-        let (plan, _) = rest.reduce(into: tuple) { (r, t) in
-            let tv = Algebra.triple(t).inscope
-            let i = r.1.intersection(tv)
+        let (plan, vars) = rest.reduce(into: tuple) { (r, t) in
+            let algebra = Algebra.triple(t)
             var plan : QueryPlan
-            let q = QuadPattern(triplePattern: t, graph: g)
+            let q = QuadPattern(triplePattern: t, graph: g).bindingAllVariables
             let qp = QuadPlan(quad: q, store: store)
+            let tv = q.variables
+            let i = r.1.intersection(tv)
             if i.isEmpty {
+                print("No intersection of in-scope variables:")
+                print("- \(r.1): \(r.0)")
+                print("- \(tv): \(algebra)")
                 plan = NestedLoopJoinPlan(lhs: r.0, rhs: qp)
             } else {
                 plan = HashJoinPlan(lhs: r.0, rhs: qp, joinVariables: i)
@@ -76,12 +107,15 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
             r = (plan, u)
         }
         
-        return plan
+        if vars == proj {
+            return plan
+        } else {
+            return ProjectPlan(child: plan, variables: Set(proj))
+        }
     }
-    
+
     public func plan(algebra: Algebra, activeGraph: Term) throws -> QueryPlan {
         if let ps = store as? PlanningQuadStore {
-            print("QuadStore is a query planner")
             do {
                 if let p = try ps.plan(algebra: algebra, activeGraph: activeGraph, dataset: dataset) {
                     return p
@@ -113,7 +147,7 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
             let l : QueryPlan = try plan(algebra: lhs, activeGraph: activeGraph)
             let r : QueryPlan = try plan(algebra: rhs, activeGraph: activeGraph)
             let (e, mapping) = try expr.removingExistsExpressions(namingVariables: &freshCounter)
-            print("*** TODO: handle query planning of EXISTS expressions in OPTIONAL")
+            print("*** TODO: handle query planning of EXISTS expressions in OPTIONAL: \(e)")
             // TODO: add mapping to algebra (determine the right semantics for this with diff)
             let diff : QueryPlan = DiffPlan(lhs: l, rhs: r, expression: e, evaluator: evaluator)
             return UnionPlan(lhs: fij, rhs: diff)
@@ -123,11 +157,16 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
                 rhs: plan(algebra: rhs, activeGraph: activeGraph)
             )
         case let .project(child, vars):
-            return try ProjectPlan(child: plan(algebra: child, activeGraph: activeGraph), variables: vars)
-        case let .slice(.order(child, orders), nil, .some(limit)):
-            // TODO: expand to cases with offsets
             let p = try plan(algebra: child, activeGraph: activeGraph)
-            return HeapSortLimitPlan(child: p, comparators: orders, limit: limit)
+            if child.inscope == vars {
+                return p
+            } else {
+                return ProjectPlan(child: p, variables: vars)
+            }
+//        case let .slice(.order(child, orders), nil, .some(limit)):
+//            // TODO: expand to cases with offsets
+//            let p = try plan(algebra: child, activeGraph: activeGraph)
+//            return HeapSortLimitPlan(child: p, comparators: orders, limit: limit)
         case let .slice(child, offset, limit):
             let p = try plan(algebra: child, activeGraph: activeGraph)
             switch (offset, limit) {
@@ -140,12 +179,23 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
             default:
                 return p
             }
+            //NextRowPlan
         case let .extend(child, .exists(algebra), name):
-            let p = try plan(algebra: child, activeGraph: activeGraph)
+            var p = try plan(algebra: child, activeGraph: activeGraph)
+            if case .extend(_) = child {
+            } else {
+                // at the bottom of a chain of one or more extend()s, add a NextRow plan
+                p = NextRowPlan(child: p, evaluator: evaluator)
+            }
             let pat = try plan(algebra: algebra, activeGraph: activeGraph)
             return ExistsPlan(child: p, pattern: pat, variable: name, patternAlgebra: algebra)
         case let .extend(child, expr, name):
             var p = try plan(algebra: child, activeGraph: activeGraph)
+            if case .extend(_) = child {
+            } else {
+                // at the bottom of a chain of one or more extend()s, add a NextRow plan
+                p = NextRowPlan(child: p, evaluator: evaluator)
+            }
             let (e, mapping) = try expr.removingExistsExpressions(namingVariables: &freshCounter)
             try mapping.forEach { (name, algebra) throws in
                 let pat = try plan(algebra: algebra, activeGraph: activeGraph)
@@ -168,6 +218,7 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
                 let pat = try plan(algebra: algebra, activeGraph: activeGraph)
                 p = ExistsPlan(child: p, pattern: pat, variable: name, patternAlgebra: algebra)
             }
+            p = NextRowPlan(child: p, evaluator: evaluator)
             return FilterPlan(child: p, expression: e, evaluator: evaluator)
         case let .distinct(child):
             let p = try plan(algebra: child, activeGraph: activeGraph)
@@ -190,7 +241,7 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
         case let .namedGraph(child, .bound(g)):
             return try plan(algebra: child, activeGraph: g)
         case let .namedGraph(child, .variable(graph, binding: bind)):
-            let branches = try dataset.namedGraphs.lazy.map { (g) -> QueryPlan in
+            let branches = try dataset.namedGraphs.map { (g) throws -> QueryPlan in
                 let p = try plan(algebra: child, activeGraph: g)
                 if bind {
                     return ExtendPlan(child: p, expression: .node(.bound(g)), variable: graph, evaluator: evaluator)
@@ -198,7 +249,9 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
                     return p
                 }
             }
-            let first = branches.first!
+            guard let first = branches.first else {
+                throw QueryPlanError.invalidChild
+            }
             return branches.dropFirst().reduce(first) { UnionPlan(lhs: $0, rhs: $1) }
         case let .triple(t):
             let quad = QuadPattern(subject: t.subject, predicate: t.predicate, object: t.object, graph: .bound(activeGraph))
@@ -206,89 +259,96 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
         case let .quad(quad):
             return QuadPlan(quad: quad, store: store)
         case let .path(s, path, o):
-            switch path {
-            case .link(let predicate):
-                let quad = QuadPattern(subject: s, predicate: .bound(predicate), object: o, graph: .bound(activeGraph))
-                return QuadPlan(quad: quad, store: store)
-            case .inv(let ipath):
-                return try plan(algebra: .path(o, ipath, s), activeGraph: activeGraph)
-            case let .alt(lhs, rhs):
-                let i = try plan(algebra: .path(s, lhs, o), activeGraph: activeGraph)
-                let j = try plan(algebra: .path(s, rhs, o), activeGraph: activeGraph)
-                return UnionPlan(lhs: i, rhs: j)
-            case let .seq(lhs, rhs):
-                let jvar = freshVariable()
-                guard case .variable(_, _) = jvar else {
-                    Logger.shared.error("Unexpected variable generated during path evaluation")
-                    throw QueryError.evaluationError("Unexpected variable generated during path evaluation")
-                }
-                let j : Algebra = .innerJoin(
-                    .path(s, lhs, jvar),
-                    .path(jvar, rhs, o)
-                )
-                return try plan(algebra: j, activeGraph: activeGraph)
-            case .nps(let iris):
-                let p = freshVariable()
-                return NPSPathPlan(iris: iris, subject: s, predicate: p, object: o, graph: activeGraph, store: store)
-            case .plus(let pp):
-                switch (s, o) {
-                case (.bound(_), .variable(_, binding: _)):
-                    let pvar = freshVariableName()
-                    let child = try plan(algebra: .path(s, pp, .variable(pvar, binding: true)), activeGraph: activeGraph)
-                    return PartiallyBoundPlusPathPlan(child: child, subject: s, object: o, graph: activeGraph, objectVariable: pvar)
-                case (.variable(_), .bound(_)):
-                    let ipath: PropertyPath = .plus(.inv(pp))
-                    return try plan(algebra: .path(o, ipath, s), activeGraph: activeGraph)
-                case (.bound(_), .bound(_)):
-                    let child = try plan(algebra: .path(s, pp, o), activeGraph: activeGraph)
-                    return FullyBoundPlusPathPlan(child: child, subject: s, object: o, graph: activeGraph)
-                case (.variable(_), .variable(_)):
-                    let pvar = freshVariableName()
-                    let qvar = freshVariableName()
-                    let child = try plan(algebra: .path(.variable(pvar, binding: true), pp, .variable(qvar, binding: true)), activeGraph: activeGraph)
-                    return UnboundPlusPathPlan(child: child, subject: s, object: o, graph: activeGraph, subjectVariable: pvar, objectVariable: qvar)
-                }
-            case .star(let pp):
-                switch (s, o) {
-                case (.bound(_), .variable(_)):
-                    let pvar = freshVariableName()
-                    let child = try plan(algebra: .path(s, pp, .variable(pvar, binding: true)), activeGraph: activeGraph)
-                    return PartiallyBoundStarPathPlan(child: child, subject: s, object: o, graph: activeGraph, objectVariable: pvar)
-                case (.variable(_), .bound(_)):
-                    let ipath: PropertyPath = .star(.inv(pp))
-                    return try plan(algebra: .path(o, ipath, s), activeGraph: activeGraph)
-                case (.bound(_), .bound(_)):
-                    let child = try plan(algebra: .path(s, pp, o), activeGraph: activeGraph)
-                    return FullyBoundStarPathPlan(child: child, subject: s, object: o, graph: activeGraph)
-                case (.variable(_), .variable(_)):
-                    let pvar = freshVariableName()
-                    let qvar = freshVariableName()
-                    let child = try plan(algebra: .path(.variable(pvar, binding: true), pp, .variable(qvar, binding: true)), activeGraph: activeGraph)
-                    return UnboundStarPathPlan(child: child, subject: s, object: o, graph: activeGraph, subjectVariable: pvar, objectVariable: qvar)
-                }
-            case .zeroOrOne(let pp):
-                switch (s, o) {
-                case (.bound(_), .variable(_)):
-                    let pvar = freshVariableName()
-                    let child = try plan(algebra: .path(s, pp, .variable(pvar, binding: true)), activeGraph: activeGraph)
-                    return PartiallyBoundZeroOrOnePathPlan(child: child, subject: s, object: o, graph: activeGraph, objectVariable: pvar)
-                case (.variable(_), .bound(_)):
-                    let ipath: PropertyPath = .star(.inv(pp))
-                    return try plan(algebra: .path(o, ipath, s), activeGraph: activeGraph)
-                case (.bound(let s), .bound(let o)) where s == o:
-                    return TablePlan.joinIdentity
-                case (.bound(_), .bound(_)):
-                    let child = try plan(algebra: .path(s, pp, o), activeGraph: activeGraph)
-                    return FullyBoundZeroOrOnePathPlan(child: child, subject: s, object: o, graph: activeGraph)
-                case (.variable(_), .variable(_)):
-                    let pvar = freshVariableName()
-                    let qvar = freshVariableName()
-                    let child = try plan(algebra: .path(.variable(pvar, binding: true), pp, .variable(qvar, binding: true)), activeGraph: activeGraph)
-                    return UnboundZeroOrOnePathPlan(child: child, subject: s, object: o, graph: activeGraph, subjectVariable: pvar, objectVariable: qvar)
-                }
+            return try plan(subject: s, path: path, object: o, activeGraph: activeGraph)
+//            switch path {
+//            case .link(let predicate):
+//                let pp = LinkPathPlan(predicate: predicate, store: store)
+//                return PropertyPathPlan(subject: s, path: pp, object: o, graph: activeGraph)
+//            case .inv(let ipath):
+//                return try plan(algebra: .path(o, ipath, s), activeGraph: activeGraph)
+//            case let .alt(lhs, rhs):
+//                let i = try plan(algebra: .path(s, lhs, o), activeGraph: activeGraph)
+//                let j = try plan(algebra: .path(s, rhs, o), activeGraph: activeGraph)
+//                return UnionPlan(lhs: i, rhs: j)
+//            case let .seq(lhs, rhs):
+//                let jvar = freshVariable()
+//                guard case .variable(_, _) = jvar else {
+//                    Logger.shared.error("Unexpected variable generated during path evaluation")
+//                    throw QueryError.evaluationError("Unexpected variable generated during path evaluation")
+//                }
+//                let j : Algebra = .innerJoin(
+//                    .path(s, lhs, jvar),
+//                    .path(jvar, rhs, o)
+//                )
+//                return try plan(algebra: j, activeGraph: activeGraph)
+//            case .nps(let iris):
+//                let p = freshVariable()
+//                let pp = NPSPathPlan(iris: iris, store: store)
+//                return PropertyPathPlan(subject: s, path: pp, object: o, graph: activeGraph)
+//            case .plus(let pp):
+//                let cs = freshVariable()
+//                let co = freshVariable()
+//                let child = try plan(algebra: .path(cs, pp, co), activeGraph: activeGraph)
+//                return PlusPathPlan(
+//                    child: child,
+//                    subject: s,
+//                    innerSubject: cs,
+//                    innerObject: co,
+//                    object: o,
+//                    graph: activeGraph,
+//                    store: store
+//                )
+//            case .star(_):
+//                print("unimplemented")
+//                fatalError()
+//                throw QueryPlanError.unimplemented // TODO: implement +, *, ? path planning
+//            case .zeroOrOne(_):
+//                print("unimplemented")
+//                fatalError()
+//                throw QueryPlanError.unimplemented // TODO: implement +, *, ? path planning
+//            default:
+//                fatalError("TODO: unimplemented switch case for \(self)")
+//            }
+        }
+    }
+
+    public func plan(subject s: Node, path: PropertyPath, object o: Node, activeGraph: Term) throws -> PathPlan {
+        switch path {
+        case .link(let predicate):
+            return LinkPathPlan(subject: s, predicate: predicate, object: o, graph: activeGraph, store: store)
+        case .inv(let ipath):
+            return try plan(subject: o, path: ipath, object: s, activeGraph: activeGraph)
+        case let .alt(lhs, rhs):
+            let l = try plan(subject: s, path: lhs, object: o, activeGraph: activeGraph)
+            let r = try plan(subject: s, path: rhs, object: o, activeGraph: activeGraph)
+            return UnionPathPlan(subject: s, lhs: l, rhs: r, object: o)
+        case let .seq(lhs, rhs):
+            let j = freshVariable()
+            let l = try plan(subject: s, path: lhs, object: j, activeGraph: activeGraph)
+            let r = try plan(subject: j, path: rhs, object: o, activeGraph: activeGraph)
+            return SequencePathPlan(subject: s, lhs: l, joinNode: j, rhs: r, object: o)
+        case .nps(let iris):
+            return NPSPathPlan(subject: s, iris: iris, object: o, graph: activeGraph, store: store)
+        case .plus(let pp):
+            switch (s, o) {
+            case (.bound(_), .variable(_)):
+                let j = freshVariable()
+                let p = try plan(subject: s, path: pp, object: j, activeGraph: activeGraph)
+                print("planning Plus path with frontier node: \(j)")
+                return PlusPathPlan(subject: s, child: p, object: o, graph: activeGraph, store: store, frontierNode: j)
             default:
-                fatalError("TODO: unimplemented switch case for \(self)")
+                fatalError()
             }
+        case .star(_):
+            print("unimplemented")
+            fatalError()
+            throw QueryPlanError.unimplemented // TODO: implement +, *, ? path planning
+        case .zeroOrOne(_):
+            print("unimplemented")
+            fatalError()
+            throw QueryPlanError.unimplemented // TODO: implement +, *, ? path planning
+        default:
+            fatalError("TODO: unimplemented switch case for \(self)")
         }
     }
 }
@@ -315,18 +375,27 @@ public struct QueryPlanEvaluator<Q: QuadStoreProtocol> {
     var dataset: Dataset
     var planner: QueryPlanner<Q>
     
-    public init(dataset: Dataset, store: Q) {
+    public init(dataset: Dataset, store: Q, base: String? = nil) {
         self.dataset = dataset
-        self.planner = QueryPlanner(store: store, dataset: dataset)
+        self.planner = QueryPlanner(store: store, dataset: dataset, base: base)
     }
     
-    public func evaluate(query q: Query) throws -> QueryResult<AnySequence<TermResult>, [Triple]> {
-        let plan = try planner.plan(query: q, activeGraph: dataset.defaultGraphs.first!)
+    public func evaluate(query: Query, defaultGraph graph: Term? = nil) throws -> QueryResult<AnySequence<TermResult>, [Triple]> {
+        let rewriter = SPARQLQueryRewriter()
+        let q = try rewriter.simplify(query: query)
+        let plan = try planner.plan(query: q, activeGraph: graph)
+        print("Query Plan:")
         print(plan.serialize())
         
         let seq = AnySequence { () -> AnyIterator<TermResult> in
-            let i = try? plan.evaluate()
-            return i ?? AnyIterator([].makeIterator())
+            guard let i = try? plan.evaluate() else {
+                print("*** Failed to evaluate query plan in Sequence construction")
+                return AnyIterator([].makeIterator())
+            }
+//            return i
+            let a = Array(i)
+            print(">>> \(a)")
+            return AnyIterator(a.makeIterator())
         }
         switch q.form {
         case .ask:
@@ -341,10 +410,28 @@ public struct QueryPlanEvaluator<Q: QuadStoreProtocol> {
         case .select(.variables(let vars)):
             return QueryResult.bindings(vars, seq)
         case .construct(let pattern):
-            fatalError("unimplemented") // TODO: implement
+            print("unimplemented")
+        throw QueryPlanError.unimplemented // TODO: implement
         case .describe(let nodes):
-            fatalError("unimplemented") // TODO: implement
+            print("unimplemented")
+        throw QueryPlanError.unimplemented // TODO: implement
         }
     }
 }
 
+
+
+// TODO This should be removed once this extension is available in SPARQLSyntax.TermPattern
+extension QuadPattern {
+    public var variables: Set<String> {
+        let vars = self.makeIterator().compactMap { (n) -> String? in
+            switch n {
+            case .variable(let name, binding: _):
+                return name
+            default:
+                return nil
+            }
+        }
+        return Set(vars)
+    }
+}
