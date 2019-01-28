@@ -31,9 +31,20 @@ public struct SPARQLQueryRewriter {
             .rewrite(foldConstantAlgebras)
             .rewrite(propertyPathExpansion)
             .rewrite(pushdownProjection)
+            .rewrite(removeProjection) // this removes extra projections introduced in between adjacent .extend()s
             .rewrite(pushdownSlice)
             .rewrite(pushdownFilter)
     }
+}
+
+private func removeProjection(_ algebra: Algebra) throws -> RewriteStatus<Algebra> {
+    switch algebra {
+    case let .project(.extend(.project(child, _), expr, name), vars):
+        return .rewriteChildren(.project(.extend(child, expr, name), vars))
+    default:
+        break
+    }
+    return .rewriteChildren(algebra)
 }
 
 private func pushdownProjection(_ algebra: Algebra) throws -> RewriteStatus<Algebra> {
