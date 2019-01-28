@@ -38,6 +38,33 @@ public struct SQLitePlan: NullaryQueryPlan {
     }
 }
 
+public struct SQLitePreparedPlan: NullaryQueryPlan {
+    var dbh: SQLite.Statement
+    var projected: [String: String]
+    var store: SQLiteQuadStore
+    public var selfDescription: String { return "SQLite Prepared Plan" }
+    public func evaluate() throws -> AnyIterator<TermResult> {
+        let projected = self.projected
+        let map = Dictionary(uniqueKeysWithValues: dbh.columnNames.enumerated().map { ($1, $0) })
+        let store = self.store
+        let results = dbh.lazy.compactMap { (row) -> TermResult? in
+            do {
+                let d = try projected.map({ (name, colName) throws -> (String, Term) in
+                    guard let i = map[colName], let id : Int64 = row[i] as? Int64, let t = store.term(for: id) else {
+                        throw SQLiteQuadStore.SQLiteQuadStoreError.idAccessError
+                    }
+                    return (name, t)
+                })
+                let r = TermResult(bindings: Dictionary(uniqueKeysWithValues: d))
+                return r
+            } catch {
+                return nil
+            }
+        }
+        return AnyIterator(results.makeIterator())
+    }
+}
+
 public struct SQLiteSingleIntegerAggregationPlan<D: Value>: NullaryQueryPlan {
     var query: SQLite.Table
     var aggregateColumn: SQLite.Expression<D>
@@ -119,11 +146,26 @@ open class SQLiteQuadStore: Sequence, MutableQuadStoreProtocol {
 
     public init(filename: String, initialize: Bool = false) throws {
         db = try Connection(filename)
-//        db.trace { print($0) }
+        db.trace {
+            print($0)
+        }
         i2tcache = LRUCache(capacity: 1024)
         t2icache = LRUCache(capacity: 1024)
         if initialize {
             try initializeTables()
+        }
+    }
+    
+    public init(version: Version? = nil) throws {
+        db = try Connection()
+//        db.trace {
+//            print($0)
+//        }
+        i2tcache = LRUCache(capacity: 1024)
+        t2icache = LRUCache(capacity: 1024)
+        try initializeTables()
+        if let v = version {
+            try db.run(sysTable.update(versionColumn <- Int64(v)))
         }
     }
     
@@ -144,7 +186,7 @@ open class SQLiteQuadStore: Sequence, MutableQuadStoreProtocol {
             // )
         })
         try db.run(quadsTable.createIndex(graphColumn))
-        try db.run(quadsTable.createIndex(predColumn, objColumn, graphColumn, subjColumn))
+        try db.run(quadsTable.createIndex(graphColumn, predColumn, objColumn, subjColumn))
 
         try db.run(termsTable.create { t in     // CREATE TABLE "terms" (
             t.column(idColumn, primaryKey: .autoincrement) //     "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
@@ -187,16 +229,6 @@ open class SQLiteQuadStore: Sequence, MutableQuadStoreProtocol {
                     termValueColumn <- iri
                 ))
             }
-        }
-    }
-    
-    public init(version: Version? = nil) throws {
-        db = try Connection()
-        i2tcache = LRUCache(capacity: 1024)
-        t2icache = LRUCache(capacity: 1024)
-        try initializeTables()
-        if let v = version {
-            try db.run(sysTable.update(versionColumn <- Int64(v)))
         }
     }
     
@@ -540,10 +572,78 @@ extension SQLiteQuadStore: PlanningQuadStore {
                     }
                 }
             }
+        case let .path(.bound(sTerm), .plus(.link(p)), .variable(oname, binding: true)):
+            let path : PropertyPath = .plus(.link(p))
+            guard let sid = id(for: sTerm), let gid = id(for: activeGraph) else {
+                return nil
+            }
+            let pathTable = "pp"
+            let (ppsql, ppbindings) = try pathQuery(path, in: gid, tableName: pathTable)
+            let sql = "WITH RECURSIVE \(pathTable)(subject, object, graph) AS (\(ppsql)) SELECT DISTINCT subject, object, graph FROM \(pathTable) WHERE subject = ?"
+            let bindings = ppbindings + [sid]
+            let dbh = try db.prepare(sql, bindings)
+            return SQLitePreparedPlan(dbh: dbh, projected: [oname: "object"], store: self)
+        case let .path(.bound(sTerm), .star(.link(p)), .variable(oname, binding: true)):
+            let path : PropertyPath = .star(.link(p))
+            guard let sid = id(for: sTerm), let gid = id(for: activeGraph) else {
+                return nil
+            }
+            let pathTable = "pp"
+            let (ppsql, ppbindings) = try pathQuery(path, in: gid, tableName: pathTable)
+            let sql = "WITH RECURSIVE \(pathTable)(subject, object, graph) AS (\(ppsql)) SELECT DISTINCT subject, object, graph FROM \(pathTable) WHERE subject = ? UNION ALL VALUES(?, ?, ?)"
+            let bindings = ppbindings + [sid, sid, sid, gid]
+            let dbh = try db.prepare(sql, bindings)
+            return SQLitePreparedPlan(dbh: dbh, projected: [oname: "object"], store: self)
+        case let .path(.variable(sname, binding: true), .star(.link(p)), .variable(oname, binding: true)):
+            let path : PropertyPath = .star(.link(p))
+            guard let gid = id(for: activeGraph) else {
+                return nil
+            }
+            let pathTable = "pp"
+            let (ppsql, ppbindings) = try pathQuery(path, in: gid, tableName: pathTable)
+            let sql = "WITH RECURSIVE \(pathTable)(subject, object, graph) AS (\(ppsql)) SELECT DISTINCT subject, object, graph FROM \(pathTable) UNION SELECT DISTINCT subject, subject, graph FROM quads WHERE graph = ? UNION SELECT DISTINCT object, object, graph FROM quads WHERE graph = ?"
+            let bindings = ppbindings + [gid, gid]
+            let dbh = try db.prepare(sql, bindings)
+            return SQLitePreparedPlan(dbh: dbh, projected: [sname: "subject", oname: "object"], store: self)
         default:
             return nil
         }
         return nil
+    }
+    
+    private func pathQuery(_ path: PropertyPath, in gid: TermID, tableName: String) throws -> (String, [Binding?]) {
+        var q: SQLite.Table
+        switch path {
+        case .link(let p):
+            guard let pid = id(for: p) else {
+                throw SQLiteQuadStoreError.idAccessError
+            }
+            let columns : [Expressible] = [subjColumn, objColumn, graphColumn]
+            q = quadsTable.select(columns).filter(predColumn == pid)
+            let e = q.expression
+            return (e.template, e.bindings)
+        case .plus(let pp), .star(let pp):
+            let (ppsql, bindings) = try pathQuery(pp, in: gid, tableName: tableName)
+            let sql = """
+            \(ppsql) UNION SELECT k.subject, q.object, q.graph FROM quads q JOIN \(tableName) k WHERE k.object = q.subject AND q.graph = k.graph
+            """
+            return (sql, bindings)
+        default:
+            fatalError()
+        }
+        /**
+        WITH RECURSIVE
+         knowsPlus(subject, object, graph) AS (
+            SELECT subject, object, graph
+                FROM quads
+                WHERE predicate = 14
+            UNION ALL
+            SELECT q.subject, k.object, k.graph
+                FROM quads q JOIN knowsPlus k
+                WHERE q.object = k.subject AND q.graph = k.graph
+         )
+         SELECT DISTINCT * FROM knowsPlus WHERE subject = 13;
+         **/
     }
     
     private func plan(bgp: [TriplePattern], activeGraph: Term) throws -> QueryPlan? {
