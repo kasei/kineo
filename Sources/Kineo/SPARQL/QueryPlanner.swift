@@ -13,6 +13,7 @@ public protocol PlanningQuadStore: QuadStoreProtocol {
 }
 
 public class QueryPlanner<Q: QuadStoreProtocol> {
+    public var allowStoreOptimizedPlans: Bool
     public var store: Q
     public var dataset: Dataset
     public var evaluator: ExpressionEvaluator
@@ -23,6 +24,7 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
         self.dataset = dataset
         self.evaluator = ExpressionEvaluator(base: base)
         self.freshCounter = sequence(first: 1) { $0 + 1 }
+        self.allowStoreOptimizedPlans = true
     }
     
     public func freshVariable() -> Node {
@@ -115,12 +117,14 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
     }
 
     public func plan(algebra: Algebra, activeGraph: Term) throws -> QueryPlan {
-        if let ps = store as? PlanningQuadStore {
-            do {
-                if let p = try ps.plan(algebra: algebra, activeGraph: activeGraph, dataset: dataset) {
-                    return p
-                }
-            } catch {}
+        if allowStoreOptimizedPlans {
+            if let ps = store as? PlanningQuadStore {
+                do {
+                    if let p = try ps.plan(algebra: algebra, activeGraph: activeGraph, dataset: dataset) {
+                        return p
+                    }
+                } catch {}
+            }
         }
         
         switch algebra {
@@ -250,7 +254,7 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
                 }
             }
             guard let first = branches.first else {
-                throw QueryPlanError.invalidChild
+                return TablePlan(columns: [], rows: [])
             }
             return branches.dropFirst().reduce(first) { UnionPlan(lhs: $0, rhs: $1) }
         case let .triple(t):
@@ -373,7 +377,7 @@ extension Expression {
 
 public struct QueryPlanEvaluator<Q: QuadStoreProtocol> {
     var dataset: Dataset
-    var planner: QueryPlanner<Q>
+    public var planner: QueryPlanner<Q>
     
     public init(dataset: Dataset, store: Q, base: String? = nil) {
         self.dataset = dataset
@@ -388,14 +392,17 @@ public struct QueryPlanEvaluator<Q: QuadStoreProtocol> {
         print(plan.serialize())
         
         let seq = AnySequence { () -> AnyIterator<TermResult> in
-            guard let i = try? plan.evaluate() else {
-                print("*** Failed to evaluate query plan in Sequence construction")
+            do {
+                let i = try plan.evaluate()
+                return i
+//                let a = Array(i)
+//                print(">>> \(a)")
+//                return AnyIterator(a.makeIterator())
+            } catch let error {
+                print("*** Failed to evaluate query plan in Sequence construction: \(error)")
                 return AnyIterator([].makeIterator())
+                //                throw error
             }
-//            return i
-            let a = Array(i)
-            print(">>> \(a)")
-            return AnyIterator(a.makeIterator())
         }
         switch q.form {
         case .ask:
