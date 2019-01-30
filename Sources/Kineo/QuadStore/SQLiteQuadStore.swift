@@ -146,9 +146,9 @@ open class SQLiteQuadStore: Sequence, MutableQuadStoreProtocol {
 
     public init(filename: String, initialize: Bool = false) throws {
         db = try Connection(filename)
-        db.trace {
-            print($0)
-        }
+//        db.trace {
+//            print($0)
+//        }
         i2tcache = LRUCache(capacity: 1024)
         t2icache = LRUCache(capacity: 1024)
         if initialize {
