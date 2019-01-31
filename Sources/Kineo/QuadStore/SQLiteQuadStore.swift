@@ -13,7 +13,7 @@ public struct SQLitePlan: NullaryQueryPlan {
     var query: SQLite.Table
     var projected: [String: SQLite.Expression<Int64>]
     var store: SQLiteQuadStore
-    public var selfDescription: String { return "SQLite Plan" }
+    public var selfDescription: String { return "SQLite Plan { \(query.expression.template) : \(query.expression.bindings) }" }
     public func evaluate() throws -> AnyIterator<TermResult> {
         let store = self.store
         guard let dbh = try? store.db.prepare(query) else {
@@ -42,7 +42,7 @@ public struct SQLitePreparedPlan: NullaryQueryPlan {
     var dbh: SQLite.Statement
     var projected: [String: String]
     var store: SQLiteQuadStore
-    public var selfDescription: String { return "SQLite Prepared Plan" }
+    public var selfDescription: String { return "SQLite Prepared Plan { \(dbh) }" }
     public func evaluate() throws -> AnyIterator<TermResult> {
         let projected = self.projected
         let map = Dictionary(uniqueKeysWithValues: dbh.columnNames.enumerated().map { ($1, $0) })
@@ -71,7 +71,7 @@ public struct SQLiteSingleIntegerAggregationPlan<D: Value>: NullaryQueryPlan {
     var aggregateName: String
     var projected: [String: SQLite.Expression<Int64>]
     var store: SQLiteQuadStore
-    public var selfDescription: String { return "SQLite Plan" }
+    public var selfDescription: String { return "SQLite Aggregation Plan { \(aggregateColumn) AS \(aggregateName) : \(query.expression.template) : \(query.expression.bindings) }" }
     public func evaluate() throws -> AnyIterator<TermResult> {
         let store = self.store
         guard let dbh = try? store.db.prepare(query) else {
@@ -158,9 +158,9 @@ open class SQLiteQuadStore: Sequence, MutableQuadStoreProtocol {
     
     public init(version: Version? = nil) throws {
         db = try Connection()
-//        db.trace {
-//            print($0)
-//        }
+        db.trace {
+            print($0)
+        }
         i2tcache = LRUCache(capacity: 1024)
         t2icache = LRUCache(capacity: 1024)
         try initializeTables()
@@ -654,13 +654,14 @@ extension SQLiteQuadStore: PlanningQuadStore {
             let tp = bgp.first!
             let qp = QuadPattern(triplePattern: tp, graph: .bound(activeGraph))
             let (q, projected, _) = try query(quad: qp, alias: "t")
+            print(projected)
             return SQLitePlan(query: q, projected: projected, store: self)
         } else {
             let tp = bgp.first!
-            let qp = QuadPattern(triplePattern: tp, graph: .bound(activeGraph))
+            let qp = QuadPattern(triplePattern: tp, graph: .bound(activeGraph)).bindingAllVariables
             var (bgpQuery, projected, mapping) = try query(quad: qp, alias: "t")
             for (i, tp) in bgp.dropFirst().enumerated() {
-                let qp = QuadPattern(triplePattern: tp, graph: .bound(activeGraph))
+                let qp = QuadPattern(triplePattern: tp, graph: .bound(activeGraph)).bindingAllVariables
                 let (q, p, m) = try query(quad: qp, alias: "t\(i)")
                 let joinVars = Set(m.keys).intersection(mapping.keys)
                 var joinExpression = SQLite.Expression<Bool>(value: true)
@@ -670,14 +671,24 @@ extension SQLiteQuadStore: PlanningQuadStore {
                         joinExpression = joinExpression && (lhs == rhs)
                     }
                 }
-
                 for (name, cols) in m {
-                    mapping[name, default: []] += cols
+                    mapping[name, default: []].append(contentsOf: cols)
                 }
-                projected.merge(p) { $1 }
                 
+                projected.merge(p) { $1 }
                 bgpQuery = bgpQuery.join(q, on: joinExpression)
             }
+            
+            let inscope = Algebra.bgp(bgp).inscope
+            let bound = Set(projected.keys)
+            if inscope != bound {
+                // we need to remove the variables that were bound only for the purpose of joining the quad patterns
+                for remove in bound.filter({ !inscope.contains($0) }) {
+//                    print("removing projection for ?\(remove)")
+                    projected.removeValue(forKey: remove)
+                }
+            }
+
             bgpQuery = bgpQuery.select(Array(projected.values))
             return SQLitePlan(query: bgpQuery, projected: projected, store: self)
         }
@@ -692,7 +703,16 @@ extension SQLiteQuadStore: PlanningQuadStore {
         if case .variable(let name, true) = nodes[1] { projected[name] = tt[predColumn]; mapping[name, default: []].append(tt[predColumn]) }
         if case .variable(let name, true) = nodes[2] { projected[name] = tt[objColumn]; mapping[name, default: []].append(tt[objColumn]) }
         if case .variable(let name, true) = nodes[3] { projected[name] = tt[graphColumn]; mapping[name, default: []].append(tt[graphColumn]) }
-        var q = tt.select(Array(projected.values))
+        var q = projected.isEmpty ? tt : tt.select(Array(projected.values))
+        
+        for columns in mapping.values.filter({ $0.count > 1 }) {
+            if let first = columns.first {
+                q = columns.dropFirst().reduce(q, { (q, col) -> SQLite.Table in
+                    q.filter(first == col)
+                })
+            }
+        }
+        
         if case .bound(let t) = nodes[0] {
             guard let sid = id(for: t) else { throw SQLiteQuadStoreError.idAccessError }
             q = q.filter(tt[subjColumn] == sid)
