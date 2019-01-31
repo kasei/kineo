@@ -194,8 +194,16 @@ public struct UnionPlan: BinaryQueryPlan {
     public func evaluate() throws -> AnyIterator<TermResult> {
         let l = try lhs.evaluate()
         let r = try rhs.evaluate()
-        let i = AnyIterator {
-            return l.next() ?? r.next()
+        var lok = true
+        let i = AnyIterator { () -> TermResult? in
+            if lok, let ll = l.next() {
+                return ll
+            } else {
+                lok = false
+                return r.next()
+            }
+            // TODO: this simplified version should work but breaks due to a bug in the SQLite bindings that make repeated calls to next() after end-of-iterator throw an error
+//            return l.next() ?? r.next()
         }
         return i
     }
@@ -440,24 +448,13 @@ public struct OrderPlan: UnaryQueryPlan {
     }
 }
 
-public struct AggregationPlan: UnaryQueryPlan {
-    public var child: QueryPlan
-    var groups: [Expression]
-    var aggregates: Set<Algebra.AggregationMapping>
-    public var selfDescription: String { return "Aggregate \(aggregates) over groups \(groups)" }
-    public func evaluate() throws -> AnyIterator<TermResult> {
-        print("unimplemented")
-        throw QueryPlanError.unimplemented // TODO: implement
-    }
-}
-
 public struct WindowPlan: UnaryQueryPlan {
     public var child: QueryPlan
     var groups: [Expression]
     var functions: Set<Algebra.WindowFunctionMapping>
     public var selfDescription: String { return "Window \(functions) over groups \(groups)" }
     public func evaluate() throws -> AnyIterator<TermResult> {
-        print("unimplemented")
+        print("unimplemented: WindowPlan")
         throw QueryPlanError.unimplemented // TODO: implement
     }
 }
@@ -468,7 +465,7 @@ public struct HeapSortLimitPlan: UnaryQueryPlan {
     var limit: Int
     public var selfDescription: String { return "Heap Sort with Limit \(limit) { \(comparators) }" }
     public func evaluate() throws -> AnyIterator<TermResult> {
-        print("unimplemented")
+        print("unimplemented: HeapSortLimitPlan")
         throw QueryPlanError.unimplemented // TODO: implement
     }
 }
@@ -763,4 +760,369 @@ public struct PlusPathPlan : PathPlan {
     }
 }
 
+/********************************************************************************************************/
 
+protocol Aggregate {
+    func handle(_ row: TermResult)
+    func result() -> Term?
+}
+
+public struct AggregationPlan: UnaryQueryPlan {
+    private class CountAllAggregate: Aggregate {
+        var count: Int
+        init() {
+            self.count = 0
+        }
+        func handle(_ row: TermResult) {
+            count += 1
+        }
+        func result() -> Term? {
+            return Term(integer: count)
+        }
+    }
+    
+    private class MinimumAggregate: Aggregate {
+        var value: Term?
+        var expression: Expression
+        var ee: ExpressionEvaluator
+        init(expression: Expression, evaluator: ExpressionEvaluator) {
+            self.expression = expression
+            self.value = nil
+            self.ee = evaluator
+        }
+        func handle(_ row: TermResult) {
+            let term = try? ee.evaluate(expression: expression, result: row)
+            if let t = value {
+                if let term = term, term < t {
+                    value = term
+                }
+            } else {
+                value = term
+            }
+        }
+        func result() -> Term? {
+            return value
+        }
+    }
+    
+    private class MaximumAggregate: Aggregate {
+        var value: Term?
+        var expression: Expression
+        var ee: ExpressionEvaluator
+        init(expression: Expression, evaluator: ExpressionEvaluator) {
+            self.expression = expression
+            self.value = nil
+            self.ee = evaluator
+        }
+        func handle(_ row: TermResult) {
+            let term = try? ee.evaluate(expression: expression, result: row)
+            if let t = value {
+                if let term = term, term > t {
+                    value = term
+                }
+            } else {
+                value = term
+            }
+        }
+        func result() -> Term? {
+            return value
+        }
+    }
+    
+    private class AverageAggregate: Aggregate {
+        var error: Bool
+        var value: NumericValue
+        var count: Int
+        var expression: Expression
+        var ee: ExpressionEvaluator
+        init(expression: Expression, evaluator: ExpressionEvaluator) {
+            self.error = false
+            self.expression = expression
+            self.value = .integer(0)
+            self.count = 0
+            self.ee = evaluator
+        }
+        func handle(_ row: TermResult) {
+            if let term = try? ee.evaluate(expression: expression, result: row) {
+                if let n = term.numeric {
+                    value = value + n
+                    count += 1
+                } else {
+                    error = true
+                }
+            }
+        }
+        func result() -> Term? {
+            guard !error else { return nil }
+            let avg = value / .integer(count)
+            return avg.term
+        }
+    }
+    
+    private class AverageDistinctAggregate: Aggregate {
+        var error: Bool
+        var values: Set<NumericValue>
+        var expression: Expression
+        var ee: ExpressionEvaluator
+        init(expression: Expression, evaluator: ExpressionEvaluator) {
+            self.error = false
+            self.expression = expression
+            self.values = Set()
+            self.ee = evaluator
+        }
+        func handle(_ row: TermResult) {
+            if let term = try? ee.evaluate(expression: expression, result: row) {
+                if let n = term.numeric {
+                    values.insert(n)
+                } else {
+                    error = true
+                }
+            }
+        }
+        func result() -> Term? {
+            guard !error else { return nil }
+            let value = values.reduce(NumericValue.integer(0)) { $0 + $1 }
+            let avg = value / .integer(values.count)
+            return avg.term
+        }
+    }
+    
+    private class SumAggregate: Aggregate {
+        var error: Bool
+        var value: NumericValue
+        var expression: Expression
+        var ee: ExpressionEvaluator
+        init(expression: Expression, evaluator: ExpressionEvaluator) {
+            self.error = false
+            self.expression = expression
+            self.value = .integer(0)
+            self.ee = evaluator
+        }
+        func handle(_ row: TermResult) {
+            if let term = try? ee.evaluate(expression: expression, result: row) {
+                if let n = term.numeric {
+                    value = value + n
+                } else {
+                    error = true
+                }
+            }
+        }
+        func result() -> Term? {
+            guard !error else { return nil }
+            return value.term
+        }
+    }
+    
+    private class SumDistinctAggregate: Aggregate {
+        var error: Bool
+        var values: Set<NumericValue>
+        var expression: Expression
+        var ee: ExpressionEvaluator
+        init(expression: Expression, evaluator: ExpressionEvaluator) {
+            self.error = false
+            self.expression = expression
+            self.values = Set()
+            self.ee = evaluator
+        }
+        func handle(_ row: TermResult) {
+            if let term = try? ee.evaluate(expression: expression, result: row) {
+                if let n = term.numeric {
+                    values.insert(n)
+                } else {
+                    error = true
+                }
+            }
+        }
+        func result() -> Term? {
+            guard !error else { return nil }
+            let value = values.reduce(NumericValue.integer(0)) { $0 + $1 }
+            return value.term
+        }
+    }
+    
+    private class CountAggregate: Aggregate {
+        var count: Int
+        var expression: Expression
+        var ee: ExpressionEvaluator
+        init(expression: Expression, evaluator: ExpressionEvaluator) {
+            self.expression = expression
+            self.count = 0
+            self.ee = evaluator
+        }
+        func handle(_ row: TermResult) {
+            if let _ = try? ee.evaluate(expression: expression, result: row) {
+                count += 1
+            }
+        }
+        func result() -> Term? {
+            return Term(integer: count)
+        }
+    }
+    
+    private class CountDistinctAggregate: Aggregate {
+        var values: Set<Term>
+        var expression: Expression
+        var ee: ExpressionEvaluator
+        init(expression: Expression, evaluator: ExpressionEvaluator) {
+            self.expression = expression
+            self.values = Set()
+            self.ee = evaluator
+        }
+        func handle(_ row: TermResult) {
+            if let term = try? ee.evaluate(expression: expression, result: row) {
+                values.insert(term)
+            }
+        }
+        func result() -> Term? {
+            return Term(integer: values.count)
+        }
+    }
+    
+    private class SampleAggregate: Aggregate {
+        var value: Term?
+        var expression: Expression
+        var ee: ExpressionEvaluator
+        init(expression: Expression, evaluator: ExpressionEvaluator) {
+            self.expression = expression
+            self.value = nil
+            self.ee = evaluator
+        }
+        func handle(_ row: TermResult) {
+            if let term = try? ee.evaluate(expression: expression, result: row) {
+                value = term
+            }
+        }
+        func result() -> Term? {
+            return value
+        }
+    }
+
+    private class GroupConcatDistinctAggregate: Aggregate {
+        var values: Set<Term>
+        var separator: String
+        var expression: Expression
+        var ee: ExpressionEvaluator
+        init(expression: Expression, separator: String, evaluator: ExpressionEvaluator) {
+            self.expression = expression
+            self.separator = separator
+            self.values = Set()
+            self.ee = evaluator
+        }
+        func handle(_ row: TermResult) {
+            if let term = try? ee.evaluate(expression: expression, result: row) {
+                values.insert(term)
+            }
+        }
+        func result() -> Term? {
+            let s = values.lazy.map { $0.value }.joined(separator: separator)
+            return Term(string: s)
+        }
+    }
+
+    private class GroupConcatAggregate: Aggregate {
+        var value: String
+        var separator: String
+        var expression: Expression
+        var ee: ExpressionEvaluator
+        init(expression: Expression, separator: String, evaluator: ExpressionEvaluator) {
+            self.expression = expression
+            self.separator = separator
+            self.value = ""
+            self.ee = evaluator
+        }
+        func handle(_ row: TermResult) {
+            if let term = try? ee.evaluate(expression: expression, result: row) {
+                if !value.isEmpty {
+                    value += separator
+                }
+                value += term.value
+            }
+        }
+        func result() -> Term? {
+            return Term(string: value)
+        }
+    }
+
+    public var child: QueryPlan
+    var groups: [Expression]
+    var aggregates: [String: () -> (Aggregate)]
+    var ee: ExpressionEvaluator
+    public init(child: QueryPlan, groups: [Expression], aggregates: Set<Algebra.AggregationMapping>) {
+        self.child = child
+        self.groups = groups
+        self.aggregates = [:]
+        let ee = ExpressionEvaluator(base: nil)
+        self.ee = ee
+
+        for a in aggregates {
+            switch a.aggregation {
+            case .countAll:
+                self.aggregates[a.variableName] = { return CountAllAggregate() }
+            case let .count(e, true):
+                self.aggregates[a.variableName] = { return CountDistinctAggregate(expression: e, evaluator: ee) }
+            case let .count(e, false):
+                self.aggregates[a.variableName] = { return CountAggregate(expression: e, evaluator: ee) }
+            case .min(let e):
+                self.aggregates[a.variableName] = { return MinimumAggregate(expression: e, evaluator: ee) }
+            case .max(let e):
+                self.aggregates[a.variableName] = { return MaximumAggregate(expression: e, evaluator: ee) }
+            case .sample(let e):
+                self.aggregates[a.variableName] = { return SampleAggregate(expression: e, evaluator: ee) }
+            case let .groupConcat(e, sep, true):
+                self.aggregates[a.variableName] = { return GroupConcatDistinctAggregate(expression: e, separator: sep, evaluator: ee) }
+            case let .groupConcat(e, sep, false):
+                self.aggregates[a.variableName] = { return GroupConcatAggregate(expression: e, separator: sep, evaluator: ee) }
+            case let .avg(e, false):
+                self.aggregates[a.variableName] = { return AverageAggregate(expression: e, evaluator: ee) }
+            case let .avg(e, true):
+                self.aggregates[a.variableName] = { return AverageDistinctAggregate(expression: e, evaluator: ee) }
+            case let .sum(e, true):
+                self.aggregates[a.variableName] = { return SumDistinctAggregate(expression: e, evaluator: ee) }
+            case let .sum(e, false):
+                self.aggregates[a.variableName] = { return SumAggregate(expression: e, evaluator: ee) }
+            }
+        }
+    }
+    
+    public var selfDescription: String { return "Aggregate \(aggregates) over groups \(groups)" }
+    public func evaluate() throws -> AnyIterator<TermResult> {
+        var aggData = [[Term?]:[String:Aggregate]]()
+        for r in try child.evaluate() {
+            let group = groups.map { try? ee.evaluate(expression: $0, result: r) }
+            if let _ = aggData[group] {
+            } else {
+                // instantiate all aggregates for this group
+                aggData[group] = Dictionary(uniqueKeysWithValues: aggregates.map { ($0.key, $0.value()) })
+            }
+            
+            aggData[group]!.forEach { (_, agg) in
+                agg.handle(r)
+            }
+        }
+        
+        guard aggData.count > 0 else {
+            let r = TermResult(bindings: [:])
+            return AnyIterator([r].makeIterator())
+        }
+        
+        let rows = aggData.map { (group, aggs) -> TermResult in
+            var groupTerms = [String:Term]()
+            for (e, t) in zip(groups, group) {
+                if case .node(.variable(let name, _)) = e {
+                    if let term = t {
+                        groupTerms[name] = term
+                    }
+                }
+            }
+            let d = Dictionary(uniqueKeysWithValues: aggs.compactMap { (a) -> (String, Term)? in
+                guard let term = a.value.result() else {
+                    return nil
+                }
+                return (a.key, term)
+            })
+            let result = groupTerms.merging(d) { (l, r) in l }
+            return TermResult(bindings: result)
+        }
+        return AnyIterator(rows.makeIterator())
+    }
+}
