@@ -244,13 +244,14 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
             return ServicePlan(endpoint: endpoint, query: query, silent: silent)
         case let .namedGraph(child, .bound(g)):
             return try plan(algebra: child, activeGraph: g)
-        case let .namedGraph(child, .variable(graph, binding: bind)):
+        case let .namedGraph(child, .variable(graph, binding: _)):
             let branches = try dataset.namedGraphs.map { (g) throws -> QueryPlan in
                 let p = try plan(algebra: child, activeGraph: g)
-                if bind {
-                    return ExtendPlan(child: p, expression: .node(.bound(g)), variable: graph, evaluator: evaluator)
+                let table = TablePlan(columns: [.variable(graph, binding: true)], rows: [[g]])
+                if child.inscope.contains(graph) {
+                    return HashJoinPlan(lhs: p, rhs: table, joinVariables: [graph])
                 } else {
-                    return p
+                    return NestedLoopJoinPlan(lhs: p, rhs: table)
                 }
             }
             guard let first = branches.first else {
@@ -338,7 +339,7 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
             case (.bound(_), .variable(_)):
                 let j = freshVariable()
                 let p = try plan(subject: s, path: pp, object: j, activeGraph: activeGraph)
-                print("planning Plus path with frontier node: \(j)")
+//                print("planning Plus path with frontier node: \(j)")
                 return PlusPathPlan(subject: s, child: p, object: o, graph: activeGraph, store: store, frontierNode: j)
             default:
                 fatalError()
