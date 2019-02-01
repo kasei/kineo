@@ -158,9 +158,9 @@ open class SQLiteQuadStore: Sequence, MutableQuadStoreProtocol {
     
     public init(version: Version? = nil) throws {
         db = try Connection()
-        db.trace {
-            print($0)
-        }
+//        db.trace {
+//            print($0)
+//        }
         i2tcache = LRUCache(capacity: 1024)
         t2icache = LRUCache(capacity: 1024)
         try initializeTables()
@@ -372,11 +372,11 @@ open class SQLiteQuadStore: Sequence, MutableQuadStoreProtocol {
                     guard let lang = row[termLangColumn] else {
                         return nil
                     }
-                    let t = Term(value: value, type: .language(lang))
+                    let t = Term(canonicalValue: value, type: .language(lang))
                     i2tcache[id] = t
                     return t
                 } else {
-                    let t = Term(value: value, type: .datatype(TermDataType(stringLiteral: dt)))
+                    let t = Term(canonicalValue: value, type: .datatype(TermDataType(stringLiteral: dt)))
                     i2tcache[id] = t
                     return t
                 }
