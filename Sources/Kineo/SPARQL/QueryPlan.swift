@@ -1099,7 +1099,12 @@ public struct AggregationPlan: UnaryQueryPlan {
         }
         
         guard aggData.count > 0 else {
-            let r = TermResult(bindings: [:])
+            let d = aggregates.compactMap { (name, a) -> (String, Term)? in
+                let agg = a()
+                guard let term = agg.result() else { return nil }
+                return (name, term)
+            }
+            let r = TermResult(bindings: Dictionary(uniqueKeysWithValues: d))
             return AnyIterator([r].makeIterator())
         }
         
