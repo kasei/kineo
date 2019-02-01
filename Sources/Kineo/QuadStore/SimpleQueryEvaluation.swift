@@ -16,7 +16,7 @@ fileprivate struct SortElem {
 
 // swiftlint:disable cyclomatic_complexity
 // swiftlint:disable:next type_body_length
-public protocol SimpleQueryEvaluatorProtocol {
+public protocol SimpleQueryEvaluatorProtocol: QueryEvaluatorProtocol {
     var dataset: Dataset { get }
     var ee: ExpressionEvaluator { get }
     

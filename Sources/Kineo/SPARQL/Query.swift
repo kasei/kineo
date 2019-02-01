@@ -9,6 +9,13 @@
 import Foundation
 import SPARQLSyntax
 
+public protocol QueryEvaluatorProtocol {
+    associatedtype ResultSequence: Sequence where ResultSequence.Element == TermResult
+    associatedtype TripleSequence: Sequence where TripleSequence.Element == Triple
+    func evaluate(query: Query) throws -> QueryResult<ResultSequence, TripleSequence>
+    func evaluate(query: Query, activeGraph: Term?) throws -> QueryResult<ResultSequence, TripleSequence>
+}
+
 public enum QueryLanguage : String {
     case sparqlQuery10 = "http://www.w3.org/ns/sparql-service-description#SPARQL10Query"
     case sparqlQuery11 = "http://www.w3.org/ns/sparql-service-description#SPARQL11Query"

@@ -376,16 +376,23 @@ extension Expression {
     }
 }
 
-public struct QueryPlanEvaluator<Q: QuadStoreProtocol> {
+public struct QueryPlanEvaluator<Q: QuadStoreProtocol>: QueryEvaluatorProtocol {
+    public typealias ResultSequence = AnySequence<TermResult>
+    public typealias TripleSequence = [Triple]
+    
     var dataset: Dataset
     public var planner: QueryPlanner<Q>
     
-    public init(dataset: Dataset, store: Q, base: String? = nil) {
+    public init(store: Q, dataset: Dataset, base: String? = nil) {
         self.dataset = dataset
         self.planner = QueryPlanner(store: store, dataset: dataset, base: base)
     }
     
-    public func evaluate(query: Query, defaultGraph graph: Term? = nil) throws -> QueryResult<AnySequence<TermResult>, [Triple]> {
+    public func evaluate(query: Query) throws -> QueryResult<AnySequence<TermResult>, [Triple]> {
+        return try evaluate(query: query, activeGraph: nil)
+    }
+    
+    public func evaluate(query: Query, activeGraph graph: Term? = nil) throws -> QueryResult<AnySequence<TermResult>, [Triple]> {
         let rewriter = SPARQLQueryRewriter()
         let q = try rewriter.simplify(query: query)
         let plan = try planner.plan(query: q, activeGraph: graph)
