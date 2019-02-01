@@ -100,9 +100,7 @@ public struct QuadPlan: NullaryQueryPlan {
     var store: QuadStoreProtocol
     public var selfDescription: String { return "Quad(\(quad))" }
     public func evaluate() throws -> AnyIterator<TermResult> {
-        let i = try store.results(matching: quad)
-        let a = Array(i)
-        return AnyIterator(a.makeIterator())
+        return try store.results(matching: quad)
     }
 }
 
