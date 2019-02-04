@@ -3,8 +3,38 @@ import Kineo
 import SPARQLSyntax
 
 #if os(Linux)
-extension QueryEvaluationTest {
-    static var allTests : [(String, (QueryEvaluationTest) -> () throws -> Void)] {
+extension SimpleQueryEvaluationTest {
+    static var allTests : [(String, (SimpleQueryEvaluationTest) -> () throws -> Void)] {
+        return [
+            ("testTripleEval", testTripleEval),
+            ("testQuadEvalNoSuchGraph", testQuadEvalNoSuchGraph),
+            ("testQuadEval", testQuadEval),
+            ("testTripleEvalWithBoundPredicate", testTripleEvalWithBoundPredicate),
+            ("testFilterEval", testFilterEval),
+            ("testUnionEval", testUnionEval),
+            ("testProjectEval", testProjectEval),
+            ("testJoinEval", testJoinEval),
+            ("testLeftJoinEval", testLeftJoinEval),
+            ("testLimitEval", testLimitEval),
+            ("testCountAllEval", testCountAllEval),
+            ("testCountAllEvalWithGroup", testCountAllEvalWithGroup),
+            ("testCountEval", testCountEval),
+            ("testSumEval", testSumEval),
+            ("testAvgEval", testAvgEval),
+            ("testMultiAggEval", testMultiAggEval),
+            ("testSortEval", testSortEval),
+            ("testIRINamedGraphEval", testIRINamedGraphEval),
+            ("testVarNamedGraphEval", testVarNamedGraphEval),
+            ("testExtendEval", testExtendEval),
+            ("testHashFunctions", testHashFunctions),
+            ("testTermAccessors", testTermAccessors),
+            ("testAggregationProjection", testAggregationProjection),
+            ("testEmptyAggregation", testEmptyAggregation),
+        ]
+    }
+}
+extension QueryPlanEvaluationTest {
+    static var allTests : [(String, (QueryPlanEvaluationTest) -> () throws -> Void)] {
         return [
             ("testTripleEval", testTripleEval),
             ("testQuadEvalNoSuchGraph", testQuadEvalNoSuchGraph),
@@ -501,7 +531,7 @@ class SimpleQueryEvaluationTest: XCTestCase, QueryEvaluationTests {
     override func setUp() {
         super.setUp()
         self.graph = Term(value: "http://example.org/", type: .iri)
-        store = TestStore(quads: testQuads)
+        self.store = TestStore(quads: testQuads)
     }
     
     func evaluator(dataset: Dataset) -> Evaluator {
@@ -543,7 +573,7 @@ class QueryPlanEvaluationTest: XCTestCase, QueryEvaluationTests {
     override func setUp() {
         super.setUp()
         self.graph = Term(value: "http://example.org/", type: .iri)
-        store = TestStore(quads: testQuads)
+        self.store = TestStore(quads: testQuads)
     }
     
     func evaluator(dataset: Dataset) -> Evaluator {
