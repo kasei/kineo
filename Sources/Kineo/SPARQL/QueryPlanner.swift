@@ -205,7 +205,14 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
                 let pat = try plan(algebra: algebra, activeGraph: activeGraph)
                 p = ExistsPlan(child: p, pattern: pat, variable: name, patternAlgebra: algebra)
             }
-            return ExtendPlan(child: p, expression: e, variable: name, evaluator: evaluator)
+            
+            if mapping.isEmpty {
+                return ExtendPlan(child: p, expression: e, variable: name, evaluator: evaluator)
+            } else {
+                let extend = ExtendPlan(child: p, expression: e, variable: name, evaluator: evaluator)
+                let vars = child.inscope
+                return ProjectPlan(child: extend, variables: vars.union([name]))
+            }
         case let .order(child, orders):
             let p = try plan(algebra: child, activeGraph: activeGraph)
             return OrderPlan(child: p, comparators: orders, evaluator: evaluator)
@@ -223,7 +230,13 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
                 p = ExistsPlan(child: p, pattern: pat, variable: name, patternAlgebra: algebra)
             }
             p = NextRowPlan(child: p, evaluator: evaluator)
-            return FilterPlan(child: p, expression: e, evaluator: evaluator)
+            
+            if mapping.isEmpty {
+                return FilterPlan(child: p, expression: e, evaluator: evaluator)
+            } else {
+                let filter = FilterPlan(child: p, expression: e, evaluator: evaluator)
+                return ProjectPlan(child: filter, variables: child.inscope)
+            }
         case let .distinct(child):
             let p = try plan(algebra: child, activeGraph: activeGraph)
             return DistinctPlan(child: p)
@@ -346,11 +359,9 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
             }
         case .star(_):
             print("unimplemented")
-            fatalError()
             throw QueryPlanError.unimplemented // TODO: implement +, *, ? path planning
         case .zeroOrOne(_):
             print("unimplemented")
-            fatalError()
             throw QueryPlanError.unimplemented // TODO: implement +, *, ? path planning
         default:
             fatalError("TODO: unimplemented switch case for \(self)")
