@@ -3,7 +3,8 @@ import XCTest
 
 XCTMain([
 	testCase(FilePageDatabaseTest.allTests),
-	testCase(QueryEvaluationTest.allTests),
+	testCase(SimpleQueryEvaluationTest.allTests),
+	testCase(QueryPlanEvaluationTest.allTests),
 	testCase(QueryParserTest.allTests),
 	testCase(SPARQLSyntaxTest.allTests),
 	testCase(TermIdentityMapTest.allTests),
