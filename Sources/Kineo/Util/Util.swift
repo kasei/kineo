@@ -109,6 +109,30 @@ public struct FileReader: LineReadable {
     }
 }
 
+public struct ConcatenatingIterator<I: IteratorProtocol, J: IteratorProtocol>: IteratorProtocol where I.Element == J.Element {
+    public typealias Element = I.Element
+    var lhs: I
+    var rhs: J
+    var lhsClosed: Bool
+    
+    public init(_ lhs: I, _ rhs: J) {
+        self.lhs = lhs
+        self.rhs = rhs
+        self.lhsClosed = false
+    }
+    
+    public mutating func next() -> Element? {
+        if !lhsClosed {
+            if let i = lhs.next() {
+                return i
+            } else {
+                lhsClosed = true
+            }
+        }
+        return rhs.next()
+    }
+}
+
 public struct PeekableIterator<T: IteratorProtocol> : IteratorProtocol {
     public typealias Element = T.Element
     private var generator: T

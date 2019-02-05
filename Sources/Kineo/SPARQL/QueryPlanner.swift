@@ -277,92 +277,38 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
         case let .quad(quad):
             return QuadPlan(quad: quad, store: store)
         case let .path(s, path, o):
-            return try plan(subject: s, path: path, object: o, activeGraph: activeGraph)
-//            switch path {
-//            case .link(let predicate):
-//                let pp = LinkPathPlan(predicate: predicate, store: store)
-//                return PropertyPathPlan(subject: s, path: pp, object: o, graph: activeGraph)
-//            case .inv(let ipath):
-//                return try plan(algebra: .path(o, ipath, s), activeGraph: activeGraph)
-//            case let .alt(lhs, rhs):
-//                let i = try plan(algebra: .path(s, lhs, o), activeGraph: activeGraph)
-//                let j = try plan(algebra: .path(s, rhs, o), activeGraph: activeGraph)
-//                return UnionPlan(lhs: i, rhs: j)
-//            case let .seq(lhs, rhs):
-//                let jvar = freshVariable()
-//                guard case .variable(_, _) = jvar else {
-//                    Logger.shared.error("Unexpected variable generated during path evaluation")
-//                    throw QueryError.evaluationError("Unexpected variable generated during path evaluation")
-//                }
-//                let j : Algebra = .innerJoin(
-//                    .path(s, lhs, jvar),
-//                    .path(jvar, rhs, o)
-//                )
-//                return try plan(algebra: j, activeGraph: activeGraph)
-//            case .nps(let iris):
-//                let p = freshVariable()
-//                let pp = NPSPathPlan(iris: iris, store: store)
-//                return PropertyPathPlan(subject: s, path: pp, object: o, graph: activeGraph)
-//            case .plus(let pp):
-//                let cs = freshVariable()
-//                let co = freshVariable()
-//                let child = try plan(algebra: .path(cs, pp, co), activeGraph: activeGraph)
-//                return PlusPathPlan(
-//                    child: child,
-//                    subject: s,
-//                    innerSubject: cs,
-//                    innerObject: co,
-//                    object: o,
-//                    graph: activeGraph,
-//                    store: store
-//                )
-//            case .star(_):
-//                print("unimplemented")
-//                fatalError()
-//                throw QueryPlanError.unimplemented // TODO: implement +, *, ? path planning
-//            case .zeroOrOne(_):
-//                print("unimplemented")
-//                fatalError()
-//                throw QueryPlanError.unimplemented // TODO: implement +, *, ? path planning
-//            default:
-//                fatalError("TODO: unimplemented switch case for \(self)")
-//            }
+            let pathPlan = try plan(subject: s, path: path, object: o, activeGraph: activeGraph)
+            return PathQueryPlan(subject: s, path: pathPlan, object: o, graph: activeGraph)
         }
     }
 
     public func plan(subject s: Node, path: PropertyPath, object o: Node, activeGraph: Term) throws -> PathPlan {
         switch path {
         case .link(let predicate):
-            return LinkPathPlan(subject: s, predicate: predicate, object: o, graph: activeGraph, store: store)
+            return LinkPathPlan(predicate: predicate, store: store)
         case .inv(let ipath):
-            return try plan(subject: o, path: ipath, object: s, activeGraph: activeGraph)
+            let p = try plan(subject: o, path: ipath, object: s, activeGraph: activeGraph)
+            return InversePathPlan(child: p)
         case let .alt(lhs, rhs):
             let l = try plan(subject: s, path: lhs, object: o, activeGraph: activeGraph)
             let r = try plan(subject: s, path: rhs, object: o, activeGraph: activeGraph)
-            return UnionPathPlan(subject: s, lhs: l, rhs: r, object: o)
+            return UnionPathPlan(lhs: l, rhs: r)
         case let .seq(lhs, rhs):
             let j = freshVariable()
             let l = try plan(subject: s, path: lhs, object: j, activeGraph: activeGraph)
             let r = try plan(subject: j, path: rhs, object: o, activeGraph: activeGraph)
-            return SequencePathPlan(subject: s, lhs: l, joinNode: j, rhs: r, object: o)
+            return SequencePathPlan(lhs: l, joinNode: j, rhs: r)
         case .nps(let iris):
-            return NPSPathPlan(subject: s, iris: iris, object: o, graph: activeGraph, store: store)
+            return NPSPathPlan(iris: iris, store: store)
         case .plus(let pp):
-            switch (s, o) {
-            case (.bound(_), .variable(_)):
-                let j = freshVariable()
-                let p = try plan(subject: s, path: pp, object: j, activeGraph: activeGraph)
-//                print("planning Plus path with frontier node: \(j)")
-                return PlusPathPlan(subject: s, child: p, object: o, graph: activeGraph, store: store, frontierNode: j)
-            default:
-                fatalError()
-            }
-        case .star(_):
-            print("unimplemented")
-            throw QueryPlanError.unimplemented // TODO: implement +, *, ? path planning
-        case .zeroOrOne(_):
-            print("unimplemented")
-            throw QueryPlanError.unimplemented // TODO: implement +, *, ? path planning
+            let p = try plan(subject: s, path: pp, object: o, activeGraph: activeGraph)
+            return PlusPathPlan(child: p, store: store)
+        case .star(let pp):
+            let p = try plan(subject: s, path: pp, object: o, activeGraph: activeGraph)
+            return StarPathPlan(child: p, store: store)
+        case .zeroOrOne(let pp):
+            let p = try plan(subject: s, path: pp, object: o, activeGraph: activeGraph)
+            return ZeroOrOnePathPlan(child: p, store: store)
         default:
             fatalError("TODO: unimplemented switch case for \(self)")
         }
@@ -423,6 +369,7 @@ public struct QueryPlanEvaluator<Q: QuadStoreProtocol>: QueryEvaluatorProtocol {
                 //                throw error
             }
         }
+        
         switch q.form {
         case .ask:
             let i = seq.makeIterator()
@@ -435,17 +382,31 @@ public struct QueryPlanEvaluator<Q: QuadStoreProtocol>: QueryEvaluatorProtocol {
             return QueryResult.bindings(Array(q.inscope), seq)
         case .select(.variables(let vars)):
             return QueryResult.bindings(vars, seq)
-        case .construct(let pattern):
-            print("unimplemented")
-        throw QueryPlanError.unimplemented // TODO: implement
-        case .describe(let nodes):
-            print("unimplemented")
-        throw QueryPlanError.unimplemented // TODO: implement
+        case .construct(let template):
+            var triples = Set<Triple>()
+            for r in seq {
+                for tp in template {
+                    do {
+                        let replaced = try tp.replace { (n) -> Node? in
+                            guard case .variable(let name, _) = n else { return nil }
+                            if let t = r[name] {
+                                return .bound(t)
+                            }
+                            return nil
+                        }
+                        if let ground = replaced.ground {
+                            triples.insert(ground)
+                        }
+                    } catch {}
+                }
+            }
+            return QueryResult.triples(Array(triples))
+        case .describe(_):
+            print("unimplemented: describe")
+            throw QueryPlanError.unimplemented // TODO: implement
         }
     }
 }
-
-
 
 // TODO This should be removed once this extension is available in SPARQLSyntax.TermPattern
 extension QuadPattern {

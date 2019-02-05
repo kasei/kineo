@@ -189,6 +189,10 @@ public struct UnionPlan: BinaryQueryPlan {
     public var lhs: QueryPlan
     public var rhs: QueryPlan
     public var selfDescription: String { return "Union" }
+    public init(lhs: QueryPlan, rhs: QueryPlan) {
+        self.lhs = lhs
+        self.rhs = rhs
+    }
     public func evaluate() throws -> AnyIterator<TermResult> {
         let l = try lhs.evaluate()
         let r = try rhs.evaluate()
@@ -510,13 +514,24 @@ public struct ExistsPlan: UnaryQueryPlan {
 // -
 /********************************************************************************************************/
 
-public protocol PathPlan: QueryPlan {
+public protocol PathPlan: PlanSerializable {
     var selfDescription: String { get }
-    var children : [QueryPlan] { get }
-    func evaluate(from: Node, in: Term) throws -> AnyIterator<Term>
-    var subject: Node { get }
-    var object: Node { get }
+    var children : [PathPlan] { get }
+    func evaluate(from: Node, to: Node, in: Term) throws -> AnyIterator<TermResult>
 }
+
+public struct PathQueryPlan: NullaryQueryPlan {
+    var subject: Node
+    var path: PathPlan
+    var object: Node
+    var graph: Term
+    public var selfDescription: String { return "Path { \(subject) ---> \(object) in graph \(graph) }" }
+    public var properties: [PlanSerializable] { return [path] }
+    public func evaluate() throws -> AnyIterator<TermResult> {
+        return try path.evaluate(from: subject, to: object, in: graph)
+    }
+}
+
 
 public extension PathPlan {
     var arity: Int { return children.count }
@@ -544,30 +559,69 @@ public extension PathPlan {
     internal func alp(term: Term, path: PathPlan, seen: inout Set<Term>, graph: Term) throws {
         guard !seen.contains(term) else { return }
         seen.insert(term)
-        for n in try path.evaluate(from: .bound(term), in: graph) {
-            try alp(term: n, path: path, seen: &seen, graph: graph)
+        let node : Node = .variable(".pp", binding: true)
+        for r in try path.evaluate(from: .bound(term), to: node, in: graph) {
+            if let term = r[node] {
+                try alp(term: term, path: path, seen: &seen, graph: graph)
+            }
         }
     }
 }
 
 
-public struct NPSPathPlan: NullaryQueryPlan, PathPlan {
-    public var subject: Node
+public struct NPSPathPlan: PathPlan {
     public var iris: [Term]
-    public var object: Node
-    public var graph: Term
     var store: QuadStoreProtocol
-    public var selfDescription: String { return "NPS Path { { \(subject) --\(iris)--> \(object) }" }
-    public func evaluate() throws -> AnyIterator<TermResult> {
+    public var children: [PathPlan] { return [] }
+    public var selfDescription: String { return "NPS { \(iris) }" }
+    public func evaluate(from subject: Node, to object: Node, in graph: Term) throws -> AnyIterator<TermResult> {
         switch (subject, object) {
-        case (.bound(_), .variable(let oname, binding: true)):
+        case let (.bound(_), .variable(oname, binding: bind)):
             let objects = try evaluate(from: subject, in: graph)
-            let i = objects.lazy.map {
-                return TermResult(bindings: [oname: $0])
+            if bind {
+                let i = objects.lazy.map {
+                    return TermResult(bindings: [oname: $0])
+                }
+                return AnyIterator(i.makeIterator())
+            } else {
+                let i = objects.lazy.map { (_) -> TermResult in
+                    return TermResult(bindings: [:])
+                }
+                return AnyIterator(i.makeIterator())
+            }
+        case (.bound(_), .bound(let o)):
+            let objects = try evaluate(from: subject, in: graph)
+            let i = objects.lazy.compactMap { (term) -> TermResult? in
+                guard term == o else { return nil }
+                return TermResult(bindings: [:])
             }
             return AnyIterator(i.makeIterator())
-        default:
-            fatalError()
+        case (.variable(let s, _), .bound(_)):
+            let p : Node = .variable(".p", binding: true)
+            let qp = QuadPattern(subject: subject, predicate: p, object: object, graph: .bound(graph))
+            let i = try store.quads(matching: qp)
+            let set = Set(iris)
+            return AnyIterator {
+                repeat {
+                    guard let q = i.next() else { return nil }
+                    let p = q.predicate
+                    guard !set.contains(p) else { continue }
+                    return TermResult(bindings: [s: q.subject])
+                } while true
+            }
+        case let (.variable(s, _), .variable(o, _)):
+            let p : Node = .variable(".p", binding: true)
+            let qp = QuadPattern(subject: subject, predicate: p, object: object, graph: .bound(graph))
+            let i = try store.quads(matching: qp)
+            let set = Set(iris)
+            return AnyIterator {
+                repeat {
+                    guard let q = i.next() else { return nil }
+                    let p = q.predicate
+                    guard !set.contains(p) else { continue }
+                    return TermResult(bindings: [s: q.subject, o: q.object])
+                } while true
+            }
         }
     }
     
@@ -591,14 +645,12 @@ public struct NPSPathPlan: NullaryQueryPlan, PathPlan {
     }
 }
 
-public struct LinkPathPlan : NullaryQueryPlan, PathPlan {
-    public var subject: Node
+public struct LinkPathPlan : PathPlan {
     public var predicate: Term
-    public var object: Node
-    public var graph: Term
     var store: QuadStoreProtocol
-    public var selfDescription: String { return "Link Path { \(subject) --\(predicate)--> \(object) }" }
-    public func evaluate() throws -> AnyIterator<TermResult> {
+    public var children: [PathPlan] { return [] }
+    public var selfDescription: String { return "Link { \(predicate) }" }
+    public func evaluate(from subject: Node, to object: Node, in graph: Term) throws -> AnyIterator<TermResult> {
 //        print("eval(linkPath[\(subject) \(predicate) \(object) \(graph)])")
         let qp = QuadPattern(subject: subject, predicate: .bound(predicate), object: object, graph: .bound(graph))
         let r = try store.results(matching: qp)
@@ -623,137 +675,178 @@ public struct LinkPathPlan : NullaryQueryPlan, PathPlan {
 }
 
 public struct UnionPathPlan: PathPlan {
-    public var subject: Node
     public var lhs: PathPlan
     public var rhs: PathPlan
-    public var object: Node
-    public var children: [QueryPlan] { return [lhs, rhs] }
-    public var selfDescription: String { return "Union { \(subject) --> \(object) }" }
-    public func evaluate() throws -> AnyIterator<TermResult> {
-//        print("eval(unionPath[\(subject) --> \(object)])")
-        let qp = UnionPlan(lhs: lhs, rhs: rhs)
-        return try qp.evaluate()
-    }
-    
-    public func evaluate(from subject: Node, in graph: Term) throws -> AnyIterator<Term> {
-//        print("eval(unionPath[from: \(subject) --> \(self.object)])")
-        let li = try lhs.evaluate(from: subject, in: graph)
-        let ri = try rhs.evaluate(from: subject, in: graph)
-        return AnyIterator {
-            return li.next() ?? ri.next()
-        }
+    public var children: [PathPlan] { return [lhs, rhs] }
+    public var selfDescription: String { return "Alt" }
+    public func evaluate(from subject: Node, to object: Node, in graph: Term) throws -> AnyIterator<TermResult> {
+        let l = try lhs.evaluate(from: subject, to: object, in: graph)
+        let r = try rhs.evaluate(from: subject, to: object, in: graph)
+        return AnyIterator(ConcatenatingIterator(l, r))
     }
 }
 
 public struct SequencePathPlan: PathPlan {
-    public var subject: Node
     public var lhs: PathPlan
     public var joinNode: Node
     public var rhs: PathPlan
-    public var object: Node
-    public var children: [QueryPlan] { return [lhs, rhs] }
-    public var selfDescription: String { return "Sequence { \(subject) --> \(object) }" }
+    public var children: [PathPlan] { return [lhs, rhs] }
+    public var selfDescription: String { return "Seq { \(joinNode) }" }
     
-    public func evaluate() throws -> AnyIterator<TermResult> {
+    public func evaluate(from subject: Node, to object: Node, in graph: Term) throws -> AnyIterator<TermResult> {
 //        print("eval(sequencePath[\(subject) --> \(object)])")
-        guard case .variable(let joinVariable, _) = lhs.object else {
+        guard case .variable(_, _) = joinNode else {
+            print("*** invalid child in query plan evaluation")
             throw QueryPlanError.invalidChild
         }
-        let qp = HashJoinPlan(lhs: lhs, rhs: rhs, joinVariables: [joinVariable])
-        return try qp.evaluate()
-    }
-    
-    public func evaluate(from subject: Node, in graph: Term) throws -> AnyIterator<Term> {
-//        print("eval(sequencePath[from: \(subject) --> \(self.object)])")
-        let lhs = self.lhs
-        let rhs = self.rhs
-        return AnyIterator { () -> Term? in
-            do {
-                for lo in try lhs.evaluate(from: subject, in: graph) {
-                    for ro in try rhs.evaluate(from: .bound(lo), in: graph) {
-                        return ro
+        let l = try lhs.evaluate(from: subject, to: joinNode, in: graph)
+        var results = [TermResult]()
+        for lr in l {
+            if let j = lr[joinNode] {
+                let r = try rhs.evaluate(from: .bound(j), to: object, in: graph)
+                for rr in r {
+                    var result = rr
+                    if case .variable(let name, true) = subject, let term = lr[subject] {
+                        result = result.extended(variable: name, value: term) ?? result
                     }
+                    results.append(result)
                 }
-            } catch { print("*** caught error during SequencePathPlan evaluation") }
-            return nil
+            }
         }
+        return AnyIterator(results.makeIterator())
+    }
+}
+
+public struct InversePathPlan: PathPlan {
+    public var child: PathPlan
+    public var children: [PathPlan] { return [child] }
+    public var selfDescription: String { return "Inv" }
+    public func evaluate(from subject: Node, to object: Node, in graph: Term) throws -> AnyIterator<TermResult> {
+        return try child.evaluate(from: object, to: subject, in: graph)
     }
 }
 
 public struct PlusPathPlan : PathPlan {
-    public var subject: Node
     public var child: PathPlan
-    public var object: Node
-    public var graph: Term
     var store: QuadStoreProtocol
-    var frontierNode: Node
-    public var children: [QueryPlan] { return [child] }
-    public var selfDescription: String { return "Plus { \(subject) --> \(object) }" }
-    public func evaluate() throws -> AnyIterator<TermResult> {
-//        print("eval(plusPath[\(subject) --> \(object) \(graph)])")
-        let objects = try evaluate(from: subject, in: graph)
-        switch object {
-        case .variable(let name, true):
-            let i = objects.lazy.map { TermResult(bindings: [name: $0]) }
+    public var children: [PathPlan] { return [child] }
+    public var selfDescription: String { return "Plus" }
+    public func evaluate(from subject: Node, to object: Node, in graph: Term) throws -> AnyIterator<TermResult> {
+        switch subject {
+        case .bound(_):
+            var v = Set<Term>()
+            let frontierNode : Node = .variable(".pp-plus", binding: true)
+            for r in try child.evaluate(from: subject, to: frontierNode, in: graph) {
+                if let n = r[frontierNode] {
+                    print("First step of + resulted in term: \(n)")
+                    try alp(term: n, path: child, seen: &v, graph: graph)
+                }
+            }
+            print("ALP resulted in: \(v)")
+            
+            let i = v.lazy.map { (term) -> TermResult in
+                if case .variable(let name, true) = object {
+                    return TermResult(bindings: [name: term])
+                } else {
+                    return TermResult(bindings: [:])
+                }
+            }
+            
             return AnyIterator(i.makeIterator())
         default:
             fatalError()
         }
     }
-    
-    public func evaluate(from subject: Node, in graph: Term) throws -> AnyIterator<Term> {
-//        print("eval(plusPath[from: \(subject) --> \(self.object)])")
-        switch subject {
-        case .bound(_):
-            var v = Set<Term>()
-            for r in try child.evaluate() {
-                guard let n = r[frontierNode] else {
-                    fatalError()
-                }
-                print("First step of + resulted in term: \(n)")
-                try alp(term: n, path: child, seen: &v, graph: graph)
-            }
-            print("ALP resulted in: \(v)")
+}
 
-            return AnyIterator(v.makeIterator())
-//        case (.variable(_), .bound(_)):
-//            fatalError()
-////            let ipath: PropertyPath = .plus(.inv(pp))
-////            return try evaluatePath(subject: object, object: subject, graph: graph, path: ipath)
-//        case (.bound(_), .bound(let oterm)):
-//            var v = Set<Term>()
-//            for result in try child.evaluate() {
-//                if let n = result[innerObject] {
-//                    try alp(term: n, path: child, seen: &v, graph: graph, objectVariable: innerObject)
-//                }
-//            }
-//
-//            var results = [TermResult]()
-//            if v.contains(oterm) {
-//                results.append(TermResult(bindings: [:]))
-//            }
-//            return AnyIterator(results.makeIterator())
-//        case (.variable(let sname, binding: _), .variable(_)):
-//            var results = [TermResult]()
-//            for t in store.graphTerms(in: graph) {
-//                let pp = PlusPathPlan(
-//                    child: child,
-//                    subject: .bound(t),
-//                    innerSubject: innerSubject,
-//                    innerObject: innerObject,
-//                    object: object,
-//                    graph: graph,
-//                    store: store
-//                )
-//                let i = try pp.evaluate()
-//                let j = i.map {
-//                    $0.extended(variable: sname, value: t) ?? $0
-//                }
-//                results.append(contentsOf: j)
-//            }
-//            return AnyIterator(results.makeIterator())
-        default:
-            fatalError()
+public struct StarPathPlan : PathPlan {
+    public var child: PathPlan
+    var store: QuadStoreProtocol
+    public var children: [PathPlan] { return [child] }
+    public var selfDescription: String { return "Plus" }
+    public func evaluate(from subject: Node, to object: Node, in graph: Term) throws -> AnyIterator<TermResult> {
+        switch subject {
+        case .bound(let term):
+            var v = Set<Term>()
+            try alp(term: term, path: child, seen: &v, graph: graph)
+            print("ALP resulted in: \(v)")
+            
+            switch object {
+            case let .variable(name, binding: true):
+                let i = v.lazy.map { TermResult(bindings: [name: $0]) }
+                return AnyIterator(i.makeIterator())
+            case .variable(_, binding: false):
+                let i = v.lazy.map { (_) in TermResult(bindings: [:]) }.prefix(1)
+                return AnyIterator(i.makeIterator())
+            case .bound(let o):
+                let i = v.lazy.compactMap { (term) -> TermResult? in
+                    guard term == o else { return nil }
+                    return TermResult(bindings: [:])
+                }
+                return AnyIterator(i.prefix(1).makeIterator())
+            }
+        case .variable(let s, binding: _):
+            switch object {
+            case .variable(_):
+                var iterators = [AnyIterator<TermResult>]()
+                for gn in store.graphTerms(in: graph) {
+                    let results = try evaluate(from: .bound(gn), to: object, in: graph).lazy.compactMap { (r) -> TermResult? in
+                        r.extended(variable: s, value: gn)
+                    }
+                    iterators.append(AnyIterator(results.makeIterator()))
+                }
+                return AnyIterator { () -> TermResult? in
+                    repeat {
+                        guard let i = iterators.first else { return nil }
+                        if let r = i.next() {
+                            return r
+                        } else {
+                            iterators.removeFirst(1)
+                        }
+                    } while true
+                }
+            case .bound(let o):
+                fatalError()
+            }
+        }
+    }
+}
+public struct ZeroOrOnePathPlan : PathPlan {
+    public var child: PathPlan
+    var store: QuadStoreProtocol
+    public var children: [PathPlan] { return [child] }
+    public var selfDescription: String { return "ZeroOrOne" }
+    public func evaluate(from subject: Node, to object: Node, in graph: Term) throws -> AnyIterator<TermResult> {
+        let i = try child.evaluate(from: subject, to: object, in: graph)
+        switch (subject, object) {
+        case (.variable(let s, _), .variable(_)):
+            let gn = store.graphTerms(in: graph)
+            let results = try gn.lazy.map { (term) -> AnyIterator<TermResult> in
+                let i = try child.evaluate(from: .bound(term), to: object, in: graph)
+                let j = i.lazy.map { (r) -> TermResult in
+                    r.extended(variable: s, value: term) ?? r
+                }
+                return AnyIterator(j.makeIterator())
+            }
+            return AnyIterator(results.joined().makeIterator())
+        case (.bound(_), .bound(_)):
+            if subject == object {
+                let r = [TermResult(bindings: [:])]
+                return AnyIterator(r.makeIterator())
+            } else {
+                return i
+            }
+        case let (.bound(term), .variable(name, _)), let (.variable(name, _), .bound(term)):
+            let r = [TermResult(bindings: [name: term])]
+            var seen = Set<Term>()
+            let j = i.lazy.compactMap { (r) -> TermResult? in
+                guard let t = r[name] else { return nil }
+                guard t != term else { return nil }
+                guard !seen.contains(t) else { return nil }
+                seen.insert(t)
+                return r
+            }
+            return AnyIterator(ConcatenatingIterator(r.makeIterator(), j.makeIterator()))
         }
     }
 }
