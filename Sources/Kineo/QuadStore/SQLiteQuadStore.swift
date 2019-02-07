@@ -560,7 +560,7 @@ extension SQLiteQuadStore: PlanningQuadStore {
                         if !projected.isEmpty {
                             d = d.group(Array(projected.values))
                         }
-                        let aggCol = SQLite.count(*)
+                        let aggCol = SQLite.Expression<Int>(literal: "COUNT(*)")
                         d = d.select(Array(projected.values) + [aggCol])
                         return SQLiteSingleIntegerAggregationPlan(
                             query: d,
@@ -579,8 +579,8 @@ extension SQLiteQuadStore: PlanningQuadStore {
             }
             let pathTable = "pp"
             let (ppsql, ppbindings) = try pathQuery(path, in: gid, tableName: pathTable)
-            let sql = "WITH RECURSIVE \(pathTable)(subject, object, graph) AS (\(ppsql)) SELECT DISTINCT subject, object, graph FROM \(pathTable) WHERE subject = ?"
-            let bindings = ppbindings + [sid]
+            let sql = "WITH RECURSIVE \(pathTable)(subject, object, graph) AS (\(ppsql)) SELECT DISTINCT subject, object, graph FROM \(pathTable) WHERE subject = ? AND graph = ?"
+            let bindings = ppbindings + [sid, gid]
             let dbh = try db.prepare(sql, bindings)
             return SQLitePreparedPlan(dbh: dbh, projected: [oname: "object"], store: self)
         case let .path(.bound(sTerm), .star(.link(p)), .variable(oname, binding: true)):
@@ -590,8 +590,8 @@ extension SQLiteQuadStore: PlanningQuadStore {
             }
             let pathTable = "pp"
             let (ppsql, ppbindings) = try pathQuery(path, in: gid, tableName: pathTable)
-            let sql = "WITH RECURSIVE \(pathTable)(subject, object, graph) AS (\(ppsql)) SELECT DISTINCT subject, object, graph FROM \(pathTable) WHERE subject = ? UNION ALL VALUES(?, ?, ?)"
-            let bindings = ppbindings + [sid, sid, sid, gid]
+            let sql = "WITH RECURSIVE \(pathTable)(subject, object, graph) AS (\(ppsql)) SELECT DISTINCT subject, object, graph FROM \(pathTable) WHERE subject = ? AND graph = ? UNION ALL VALUES(?, ?, ?)"
+            let bindings = ppbindings + [sid, gid, sid, sid, gid]
             let dbh = try db.prepare(sql, bindings)
             return SQLitePreparedPlan(dbh: dbh, projected: [oname: "object"], store: self)
         case let .path(.variable(sname, binding: true), .star(.link(p)), .variable(oname, binding: true)):
@@ -619,15 +619,15 @@ extension SQLiteQuadStore: PlanningQuadStore {
                 throw SQLiteQuadStoreError.idAccessError
             }
             let columns : [Expressible] = [subjColumn, objColumn, graphColumn]
-            q = quadsTable.select(columns).filter(predColumn == pid)
+            q = quadsTable.select(columns).filter(predColumn == pid).filter(graphColumn == gid)
             let e = q.expression
             return (e.template, e.bindings)
         case .plus(let pp), .star(let pp):
             let (ppsql, bindings) = try pathQuery(pp, in: gid, tableName: tableName)
             let sql = """
-            \(ppsql) UNION SELECT k.subject, q.object, q.graph FROM quads q JOIN \(tableName) k WHERE k.object = q.subject AND q.graph = k.graph
+            \(ppsql) UNION SELECT k.subject, q.object, q.graph FROM (\(ppsql)) q JOIN \(tableName) k WHERE k.object = q.subject AND q.graph = k.graph
             """
-            return (sql, bindings)
+            return (sql, bindings + bindings)
         default:
             fatalError()
         }
@@ -654,7 +654,6 @@ extension SQLiteQuadStore: PlanningQuadStore {
             let tp = bgp.first!
             let qp = QuadPattern(triplePattern: tp, graph: .bound(activeGraph))
             let (q, projected, _) = try query(quad: qp, alias: "t")
-            print(projected)
             return SQLitePlan(query: q, projected: projected, store: self)
         } else {
             let tp = bgp.first!
