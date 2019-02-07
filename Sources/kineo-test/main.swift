@@ -10,55 +10,168 @@ import Foundation
 import Kineo
 import SPARQLSyntax
 
-guard CommandLine.arguments.dropFirst().count >= 1 else {
-    fatalError("No template URL given.")
-}
-
-guard let template = CommandLine.arguments.dropFirst().first else {
-    fatalError("No template URL given.")
-}
-
 Logger.shared.level = .silent
 
-let defaultGraph = Term(iri: "http://example.org/graph")
-guard let store = TriplePatternFragmentQuadStore(urlTemplate: template, defaultGraph: defaultGraph) else {
-    fatalError("Failed to construct TPF QuadStore")
+
+private func numericDatasetQuads(min_value: Int, max_value: Int, graph: Term) -> [Quad] {
+    var quads = [Quad]()
+    let s1 = Term(iri: "http://example.org/s1")
+    let s2 = Term(iri: "http://example.org/s2")
+    let p = Term(iri: "http://example.org/ns/p")
+    
+    let third = Double(max_value)/3.0
+    for n in min_value..<max_value {
+        let i = Term(integer: n)
+        let f = Term(float: Double(n)-third)
+        quads.append(Quad(subject: s1, predicate: p, object: i, graph: graph))
+        quads.append(Quad(subject: s2, predicate: p, object: f, graph: graph))
+    }
+    return quads
 }
 
-//let qp = QuadPattern(
-//    subject: .variable("s", binding: true),
-////    predicate: .bound(Term(iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type")),
-//    predicate: .bound(Term(iri: "http://purl.org/dc/terms/title")),
-//    //    predicate: .bound(Term(iri: "http://xmlns.com/foaf/0.1/name")),
-//    //    predicate: .variable("p", binding: true),
-//    object: .variable("o", binding: true),
-//    graph: .bound(defaultGraph)
-//)
-//
-//
-//print("Getting triples matching: \(qp)")
-//let quads = try store.quads(matching: qp)
-//for (i, q) in quads.enumerated() {
-//    let t = q.triple
-//    print("\(i) >>> \(t)")
+
+//let store = try SQLiteQuadStore(filename: "/tmp/paths.sqlite3")
+let store = try SQLiteQuadStore(filename: "/tmp/qs.sqlite3")
+//let store = try SQLiteQuadStore(filename: "/tmp/foaf.sqlite3")
+//let store = try SQLiteQuadStore(version: 0)
+let defaultGraph = store.graphs().next() ?? Term(iri: "tag:kasei.us,2018:default-graph")
+
+
+//let quads = numericDatasetQuads(min_value: 0, max_value: 10_000, graph: defaultGraph)
+//try store.load(version: 1, quads: quads)
+
+
+//let sparql = "SELECT DISTINCT ?type ?p WHERE { ?s a ?type ; ?p ?o . ?q <q> 3 } ORDER BY ?type LIMIT 10"
+//let sparql = """
+//    PREFIX geo: <http://www.w3.org/2003/01/geo/wgs84_pos#>
+//    SELECT DISTINCT * WHERE {
+//        ?s geo:lat ?lat ;
+//            geo:long ?long
+//        FILTER(?long < - 116.0)
+//        FILTER(?long > - 121.0)
+//        FILTER(?lat >= 30.0)
+//        FILTER(?lat <= 34.0)
+//        # FILTER NOT EXISTS { ?s <p> <q> }
+//    }
+//    # OFFSET 1
+//    LIMIT 10
+//    """
+//let sparql = """
+//    PREFIX foaf: <http://xmlns.com/foaf/0.1/>
+//    SELECT DISTINCT * WHERE {
+//        ?s a ?class ;
+//            foaf:name ?name .
+//        FILTER (EXISTS { ?s foaf:knows ?knows })
+//    }
+//    """
+//let sparql = """
+//    PREFIX foaf: <http://xmlns.com/foaf/0.1/>
+//    SELECT DISTINCT ?s ?p WHERE {
+//        ?s ?p ?o
+//    }
+//    ORDER BY ?s
+//    """
+//let sparql = """
+//    PREFIX foaf: <http://xmlns.com/foaf/0.1/>
+//    SELECT DISTINCT ?s ?p WHERE {
+//        ?s a ?type ; ?p ?o
+//    }
+//    ORDER BY ?s
+//    """
+//let sparql = """
+//    PREFIX foaf: <http://xmlns.com/foaf/0.1/>
+//    SELECT (COUNT(*) AS ?c) ?p WHERE {
+//        ?s ?p ?o
+//    }
+//    GROUP BY ?p
+//    """
+//let sparql = """
+//    PREFIX : <http://example.org/>
+//    PREFIX foaf: <http://xmlns.com/foaf/0.1/>
+//    PREFIX visit: <http://purl.org/net/vocab/2004/07/visit#>
+//    SELECT DISTINCT * WHERE {
+//        # <http://kasei.us/about/#greg> ?p ?o
+//        <http://kasei.us/about/#greg> !(foaf:account|visit:usstate|visit:country|visit:caregion) ?o
+//        # :a :knows+ ?o
+//        # :a :knows+ :e
+//    }
+//    # ORDER BY ?s ?o
+//"""
+//let sparql = """
+//PREFIX : <http://example.org/>
+//SELECT ?a ?o WHERE {
+//    # :a :knows* ?o
+//    ?a :knows* ?o
+//    # :a :knows+ :e
 //}
+//ORDER BY ?a ?o
+//"""
+//let sparql = """
+//PREFIX foaf: <http://xmlns.com/foaf/0.1/>
+//SELECT ?p (COUNT(*) AS ?count) (GROUP_CONCAT(DISTINCT ?o) AS ?g) WHERE {
+//    ?s ?p ?o
+//}
+//GROUP BY ?p (ISIRI(?p) AS ?iri)
+//ORDER BY ?count
+//"""
+//let sparql = """
+//PREFIX foaf: <http://xmlns.com/foaf/0.1/>
+//SELECT (SUM(?v) AS ?avg) WHERE {
+//    VALUES ?v { 1 1 2 }
+//}
+//"""
+//let sparql = """
+//PREFIX foaf: <http://xmlns.com/foaf/0.1/>
+//SELECT * WHERE {
+//    ?s ?p ?o
+//}
+//"""
+let sparql = """
+    PREFIX geo: <http://www.w3.org/2003/01/geo/wgs84_pos#>
+    SELECT ?lat ?s WHERE {
+        ?s geo:lat ?lat ;
+            geo:long ?long
+    }
+    ORDER BY ?lat
+    LIMIT 10
+    """
+guard var p = SPARQLParser(data: sparql.data(using: .utf8)!) else { fatalError("Failed to construct SPARQL parser") }
+let q = try p.parseQuery()
 
-
-
-let type = TriplePattern(
-    subject: .variable("s", binding: true),
-    predicate: .bound(Term(iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type")),
-    object: .bound(Term(iri: "http://dbpedia.org/ontology/Document"))
-)
-let title = TriplePattern(
-    subject: .variable("s", binding: true),
-    predicate: .bound(Term(iri: "http://purl.org/dc/terms/title")),
-    object: .variable("title", binding: true)
-)
-
-let bgp = [type, title]
-print("Getting results matching: \(bgp)")
-let results = try store.evaluate(bgp: bgp, activeGraph: defaultGraph)
-for (i, r) in results.enumerated() {
-    print("\(i) >>> \(r)")
+let startTime = getCurrentTime()
+print("SPARQL:")
+print(sparql)
+let dataset = store.dataset(withDefault: defaultGraph)
+if true {
+    print("Query:")
+    print(q)
+    let e = QueryPlanEvaluator(store: store, dataset: dataset)
+    e.planner.allowStoreOptimizedPlans = false
+    let r = try e.evaluate(query: q)
+    switch r {
+    case let .bindings(vars, seq):
+        for (i, r) in seq.enumerated() {
+            let terms = vars.map({ r[$0]?.description ?? "" })
+            print("[\(i+1)] \(terms.joined(separator: "\t"))")
+        }
+    default:
+        fatalError("unimplemented") // TODO: implement
+    }
+} else {
+    let e = SimpleQueryEvaluator(store: store, dataset: dataset)
+    let r = try e.evaluate(query: q)
+    switch r {
+    case let .bindings(vars, seq):
+        for (i, r) in seq.enumerated() {
+            let terms = vars.map({ r[$0]?.description ?? "" })
+            print("[\(i+1)] \(terms.joined(separator: "\t"))")
+        }
+    default:
+        fatalError("unimplemented") // TODO: implement
+    }
 }
+print("done")
+
+let endTime = getCurrentTime()
+let elapsed = Double(endTime - startTime)
+warn("elapsed time: \(elapsed)s)")

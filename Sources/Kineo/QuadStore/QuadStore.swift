@@ -404,10 +404,10 @@ public protocol ResultProtocol: Hashable, Sequence {
 }
 
 extension ResultProtocol {
-    public var hashValue: Int {
-        let ints = keys.map { self[$0]?.hashValue ?? 0 }
-        let hash = ints.reduce(0) { $0 ^ $1 }
-        return hash
+    public func hash(into hasher: inout Hasher) {
+        for k in keys.sorted() {
+            hasher.combine(self[k])
+        }
     }
 }
 

@@ -9,19 +9,6 @@
 import Foundation
 import SPARQLSyntax
 
-public enum QueryLanguage : String {
-    case sparqlQuery10 = "http://www.w3.org/ns/sparql-service-description#SPARQL10Query"
-    case sparqlQuery11 = "http://www.w3.org/ns/sparql-service-description#SPARQL11Query"
-    case sparqlUpdate11 = "http://www.w3.org/ns/sparql-service-description#SPARQL11Update"
-}
-
-public enum QueryEngineFeature : String {
-    case dereferencesURIs = "http://www.w3.org/ns/sparql-service-description#DereferencesURIs"
-    case unionDefaultGraph = "http://www.w3.org/ns/sparql-service-description#UnionDefaultGraph"
-    case requiresDataset = "http://www.w3.org/ns/sparql-service-description#RequiresDataset"
-    case basicFederatedQuery = "http://www.w3.org/ns/sparql-service-description#BasicFederatedQuery"
-}
-
 fileprivate struct SortElem {
     var result: TermResult
     var terms: [Term?]
@@ -29,7 +16,7 @@ fileprivate struct SortElem {
 
 // swiftlint:disable cyclomatic_complexity
 // swiftlint:disable:next type_body_length
-public protocol SimpleQueryEvaluatorProtocol {
+public protocol SimpleQueryEvaluatorProtocol: QueryEvaluatorProtocol {
     var dataset: Dataset { get }
     var ee: ExpressionEvaluator { get }
     
@@ -1187,6 +1174,9 @@ extension SimpleQueryEvaluatorProtocol {
                 guard let lhs = pair.0 else { return true }
                 guard let rhs = pair.1 else { return false }
                 
+                if lhs == rhs {
+                    continue
+                }
                 var sorted = lhs < rhs
                 if !cmp.ascending {
                     sorted = !sorted
