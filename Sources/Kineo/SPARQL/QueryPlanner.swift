@@ -91,16 +91,12 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
         let qp = QuadPlan(quad: q, store: store)
         let tuple : (QueryPlan, Set<String>) = (qp, Algebra.triple(f).inscope)
         let (plan, vars) = rest.reduce(into: tuple) { (r, t) in
-            let algebra = Algebra.triple(t)
             var plan : QueryPlan
             let q = QuadPattern(triplePattern: t, graph: g).bindingAllVariables
             let qp = QuadPlan(quad: q, store: store)
             let tv = q.variables
             let i = r.1.intersection(tv)
             if i.isEmpty {
-                print("No intersection of in-scope variables:")
-                print("- \(r.1): \(r.0)")
-                print("- \(tv): \(algebra)")
                 plan = NestedLoopJoinPlan(lhs: r.0, rhs: qp)
             } else {
                 plan = HashJoinPlan(lhs: r.0, rhs: qp, joinVariables: i)
@@ -167,10 +163,13 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
             } else {
                 return ProjectPlan(child: p, variables: vars)
             }
-//        case let .slice(.order(child, orders), nil, .some(limit)):
-//            // TODO: expand to cases with offsets
-//            let p = try plan(algebra: child, activeGraph: activeGraph)
-//            return HeapSortLimitPlan(child: p, comparators: orders, limit: limit)
+        case let .slice(.order(child, orders), nil, .some(limit)):
+            let p = try plan(algebra: child, activeGraph: activeGraph)
+            return HeapSortLimitPlan(child: p, comparators: orders, limit: limit, evaluator: self.evaluator)
+        case let .slice(.order(child, orders), .some(offset), .some(limit)):
+            let p = try plan(algebra: child, activeGraph: activeGraph)
+            let hs = HeapSortLimitPlan(child: p, comparators: orders, limit: limit+offset, evaluator: self.evaluator)
+            return OffsetPlan(child: hs, offset: offset)
         case let .slice(child, offset, limit):
             let p = try plan(algebra: child, activeGraph: activeGraph)
             switch (offset, limit) {
@@ -309,8 +308,6 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
         case .zeroOrOne(let pp):
             let p = try plan(subject: s, path: pp, object: o, activeGraph: activeGraph)
             return ZeroOrOnePathPlan(child: p, store: store)
-        default:
-            fatalError("TODO: unimplemented switch case for \(self)")
         }
     }
 }
@@ -353,16 +350,13 @@ public struct QueryPlanEvaluator<Q: QuadStoreProtocol>: QueryEvaluatorProtocol {
         let rewriter = SPARQLQueryRewriter()
         let q = try rewriter.simplify(query: query)
         let plan = try planner.plan(query: q, activeGraph: graph)
-        print("Query Plan:")
-        print(plan.serialize())
+//        print("Query Plan:")
+//        print(plan.serialize())
         
         let seq = AnySequence { () -> AnyIterator<TermResult> in
             do {
                 let i = try plan.evaluate()
                 return i
-//                let a = Array(i)
-//                print(">>> \(a)")
-//                return AnyIterator(a.makeIterator())
             } catch let error {
                 print("*** Failed to evaluate query plan in Sequence construction: \(error)")
                 return AnyIterator([].makeIterator())
@@ -405,20 +399,5 @@ public struct QueryPlanEvaluator<Q: QuadStoreProtocol>: QueryEvaluatorProtocol {
             print("unimplemented: describe")
             throw QueryPlanError.unimplemented // TODO: implement
         }
-    }
-}
-
-// TODO This should be removed once this extension is available in SPARQLSyntax.TermPattern
-extension QuadPattern {
-    public var variables: Set<String> {
-        let vars = self.makeIterator().compactMap { (n) -> String? in
-            switch n {
-            case .variable(let name, binding: _):
-                return name
-            default:
-                return nil
-            }
-        }
-        return Set(vars)
     }
 }

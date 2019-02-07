@@ -465,10 +465,50 @@ public struct HeapSortLimitPlan: UnaryQueryPlan {
     public var child: QueryPlan
     var comparators: [Algebra.SortComparator]
     var limit: Int
+    var evaluator: ExpressionEvaluator
     public var selfDescription: String { return "Heap Sort with Limit \(limit) { \(comparators) }" }
+
+    fileprivate struct SortElem {
+        var result: TermResult
+        var terms: [Term?]
+    }
+
+    private var sortFunction: (SortElem, SortElem) -> Bool {
+        let cmps = self.comparators
+        return { (a, b) -> Bool in
+            let pairs = zip(a.terms, b.terms)
+            for (cmp, pair) in zip(cmps, pairs) {
+                guard let lhs = pair.0 else { return true }
+                guard let rhs = pair.1 else { return false }
+                if lhs == rhs {
+                    continue
+                }
+                var sorted = lhs > rhs
+                if !cmp.ascending {
+                    sorted = !sorted
+                }
+                return sorted
+            }
+            return false
+        }
+    }
+    
     public func evaluate() throws -> AnyIterator<TermResult> {
-        print("unimplemented: HeapSortLimitPlan")
-        throw QueryPlanError.unimplemented // TODO: implement
+        let i = try child.evaluate()
+        var heap = Heap(sort: sortFunction)
+        for r in i {
+            let terms = comparators.map { (cmp) in
+                try? evaluator.evaluate(expression: cmp.expression, result: r)
+            }
+            let elem = SortElem(result: r, terms: terms)
+            heap.insert(elem)
+            if heap.count > limit {
+                heap.remove()
+            }
+        }
+        
+        let rows = heap.sort().map { $0.result }.prefix(limit)
+        return AnyIterator(rows.makeIterator())
     }
 }
 
@@ -738,11 +778,11 @@ public struct PlusPathPlan : PathPlan {
             let frontierNode : Node = .variable(".pp-plus", binding: true)
             for r in try child.evaluate(from: subject, to: frontierNode, in: graph) {
                 if let n = r[frontierNode] {
-                    print("First step of + resulted in term: \(n)")
+//                    print("First step of + resulted in term: \(n)")
                     try alp(term: n, path: child, seen: &v, graph: graph)
                 }
             }
-            print("ALP resulted in: \(v)")
+//            print("ALP resulted in: \(v)")
             
             let i = v.lazy.map { (term) -> TermResult in
                 if case .variable(let name, true) = object {
@@ -769,7 +809,7 @@ public struct StarPathPlan : PathPlan {
         case .bound(let term):
             var v = Set<Term>()
             try alp(term: term, path: child, seen: &v, graph: graph)
-            print("ALP resulted in: \(v)")
+//            print("ALP resulted in: \(v)")
             
             switch object {
             case let .variable(name, binding: true):
@@ -805,8 +845,8 @@ public struct StarPathPlan : PathPlan {
                         }
                     } while true
                 }
-            case .bound(let o):
-                fatalError()
+            case .bound(_):
+                fatalError("unimplemented: ?var :starpath* <bound>") // TODO: implement
             }
         }
     }
