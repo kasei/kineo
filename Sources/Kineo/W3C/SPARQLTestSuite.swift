@@ -10,7 +10,8 @@ import SPARQLSyntax
 
 public struct SPARQLTestRunner {
     typealias TestedQuadStore = SQLiteQuadStore
-    
+//    typealias TestedQuadStore = MemoryQuadStore
+
     var quadstore: MemoryQuadStore
     public var verbose: Bool
     
@@ -153,10 +154,6 @@ public struct SPARQLTestRunner {
         return result
     }
     
-    public func runEvaluationTest() -> TestResult {
-        return .failure(iri: "", reason: "")
-    }
-
     public func runEvaluationTests(inPath path: URL, testType: Term?, skip: Set<String>? = nil) throws -> [TestResult] {
         if let skip = skip {
             return try runEvaluationTests(inPath: path, testType: testType) {
@@ -233,6 +230,9 @@ public struct SPARQLTestRunner {
                     }
                     if let queryDataset = query.dataset {
                         if !queryDataset.isEmpty {
+                            if verbose {
+                                print("Query specifies a custom dataset")
+                            }
                             dataset = queryDataset
                         }
                     }
@@ -245,8 +245,13 @@ public struct SPARQLTestRunner {
                     let testQuadStore = try quadStore(from: dataset, defaultGraph: testDefaultGraph)
                     if verbose {
                         print("Test quadstore: \(testQuadStore)")
+                        for (i, q) in testQuadStore.enumerated() {
+                            print("[\(i)] \(q)")
+                        }
+                        print("======================")
                     }
-                    let result = try query.execute(quadstore: testQuadStore, defaultGraph: testDefaultGraph)
+                    
+                    let result = try evaluate(query: query, in: testQuadStore, dataset: dataset, defaultGraph: testDefaultGraph)
                     if result == expectedResult {
                         results.append(.success(iri: test.value))
                     } else {
@@ -270,6 +275,26 @@ public struct SPARQLTestRunner {
         return results
     }
 
+    func evaluate(query: Query, in store: TestedQuadStore, dataset: Dataset, defaultGraph: Term) throws -> QueryResult<[TermResult], [Triple]> {
+        do {
+            let e = QueryPlanEvaluator(store: store, dataset: dataset, base: query.base)
+//            e.planner.allowStoreOptimizedPlans = false
+            let result = try e.evaluate(query: query, activeGraph: defaultGraph)
+//            print("Successful query plan evaluation")
+            switch result {
+            case let .bindings(vars, rows):
+                return .bindings(vars, Array(rows))
+            case .boolean(let b):
+                return .boolean(b)
+            case .triples(let t):
+                return .triples(Array(t))
+            }
+        } catch let error {
+            print("*** Failed to generate query plan: \(error)")
+            throw error
+        }
+    }
+    
     func datasetDescription(from quadstore: MemoryQuadStore, for term: Term, defaultGraph graph: Term) throws -> Dataset {
         var d = Dataset()
         let prefix = "http://www.w3.org/2001/sw/DataAccess/tests/test-query#"
