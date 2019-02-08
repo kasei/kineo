@@ -181,7 +181,6 @@ open class TurtleSerializer : RDFSerializer {
     }
 
     public func serialize<T: TextOutputStream, S: Sequence>(_ triples: S, to stream: inout T) throws where S.Element == Triple {
-        serializeHeader(to: &stream)
         return try serialize(triples, to: &stream, emitHeader: true)
     }
     
@@ -191,11 +190,12 @@ open class TurtleSerializer : RDFSerializer {
         }
         let subjects = Dictionary(grouping: triples) { $0.subject }
         for (i, s) in subjects.keys.sorted().enumerated() {
-            let triples = subjects[s]!
-            if i > 0 {
-                stream.write("\n")
+            if let triples = subjects[s] {
+                if i > 0 {
+                    stream.write("\n")
+                }
+                try serialize(triples, forSubject: s, toStream: &stream)
             }
-            try serialize(triples, forSubject: s, toStream: &stream)
         }
     }
     
@@ -256,11 +256,12 @@ open class TurtleSerializer : RDFSerializer {
         data.append(termData)
         data.append(0x20)
         for (i, p) in preds.keys.sorted().enumerated() {
-            let t = preds[p]!
-            if i > 0 {
-                data.append(contentsOf: [0x20, 0x3b, 0x0a, 0x09]) // space semicolon newline tab
+            if let t = preds[p] {
+                if i > 0 {
+                    data.append(contentsOf: [0x20, 0x3b, 0x0a, 0x09]) // space semicolon newline tab
+                }
+                try serialize(t, forPredicate: p, to: &data)
             }
-            try serialize(t, forPredicate: p, to: &data)
         }
         data.append(contentsOf: [0x20, 0x2e, 0x0a]) // space dot newline newline
     }
