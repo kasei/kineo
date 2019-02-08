@@ -7,6 +7,8 @@ extension TurtleSerializationTest {
     static var allTests : [(String, (TurtleSerializationTest) -> () throws -> Void)] {
         return [
             ("testTriples", testTriples),
+            ("testTriplesOutputStream", testTriplesOutputStream),
+            ("testTriplesResult", testTriplesResult),
             ("testEscaping", testEscaping),
             ("testGrouping", testGrouping),
         ]
@@ -36,6 +38,40 @@ class TurtleSerializationTest: XCTestCase {
         let triple2 = Triple(subject: b, predicate: i, object: d)
         
         guard let data = try? serializer.serialize([triple1, triple2]) else { XCTFail(); return }
+        let string = String(data: data, encoding: .utf8)!
+        XCTAssertEqual(string, "_:b1 <http://example.org/食べる> \"foo\"@en-US, 7 .\n")
+        XCTAssert(true)
+    }
+    
+    func testTriplesOutputStream() {
+        serializer.add(name: "食", for: "http://example.org/")
+        let i = Term(iri: "http://example.org/食べる")
+        let b = Term(value: "b1", type: .blank)
+        let l = Term(value: "foo", type: .language("en-US"))
+        let d = Term(integer: 7)
+        let triple1 = Triple(subject: b, predicate: i, object: l)
+        let triple2 = Triple(subject: b, predicate: i, object: d)
+        
+        var string = ""
+        do {
+            try serializer.serialize([triple1, triple2], to: &string)
+        } catch {
+            XCTFail()
+            return
+        }
+        XCTAssertEqual(string, "@prefix 食: <http://example.org/> .\n\n_:b1 食:食べる \"foo\"@en-US, 7 .\n\n")
+        XCTAssert(true)
+    }
+    
+    func testTriplesResult() {
+        let i = Term(iri: "http://example.org/食べる")
+        let b = Term(value: "b1", type: .blank)
+        let l = Term(value: "foo", type: .language("en-US"))
+        let d = Term(integer: 7)
+        let triple1 = Triple(subject: b, predicate: i, object: l)
+        let triple2 = Triple(subject: b, predicate: i, object: d)
+        let result : QueryResult<[TermResult], [Triple]> = .triples([triple1, triple2])
+        guard let data = try? serializer.serialize(result) else { XCTFail(); return }
         let string = String(data: data, encoding: .utf8)!
         XCTAssertEqual(string, "_:b1 <http://example.org/食べる> \"foo\"@en-US, 7 .\n")
         XCTAssert(true)
