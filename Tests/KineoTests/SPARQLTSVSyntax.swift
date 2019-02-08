@@ -3,16 +3,24 @@ import Kineo
 import SPARQLSyntax
 
 #if os(Linux)
-extension SPARQLTSVSyntaxTest {
-    static var allTests : [(String, (SPARQLTSVSyntaxTest) -> () throws -> Void)] {
+extension SPARQLTSVSyntaxParserTest {
+    static var allTests : [(String, (SPARQLTSVSyntaxParserTest) -> () throws -> Void)] {
         return [
             ("testTSV1", testTSV1),
         ]
     }
 }
+extension SPARQLTSVSyntaxSerializerTest {
+    static var allTests : [(String, (SPARQLTSVSyntaxSerializerTest) -> () throws -> Void)] {
+        return [
+            ("testTSV1", testTSV1),
+            ("testTSV2", testTSV2),
+        ]
+    }
+}
 #endif
 
-class SPARQLTSVSyntaxTest: XCTestCase {
+class SPARQLTSVSyntaxParserTest: XCTestCase {
     var uniformResults: [TermResult]!
     var uniformLanguageResults: [TermResult]!
     var nonUniformResults: [TermResult]!
@@ -79,5 +87,62 @@ class SPARQLTSVSyntaxTest: XCTestCase {
                 }
             }
         }
+    }
+}
+
+class SPARQLTSVSyntaxSerializerTest: XCTestCase {
+    var uniformResults: [TermResult]!
+    var uniformLanguageResults: [TermResult]!
+    var nonUniformResults: [TermResult]!
+    override func setUp() {
+        super.setUp()
+        let iri = Term(iri: "http://example.org/Berlin")
+        let bool = Term(boolean: true)
+        let blank = Term(value: "b1", type: .blank)
+        let lit0 = Term(string: "Berlin")
+        let lit1 = Term(value: "Berlin", type: .language("en"))
+        let v1 = Term(double: 1.2)
+        let v2 = Term(integer: 7)
+        
+        let r0 = TermResult(bindings: ["name": lit0, "value": v1])
+        let r1 = TermResult(bindings: ["name": lit1, "value": v1])
+        let r2 = TermResult(bindings: ["name": lit0, "value": v2])
+        let r3 = TermResult(bindings: ["boolean": bool, "blank": blank, "iri": iri])
+        self.uniformResults = [r0, r2]
+        self.uniformLanguageResults = [r1, r2]
+        self.nonUniformResults = [r0, r3, r2]
+    }
+    
+    func testTSV1() throws {
+        let serializer = SPARQLTSVSerializer<TermResult>()
+        
+        let seq : [TermResult] = self.uniformResults
+        let results = QueryResult<[TermResult], [Triple]>.bindings(["name", "value"], seq)
+        let j = try serializer.serialize(results)
+        let s = String(data: j, encoding: .utf8)!
+        let expected = """
+        ?name\t?value
+        "Berlin"\t"1.2E0"^^<http://www.w3.org/2001/XMLSchema#double>
+        "Berlin"\t7
+        
+        """
+        XCTAssertEqual(s, expected)
+    }
+    
+    func testTSV2() throws {
+        let serializer = SPARQLTSVSerializer<TermResult>()
+        
+        let seq : [TermResult] = self.nonUniformResults
+        let results = QueryResult<[TermResult], [Triple]>.bindings(["name", "value", "boolean", "blank", "iri"], seq)
+        let j = try serializer.serialize(results)
+        let s = String(data: j, encoding: .utf8)!
+        let expected = """
+        ?name\t?value\t?boolean\t?blank\t?iri
+        "Berlin"\t"1.2E0"^^<http://www.w3.org/2001/XMLSchema#double>\t\t\t
+        \t\t"true"^^<http://www.w3.org/2001/XMLSchema#boolean>\t_:b1\t<http://example.org/Berlin>
+        "Berlin"\t7\t\t\t
+        
+        """
+        XCTAssertEqual(s, expected)
     }
 }
