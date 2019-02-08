@@ -14,7 +14,9 @@ public struct SPARQLTestRunner {
 
     var quadstore: MemoryQuadStore
     public var verbose: Bool
-    
+    public var testSimpleQueryEvaluation: Bool
+    public var testQueryPlanEvaluation: Bool
+
     public enum TestError: Error {
         case unsupportedFormat(String)
     }
@@ -26,6 +28,8 @@ public struct SPARQLTestRunner {
     
     public init() {
         self.verbose = false
+        self.testSimpleQueryEvaluation = true
+        self.testQueryPlanEvaluation = true
         self.quadstore = MemoryQuadStore()
     }
     
@@ -243,6 +247,7 @@ public struct SPARQLTestRunner {
                     let expectedResult = try expectedResults(for: query, from: testResultUrl)
 
                     let testQuadStore = try quadStore(from: dataset, defaultGraph: testDefaultGraph)
+                    let testDataset = Dataset(defaultGraphs: [testDefaultGraph], namedGraphs: dataset.namedGraphs)
                     if verbose {
                         print("Test quadstore: \(testQuadStore)")
                         for (i, q) in testQuadStore.enumerated() {
@@ -251,21 +256,37 @@ public struct SPARQLTestRunner {
                         print("======================")
                     }
                     
-                    let result = try evaluate(query: query, in: testQuadStore, dataset: dataset, defaultGraph: testDefaultGraph)
-                    if result == expectedResult {
-                        results.append(.success(iri: test.value))
-                    } else {
-                        if verbose {
-                            print("*** Test results did not match expected data")
-                            print("Got:")
-                            print("\(result)")
-                            print("Expected:")
-                            print("\(expectedResult)")
-                        }
-                        results.append(.failure(iri: test.value, reason: "Test results did not match expected results"))
+                    if testSimpleQueryEvaluation {
+                        print("Evaluating query with SimpleQueryEvaluator")
+                        let simpleEvaluator = SimpleQueryEvaluator(store: testQuadStore, dataset: testDataset, verbose: verbose)
+                        let simpleResult = try runQueryEvaluation(
+                            test: test,
+                            query: query,
+                            in: testQuadStore,
+                            dataset: testDataset,
+                            defaultGraph: testDefaultGraph,
+                            using: simpleEvaluator,
+                            expectedResult: expectedResult
+                        )
+                        results.append(simpleResult)
+                    }
+
+                    if testQueryPlanEvaluation {
+                        print("Evaluating query with QueryPlanEvaluator")
+                        let planEvaluator = QueryPlanEvaluator(store: testQuadStore, dataset: testDataset, base: query.base)
+                        let planResult = try runQueryEvaluation(
+                            test: test,
+                            query: query,
+                            in: testQuadStore,
+                            dataset: testDataset,
+                            defaultGraph: testDefaultGraph,
+                            using: planEvaluator,
+                            expectedResult: expectedResult
+                        )
+                        results.append(planResult)
                     }
                 } catch let e {
-                    results.append(.failure(iri: test.value, reason: "failed to parse \(url): \(e)"))
+                    results.append(.failure(iri: test.value, reason: "failed to evaluate test \(test): \(e)"))
                 }
             }
         } catch let e {
@@ -275,10 +296,24 @@ public struct SPARQLTestRunner {
         return results
     }
 
-    func evaluate(query: Query, in store: TestedQuadStore, dataset: Dataset, defaultGraph: Term) throws -> QueryResult<[TermResult], [Triple]> {
+    private func runQueryEvaluation<QE: QueryEvaluatorProtocol>(test: Term, query: Query, in store: TestedQuadStore, dataset: Dataset, defaultGraph: Term, using queryEvaluator: QE, expectedResult: QueryResult<[TermResult], [Triple]>) throws -> TestResult {
+        let result = try evaluate(query: query, in: store, dataset: dataset, defaultGraph: defaultGraph, evaluator: queryEvaluator)
+        if result == expectedResult {
+            return .success(iri: test.value)
+        } else {
+            if verbose {
+                print("*** Test results did not match expected data")
+                print("Got:")
+                print("\(result)")
+                print("Expected:")
+                print("\(expectedResult)")
+            }
+            return .failure(iri: test.value, reason: "Test results did not match expected results using \(queryEvaluator)")
+        }
+    }
+    
+    func evaluate<QE: QueryEvaluatorProtocol>(query: Query, in store: TestedQuadStore, dataset: Dataset, defaultGraph: Term, evaluator e: QE) throws -> QueryResult<[TermResult], [Triple]> {
         do {
-            let e = QueryPlanEvaluator(store: store, dataset: dataset, base: query.base)
-//            e.planner.allowStoreOptimizedPlans = false
             let result = try e.evaluate(query: query, activeGraph: defaultGraph)
 //            print("Successful query plan evaluation")
             switch result {
