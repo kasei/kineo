@@ -6,7 +6,8 @@ import SPARQLSyntax
 extension ConfigurationTest {
     static var allTests : [(String, (ConfigurationTest) -> () throws -> Void)] {
         return [
-            ("testCLIConfiguration_file", testCLIConfiguration_file),
+            ("testCLIConfiguration_pageFile", testCLIConfiguration_pageFile),
+            ("testCLIConfiguration_sqliteFile", testCLIConfiguration_sqliteFile),
             ("testCLIConfiguration_memory", testCLIConfiguration_memory),
             ("testCLIConfiguration_memory_language", testCLIConfiguration_memory_language),
             ("testCLIConfiguration_memory_dataset", testCLIConfiguration_memory_dataset),
@@ -26,7 +27,20 @@ class ConfigurationTest: XCTestCase {
         super.tearDown()
     }
     
-    func testCLIConfiguration_file() throws {
+    func testCLIConfiguration_sqliteFile() throws {
+        let filename = "filename.db"
+        var args = ["process-name", "-s", filename]
+        let config = try QuadStoreConfiguration(arguments: &args)
+        XCTAssertEqual(args.count, 1)
+        XCTAssertFalse(config.languageAware)
+        if case .sqliteFileDatabase(filename) = config.type {
+            XCTAssert(true)
+        } else {
+            XCTFail("expected database type")
+        }
+    }
+    
+    func testCLIConfiguration_pageFile() throws {
         let filename = "filename.db"
         var args = ["process-name", "--file=\(filename)"]
         let config = try QuadStoreConfiguration(arguments: &args)
@@ -44,7 +58,7 @@ class ConfigurationTest: XCTestCase {
         let config = try QuadStoreConfiguration(arguments: &args)
         XCTAssertEqual(args.count, 1)
         XCTAssertFalse(config.languageAware)
-        if case .memoryDatabase = config.type {
+        if case .sqliteMemoryDatabase = config.type {
             XCTAssert(true)
         } else {
             XCTFail("expected database type")
@@ -56,7 +70,7 @@ class ConfigurationTest: XCTestCase {
         let config = try QuadStoreConfiguration(arguments: &args)
         XCTAssertEqual(args.count, 1)
         XCTAssertTrue(config.languageAware)
-        if case .memoryDatabase = config.type {
+        if case .sqliteMemoryDatabase = config.type {
             XCTAssert(true)
         } else {
             XCTFail("expected database type")
@@ -68,7 +82,7 @@ class ConfigurationTest: XCTestCase {
         let config = try QuadStoreConfiguration(arguments: &args)
         XCTAssertEqual(args.count, 1)
         XCTAssertFalse(config.languageAware)
-        if case .memoryDatabase = config.type {
+        if case .sqliteMemoryDatabase = config.type {
             XCTAssert(true)
         } else {
             XCTFail("expected database type")

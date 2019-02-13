@@ -136,8 +136,14 @@ open class SQLiteQuadStore: Sequence, MutableQuadStoreProtocol {
     }
     
     public var count: Int {
-        let count = try? db.scalar(quadsTable.count)
-        return count ?? 0
+        do {
+            let count = try db.scalar(quadsTable.count)
+            print("SQLiteQuadStore count: \(count)")
+            return count
+        } catch let error {
+            print("*** SQLiteQuadStore.count error: \(error)")
+            return 0
+        }
     }
     
     var db: Connection
@@ -450,7 +456,7 @@ open class SQLiteQuadStore: Sequence, MutableQuadStoreProtocol {
         return AnyIterator(results.makeIterator())
     }
     
-    public func quads(matching pattern: QuadPattern) throws -> AnyIterator<Quad> {
+    func quadsQuery(matching pattern: QuadPattern) -> SQLite.Table? {
         var query = quadsTable.select(quadsTable[*])
         
         let quadPatternKeyPaths : [KeyPath<QuadPattern, Node>] = [\.subject, \.predicate, \.object, \.graph]
@@ -459,14 +465,20 @@ open class SQLiteQuadStore: Sequence, MutableQuadStoreProtocol {
             switch pattern[keyPath: qpkp] {
             case .bound(let t):
                 guard let id = id(for: t) else {
-                    return AnyIterator { return nil }
+                    return nil
                 }
                 query = query.filter(col == id)
             default:
                 break
             }
         }
-        
+        return query
+    }
+    
+    public func quads(matching pattern: QuadPattern) throws -> AnyIterator<Quad> {
+        guard let query = quadsQuery(matching: pattern) else {
+            return AnyIterator { return  nil }
+        }
         guard let dbh = try? db.prepare(query) else {
             return AnyIterator { return nil }
         }
@@ -729,5 +741,168 @@ extension SQLiteQuadStore: PlanningQuadStore {
             q = q.filter(tt[graphColumn] == gid)
         }
         return (q, projected, mapping)
+    }
+}
+
+open class SQLiteLanguageQuadStore: Sequence, LanguageAwareQuadStore {
+    public var count: Int {
+        let qp = QuadPattern(
+            subject: Node(variable: "s"),
+            predicate: Node(variable: "p"),
+            object: Node(variable: "o"),
+            graph: Node(variable: "g")
+        )
+        guard let quads = try? self.quads(matching: qp) else { return 0 }
+        var count = 0
+        for _ in quads {
+            count += 1
+        }
+        return count
+    }
+    
+    public func graphs() -> AnyIterator<Term> {
+        return quadstore.graphs()
+    }
+    
+    public func graphTerms(in graph: Term) -> AnyIterator<Term> {
+        return quadstore.graphTerms(in: graph)
+    }
+    
+    public func makeIterator() -> AnyIterator<Quad> {
+        return quadstore.makeIterator()
+    }
+    
+    public func effectiveVersion(matching pattern: QuadPattern) throws -> Version? {
+        return try quadstore.effectiveVersion(matching: pattern)
+    }
+    
+    public func results(matching pattern: QuadPattern) throws -> AnyIterator<TermResult> {
+        var map = [String: KeyPath<Quad, Term>]()
+        for (node, path) in zip(pattern, QuadPattern.groundKeyPaths) {
+            switch node {
+            case let .variable(name, binding: true):
+                map[name] = path
+            default:
+                break
+            }
+        }
+        let matching = try quads(matching: pattern)
+        let bindings = matching.map { (quad) -> TermResult in
+            var dict = [String:Term]()
+            for (name, path) in map {
+                dict[name] = quad[keyPath: path]
+            }
+            return TermResult(bindings: dict)
+        }
+        return AnyIterator(bindings.makeIterator())
+    }
+    
+    public var acceptLanguages: [(String, Double)]
+    var quadstore: SQLiteQuadStore
+    public var siteLanguageQuality: [String: Double]
+    
+    public init(quadstore: SQLiteQuadStore, acceptLanguages: [(String, Double)]) {
+        print("SQLiteLanguageQuadStore.init called with acceptable languages: \(acceptLanguages)")
+        self.acceptLanguages = acceptLanguages
+        self.quadstore = quadstore
+        self.siteLanguageQuality = [:]
+        quadstore.db.createFunction("__acceptableObject", deterministic: true) { args in
+            guard let s = args[0] as? Int64, let p = args[1] as? Int64, let g = args[2] as? Int64 else { return 0 }
+            print("__acceptableObject(\(s), \(p), _, \(g))")
+            return 1
+        }
+    }
+    
+    public func quads(matching pattern: QuadPattern) throws -> AnyIterator<Quad> {
+        switch pattern.object {
+        case .bound(_):
+            // if the quad pattern's object is bound, we don't need to
+            // perform filtering for language conneg
+            return try quadstore.quads(matching: pattern)
+        default:
+            // TODO: optimize this to push language restrictions into the SQL query
+            let i = try quadstore.quads(matching: pattern)
+            var cachedAcceptance = [[Term]: Set<String>]()
+            return AnyIterator {
+                repeat {
+                    guard let quad = i.next() else { return nil }
+                    let object = quad.object
+                    if self.acceptLanguages.isEmpty {
+                        // special case: if there is no preference (e.g. no Accept-Language header is present),
+                        // then all quads are kept in the model
+                        return quad
+                    } else if case .language(_) = object.type {
+                        let cacheKey : [Term] = [quad.subject, quad.predicate, quad.graph]
+                        if self.accept(quad: quad, languages: self.acceptLanguages, cacheKey: cacheKey, cachedAcceptance: &cachedAcceptance) {
+                            return quad
+                        }
+                    } else {
+                        return quad
+                    }
+                } while true
+            }
+        }
+    }
+    
+    internal func qValue(_ language: String, qualityValues: [(String, Double)]) -> Double {
+        for (lang, value) in qualityValues {
+            if language.hasPrefix(lang) || lang == "*" {
+                return value
+            }
+        }
+        return 0.0
+    }
+    
+    func siteQuality(for language: String) -> Double {
+        // Site-defined quality for specific languages.
+        return siteLanguageQuality[language] ?? 1.0
+    }
+    
+    private func accept<K: Hashable>(quad: Quad, languages: [(String, Double)], cacheKey: K, cachedAcceptance: inout [K: Set<String>]) -> Bool {
+        let object = quad.object
+        switch object.type {
+        case .language(let l):
+            if let acceptable = cachedAcceptance[cacheKey] {
+                return acceptable.contains(l)
+            } else {
+                let pattern = QuadPattern(subject: .bound(quad.subject), predicate: .bound(quad.predicate), object: .variable(".o", binding: true), graph: .bound(quad.graph))
+                guard let quads = try? quadstore.quads(matching: pattern) else { return false }
+                let langs = quads.compactMap { (quad) -> String? in
+                    if case .language(let lang) = quad.object.type {
+                        return lang
+                    }
+                    return nil
+                }
+                let pairs = langs.map { (lang) -> (String, Double) in
+                    let value = self.qValue(lang, qualityValues: languages) * siteQuality(for: lang)
+                    return (lang, value)
+                }
+                
+                guard var (_, maxvalue) = pairs.first else { return true }
+                for (_, value) in pairs {
+                    if value > maxvalue {
+                        maxvalue = value
+                    }
+                }
+                
+                guard maxvalue > 0.0 else { return false }
+                let acceptable = Set(pairs.filter { $0.1 == maxvalue }.map { $0.0 })
+                
+                // NOTE: in cases where multiple languages are equally preferable, we tie-break using lexicographic ordering based on language code
+                guard let bestAcceptable = acceptable.sorted().first else { return false }
+                cachedAcceptance[cacheKey] = Set([bestAcceptable])
+                
+                return l == bestAcceptable
+            }
+        default:
+            return true
+        }
+    }
+    
+}
+
+extension SQLiteLanguageQuadStore: PlanningQuadStore {
+    public func plan(algebra: Algebra, activeGraph: Term, dataset: Dataset) throws -> QueryPlan? {
+        return nil
     }
 }

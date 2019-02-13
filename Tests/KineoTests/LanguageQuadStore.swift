@@ -4,21 +4,36 @@ import Kineo
 import SPARQLSyntax
 
 #if os(Linux)
-extension LanguageQuadStoreTest {
-    static var allTests : [(String, (LanguageQuadStoreTest) -> () throws -> Void)] {
+extension LanguageMemoryQuadStoreTest {
+    static var allTests : [(String, (LanguageMemoryQuadStoreTest) -> () throws -> Void)] {
         return [
             ("testAcceptValues", testAcceptValues),
+            ("testMultipleLanguageLiterals", testMultipleLanguageLiterals)
+        ]
+    }
+}
+
+extension LanguageSQLiteQuadStoreTest {
+    static var allTests : [(String, (LanguageSQLiteQuadStoreTest) -> () throws -> Void)] {
+        return [
+            ("testAcceptValues", testAcceptValues),
+            ("testMultipleLanguageLiterals", testMultipleLanguageLiterals)
+        ]
+    }
+}
+
+extension LanguagePageDatabaseQuadStoreTest {
+    static var allTests : [(String, (LanguagePageDatabaseQuadStoreTest) -> () throws -> Void)] {
+        return [
+            ("testAcceptValues", testAcceptValues),
+            ("testMultipleLanguageLiterals", testMultipleLanguageLiterals)
         ]
     }
 }
 #endif
 
-class LanguageQuadStoreTest: XCTestCase {
-    let PREFIXES = "@prefix foaf: <http://xmlns.com/foaf/0.1/> .\n"
-    var graph: Term!
-    
+class LanguagePageDatabaseQuadStoreTest: XCTestCase, LanguageQuadStoreTest {
     override func setUp() {
-        self.graph = Term(iri: "http://graph.example.org/")
         super.setUp()
     }
     
@@ -26,15 +41,37 @@ class LanguageQuadStoreTest: XCTestCase {
         super.tearDown()
     }
     
-    func load<T: MutableQuadStoreProtocol>(turtle: String, into store: T, version: Version) throws {
-        let parser = RDFParserCombined(base: "http://example.org/", produceUniqueBlankIdentifiers: false)
-        var quads = [Quad]()
-        try parser.parse(string: "\(PREFIXES) \(turtle)", syntax: .turtle) { (s, p, o) in
-            let t = Triple(subject: s, predicate: p, object: o)
-            let q = Quad(triple: t, graph: self.graph)
-            quads.append(q)
+    func withStore(_ turtle: String, _ acceptLanguages: [(String, Double)], runTests handler: (LanguageAwareQuadStore) throws -> ()) throws {
+        let filename = "/tmp/kineo-\(UUID().uuidString).db"
+        let pageSize = 2048
+        let database: FilePageDatabase! = FilePageDatabase(filename, size: pageSize)
+        let pqstore = try PageQuadStore(database: database)
+        try database.update(version: 1) { (m) in
+            _ = try MediatedPageQuadStore.create(mediator: m)
         }
-        try store.load(version: version, quads: quads)
+        try load(turtle: turtle, into: pqstore, version: 1)
+        let lfstore = try LanguagePageQuadStore(database: database, acceptLanguages: acceptLanguages)
+        try handler(lfstore)
+        let fileManager = FileManager.default
+        try? fileManager.removeItem(atPath: filename)
+    }
+    
+    func testAcceptValues() throws {
+        try _testAcceptValues()
+    }
+    
+    func testMultipleLanguageLiterals() throws {
+        try _testMultipleLanguageLiterals()
+    }
+}
+
+class LanguageMemoryQuadStoreTest: XCTestCase, LanguageQuadStoreTest {
+    override func setUp() {
+        super.setUp()
+    }
+    
+    override func tearDown() {
+        super.tearDown()
     }
     
     func withStore(_ turtle: String, _ acceptLanguages: [(String, Double)], runTests handler: (LanguageAwareQuadStore) throws -> ()) throws {
@@ -58,6 +95,58 @@ class LanguageQuadStoreTest: XCTestCase {
     }
     
     func testAcceptValues() throws {
+        try _testAcceptValues()
+    }
+    
+    func testMultipleLanguageLiterals() throws {
+        try _testMultipleLanguageLiterals()
+    }
+}
+
+class LanguageSQLiteQuadStoreTest: XCTestCase, LanguageQuadStoreTest {
+    override func setUp() {
+        super.setUp()
+    }
+    
+    override func tearDown() {
+        super.tearDown()
+    }
+    
+    func withStore(_ turtle: String, _ acceptLanguages: [(String, Double)], runTests handler: (LanguageAwareQuadStore) throws -> ()) throws {
+        let store = try SQLiteQuadStore(version: 0)
+        try load(turtle: turtle, into: store, version: 1)
+        let lmstore = SQLiteLanguageQuadStore(quadstore: store, acceptLanguages: acceptLanguages)
+        try handler(lmstore)
+    }
+    
+    func testAcceptValues() throws {
+        try _testAcceptValues()
+    }
+    
+    func testMultipleLanguageLiterals() throws {
+        try _testMultipleLanguageLiterals()
+    }
+}
+
+protocol LanguageQuadStoreTest {
+    func withStore(_ turtle: String, _ acceptLanguages: [(String, Double)], runTests handler: (LanguageAwareQuadStore) throws -> ()) throws
+}
+
+extension LanguageQuadStoreTest {
+    var graph: Term { return Term(iri: "http://graph.example.org/") }
+    func load<T: MutableQuadStoreProtocol>(turtle: String, into store: T, version: Version) throws {
+        let PREFIXES = "@prefix foaf: <http://xmlns.com/foaf/0.1/> .\n"
+        let parser = RDFParserCombined(base: "http://example.org/", produceUniqueBlankIdentifiers: false)
+        var quads = [Quad]()
+        try parser.parse(string: "\(PREFIXES) \(turtle)", syntax: .turtle) { (s, p, o) in
+            let t = Triple(subject: s, predicate: p, object: o)
+            let q = Quad(triple: t, graph: self.graph)
+            quads.append(q)
+        }
+        try store.load(version: version, quads: quads)
+    }
+    
+    func _testAcceptValues() throws {
         let turtle = "<mars> foaf:name 'Mars' ; foaf:nick 'kasei'@en, '火星'@ja, 'mangala'@sa ."
         let nicks = QuadPattern(subject: Node(variable: "s"), predicate: Node(term: Term(iri: "http://xmlns.com/foaf/0.1/nick")), object: Node(variable: "o"), graph: Node(term: graph))
         
@@ -197,7 +286,7 @@ class LanguageQuadStoreTest: XCTestCase {
         }
     }
 
-    func testMultipleLanguageLiterals() throws {
+    func _testMultipleLanguageLiterals() throws {
         let turtle = "<mars> foaf:nick 'mars'@en, 'kasei'@en, 'red planet'@en, '火星'@ja, 'かせい'@ja, 'mangala'@sa ."
         let nicks = QuadPattern(subject: Node(variable: "s"), predicate: Node(term: Term(iri: "http://xmlns.com/foaf/0.1/nick")), object: Node(variable: "o"), graph: Node(term: graph))
         

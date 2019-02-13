@@ -8,10 +8,16 @@
 import Foundation
 import SPARQLSyntax
 
+public enum StoreConfigurationError: Error {
+    case unsupportedConfiguration(String)
+}
+
 public struct QuadStoreConfiguration {
     public enum StoreType {
         case memoryDatabase
         case filePageDatabase(String)
+        case sqliteFileDatabase(String)
+        case sqliteMemoryDatabase
     }
     
     public enum StoreInitialization {
@@ -30,7 +36,7 @@ public struct QuadStoreConfiguration {
     }
     
     public init(arguments args: inout [String]) throws {
-        var type = StoreType.memoryDatabase
+        var type = StoreType.sqliteMemoryDatabase
         var initialize = StoreInitialization.none
         var languageAware = false
         
@@ -61,6 +67,11 @@ public struct QuadStoreConfiguration {
             case _ where arg.hasPrefix("--file="):
                 let filename = String(arg.dropFirst(7))
                 type = .filePageDatabase(filename)
+            case "-s":
+                type = .sqliteFileDatabase(args.remove(at: index))
+            case _ where arg.hasPrefix("--store="):
+                let filename = String(arg.dropFirst(7))
+                type = .sqliteFileDatabase(filename)
             default:
                 break LOOP
             }
@@ -80,6 +91,24 @@ public struct QuadStoreConfiguration {
 
     public func withStore(_ handler: (QuadStoreProtocol) throws -> ()) throws {
         switch type {
+        case .sqliteFileDatabase(let filename):
+            let store = try SQLiteQuadStore(filename: filename)
+            if languageAware {
+                let acceptLanguages = [("*", 1.0)] // can be changed later
+                let lstore = SQLiteLanguageQuadStore(quadstore: store, acceptLanguages: acceptLanguages)
+                try handler(lstore)
+            } else {
+                try handler(store)
+            }
+        case .sqliteMemoryDatabase:
+            let store = try SQLiteQuadStore()
+            if languageAware {
+                let acceptLanguages = [("*", 1.0)] // can be changed later
+                let lstore = SQLiteLanguageQuadStore(quadstore: store, acceptLanguages: acceptLanguages)
+                try handler(lstore)
+            } else {
+                try handler(store)
+            }
         case .memoryDatabase:
             let store = MemoryQuadStore()
             if languageAware {
