@@ -249,7 +249,7 @@ extension MemoryQuadStore: CustomStringConvertible {
     }
 }
 
-open class LanguageMemoryQuadStore: Sequence, LanguageAwareQuadStore {
+open class LanguageMemoryQuadStore: Sequence, LanguageAwareQuadStore, MutableQuadStoreProtocol {
     public var count: Int {
         let qp = QuadPattern(
             subject: Node(variable: "s"),
@@ -403,5 +403,8 @@ open class LanguageMemoryQuadStore: Sequence, LanguageAwareQuadStore {
             return true
         }
     }
-    
+
+    public func load<S>(version: Version, quads: S) throws where S : Sequence, S.Element == Quad {
+        return try quadstore.load(version: version, quads: quads)
+    }
 }
