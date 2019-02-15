@@ -10,31 +10,87 @@ import SPARQLSyntax
 import SQLite
 
 public struct SQLitePlan: NullaryQueryPlan {
+    private typealias ColumnMapping = [String:(SQLite.Expression<Int64>, SQLite.Expression<String>, SQLite.Expression<String?>, SQLite.Expression<Int64?>)]
     var query: SQLite.Table
+    var distinct: Bool
     var projected: [String: SQLite.Expression<Int64>]
     var store: SQLiteQuadStore
     public var selfDescription: String { return "SQLite Plan { \(query.expression.template) : \(query.expression.bindings) }" }
-    public func evaluate() throws -> AnyIterator<TermResult> {
-        let store = self.store
-        guard let dbh = try? store.db.prepare(query) else {
-            return AnyIterator { return nil }
-        }
-        let projected = self.projected
-        let results = dbh.lazy.compactMap { (row) -> TermResult? in
-            do {
-                let d = try projected.map({ (name, id) throws -> (String, Term) in
-                    guard let t = store.term(for: row[id]) else {
-                        throw SQLiteQuadStore.SQLiteQuadStoreError.idAccessError
-                    }
-                    return (name, t)
-                })
-                let r = TermResult(bindings: Dictionary(uniqueKeysWithValues: d))
-                return r
-            } catch {
-                return nil
+
+    private func wrapQuery() -> (SQLite.Table, ColumnMapping) {
+        // add joins to the terms table for all projected variables, executing everything in a single query
+        
+        var columnMapping = ColumnMapping()
+        var q = query
+        if !projected.isEmpty {
+            var columns = [Expressible]()
+            for (id, expr) in projected {
+                let tt = store.termsTable.alias("term_\(id)")
+                let tid = store.idColumn
+                q = q.join(tt, on: tt[tid] == expr)
+                let termCols = (tt[store.termTypeColumn], tt[store.termValueColumn], tt[store.termLangColumn], tt[store.termDatatypeColumn])
+                columns.append(termCols.0)
+                columns.append(termCols.1)
+                columns.append(termCols.2)
+                columns.append(termCols.3)
+                columnMapping[id] = termCols
+            }
+            if distinct {
+                q = q.select(distinct: columns)
+            } else {
+                q = q.select(columns)
             }
         }
-        return AnyIterator(results.makeIterator())
+        return (q, columnMapping)
+    }
+    
+    public func evaluate() throws -> AnyIterator<TermResult> {
+        let store = self.store
+        
+        if true {
+            let (q, columnMapping) = wrapQuery()
+            guard let dbh = try? store.db.prepare(q) else {
+                return AnyIterator { return nil }
+            }
+            let results = dbh.lazy.compactMap { (row) -> TermResult? in
+                do {
+                    let d = try columnMapping.map { (pair) throws -> (String, Term) in
+                        let name = pair.key
+                        let cols = pair.value
+                        guard let t = store.term(from: row, typeColumn: cols.0, valueColumn: cols.1, languageColumn: cols.2, datatypeColumn: cols.3) else {
+                            throw SQLiteQuadStore.SQLiteQuadStoreError.idAccessError
+                        }
+                        return (name, t)
+                    }
+                    let r = TermResult(bindings: Dictionary(uniqueKeysWithValues: d))
+                    return r
+                } catch {
+                    return nil
+                }
+            }
+            return AnyIterator(results.makeIterator())
+        } else {
+            // execute the query, and then pull term values from the terms table as separate queries
+            guard let dbh = try? store.db.prepare(query) else {
+                return AnyIterator { return nil }
+            }
+            let projected = self.projected
+            let results = dbh.lazy.compactMap { (row) -> TermResult? in
+                do {
+                    let d = try projected.map({ (name, id) throws -> (String, Term) in
+                        guard let t = store.term(for: row[id]) else {
+                            throw SQLiteQuadStore.SQLiteQuadStoreError.idAccessError
+                        }
+                        return (name, t)
+                    })
+                    let r = TermResult(bindings: Dictionary(uniqueKeysWithValues: d))
+                    return r
+                } catch {
+                    return nil
+                }
+            }
+            return AnyIterator(results.makeIterator())
+        }
     }
 }
 
@@ -153,7 +209,7 @@ open class SQLiteQuadStore: Sequence, MutableQuadStoreProtocol {
     public init(filename: String, initialize: Bool = false) throws {
         db = try Connection(filename)
 //        db.trace {
-//            print($0)
+//            print("[TRACE] \($0)")
 //        }
         i2tcache = LRUCache(capacity: 1024)
         t2icache = LRUCache(capacity: 1024)
@@ -165,7 +221,7 @@ open class SQLiteQuadStore: Sequence, MutableQuadStoreProtocol {
     public init(version: Version? = nil) throws {
         db = try Connection()
 //        db.trace {
-//            print($0)
+//            print("[TRACE] \($0)")
 //        }
         i2tcache = LRUCache(capacity: 1024)
         t2icache = LRUCache(capacity: 1024)
@@ -341,6 +397,40 @@ open class SQLiteQuadStore: Sequence, MutableQuadStoreProtocol {
         } catch {}
         return nil
     }
+
+    internal func term(from row: Row, typeColumn: SQLite.Expression<Int64>, valueColumn: SQLite.Expression<String>, languageColumn: SQLite.Expression<String?>, datatypeColumn: SQLite.Expression<Int64?>) -> Term? {
+        guard let type = TermType(rawValue: row[typeColumn]) else {
+            return nil
+        }
+        
+        let value = row[valueColumn]
+        switch type {
+        case .iri:
+            let t = Term(iri: value)
+            return t
+        case .blank:
+            let t = Term(value: value, type: .blank)
+            return t
+        case .literal:
+            guard let datatypeID = row[datatypeColumn] else {
+                return nil
+            }
+            guard let dtTerm = term(for: datatypeID) else {
+                return nil
+            }
+            let dt = dtTerm.value
+            if dt == Namespace.rdf.langString {
+                guard let lang = row[languageColumn] else {
+                    return nil
+                }
+                let t = Term(canonicalValue: value, type: .language(lang))
+                return t
+            } else {
+                let t = Term(canonicalValue: value, type: .datatype(TermDataType(stringLiteral: dt)))
+                return t
+            }
+        }
+    }
     
     internal func term(for id: TermID) -> Term? {
         if let t = i2tcache[id] {
@@ -352,41 +442,11 @@ open class SQLiteQuadStore: Sequence, MutableQuadStoreProtocol {
             guard let row = try db.pluck(query) else {
                 return nil
             }
-            guard let type = TermType(rawValue: row[termTypeColumn]) else {
+            guard let t = term(from: row, typeColumn: termTypeColumn, valueColumn: termValueColumn, languageColumn: termLangColumn, datatypeColumn: termDatatypeColumn) else {
                 return nil
             }
-            
-            let value = row[termValueColumn]
-            switch type {
-            case .iri:
-                let t = Term(iri: value)
-                i2tcache[id] = t
-                return t
-            case .blank:
-                let t = Term(value: value, type: .blank)
-                i2tcache[id] = t
-                return t
-            case .literal:
-                guard let datatypeID = row[termDatatypeColumn] else {
-                    return nil
-                }
-                guard let dtTerm = term(for: datatypeID) else {
-                    return nil
-                }
-                let dt = dtTerm.value
-                if dt == Namespace.rdf.langString {
-                    guard let lang = row[termLangColumn] else {
-                        return nil
-                    }
-                    let t = Term(canonicalValue: value, type: .language(lang))
-                    i2tcache[id] = t
-                    return t
-                } else {
-                    let t = Term(canonicalValue: value, type: .datatype(TermDataType(stringLiteral: dt)))
-                    i2tcache[id] = t
-                    return t
-                }
-            }
+            i2tcache[id] = t
+            return t
         } catch {}
         return nil
     }
@@ -530,7 +590,7 @@ extension SQLiteQuadStore: PlanningQuadStore {
                     let projected = q.projected
                     let d = query.select(distinct: vars.compactMap { projected[$0] })
                     let p = projected.filter { vars.contains($0.key) }
-                    return SQLitePlan(query: d, projected: p, store: self)
+                    return SQLitePlan(query: d, distinct: true, projected: p, store: self)
                 }
             }
             return nil
@@ -540,13 +600,13 @@ extension SQLiteQuadStore: PlanningQuadStore {
                     let query = q.query
                     let projected = q.projected
                     let d = query.select(distinct: Array(projected.values))
-                    return SQLitePlan(query: d, projected: projected, store: self)
+                    return SQLitePlan(query: d, distinct: true, projected: projected, store: self)
                 }
             }
             return nil
         case .quad(let qp):
             let (q, projected, _) = try query(quad: qp, alias: "t")
-            return SQLitePlan(query: q, projected: projected, store: self)
+            return SQLitePlan(query: q, distinct: false, projected: projected, store: self)
         case .triple(let t):
             return try plan(bgp: [t], activeGraph: activeGraph)
         case .bgp(let triples):
@@ -659,14 +719,13 @@ extension SQLiteQuadStore: PlanningQuadStore {
     }
     
     private func plan(bgp: [TriplePattern], activeGraph: Term) throws -> QueryPlan? {
-//        let seq = sequence(first: 0) { $0 + 1 }
         if bgp.isEmpty {
             return TablePlan.joinIdentity
         } else if bgp.count == 1 {
             let tp = bgp.first!
             let qp = QuadPattern(triplePattern: tp, graph: .bound(activeGraph))
             let (q, projected, _) = try query(quad: qp, alias: "t")
-            return SQLitePlan(query: q, projected: projected, store: self)
+            return SQLitePlan(query: q, distinct: false, projected: projected, store: self)
         } else {
             let tp = bgp.first!
             let qp = QuadPattern(triplePattern: tp, graph: .bound(activeGraph)).bindingAllVariables
@@ -693,7 +752,7 @@ extension SQLiteQuadStore: PlanningQuadStore {
             let inscope = Algebra.bgp(bgp).inscope
             let bound = Set(projected.keys)
             if inscope != bound {
-                // we need to remove the variables that were bound only for the purpose of joining the quad patterns
+                // remove the variables that were bound only for the purpose of joining the quad patterns
                 for remove in bound.filter({ !inscope.contains($0) }) {
 //                    print("removing projection for ?\(remove)")
                     projected.removeValue(forKey: remove)
@@ -701,7 +760,7 @@ extension SQLiteQuadStore: PlanningQuadStore {
             }
 
             bgpQuery = bgpQuery.select(Array(projected.values))
-            return SQLitePlan(query: bgpQuery, projected: projected, store: self)
+            return SQLitePlan(query: bgpQuery, distinct: false, projected: projected, store: self)
         }
     }
     
@@ -744,7 +803,7 @@ extension SQLiteQuadStore: PlanningQuadStore {
     }
 }
 
-open class SQLiteLanguageQuadStore: Sequence, LanguageAwareQuadStore {
+open class SQLiteLanguageQuadStore: Sequence, LanguageAwareQuadStore, MutableQuadStoreProtocol {
     public var count: Int {
         let qp = QuadPattern(
             subject: Node(variable: "s"),
@@ -898,7 +957,10 @@ open class SQLiteLanguageQuadStore: Sequence, LanguageAwareQuadStore {
             return true
         }
     }
-    
+
+    public func load<S>(version: Version, quads: S) throws where S : Sequence, S.Element == Quad {
+        return try quadstore.load(version: version, quads: quads)
+    }
 }
 
 extension SQLiteLanguageQuadStore: PlanningQuadStore {
