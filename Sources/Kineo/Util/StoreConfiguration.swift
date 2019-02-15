@@ -28,18 +28,19 @@ public struct QuadStoreConfiguration {
     public var type: StoreType
     public var initialize: StoreInitialization
     public var languageAware: Bool
-    
+    public var acceptLanguages: [(String, Double)]
+
     public init(type: StoreType, initialize: StoreInitialization, languageAware: Bool) {
         self.type = type
         self.initialize = initialize
         self.languageAware = languageAware
+        self.acceptLanguages = [("*", 1.0)]
     }
     
     public init(arguments args: inout [String]) throws {
-        var type = StoreType.sqliteMemoryDatabase
-        var initialize = StoreInitialization.none
-        var languageAware = false
-        
+        self.init(type: .sqliteMemoryDatabase, initialize: .none, languageAware: false)
+        self.acceptLanguages = [("*", 1.0)]
+
         var defaultGraphs = [String]()
         var namedGraphs = [String]()
         
@@ -54,8 +55,31 @@ public struct QuadStoreConfiguration {
                 break
             case "-l", "--language":
                 languageAware = true
+                var langs = Locale.preferredLanguages.map { (l) -> String in
+                    if l.contains("-") {
+                        // Locale always produces country-specific subtags,
+                        // but the DWIM expectation is probably to use just
+                        // the language code
+                        return String(l.prefix { $0 != "-" })
+                    } else {
+                        return l
+                    }
+                }
+                langs.append("*")
+                
+                let q = (1...langs.count).reversed()
+                    .map { Double($0)/Double(langs.count) }
+                    .map { (v: Double) -> Double in Double(Int(v*100.0))/100.0 }
+                acceptLanguages = Array(zip(langs, q))
             case "-d":
                 defaultGraphs.append(args.remove(at: index))
+            case _ where arg.hasPrefix("--language="):
+                languageAware = true
+                let langs = String(arg.dropFirst(11)).split(separator: ",").map { String($0) }
+                let q = (1...langs.count).reversed()
+                    .map { Double($0)/Double(langs.count) }
+                    .map { (v: Double) -> Double in Double(Int(v*100.0))/100.0 }
+                acceptLanguages = Array(zip(langs, q))
             case _ where arg.hasPrefix("--default-graph="):
                 defaultGraphs.append(String(arg.dropFirst(16)))
             case "-n":
@@ -73,6 +97,7 @@ public struct QuadStoreConfiguration {
                 let filename = String(arg.dropFirst(7))
                 type = .sqliteFileDatabase(filename)
             default:
+                args.insert(arg, at: index)
                 break LOOP
             }
         }
@@ -81,20 +106,15 @@ public struct QuadStoreConfiguration {
             let named = Dictionary(uniqueKeysWithValues: namedGraphs.map { (Term(iri: $0), $0) })
             initialize = .loadFiles(default: defaultGraphs, named: named)
         }
-        
-        self.init(
-            type: type,
-            initialize: initialize,
-            languageAware: languageAware
-        )
     }
 
     public func withStore(_ handler: (QuadStoreProtocol) throws -> ()) throws {
         switch type {
         case .sqliteFileDatabase(let filename):
-            let store = try SQLiteQuadStore(filename: filename)
+            let fileManager = FileManager.default
+            let initialize = !fileManager.fileExists(atPath: filename)
+            let store = try SQLiteQuadStore(filename: filename, initialize: initialize)
             if languageAware {
-                let acceptLanguages = [("*", 1.0)] // can be changed later
                 let lstore = SQLiteLanguageQuadStore(quadstore: store, acceptLanguages: acceptLanguages)
                 try handler(lstore)
             } else {
