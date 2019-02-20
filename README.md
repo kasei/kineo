@@ -21,7 +21,7 @@ Install [serd](http://drobilla.net/software/serd):
 Create a database file (`geo.db`) and load one or more N-Triples files:
 
 ```
-% ./.build/release/kineo-cli geo.db load examples/geo-data/geo.ttl
+% ./.build/release/kineo-cli -s geo.db -d examples/geo-data/geo.ttl
 ```
 
 Each file will be loaded into its own graph. By default, the first graph created
@@ -31,7 +31,7 @@ Alternatively, data can be loaded into a specific named graph (similarly, a
 custom graph name can be used for the query default graph):
 
 ```
-% ./.build/release/kineo-cli geo.db load -g http://example.org/dbpedia examples/geo-data/geo.ttl
+% ./.build/release/kineo-cli -s geo.db load -g http://example.org/dbpedia examples/geo-data/geo.ttl
 ```
 
 ### Query
