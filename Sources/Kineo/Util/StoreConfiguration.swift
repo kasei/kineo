@@ -42,7 +42,7 @@ public struct QuadStoreConfiguration {
         self.acceptLanguages = [("*", 1.0)]
 
         var defaultGraphs = [String]()
-        var namedGraphs = [String]()
+        var namedGraphs = [(Term, String)]()
         
         let index = args.index(after: args.startIndex)
         LOOP: while true {
@@ -82,10 +82,16 @@ public struct QuadStoreConfiguration {
                 acceptLanguages = Array(zip(langs, q))
             case _ where arg.hasPrefix("--default-graph="):
                 defaultGraphs.append(String(arg.dropFirst(16)))
+            case "-g":
+                let name = args.remove(at: index)
+                let file = args.remove(at: index)
+                namedGraphs.append((Term(iri: name), file))
             case "-n":
-                namedGraphs.append(args.remove(at: index))
+                let file = args.remove(at: index)
+                namedGraphs.append((Term(iri: file), file))
             case _ where arg.hasPrefix("--named-graph="):
-                namedGraphs.append(String(arg.dropFirst(14)))
+                let file = String(arg.dropFirst(14))
+                namedGraphs.append((Term(iri: file), file))
             case "-f":
                 type = .filePageDatabase(args.remove(at: index))
             case _ where arg.hasPrefix("--file="):
@@ -103,7 +109,7 @@ public struct QuadStoreConfiguration {
         }
         
         if !defaultGraphs.isEmpty || !namedGraphs.isEmpty {
-            let named = Dictionary(uniqueKeysWithValues: namedGraphs.map { (Term(iri: $0), $0) })
+            let named = Dictionary(uniqueKeysWithValues: namedGraphs)
             initialize = .loadFiles(default: defaultGraphs, named: named)
         }
     }
