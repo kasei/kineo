@@ -118,23 +118,37 @@ public struct SPARQLContentNegotiator {
         let ntriples = NTriplesSerializer()
         switch result {
         // TODO: improve to use the media types present in each serializer class
+        // TODO: The `#if os(Linux)` conditions in this method are temporarily
+        //       required because XML serialization is broken on linux.
         case .bindings(_), .boolean(_):
             for a in accept {
                 if a == "*/*" {
+                    #if os(Linux)
+                    return json
+                    #else
                     return xml
+                    #endif
                 } else if a.hasPrefix("application/sparql-results+json") {
                     return json
                 } else if a.hasPrefix("application/json") {
                     return json
                 } else if a.hasPrefix("text/plain") {
                     return json
-                } else if a.hasPrefix("application/sparql-results+xml") {
-                    return xml
                 } else if a.hasPrefix("text/tab-separated-values") {
                     return tsv
                 }
+
+                #if !os(Linux)
+                if a.hasPrefix("application/sparql-results+xml") {
+                    return xml
+                }
+                #endif
             }
+            #if os(Linux)
+            return json
+            #else
             return xml
+            #endif
         case .triples(_):
             for a in accept {
                 if a == "*/*" {
