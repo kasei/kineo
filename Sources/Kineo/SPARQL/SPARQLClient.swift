@@ -105,7 +105,15 @@ public struct SPARQLContentNegotiator {
         case sparqlTSV = "http://www.w3.org/ns/formats/SPARQL_Results_TSV"
         
     }
-    public let supportedSerializations : [ResultFormat] = [.sparqlXML, .sparqlJSON, .sparqlTSV, .ntriples, .turtle]
+    public let supportedSerializations : [ResultFormat] = {
+        // TODO: The `#if os(Linux)` conditions in this variable is temporarily
+        //       required because XML serialization is broken on linux.
+        #if os(Linux)
+        return [.sparqlJSON, .sparqlTSV, .ntriples, .turtle]
+        #else
+        return [.sparqlXML, .sparqlJSON, .sparqlTSV, .ntriples, .turtle]
+        #endif
+    }()
 
     public init() {
     }
