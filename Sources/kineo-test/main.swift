@@ -138,13 +138,14 @@ let sparql = """
 guard var p = SPARQLParser(data: sparql.data(using: .utf8)!) else { fatalError("Failed to construct SPARQL parser") }
 let q = try p.parseQuery()
 
+print("Store contains \(store.count) quads")
 let startTime = getCurrentTime()
 print("SPARQL:")
 print(sparql)
 let dataset = store.dataset(withDefault: defaultGraph)
 if true {
     print("Query:")
-    print(q)
+    print(q.serialize())
     let e = QueryPlanEvaluator(store: store, dataset: dataset)
     e.planner.allowStoreOptimizedPlans = false
     let r = try e.evaluate(query: q)
