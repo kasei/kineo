@@ -84,7 +84,7 @@ class TermIdentityMapTest: XCTestCase {
     }
     
     func testIntegerToID() {
-        for v : UInt64 in stride(from: 0, to: 1_000_000_000, by: 1997) {
+        for v : UInt64 in stride(from: 0, to: 1_000_000_000, by: 101_997) {
             let id = map.id(for: Term(integer: Int(v)))
             XCTAssertEqual(id, integer_base + v)
         }
@@ -97,7 +97,7 @@ class TermIdentityMapTest: XCTestCase {
     }
     
     func testIDToInteger() {
-        for v : UInt64 in stride(from: 0, to: 1_000_000_000, by: 1997) {
+        for v : UInt64 in stride(from: 0, to: 1_000_000_000, by: 101_997) {
             let id = integer_base + v
             let term = map.term(for: id)
             XCTAssertNotNil(term)
@@ -106,7 +106,7 @@ class TermIdentityMapTest: XCTestCase {
     }
     
     func testIntToID() {
-        for v : UInt64 in stride(from: 0, to: 1_000_000_000, by: 1997) {
+        for v : UInt64 in stride(from: 0, to: 1_000_000_000, by: 101_997) {
             let id = map.id(for: Term(value: "\(v)", type: .datatype("http://www.w3.org/2001/XMLSchema#int")))
             XCTAssertEqual(id, int_base + v)
         }
@@ -119,7 +119,7 @@ class TermIdentityMapTest: XCTestCase {
     }
     
     func testIDToInt() {
-        for v : UInt64 in stride(from: 0, to: 1_000_000_000, by: 1997) {
+        for v : UInt64 in stride(from: 0, to: 1_000_000_000, by: 101_997) {
             let id = int_base + v
             let term = map.term(for: id)
             XCTAssertNotNil(term)

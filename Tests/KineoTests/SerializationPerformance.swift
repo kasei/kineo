@@ -60,7 +60,7 @@ class SerializationPerformanceTest: XCTestCase {
     }
     
     func testPerformance_ntriplesSerialization() throws {
-        let triples = testTriples()
+        let triples = testTriples(800)
         let ser = NTriplesSerializer()
         self.measure {
             var s = ""

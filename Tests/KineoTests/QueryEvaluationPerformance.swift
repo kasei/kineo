@@ -66,10 +66,10 @@ class QueryEvaluationPerformanceTest: XCTestCase {
     var store: PerformanceTestStore!
     var graph: Term = Term(iri: "http://example.org/")
     let MIN_VALUE0 = 100
-    let MAX_VALUE0 = 6_000
+    let MAX_VALUE0 = 2_000
 
     let MIN_VALUE1 = 500
-    let MAX_VALUE1 = 50_000
+    let MAX_VALUE1 = 10_000
     var quads_dataset_numeric_0: [Quad]!
     var quads_dataset_numeric_1: [Quad]!
 
