@@ -205,6 +205,7 @@ open class SQLiteQuadStore: Sequence, MutableQuadStoreProtocol {
     var db: Connection
     var t2icache: LRUCache<Term, TermID>
     var i2tcache: LRUCache<TermID, Term>
+    var next: (iri: Int64, blank: Int64, datatype: Int64, language: Int64)
 
     public init(filename: String, initialize: Bool = false) throws {
         db = try Connection(filename)
@@ -214,7 +215,10 @@ open class SQLiteQuadStore: Sequence, MutableQuadStoreProtocol {
         i2tcache = LRUCache(capacity: 1024)
         t2icache = LRUCache(capacity: 1024)
         if initialize {
+            next = (iri: 0, blank: 0, datatype: 0, language: 0)
             try initializeTables()
+        } else {
+            next = try SQLiteQuadStore.loadMaxIDs(from: db)
         }
     }
     
@@ -223,6 +227,7 @@ open class SQLiteQuadStore: Sequence, MutableQuadStoreProtocol {
 //        db.trace {
 //            print("[TRACE] \($0)")
 //        }
+        next = (iri: 0, blank: 0, datatype: 0, language: 0)
         i2tcache = LRUCache(capacity: 1024)
         t2icache = LRUCache(capacity: 1024)
         try initializeTables()
@@ -286,10 +291,7 @@ open class SQLiteQuadStore: Sequence, MutableQuadStoreProtocol {
             ))
             
             for iri in iris {
-                try db.run(termsTable.insert(
-                    termTypeColumn <- TermType.iri.rawValue,
-                    termValueColumn <- iri
-                ))
+                let _ = try getOrSetID(for: Term(iri: iri))
             }
         }
     }
@@ -330,73 +332,73 @@ open class SQLiteQuadStore: Sequence, MutableQuadStoreProtocol {
         }
     }
     
-    internal func assignID(for term: Term) throws -> TermID {
-        if let i = id(for: term) {
-//            print("term already has ID: \(i) <-> \(term)")
-            return i
-        }
-        
-//        print("assigning ID for \(term)")
-        let insert: Insert
-        switch term.type {
-        case .iri:
-            insert = termsTable.insert(termTypeColumn <- TermType.iri.rawValue, termValueColumn <- term.value)
-        case .blank:
-            insert = termsTable.insert(termTypeColumn <- TermType.blank.rawValue, termValueColumn <- term.value)
-        case .language(let lang):
-            insert = termsTable.insert(
-                termTypeColumn <- TermType.literal.rawValue,
-                termValueColumn <- term.value,
-                termDatatypeColumn <- id(for: Term(iri: Namespace.rdf.langString)),
-                termLangColumn <- lang)
-        case .datatype(let dt):
-            insert = try termsTable.insert(
-                termTypeColumn <- TermType.literal.rawValue,
-                termValueColumn <- term.value,
-                termDatatypeColumn <- assignID(for: Term(iri: dt.value)))
-        }
-//        print("INSERT: \(insert)")
-        try db.run(insert)
-        guard let i = id(for: term) else {
-            throw SQLiteQuadStoreError.idAssignmentError
-        }
-        return i
-    }
+//    internal func assignID(for term: Term) throws -> TermID {
+//        if let i = id(for: term) {
+////            print("term already has ID: \(i) <-> \(term)")
+//            return i
+//        }
+//
+////        print("assigning ID for \(term)")
+//        let insert: Insert
+//        switch term.type {
+//        case .iri:
+//            insert = termsTable.insert(termTypeColumn <- TermType.iri.rawValue, termValueColumn <- term.value)
+//        case .blank:
+//            insert = termsTable.insert(termTypeColumn <- TermType.blank.rawValue, termValueColumn <- term.value)
+//        case .language(let lang):
+//            insert = termsTable.insert(
+//                termTypeColumn <- TermType.literal.rawValue,
+//                termValueColumn <- term.value,
+//                termDatatypeColumn <- id(for: Term(iri: Namespace.rdf.langString)),
+//                termLangColumn <- lang)
+//        case .datatype(let dt):
+//            insert = try termsTable.insert(
+//                termTypeColumn <- TermType.literal.rawValue,
+//                termValueColumn <- term.value,
+//                termDatatypeColumn <- assignID(for: Term(iri: dt.value)))
+//        }
+////        print("INSERT: \(insert)")
+//        try db.run(insert)
+//        guard let i = id(for: term) else {
+//            throw SQLiteQuadStoreError.idAssignmentError
+//        }
+//        return i
+//    }
     
-    internal func id(for term: Term) -> TermID? {
-        if let i = t2icache[term] {
-            return i
-        }
-        
-        var query = termsTable.select(idColumn).filter(termValueColumn == term.value)
-        switch term.type {
-        case .blank:
-            query = query.filter(termTypeColumn == TermType.blank.rawValue)
-        case .iri:
-            query = query.filter(termTypeColumn == TermType.iri.rawValue)
-        case .language(let lang):
-            query = query.filter(termTypeColumn == TermType.literal.rawValue).filter(termLangColumn == lang)
-        case .datatype(let dt):
-            guard let dtid = id(for: Term(iri: dt.value)) else {
-                return nil
-            }
-            query = query.filter(termTypeColumn == TermType.literal.rawValue).filter(termDatatypeColumn == dtid)
-        }
-        
-        do {
-            guard let row = try db.pluck(query) else {
-//                print("============")
-//                print("Failed to find row for term: \(term)")
-//                print("\(query)")
-//                print("------------")
-                return nil
-            }
-            let i = row[idColumn]
-            t2icache[term] = i
-            return i
-        } catch {}
-        return nil
-    }
+//    internal func id(for term: Term) -> TermID? {
+//        if let i = t2icache[term] {
+//            return i
+//        }
+//
+//        var query = termsTable.select(idColumn).filter(termValueColumn == term.value)
+//        switch term.type {
+//        case .blank:
+//            query = query.filter(termTypeColumn == TermType.blank.rawValue)
+//        case .iri:
+//            query = query.filter(termTypeColumn == TermType.iri.rawValue)
+//        case .language(let lang):
+//            query = query.filter(termTypeColumn == TermType.literal.rawValue).filter(termLangColumn == lang)
+//        case .datatype(let dt):
+//            guard let dtid = id(for: Term(iri: dt.value)) else {
+//                return nil
+//            }
+//            query = query.filter(termTypeColumn == TermType.literal.rawValue).filter(termDatatypeColumn == dtid)
+//        }
+//
+//        do {
+//            guard let row = try db.pluck(query) else {
+////                print("============")
+////                print("Failed to find row for term: \(term)")
+////                print("\(query)")
+////                print("------------")
+//                return nil
+//            }
+//            let i = row[idColumn]
+//            t2icache[term] = i
+//            return i
+//        } catch {}
+//        return nil
+//    }
 
     internal func term(from row: Row, typeColumn: SQLite.Expression<Int64>, valueColumn: SQLite.Expression<String>, languageColumn: SQLite.Expression<String?>, datatypeColumn: SQLite.Expression<Int64?>) -> Term? {
         guard let type = TermType(rawValue: row[typeColumn]) else {
@@ -432,24 +434,24 @@ open class SQLiteQuadStore: Sequence, MutableQuadStoreProtocol {
         }
     }
     
-    internal func term(for id: TermID) -> Term? {
-        if let t = i2tcache[id] {
-            return t
-        }
-        
-        let query = termsTable.select(termsTable[*]).filter(idColumn == id)
-        do {
-            guard let row = try db.pluck(query) else {
-                return nil
-            }
-            guard let t = term(from: row, typeColumn: termTypeColumn, valueColumn: termValueColumn, languageColumn: termLangColumn, datatypeColumn: termDatatypeColumn) else {
-                return nil
-            }
-            i2tcache[id] = t
-            return t
-        } catch {}
-        return nil
-    }
+//    internal func term(for id: TermID) -> Term? {
+//        if let t = i2tcache[id] {
+//            return t
+//        }
+//
+//        let query = termsTable.select(termsTable[*]).filter(idColumn == id)
+//        do {
+//            guard let row = try db.pluck(query) else {
+//                return nil
+//            }
+//            guard let t = term(from: row, typeColumn: termTypeColumn, valueColumn: termValueColumn, languageColumn: termLangColumn, datatypeColumn: termDatatypeColumn) else {
+//                return nil
+//            }
+//            i2tcache[id] = t
+//            return t
+//        } catch {}
+//        return nil
+//    }
     
     public func makeIterator() -> AnyIterator<Quad> {
         let query = quadsTable.select(quadsTable[*])
@@ -562,10 +564,10 @@ open class SQLiteQuadStore: Sequence, MutableQuadStoreProtocol {
     public func load<S: Sequence>(version: Version, quads: S) throws where S.Iterator.Element == Quad {
         try db.transaction {
             for q in quads {
-                let sid = try assignID(for: q.subject)
-                let pid = try assignID(for: q.predicate)
-                let oid = try assignID(for: q.object)
-                let gid = try assignID(for: q.graph)
+                let sid = try getOrSetID(for: q.subject)
+                let pid = try getOrSetID(for: q.predicate)
+                let oid = try getOrSetID(for: q.object)
+                let gid = try getOrSetID(for: q.graph)
                 try db.run(quadsTable.insert(or: .ignore, subjColumn <- sid, predColumn <- pid, objColumn <- oid, graphColumn <- gid))
             }
             try db.run(sysTable.update(versionColumn <- Int64(version)))
@@ -967,4 +969,541 @@ extension SQLiteLanguageQuadStore: PlanningQuadStore {
     public func plan(algebra: Algebra, activeGraph: Term, dataset: Dataset) throws -> QueryPlan? {
         return nil
     }
+}
+
+extension SQLiteQuadStore: PackedIdentityMap {
+    public typealias Item = Term
+    public typealias Result = Int64
+    
+    static func loadMaxIDs(from db: Connection) throws -> (Int64, Int64, Int64, Int64) {
+        let mask        = UInt64(0x00ffffffffffffff)
+        // OPTIMIZE: store maxKeys for each of these in the database in a way that doesn't require tree walks to initialize the PageQuadStore
+        
+        let blankID = SQLiteQuadStore.TermType.blank.rawValue
+        let iriID = SQLiteQuadStore.TermType.iri.rawValue
+        let literalID = SQLiteQuadStore.TermType.literal.rawValue
+
+        let blankMax = (try db.scalar("SELECT MAX(id) FROM terms WHERE type = ?", blankID) as? Int64 ?? 0)
+        let iriMax = (try db.scalar("SELECT MAX(id) FROM terms WHERE type = ?", iriID) as? Int64 ?? 0)
+        let languageMax = (try db.scalar("SELECT MAX(id) FROM terms WHERE type = ? AND language IS NOT NULL", literalID) as? Int64 ?? 0)
+        let datatypeMax = (try db.scalar("SELECT MAX(id) FROM terms WHERE type = ? AND language IS NULL", literalID) as? Int64 ?? 0)
+        
+        let b = Int64(bitPattern: UInt64(bitPattern: blankMax) & mask)
+        let i = Int64(bitPattern: UInt64(bitPattern: iriMax) & mask)
+        let l = Int64(bitPattern: UInt64(bitPattern: languageMax) & mask)
+        let d = Int64(bitPattern: UInt64(bitPattern: datatypeMax) & mask)
+        
+        //        print("# Max term IDs: \(blankMax) \(iriMax) \(languageMax) \(datatypeMax)")
+        return (iri: i+1, blank: b+1, datatype: d+1, langauge: l+1)
+    }
+    
+    public func term(for id: Result) -> Term? {
+        if let term = self.i2tcache[id] {
+            return term
+        } else if let term = self.unpack(id: id) {
+            return term
+        }
+        let query = termsTable.select(termsTable[*]).filter(idColumn == id)
+        do {
+            guard let row = try db.pluck(query) else {
+                return nil
+            }
+            guard let t = term(from: row, typeColumn: termTypeColumn, valueColumn: termValueColumn, languageColumn: termLangColumn, datatypeColumn: termDatatypeColumn) else {
+                return nil
+            }
+            i2tcache[id] = t
+            return t
+        } catch {}
+        return nil
+    }
+    
+    public func id(for term: Item) -> Result? {
+        if let id = self.t2icache[term] {
+            return id
+        } else if let id = self.pack(value: term) {
+            return id
+        }
+        var query = termsTable.select(idColumn).filter(termValueColumn == term.value)
+        switch term.type {
+        case .blank:
+            query = query.filter(termTypeColumn == TermType.blank.rawValue)
+        case .iri:
+            query = query.filter(termTypeColumn == TermType.iri.rawValue)
+        case .language(let lang):
+            query = query.filter(termTypeColumn == TermType.literal.rawValue).filter(termLangColumn == lang)
+        case .datatype(let dt):
+            guard let dtid = id(for: Term(iri: dt.value)) else {
+                return nil
+            }
+            query = query.filter(termTypeColumn == TermType.literal.rawValue).filter(termDatatypeColumn == dtid)
+        }
+        
+        do {
+            guard let row = try db.pluck(query) else {
+                //                print("============")
+                //                print("Failed to find row for term: \(term)")
+                //                print("\(query)")
+                //                print("------------")
+                return nil
+            }
+            let i = row[idColumn]
+            t2icache[term] = i
+            return i
+        } catch {}
+        return nil
+    }
+    
+    public func getOrSetID(for term: Item) throws -> Int64 {
+        let packedId = self.pack(value: term)
+        // if there is an ID, but it's packed,
+        // we need to ensure that it's in the terms table
+        // so that it can be used in joins with the quads table
+        if let id = id(for: term), packedId == nil {
+            return id
+        }
+        
+        var i : Int64
+        if let v = packedId {
+            i = v
+        } else {
+            var v: Int64
+            var type: UInt64 = 0
+            switch term.type {
+            case .blank:
+                type = PackedTermType.blank.typedEmptyValue
+                v = next.blank
+                next.blank += 1
+            case .iri:
+                type = PackedTermType.iri.typedEmptyValue
+                v = next.iri
+                next.iri += 1
+            case .language(_):
+                type = PackedTermType.language.typedEmptyValue
+                v = next.language
+                next.language += 1
+            case .datatype(_):
+                type = PackedTermType.datatype.typedEmptyValue
+                v = next.datatype
+                next.datatype += 1
+            }
+            guard v < Int64(0x00ffffffffffffff) else { throw DatabaseError.DataError("Term ID overflows the 56 bits available") }
+            i = Int64(bitPattern: type + UInt64(bitPattern: v))
+        }
+        
+        i2tcache[i] = term
+        t2icache[term] = i
+        
+        let insert: Insert
+        switch term.type {
+        case .iri:
+            insert = termsTable.insert(or: .ignore, idColumn <- i, termTypeColumn <- TermType.iri.rawValue, termValueColumn <- term.value)
+        case .blank:
+            insert = termsTable.insert(or: .ignore, idColumn <- i, termTypeColumn <- TermType.blank.rawValue, termValueColumn <- term.value)
+        case .language(let lang):
+            insert = try termsTable.insert(or: .ignore,
+                idColumn <- i,
+                termTypeColumn <- TermType.literal.rawValue,
+                termValueColumn <- term.value,
+                termDatatypeColumn <- getOrSetID(for: Term(iri: Namespace.rdf.langString)),
+                termLangColumn <- lang)
+        case .datatype(let dt):
+            insert = try termsTable.insert(or: .ignore,
+                idColumn <- i,
+                termTypeColumn <- TermType.literal.rawValue,
+                termValueColumn <- term.value,
+                termDatatypeColumn <- getOrSetID(for: Term(iri: dt.value)))
+        }
+        //        print("INSERT: \(insert)")
+        try db.run(insert)
+        return i
+    }
+    
+    
+
+
+
+
+
+    /**
+     
+     Term ID type byte:
+     
+     01    0x01    0000 0001    Blank
+     02    0x02    0000 0010    IRI
+     03    0x03    0000 0011        common IRIs
+     16    0x10    0001 0000    Language
+     17    0x11    0001 0001    Datatype
+     18    0x12    0001 0010        inlined xsd:string
+     19    0x13    0001 0011        xsd:boolean
+     20    0x14    0001 0100        xsd:date
+     21    0x15    0001 0101        xsd:dateTime
+     22    0x16    0001 0110        xsd:string
+     24    0x18    0001 1000        xsd:integer
+     25    0x19    0001 1001        xsd:int
+     26    0x1A    0001 1010        xsd:decimal
+     
+     Prefixes:
+     
+     0000 0001  blank
+     0000 001   iri
+     0001       literal
+     0001 01        date (with optional time)
+     0001 1         numeric
+     
+     **/
+    
+    internal static func isIRI(id: Result) -> Bool {
+        guard let type = PackedTermType(from: UInt64(bitPattern: id)) else { return false }
+        return type == .iri
+    }
+    
+    internal static func isBlank(id: Result) -> Bool {
+        guard let type = PackedTermType(from: UInt64(bitPattern: id)) else { return false }
+        return type == .blank
+    }
+    
+    internal static func isLanguageLiteral(id: Result) -> Bool {
+        guard let type = PackedTermType(from: UInt64(bitPattern: id)) else { return false }
+        return type == .language
+    }
+    
+    internal static func isDatatypeLiteral(id: Result) -> Bool {
+        guard let type = PackedTermType(from: UInt64(bitPattern: id)) else { return false }
+        return type == .datatype
+    }
+    
+    func unpack(id: Result) -> Item? {
+        let byte = id >> 56
+        let value = id & 0x00ffffffffffffff
+        guard let type = PackedTermType(rawValue: UInt8(byte)) else { return nil }
+        switch type {
+        case .commonIRI:
+            return unpack(iri: value)
+        case .boolean:
+            return unpack(boolean: value)
+        case .date:
+            return unpack(date: value)
+        case .dateTime:
+            return unpack(dateTime: value)
+        case .inlinedString:
+            return unpack(string: value)
+        case .integer:
+            return unpack(integer: value)
+        case .int:
+            return unpack(int: value)
+        case .decimal:
+            return unpack(decimal: value)
+        default:
+            return nil
+        }
+    }
+    
+    func pack(value: Item) -> Result? {
+        switch (value.type, value.value) {
+        case (.iri, let v):
+            return pack(iri: v)
+        case (.datatype(.boolean), "true"), (.datatype(.boolean), "1"):
+            return pack(boolean: true)
+        case (.datatype(.boolean), "false"), (.datatype(.boolean), "0"):
+            return pack(boolean: false)
+        case (.datatype(.dateTime), _):
+            return pack(dateTime: value)
+        case (.datatype(.date), let v):
+            return pack(date: v)
+        case (.datatype(.string), let v):
+            return pack(string: v)
+        case (.datatype(.integer), let v):
+            return pack(integer: v)
+        case (.datatype("http://www.w3.org/2001/XMLSchema#int"), let v):
+            return pack(int: v)
+        case (.datatype(.decimal), let v):
+            return pack(decimal: v)
+        default:
+            return nil
+        }
+    }
+    
+    private func pack(string: String) -> Result? {
+        guard string.utf8.count <= 7 else { return nil }
+        var id: UInt64 = PackedTermType.inlinedString.typedEmptyValue
+        for (i, u) in string.utf8.enumerated() {
+            let shift = UInt64(8 * (6 - i))
+            let b: UInt64 = UInt64(u) << shift
+            id += b
+        }
+//        print("packed ID for string \(string) => \(id)")
+        return Int64(bitPattern: id)
+    }
+    
+    private func unpack(string: Result) -> Item? {
+        let value = UInt64(bitPattern: string)
+        var buffer = value.bigEndian
+        var string: String? = nil
+        withUnsafePointer(to: &buffer) { (p) in
+            var chars = [CChar]()
+            p.withMemoryRebound(to: CChar.self, capacity: 8) { (charsptr) in
+                for i in 1...7 {
+                    chars.append(charsptr[i])
+                }
+            }
+            chars.append(0)
+            chars.withUnsafeBufferPointer { (q) in
+                if let p = q.baseAddress {
+                    string = String(utf8String: p)
+                }
+            }
+        }
+        
+        if let string = string {
+//            print("unpacked string for ID \(value) => \(string)")
+            return Term(value: string, type: .datatype(.string))
+        }
+        return nil
+    }
+    
+    private func unpack(boolean packedBooleanValue: Result) -> Item? {
+        let value = (packedBooleanValue > 0) ? "true" : "false"
+        return Term(value: value, type: .datatype(.boolean))
+    }
+    
+    private func unpack(integer value: Result) -> Item? {
+        return Term(value: "\(value)", type: .datatype(.integer))
+    }
+    
+    private func unpack(int value: Result) -> Item? {
+        return Term(value: "\(value)", type: .datatype("http://www.w3.org/2001/XMLSchema#int"))
+    }
+    
+    private func unpack(decimal d: Result) -> Item? {
+        let decimal = UInt64(bitPattern: d)
+        let scale = Int((decimal & 0x00ff000000000000) >> 48)
+        let value = decimal & 0x00007fffffffffff
+        let highByte = (decimal & 0x0000ff0000000000) >> 40
+        let highBit = highByte & UInt64(0x80)
+        guard scale >= 0 else { return nil }
+        var combined = "\(value)"
+        var string = ""
+        while combined.count <= scale {
+            // pad with leading zeros so that there is at least one digit to the left of the decimal point
+            combined = "0\(combined)"
+        }
+        let breakpoint = combined.count - scale
+        for (i, c) in combined.enumerated() {
+            if i == breakpoint {
+                if i == 0 {
+                    string += "0."
+                } else {
+                    string += "."
+                }
+            }
+            string += String(c)
+        }
+        if highBit > 0 {
+            string = "-\(string)"
+        }
+        return Term(value: string, type: .datatype(.decimal))
+    }
+    
+    private func unpack(date: Result) -> Item? {
+        let value   = UInt64(bitPattern: date)
+        let day     = value & 0x000000000000001f
+        let months  = (value & 0x00000000001fffe0) >> 5
+        let month   = months % 12
+        let year    = months / 12
+        let date    = String(format: "%04d-%02d-%02d", year, month, day)
+        return Term(value: date, type: .datatype(.date))
+    }
+    
+    private func unpack(dateTime: Result) -> Item? {
+        let value   = UInt64(bitPattern: dateTime)
+        // ZZZZ ZZZY YYYY YYYY YYYY MMMM DDDD Dhhh hhmm mmmm ssss ssss ssss ssss
+        let tzSign  = (value & 0x0080000000000000) >> 55
+        let tz      = (value & 0x007e000000000000) >> 49
+        let year    = (value & 0x0001fff000000000) >> 36
+        let month   = (value & 0x0000000f00000000) >> 32
+        let day     = (value & 0x00000000f8000000) >> 27
+        let hours   = (value & 0x0000000007c00000) >> 22
+        let minutes = (value & 0x00000000003f0000) >> 16
+        let msecs   = (value & 0x000000000000ffff)
+        let seconds = Double(msecs) / 1_000.0
+        var dateTime = String(format: "%04d-%02d-%02dT%02d:%02d:%02g", year, month, day, hours, minutes, seconds)
+        if tz == 0 {
+            dateTime = "\(dateTime)Z"
+        } else {
+            let offset  = tz * 15
+            var hours   = Int(offset) / 60
+            let minutes = Int(offset) % 60
+            if tzSign == 1 {
+                hours   *= -1
+            }
+            dateTime = dateTime + String(format: "%+03d:%02d", hours, minutes)
+        }
+        return Term(value: dateTime, type: .datatype(.dateTime))
+    }
+    
+    private func pack(decimal stringValue: String) -> Result? {
+        var c = stringValue.components(separatedBy: ".")
+        guard c.count == 2 else { return nil }
+        let integralValue = c[0]
+        var sign : UInt64 = 0
+        if integralValue.hasPrefix("-") {
+            sign = UInt64(0x80) << 40
+            c[0] = String(integralValue[integralValue.index(integralValue.startIndex, offsetBy: 1)...])
+        }
+        let combined = c.joined(separator: "")
+        guard let value = UInt64(combined) else { return nil }
+        let scale = UInt8(c[1].count)
+        guard value <= 0x00007fffffffffff else { return nil }
+        let id = PackedTermType.decimal.typedEmptyValue + (UInt64(scale) << 48) + (sign | value)
+        return Int64(bitPattern: id)
+    }
+    
+    private func pack(boolean booleanValue: Bool) -> Result? {
+        let i : UInt64 = booleanValue ? 1 : 0
+        let value: UInt64 = PackedTermType.boolean.typedEmptyValue
+        return Int64(bitPattern: value + i)
+    }
+    
+    private func pack(integer stringValue: String) -> Result? {
+        guard let i = UInt64(stringValue) else { return nil }
+        guard i < 0x00ffffffffffffff else { return nil }
+        let value: UInt64 = PackedTermType.integer.typedEmptyValue
+        return Int64(bitPattern: value + i)
+    }
+    
+    private func pack(int stringValue: String) -> Result? {
+        guard let i = UInt64(stringValue) else { return nil }
+        guard i <= 2147483647 else { return nil }
+        let value: UInt64 = PackedTermType.int.typedEmptyValue
+        return Int64(bitPattern: value + i)
+    }
+    
+    private func pack(date stringValue: String) -> Result? {
+        let values = stringValue.components(separatedBy: "-").map { Int($0) }
+        guard values.count == 3 else { return nil }
+        if let y = values[0], let m = values[1], let d = values[2] {
+            guard y <= 5000 else { return nil }
+            let months  = 12 * y + m
+            var value   = PackedTermType.date.typedEmptyValue
+            value       += UInt64(months << 5)
+            value       += UInt64(d)
+            return Int64(bitPattern: value)
+        } else {
+            return nil
+        }
+    }
+    
+    private func pack(dateTime term: Term) -> Result? {
+        // ZZZZ ZZZY YYYY YYYY YYYY MMMM DDDD Dhhh hhmm mmmm ssss ssss ssss ssss
+        guard let date = term.dateValue else {
+            return nil
+        }
+        guard let tz = term.timeZone else {
+            return nil
+        }
+        let calendar = Calendar(identifier: .gregorian)
+        let utc = TimeZone(secondsFromGMT: 0)!
+        let components = calendar.dateComponents(in: utc, from: date)
+        
+        guard let _year = components.year,
+            let _month = components.month,
+            let _day = components.day,
+            let _hours = components.hour,
+            let _minutes = components.minute,
+            let _seconds = components.second else { return nil }
+        let year : UInt64 = UInt64(_year)
+        let month : UInt64 = UInt64(_month)
+        let day : UInt64 = UInt64(_day)
+        let hours : UInt64 = UInt64(_hours)
+        let minutes : UInt64 = UInt64(_minutes)
+        let seconds : UInt64 = UInt64(_seconds)
+        let msecs : UInt64   = seconds * 1_000
+        let offsetSeconds = tz.secondsFromGMT()
+        let tzSign : UInt64 = (offsetSeconds < 0) ? 1 : 0
+        let offsetMinutes : UInt64 = UInt64(abs(offsetSeconds) / 60)
+        let offset : UInt64  = offsetMinutes / 15
+        
+        // guard against overflow values
+        guard offset >= 0 && offset < 0x7f else { return nil }
+        guard year >= 0 && year < 0x1fff else { return nil }
+        guard month >= 0 && month < 0xf else { return nil }
+        guard day >= 0 && day < 0x1f else { return nil }
+        guard hours >= 0 && hours < 0x1f else { return nil }
+        guard minutes >= 0 && minutes < 0x3f else { return nil }
+        guard seconds >= 0 && seconds < 0xffff else { return nil }
+        
+        var value   = PackedTermType.dateTime.typedEmptyValue
+        value       |= (tzSign << 55)
+        value       |= (offset << 49)
+        value       |= (year << 36)
+        value       |= (month << 32)
+        value       |= (day << 27)
+        value       |= (hours << 22)
+        value       |= (minutes << 16)
+        value       |= (msecs)
+        
+        return Int64(bitPattern: value)
+    }
+    
+    private func unpack(iri value: Result) -> Item? {
+        switch value {
+        case 1:
+            return Term(value: Namespace.rdf.type, type: .iri)
+        case 2:
+            return Term(value: Namespace.rdf.List, type: .iri)
+        case 3:
+            return Term(value: Namespace.rdf.Resource, type: .iri)
+        case 4:
+            return Term(value: Namespace.rdf.first, type: .iri)
+        case 5:
+            return Term(value: Namespace.rdf.rest, type: .iri)
+        case 6:
+            return Term(value: "http://www.w3.org/2000/01/rdf-schema#comment", type: .iri)
+        case 7:
+            return Term(value: "http://www.w3.org/2000/01/rdf-schema#label", type: .iri)
+        case 8:
+            return Term(value: "http://www.w3.org/2000/01/rdf-schema#seeAlso", type: .iri)
+        case 9:
+            return Term(value: "http://www.w3.org/2000/01/rdf-schema#isDefinedBy", type: .iri)
+        case 256..<512:
+            return Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#_\(value-256)", type: .iri)
+        default:
+            return nil
+        }
+    }
+    
+    private func pack(iri: String) -> Result? {
+        let mask    = PackedTermType.commonIRI.typedEmptyValue
+        switch iri {
+        case Namespace.rdf.type:
+            return Int64(bitPattern: mask + 1)
+        case Namespace.rdf.List:
+            return Int64(bitPattern: mask + 2)
+        case Namespace.rdf.Resource:
+            return Int64(bitPattern: mask + 3)
+        case Namespace.rdf.first:
+            return Int64(bitPattern: mask + 4)
+        case Namespace.rdf.rest:
+            return Int64(bitPattern: mask + 5)
+        case "http://www.w3.org/2000/01/rdf-schema#comment":
+            return Int64(bitPattern: mask + 6)
+        case "http://www.w3.org/2000/01/rdf-schema#label":
+            return Int64(bitPattern: mask + 7)
+        case "http://www.w3.org/2000/01/rdf-schema#seeAlso":
+            return Int64(bitPattern: mask + 8)
+        case "http://www.w3.org/2000/01/rdf-schema#isDefinedBy":
+            return Int64(bitPattern: mask + 9)
+        case _ where iri.hasPrefix("http://www.w3.org/1999/02/22-rdf-syntax-ns#_"):
+            let c = iri.components(separatedBy: "_")
+            guard c.count == 2 else { return nil }
+            guard let value = UInt64(c[1]) else { return nil }
+            if value >= 0 && value < 256 {
+                return Int64(bitPattern: mask + 0x100 + value)
+            }
+        default:
+            break
+        }
+        return nil
+    }
+
 }
