@@ -179,6 +179,8 @@ func query<Q: QuadStoreProtocol>(in store: Q, query: Query, graph: Term? = nil, 
             if verbose {
                 print("# Last-Modified: \(date)")
             }
+        } else {
+            print("# Last-Modified: (no version available)")
         }
     }
 
@@ -300,7 +302,7 @@ func printSummary<D : PageDatabase>(of database: D) throws {
  func printTerms<D : PageDatabase>(from database: D) -> Int {
     var count = 0
     database.read { (m) in
-        let t2iMapTreeName = PersistentTermIdentityMap.t2iMapTreeName
+        let t2iMapTreeName = PersistentPageTermIdentityMap.t2iMapTreeName
         guard let t2i: Tree<Term, UInt64> = m.tree(name: t2iMapTreeName) else { print("*** no term map"); return }
         for (term, id) in t2i {
             count += 1
