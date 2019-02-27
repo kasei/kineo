@@ -1316,6 +1316,18 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol>: SimpleQueryEvaluatorProto
         return version
     }
     
+    public func effectiveVersion(algebra child: Algebra, inGraph graph: Node) throws -> Version? {
+        guard case .variable(_) = graph else {
+            Logger.shared.error("Unexpected variable found during named graph evaluation")
+            throw QueryError.evaluationError("Unexpected variable found during named graph evaluation")
+        }
+        let defaultGraphs = Set(dataset.defaultGraphs)
+        let x = try store.graphs().filter { !defaultGraphs.contains($0) }.map { ($0, try effectiveVersion(matching: child, activeGraph: $0)) }.compactMap { $0.1 }
+        guard !x.isEmpty else { return nil }
+        let v = x.reduce(x.first!) { max($0, $1) }
+        return v
+    }
+
     public func effectiveVersion(matching algebra: Algebra, activeGraph: Term) throws -> Version? {
         switch algebra {
         // don't require access to the underlying store:
@@ -1331,8 +1343,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol>: SimpleQueryEvaluatorProto
             if case .bound(let g) = graph {
                 return try effectiveVersion(matching: child, activeGraph: g)
             } else {
-                Logger.shared.error("Unimplemented: effectiveVersion(.namedGraph(_), )")
-                throw QueryError.evaluationError("Unimplemented: effectiveVersion(.namedGraph(_), )")
+                return try effectiveVersion(algebra: child, inGraph: graph)
             }
         case .distinct(let child), .project(let child, _), .slice(let child, _, _), .extend(let child, _, _), .order(let child, _), .filter(let child, _):
             return try effectiveVersion(matching: child, activeGraph: activeGraph)
