@@ -181,7 +181,7 @@ open class MediatedPageQuadStore: Sequence, QuadStoreProtocol {
     static public let defaultIndex = "pogs"
     internal var mediator: PageRMediator
     public let readonly: Bool
-    public var id: PersistentTermIdentityMap
+    public var id: PersistentPageTermIdentityMap
     public init(mediator: PageRMediator, mutable: Bool = false) throws {
         self.mediator = mediator
         var readonly = !mutable
@@ -191,7 +191,7 @@ open class MediatedPageQuadStore: Sequence, QuadStoreProtocol {
             }
         }
         self.readonly = readonly
-        self.id = try PersistentTermIdentityMap(mediator: mediator, readonly: readonly)
+        self.id = try PersistentPageTermIdentityMap(mediator: mediator, readonly: readonly)
     }
     
     public var count : Int {
@@ -215,14 +215,14 @@ open class MediatedPageQuadStore: Sequence, QuadStoreProtocol {
     
     public static func create(mediator: PageRWMediator) throws -> MediatedPageQuadStore {
         do {
-            _ = try PersistentTermIdentityMap(mediator: mediator)
+            _ = try PersistentPageTermIdentityMap(mediator: mediator)
             _ = try mediator.getRoot(named: defaultIndex)
             // all the trees seem to be set up
             return try MediatedPageQuadStore(mediator: mediator)
         } catch {
             // empty database; set up the trees and tables
             do {
-                _ = try PersistentTermIdentityMap(mediator: mediator)
+                _ = try PersistentPageTermIdentityMap(mediator: mediator)
                 let store = try MediatedPageQuadStore(mediator: mediator)
                 let pairs: [(IDQuad<UInt64>, Empty)] = []
                 _ = try mediator.create(tree: defaultIndex, pairs: pairs)
@@ -751,6 +751,12 @@ extension UInt64: DefinedTestable {
     }
 }
 
+extension Int64: DefinedTestable {
+    public var isDefined: Bool {
+        return self != 0
+    }
+}
+
 open class MediatedLanguagePageQuadStore: MediatedPageQuadStore {
     var acceptLanguages: [(String, Double)]
     override public var count: Int {
@@ -778,7 +784,7 @@ open class MediatedLanguagePageQuadStore: MediatedPageQuadStore {
             repeat {
                 guard let idquad = i.next() else { return nil }
                 let oid = idquad[2]
-                let languageQuad = PersistentTermIdentityMap.isLanguageLiteral(id: oid)
+                let languageQuad = PersistentPageTermIdentityMap.isLanguageLiteral(id: oid)
                 if self.acceptLanguages.isEmpty {
                     // special case: if there is no preference (e.g. no Accept-Language header is present),
                     // then all quads are kept in the model
@@ -864,7 +870,7 @@ open class MediatedLanguagePageQuadStore: MediatedPageQuadStore {
     
 }
 
-public class PersistentTermIdentityMap: PackedIdentityMap, Sequence {
+public class PersistentPageTermIdentityMap: PackedIdentityMap, Sequence {
     public typealias Item = Term
     public typealias Result = UInt64
     
@@ -877,24 +883,24 @@ public class PersistentTermIdentityMap: PackedIdentityMap, Sequence {
     
     public init (mediator: PageRMediator, readonly: Bool = false) throws {
         self.mediator = mediator
-        var t2i: Tree<Item, Result>? = mediator.tree(name: PersistentTermIdentityMap.t2iMapTreeName)
+        var t2i: Tree<Item, Result>? = mediator.tree(name: PersistentPageTermIdentityMap.t2iMapTreeName)
         if t2i == nil {
             guard let m = mediator as? PageRWMediator else {
                 throw DatabaseError.PermissionError("Cannot create new PersistentTermIdentityMap in a read-only transaction")
             }
             let t2ipairs = [(Item, Result)]()
-            _ = try m.create(tree: PersistentTermIdentityMap.t2iMapTreeName, pairs: t2ipairs)
-            t2i = mediator.tree(name: PersistentTermIdentityMap.t2iMapTreeName)
+            _ = try m.create(tree: PersistentPageTermIdentityMap.t2iMapTreeName, pairs: t2ipairs)
+            t2i = mediator.tree(name: PersistentPageTermIdentityMap.t2iMapTreeName)
         }
         
-        var i2t: Tree<Result, Item>? = mediator.tree(name: PersistentTermIdentityMap.i2tMapTreeName)
+        var i2t: Tree<Result, Item>? = mediator.tree(name: PersistentPageTermIdentityMap.i2tMapTreeName)
         if i2t == nil {
             guard let m = mediator as? PageRWMediator else {
                 throw DatabaseError.PermissionError("Cannot create new PersistentTermIdentityMap in a read-only transaction")
             }
             let i2tpairs = [(Result, Item)]()
-            _ = try m.create(tree: PersistentTermIdentityMap.i2tMapTreeName, pairs: i2tpairs)
-            i2t = mediator.tree(name: PersistentTermIdentityMap.i2tMapTreeName)
+            _ = try m.create(tree: PersistentPageTermIdentityMap.i2tMapTreeName, pairs: i2tpairs)
+            i2t = mediator.tree(name: PersistentPageTermIdentityMap.i2tMapTreeName)
         }
         
         if readonly {
@@ -904,7 +910,7 @@ public class PersistentTermIdentityMap: PackedIdentityMap, Sequence {
             next.language = 0
         } else {
             if let i2t = i2t {
-                next = PersistentTermIdentityMap.loadMaxIDs(from: i2t, mediator: mediator)
+                next = PersistentPageTermIdentityMap.loadMaxIDs(from: i2t, mediator: mediator)
             } else {
                 throw DatabaseError.PermissionError("Failed to get PersistentTermIdentityMap trees")
             }
@@ -931,12 +937,12 @@ public class PersistentTermIdentityMap: PackedIdentityMap, Sequence {
         } else if let term = self.unpack(id: id) {
             return term
         }
-        if let node: Tree<Result, Item> = mediator.tree(name: PersistentTermIdentityMap.i2tMapTreeName) {
+        if let node: Tree<Result, Item> = mediator.tree(name: PersistentPageTermIdentityMap.i2tMapTreeName) {
             let term = node.getAny(key: id)
             self.i2tcache[id] = term
             return term
         } else {
-            warn("*** No node found for tree \(PersistentTermIdentityMap.i2tMapTreeName)")
+            warn("*** No node found for tree \(PersistentPageTermIdentityMap.i2tMapTreeName)")
         }
         return nil
     }
@@ -947,7 +953,7 @@ public class PersistentTermIdentityMap: PackedIdentityMap, Sequence {
         } else if let id = self.pack(value: value) {
             return id
         }
-        if let node: Tree<Item, Result> = mediator.tree(name: PersistentTermIdentityMap.t2iMapTreeName) {
+        if let node: Tree<Item, Result> = mediator.tree(name: PersistentPageTermIdentityMap.t2iMapTreeName) {
             guard let id = node.getAny(key: value) else { return nil }
             self.t2icache[value] = id
             return id
@@ -956,7 +962,7 @@ public class PersistentTermIdentityMap: PackedIdentityMap, Sequence {
     }
     
     public func makeIterator() -> AnyIterator<(Result, Item)> {
-        if let node: Tree<Result, Item> = mediator.tree(name: PersistentTermIdentityMap.i2tMapTreeName) {
+        if let node: Tree<Result, Item> = mediator.tree(name: PersistentPageTermIdentityMap.i2tMapTreeName) {
             return node.makeIterator()
         } else {
             return AnyIterator { return nil }
@@ -992,8 +998,8 @@ public class PersistentTermIdentityMap: PackedIdentityMap, Sequence {
             let id = type + value
             
             guard let m = mediator as? PageRWMediator else { throw DatabaseError.PermissionError("Cannot create new term IDs in a read-only transaction") }
-            guard let i2t: Tree<Result, Item> = m.tree(name: PersistentTermIdentityMap.i2tMapTreeName) else { throw DatabaseError.DataError("Failed to get the ID to term tree") }
-            guard let t2i: Tree<Item, Result> = m.tree(name: PersistentTermIdentityMap.t2iMapTreeName) else { throw DatabaseError.DataError("Failed to get the term to ID tree") }
+            guard let i2t: Tree<Result, Item> = m.tree(name: PersistentPageTermIdentityMap.i2tMapTreeName) else { throw DatabaseError.DataError("Failed to get the ID to term tree") }
+            guard let t2i: Tree<Item, Result> = m.tree(name: PersistentPageTermIdentityMap.t2iMapTreeName) else { throw DatabaseError.DataError("Failed to get the term to ID tree") }
             
             try i2t.add(pair: (id, term))
             try t2i.add(pair: (term, id))
