@@ -9,156 +9,6 @@ import Foundation
 import SPARQLSyntax
 import SQLite
 
-public struct SQLitePlan: NullaryQueryPlan {
-    private typealias ColumnMapping = [String:(SQLite.Expression<Int64>, SQLite.Expression<String>, SQLite.Expression<String?>, SQLite.Expression<Int64?>)]
-    var query: SQLite.Table
-    var distinct: Bool
-    var projected: [String: SQLite.Expression<Int64>]
-    var store: SQLiteQuadStore
-    public var selfDescription: String { return "SQLite Plan { \(query.expression.template) : \(query.expression.bindings) }" }
-
-    private func wrapQuery() -> (SQLite.Table, ColumnMapping) {
-        // add joins to the terms table for all projected variables, executing everything in a single query
-        
-        var columnMapping = ColumnMapping()
-        var q = query
-        if !projected.isEmpty {
-            var columns = [Expressible]()
-            for (id, expr) in projected {
-                let tt = store.termsTable.alias("term_\(id)")
-                let tid = store.idColumn
-                q = q.join(tt, on: tt[tid] == expr)
-                let termCols = (tt[store.termTypeColumn], tt[store.termValueColumn], tt[store.termLangColumn], tt[store.termDatatypeColumn])
-                columns.append(termCols.0)
-                columns.append(termCols.1)
-                columns.append(termCols.2)
-                columns.append(termCols.3)
-                columnMapping[id] = termCols
-            }
-            if distinct {
-                q = q.select(distinct: columns)
-            } else {
-                q = q.select(columns)
-            }
-        }
-        return (q, columnMapping)
-    }
-    
-    public func evaluate() throws -> AnyIterator<TermResult> {
-        let store = self.store
-        
-        if true {
-            let (q, columnMapping) = wrapQuery()
-            guard let dbh = try? store.db.prepare(q) else {
-                return AnyIterator { return nil }
-            }
-            let results = dbh.lazy.compactMap { (row) -> TermResult? in
-                do {
-                    let d = try columnMapping.map { (pair) throws -> (String, Term) in
-                        let name = pair.key
-                        let cols = pair.value
-                        guard let t = store.term(from: row, typeColumn: cols.0, valueColumn: cols.1, languageColumn: cols.2, datatypeColumn: cols.3) else {
-                            throw SQLiteQuadStore.SQLiteQuadStoreError.idAccessError
-                        }
-                        return (name, t)
-                    }
-                    let r = TermResult(bindings: Dictionary(uniqueKeysWithValues: d))
-                    return r
-                } catch {
-                    return nil
-                }
-            }
-            return AnyIterator(results.makeIterator())
-        } else {
-            // execute the query, and then pull term values from the terms table as separate queries
-            guard let dbh = try? store.db.prepare(query) else {
-                return AnyIterator { return nil }
-            }
-            let projected = self.projected
-            let results = dbh.lazy.compactMap { (row) -> TermResult? in
-                do {
-                    let d = try projected.map({ (name, id) throws -> (String, Term) in
-                        guard let t = store.term(for: row[id]) else {
-                            throw SQLiteQuadStore.SQLiteQuadStoreError.idAccessError
-                        }
-                        return (name, t)
-                    })
-                    let r = TermResult(bindings: Dictionary(uniqueKeysWithValues: d))
-                    return r
-                } catch {
-                    return nil
-                }
-            }
-            return AnyIterator(results.makeIterator())
-        }
-    }
-}
-
-public struct SQLitePreparedPlan: NullaryQueryPlan {
-    var dbh: SQLite.Statement
-    var projected: [String: String]
-    var store: SQLiteQuadStore
-    public var selfDescription: String { return "SQLite Prepared Plan { \(dbh) }" }
-    public func evaluate() throws -> AnyIterator<TermResult> {
-        let projected = self.projected
-        let map = Dictionary(uniqueKeysWithValues: dbh.columnNames.enumerated().map { ($1, $0) })
-        let store = self.store
-        let results = dbh.lazy.compactMap { (row) -> TermResult? in
-            do {
-                let d = try projected.map({ (name, colName) throws -> (String, Term) in
-                    guard let i = map[colName], let id : Int64 = row[i] as? Int64, let t = store.term(for: id) else {
-                        throw SQLiteQuadStore.SQLiteQuadStoreError.idAccessError
-                    }
-                    return (name, t)
-                })
-                let r = TermResult(bindings: Dictionary(uniqueKeysWithValues: d))
-                return r
-            } catch {
-                return nil
-            }
-        }
-        return AnyIterator(results.makeIterator())
-    }
-}
-
-public struct SQLiteSingleIntegerAggregationPlan<D: Value>: NullaryQueryPlan {
-    var query: SQLite.Table
-    var aggregateColumn: SQLite.Expression<D>
-    var aggregateName: String
-    var projected: [String: SQLite.Expression<Int64>]
-    var store: SQLiteQuadStore
-    public var selfDescription: String { return "SQLite Aggregation Plan { \(aggregateColumn) AS \(aggregateName) : \(query.expression.template) : \(query.expression.bindings) }" }
-    public func evaluate() throws -> AnyIterator<TermResult> {
-        let store = self.store
-        guard let dbh = try? store.db.prepare(query) else {
-            return AnyIterator { return nil }
-        }
-        let projected = self.projected
-        let aggregateColumn = self.aggregateColumn
-        let aggregateName = self.aggregateName
-        let results = dbh.lazy.compactMap { (row : Row) -> TermResult? in
-            do {
-                let aggValue: D? = try row.get(aggregateColumn)
-                var d = try projected.map({ (name, id) throws -> (String, Term) in
-                    guard let t = store.term(for: row[id]) else {
-                        throw SQLiteQuadStore.SQLiteQuadStoreError.idAccessError
-                    }
-                    return (name, t)
-                })
-                if let value = aggValue as? Int {
-                    d.append((aggregateName, Term(integer: value)))
-                }
-                let r = TermResult(bindings: Dictionary(uniqueKeysWithValues: d))
-                return r
-            } catch {
-                return nil
-            }
-        }
-        return AnyIterator(results.makeIterator())
-    }
-}
-
-
 // swiftlint:disable:next type_body_length
 open class SQLiteQuadStore: Sequence, MutableQuadStoreProtocol {
     typealias TermID = Int64
@@ -1506,4 +1356,153 @@ extension SQLiteQuadStore: PackedIdentityMap {
         return nil
     }
 
+}
+
+public struct SQLitePlan: NullaryQueryPlan {
+    private typealias ColumnMapping = [String:(SQLite.Expression<Int64>, SQLite.Expression<String>, SQLite.Expression<String?>, SQLite.Expression<Int64?>)]
+    var query: SQLite.Table
+    var distinct: Bool
+    var projected: [String: SQLite.Expression<Int64>]
+    var store: SQLiteQuadStore
+    public var selfDescription: String { return "SQLite Plan { \(query.expression.template) : \(query.expression.bindings) }" }
+    
+    private func wrapQuery() -> (SQLite.Table, ColumnMapping) {
+        // add joins to the terms table for all projected variables, executing everything in a single query
+        
+        var columnMapping = ColumnMapping()
+        var q = query
+        if !projected.isEmpty {
+            var columns = [Expressible]()
+            for (id, expr) in projected {
+                let tt = store.termsTable.alias("term_\(id)")
+                let tid = store.idColumn
+                q = q.join(tt, on: tt[tid] == expr)
+                let termCols = (tt[store.termTypeColumn], tt[store.termValueColumn], tt[store.termLangColumn], tt[store.termDatatypeColumn])
+                columns.append(termCols.0)
+                columns.append(termCols.1)
+                columns.append(termCols.2)
+                columns.append(termCols.3)
+                columnMapping[id] = termCols
+            }
+            if distinct {
+                q = q.select(distinct: columns)
+            } else {
+                q = q.select(columns)
+            }
+        }
+        return (q, columnMapping)
+    }
+    
+    public func evaluate() throws -> AnyIterator<TermResult> {
+        let store = self.store
+        
+        if true {
+            let (q, columnMapping) = wrapQuery()
+            guard let dbh = try? store.db.prepare(q) else {
+                return AnyIterator { return nil }
+            }
+            let results = dbh.lazy.compactMap { (row) -> TermResult? in
+                do {
+                    let d = try columnMapping.map { (pair) throws -> (String, Term) in
+                        let name = pair.key
+                        let cols = pair.value
+                        guard let t = store.term(from: row, typeColumn: cols.0, valueColumn: cols.1, languageColumn: cols.2, datatypeColumn: cols.3) else {
+                            throw SQLiteQuadStore.SQLiteQuadStoreError.idAccessError
+                        }
+                        return (name, t)
+                    }
+                    let r = TermResult(bindings: Dictionary(uniqueKeysWithValues: d))
+                    return r
+                } catch {
+                    return nil
+                }
+            }
+            return AnyIterator(results.makeIterator())
+        } else {
+            // execute the query, and then pull term values from the terms table as separate queries
+            guard let dbh = try? store.db.prepare(query) else {
+                return AnyIterator { return nil }
+            }
+            let projected = self.projected
+            let results = dbh.lazy.compactMap { (row) -> TermResult? in
+                do {
+                    let d = try projected.map({ (name, id) throws -> (String, Term) in
+                        guard let t = store.term(for: row[id]) else {
+                            throw SQLiteQuadStore.SQLiteQuadStoreError.idAccessError
+                        }
+                        return (name, t)
+                    })
+                    let r = TermResult(bindings: Dictionary(uniqueKeysWithValues: d))
+                    return r
+                } catch {
+                    return nil
+                }
+            }
+            return AnyIterator(results.makeIterator())
+        }
+    }
+}
+
+public struct SQLitePreparedPlan: NullaryQueryPlan {
+    var dbh: SQLite.Statement
+    var projected: [String: String]
+    var store: SQLiteQuadStore
+    public var selfDescription: String { return "SQLite Prepared Plan { \(dbh) }" }
+    public func evaluate() throws -> AnyIterator<TermResult> {
+        let projected = self.projected
+        let map = Dictionary(uniqueKeysWithValues: dbh.columnNames.enumerated().map { ($1, $0) })
+        let store = self.store
+        let results = dbh.lazy.compactMap { (row) -> TermResult? in
+            do {
+                let d = try projected.map({ (name, colName) throws -> (String, Term) in
+                    guard let i = map[colName], let id : Int64 = row[i] as? Int64, let t = store.term(for: id) else {
+                        throw SQLiteQuadStore.SQLiteQuadStoreError.idAccessError
+                    }
+                    return (name, t)
+                })
+                let r = TermResult(bindings: Dictionary(uniqueKeysWithValues: d))
+                return r
+            } catch {
+                return nil
+            }
+        }
+        return AnyIterator(results.makeIterator())
+    }
+}
+
+public struct SQLiteSingleIntegerAggregationPlan<D: Value>: NullaryQueryPlan {
+    var query: SQLite.Table
+    var aggregateColumn: SQLite.Expression<D>
+    var aggregateName: String
+    var projected: [String: SQLite.Expression<Int64>]
+    var store: SQLiteQuadStore
+    public var selfDescription: String { return "SQLite Aggregation Plan { \(aggregateColumn) AS \(aggregateName) : \(query.expression.template) : \(query.expression.bindings) }" }
+    public func evaluate() throws -> AnyIterator<TermResult> {
+        let store = self.store
+        guard let dbh = try? store.db.prepare(query) else {
+            return AnyIterator { return nil }
+        }
+        let projected = self.projected
+        let aggregateColumn = self.aggregateColumn
+        let aggregateName = self.aggregateName
+        let results = dbh.lazy.compactMap { (row : Row) -> TermResult? in
+            do {
+                let aggValue: D? = try row.get(aggregateColumn)
+                var d = try projected.map({ (name, id) throws -> (String, Term) in
+                    guard let t = store.term(for: row[id]) else {
+                        throw SQLiteQuadStore.SQLiteQuadStoreError.idAccessError
+                    }
+                    return (name, t)
+                })
+                if let value = aggValue as? Int {
+                    d.append((aggregateName, Term(integer: value)))
+                }
+                let r = TermResult(bindings: Dictionary(uniqueKeysWithValues: d))
+                return r
+            } catch {
+                return nil
+            }
+        }
+        return AnyIterator(results.makeIterator())
+    }
 }
