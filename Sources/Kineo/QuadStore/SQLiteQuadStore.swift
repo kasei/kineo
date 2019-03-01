@@ -827,8 +827,6 @@ extension SQLiteQuadStore: PackedIdentityMap {
     
     static func loadMaxIDs(from db: Connection) throws -> (Int64, Int64, Int64, Int64) {
         let mask        = UInt64(0x00ffffffffffffff)
-        // OPTIMIZE: store maxKeys for each of these in the database in a way that doesn't require tree walks to initialize the PageQuadStore
-        
         let blankID = SQLiteQuadStore.TermType.blank.rawValue
         let iriID = SQLiteQuadStore.TermType.iri.rawValue
         let literalID = SQLiteQuadStore.TermType.literal.rawValue
@@ -946,22 +944,30 @@ extension SQLiteQuadStore: PackedIdentityMap {
         let insert: Insert
         switch term.type {
         case .iri:
-            insert = termsTable.insert(or: .ignore, idColumn <- i, termTypeColumn <- TermType.iri.rawValue, termValueColumn <- term.value)
+            insert = termsTable.insert(or: .ignore,
+                                       idColumn <- i,
+                                       termTypeColumn <- TermType.iri.rawValue,
+                                       termValueColumn <- term.value)
         case .blank:
-            insert = termsTable.insert(or: .ignore, idColumn <- i, termTypeColumn <- TermType.blank.rawValue, termValueColumn <- term.value)
+            insert = termsTable.insert(or: .ignore,
+                                       idColumn <- i,
+                                       termTypeColumn <- TermType.blank.rawValue,
+                                       termValueColumn <- term.value)
         case .language(let lang):
-            insert = try termsTable.insert(or: .ignore,
-                idColumn <- i,
-                termTypeColumn <- TermType.literal.rawValue,
-                termValueColumn <- term.value,
-                termDatatypeColumn <- getOrSetID(for: Term(iri: Namespace.rdf.langString)),
-                termLangColumn <- lang)
+            let id = try getOrSetID(for: Term(iri: Namespace.rdf.langString))
+            insert = termsTable.insert(or: .ignore,
+                                       idColumn <- i,
+                                       termTypeColumn <- TermType.literal.rawValue,
+                                       termValueColumn <- term.value,
+                                       termDatatypeColumn <- id,
+                                       termLangColumn <- lang)
         case .datatype(let dt):
-            insert = try termsTable.insert(or: .ignore,
-                idColumn <- i,
-                termTypeColumn <- TermType.literal.rawValue,
-                termValueColumn <- term.value,
-                termDatatypeColumn <- getOrSetID(for: Term(iri: dt.value)))
+            let id = try getOrSetID(for: Term(iri: dt.value))
+            insert = termsTable.insert(or: .ignore,
+                                       idColumn <- i,
+                                       termTypeColumn <- TermType.literal.rawValue,
+                                       termValueColumn <- term.value,
+                                       termDatatypeColumn <- id)
         }
         //        print("INSERT: \(insert)")
         try db.run(insert)
@@ -969,11 +975,6 @@ extension SQLiteQuadStore: PackedIdentityMap {
     }
     
     
-
-
-
-
-
     /**
      
      Term ID type byte:
@@ -997,7 +998,7 @@ extension SQLiteQuadStore: PackedIdentityMap {
      0000 0001  blank
      0000 001   iri
      0001       literal
-     0001 01        date (with optional time)
+     0001 010       date (with optional time)
      0001 1         numeric
      
      **/
