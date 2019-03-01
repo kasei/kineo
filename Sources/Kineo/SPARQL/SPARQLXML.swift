@@ -157,16 +157,16 @@ public struct SPARQLXMLParser : SPARQLParsable {
         }
         
         func parserDidStartDocument(_ parser: XMLParser) {
-            trace("parserDidStartDocument")
+//            trace("parserDidStartDocument")
             chars = ""
         }
         
         func parserDidEndDocument(_ parser: XMLParser) {
-            trace("parserDidEndDocument")
+//            trace("parserDidEndDocument")
         }
         
         func parser(_ parser: XMLParser, didStartElement elementName: String, namespaceURI: String?, qualifiedName qName: String?, attributes attributeDict: [String : String] = [:]) {
-            trace("didStartElement \(elementName)")
+//            trace("didStartElement \(elementName)")
             depth += 1
             chars = ""
             switch elementName {
@@ -185,15 +185,15 @@ public struct SPARQLXMLParser : SPARQLParsable {
                     error = SerializationError.parsingError("Found <binding> without associated binding name during SRX parsing")
                     return
                 }
-                trace("  [name=\(v)]")
+//                trace("  [name=\(v)]")
                 bindingName = v
             case "literal":
                 allowCharacterData = true
                 if let dt = attributeDict["datatype"] {
-                    trace("  [datatype=\(dt)]")
+//                    trace("  [datatype=\(dt)]")
                     termType = .datatype(TermDataType(stringLiteral: dt))
                 } else if let lang = attributeDict["xml:lang"] {
-                    trace("  [xml:lang=\(lang)]")
+//                    trace("  [xml:lang=\(lang)]")
                     termType = .language(lang)
                 } else {
                     termType = .datatype(.string)
@@ -210,7 +210,7 @@ public struct SPARQLXMLParser : SPARQLParsable {
         }
         
         func parser(_ parser: XMLParser, didEndElement elementName: String, namespaceURI: String?, qualifiedName qName: String?) {
-            trace("didEndElement \(elementName)")
+//            trace("didEndElement \(elementName)")
             depth -= 1
             switch elementName {
             case "result":
@@ -238,7 +238,7 @@ public struct SPARQLXMLParser : SPARQLParsable {
         
         func parser(_ parser: XMLParser, foundCharacters string: String) {
             if allowCharacterData {
-                trace("foundCharacters: '\(string.replacingOccurrences(of: "\n", with: " "))'")
+//                trace("foundCharacters: '\(string.replacingOccurrences(of: "\n", with: " "))'")
                 chars += string
             }
         }
