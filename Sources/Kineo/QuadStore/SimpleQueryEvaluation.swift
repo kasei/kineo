@@ -1311,6 +1311,12 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol>: SimpleQueryEvaluatorProto
                         version = max(mtime, qmtime)
                     }
                 }
+            } else {
+                if let v = version {
+                    version = max(v, mtime)
+                } else {
+                    version = mtime
+                }
             }
         }
         return version
