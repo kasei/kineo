@@ -61,7 +61,7 @@ public struct SPARQLJSONSerializer<T: ResultProtocol> : SPARQLSerializable where
         }
     }
     
-    public func serialize(_ results: QueryResult<[TermResult], [Triple]>) throws -> Data {
+    public func serialize<R: Sequence, T: Sequence>(_ results: QueryResult<R, T>) throws -> Data where R.Element == TermResult, T.Element == Triple {
         var r : ResultValue
         switch results {
         case .boolean(let value):

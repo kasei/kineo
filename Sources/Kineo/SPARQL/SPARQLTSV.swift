@@ -15,7 +15,7 @@ public struct SPARQLTSVSerializer<T: ResultProtocol> : SPARQLSerializable where 
     public init() {
     }
     
-    public func serialize(_ results: QueryResult<[TermResult], [Triple]>) throws -> Data {
+    public func serialize<R: Sequence, T: Sequence>(_ results: QueryResult<R, T>) throws -> Data where R.Element == TermResult, T.Element == Triple {
         var d = Data()
         switch results {
         case .boolean(_):

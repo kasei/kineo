@@ -293,7 +293,7 @@ open class TurtleSerializer : RDFSerializer {
 }
 
 extension TurtleSerializer : SPARQLSerializable {
-    public func serialize(_ results: QueryResult<[TermResult], [Triple]>) throws -> Data {
+    public func serialize<R: Sequence, T: Sequence>(_ results: QueryResult<R, T>) throws -> Data where R.Element == TermResult, T.Element == Triple {
         switch results {
         case .triples(let triples):
             return try serialize(triples)

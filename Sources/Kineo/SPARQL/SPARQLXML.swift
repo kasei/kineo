@@ -20,7 +20,7 @@ public struct SPARQLXMLSerializer<T: ResultProtocol> : SPARQLSerializable where 
         root.addChild(b)
     }
 
-    func write(variables: [String], rows: [TermResult], into root: XMLElement) {
+    func write<S: Sequence>(variables: [String], rows: S, into root: XMLElement) where S.Element == TermResult {
         write(head: variables, into: root)
         write(rows: rows, into: root)
     }
@@ -58,7 +58,7 @@ public struct SPARQLXMLSerializer<T: ResultProtocol> : SPARQLSerializable where 
         root.addChild(result)
     }
     
-    func write(rows: [TermResult], into root: XMLElement) {
+    func write<S: Sequence>(rows: S, into root: XMLElement) where S.Element == TermResult {
         let results = XMLElement(name: "results")
         for r in rows {
             write(result: r, into: results)
@@ -77,7 +77,7 @@ public struct SPARQLXMLSerializer<T: ResultProtocol> : SPARQLSerializable where 
         root.addChild(head)
     }
     
-    public func serialize(_ results: QueryResult<[TermResult], [Triple]>) throws -> Data {
+    public func serialize<R: Sequence, T: Sequence>(_ results: QueryResult<R, T>) throws -> Data where R.Element == TermResult, T.Element == Triple {
         let root = XMLElement(name: "sparql")
         let ns = XMLNode.namespace(withName: "", stringValue: "http://www.w3.org/2005/sparql-results#") as! XMLNode
         root.addNamespace(ns)
