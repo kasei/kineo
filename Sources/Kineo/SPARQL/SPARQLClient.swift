@@ -156,11 +156,8 @@ public struct SPARQLContentNegotiator {
             
             for s in valid {
                 for mt in s.acceptableMediaTypes {
-                    print(">>> \(mt)")
                     if a.hasPrefix(mt) {
                         return s
-                    } else {
-                        print("skipping \(mt) while looking for \(a)")
                     }
                 }
             }
