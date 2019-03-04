@@ -9,7 +9,12 @@
 import Foundation
 
 @available(OSX 10.12, *)
+/// Similar to ISO8601DateFormatter, but keeps any timezone
+/// data found in the date string so that it may be accessed
+/// in the future (instead of just providing an offset from GMT
+/// to be used during construction of the Date object)
 public class W3CDTFLocatedDateFormatter : ISO8601DateFormatter {
+    /// A datetime object with an optional associated TimeZone.
     public struct LocatedDate {
         var date: Date
         var timezone: TimeZone?
