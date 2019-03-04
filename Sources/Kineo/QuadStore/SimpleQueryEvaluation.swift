@@ -20,8 +20,6 @@ public protocol SimpleQueryEvaluatorProtocol: QueryEvaluatorProtocol {
     var dataset: Dataset { get }
     var ee: ExpressionEvaluator { get }
     
-    var supportedLanguages: [QueryLanguage] { get }
-    var supportedFeatures: [QueryEngineFeature] { get }
     var verbose: Bool { get }
     
     func freshVariable() -> Node

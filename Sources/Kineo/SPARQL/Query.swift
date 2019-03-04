@@ -14,6 +14,8 @@ public protocol QueryEvaluatorProtocol {
     associatedtype TripleSequence: Sequence where TripleSequence.Element == Triple
     func evaluate(query: Query) throws -> QueryResult<ResultSequence, TripleSequence>
     func evaluate(query: Query, activeGraph: Term?) throws -> QueryResult<ResultSequence, TripleSequence>
+    var supportedLanguages: [QueryLanguage] { get }
+    var supportedFeatures: [QueryEngineFeature] { get }
 }
 
 public enum QueryLanguage : String {

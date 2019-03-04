@@ -333,7 +333,10 @@ extension Expression {
 public struct QueryPlanEvaluator<Q: QuadStoreProtocol>: QueryEvaluatorProtocol {
     public typealias ResultSequence = AnySequence<TermResult>
     public typealias TripleSequence = [Triple]
-    
+
+    public let supportedLanguages: [QueryLanguage] = [.sparqlQuery10, .sparqlQuery11]
+    public let supportedFeatures: [QueryEngineFeature] = [.basicFederatedQuery]
+
     var dataset: Dataset
     public var planner: QueryPlanner<Q>
     
