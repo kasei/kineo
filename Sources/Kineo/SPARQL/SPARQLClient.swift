@@ -97,7 +97,7 @@ public struct SPARQLClient {
 public struct SPARQLContentNegotiator {
     public static var shared = SPARQLContentNegotiator()
     
-    private var supportedSerializations : [ResultFormat]
+    public var supportedSerializations : [ResultFormat]
     private var serializers: [SPARQLSerializable]
     
     public init() {
