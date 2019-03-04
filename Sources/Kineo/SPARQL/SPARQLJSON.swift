@@ -53,6 +53,11 @@ public struct SPARQLJSONSerializer<T: ResultProtocol> : SPARQLSerializable where
     typealias ResultType = T
     public let canonicalMediaType = "application/sparql-results+json"
 
+    public var serializesTriples = false
+    public var serializesBindings = true
+    public var serializesBoolean = true
+    public var acceptableMediaTypes: [String] { return [canonicalMediaType, "application/json"] }
+
     public var encoder: JSONEncoder
     public init() {
         encoder = JSONEncoder()

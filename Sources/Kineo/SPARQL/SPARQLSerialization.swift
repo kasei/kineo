@@ -19,6 +19,10 @@ public protocol SPARQLParsable {
 }
 
 public protocol SPARQLSerializable {
+    var serializesTriples: Bool { get }
+    var serializesBindings: Bool { get }
+    var serializesBoolean: Bool { get }
     var canonicalMediaType: String { get }
+    var acceptableMediaTypes: [String] { get }
     func serialize<R: Sequence, T: Sequence>(_ results: QueryResult<R, T>) throws -> Data where R.Element == TermResult, T.Element == Triple
 }

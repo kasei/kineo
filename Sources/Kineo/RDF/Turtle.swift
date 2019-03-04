@@ -145,7 +145,7 @@ extension Term {
 open class TurtleSerializer : RDFSerializer {
     public var canonicalMediaType = "application/turtle"
     public var prefixes: [String:Term]
-    
+
     required public init() {
         self.prefixes = [:]
     }
@@ -293,6 +293,11 @@ open class TurtleSerializer : RDFSerializer {
 }
 
 extension TurtleSerializer : SPARQLSerializable {
+    public var serializesTriples: Bool { return true }
+    public var serializesBindings: Bool { return false }
+    public var serializesBoolean: Bool { return false }
+    public var acceptableMediaTypes: [String] { return [canonicalMediaType, "text/turtle"] }
+
     public func serialize<R: Sequence, T: Sequence>(_ results: QueryResult<R, T>) throws -> Data where R.Element == TermResult, T.Element == Triple {
         switch results {
         case .triples(let triples):

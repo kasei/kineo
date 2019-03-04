@@ -12,6 +12,11 @@ public struct SPARQLTSVSerializer<T: ResultProtocol> : SPARQLSerializable where 
     typealias ResultType = T
     public let canonicalMediaType = "text/tab-separated-values"
     
+    public var serializesTriples = false
+    public var serializesBindings = true
+    public var serializesBoolean = false
+    public var acceptableMediaTypes: [String] { return [canonicalMediaType] }
+
     public init() {
     }
     

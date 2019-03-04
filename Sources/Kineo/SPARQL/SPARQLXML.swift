@@ -12,6 +12,11 @@ public struct SPARQLXMLSerializer<T: ResultProtocol> : SPARQLSerializable where 
     typealias ResultType = T
     public let canonicalMediaType = "application/sparql-results+xml"
 
+    public var serializesTriples = false
+    public var serializesBindings = true
+    public var serializesBoolean = true
+    public var acceptableMediaTypes: [String] { return [canonicalMediaType, "application/xml"] }
+
     public init() {
     }
     

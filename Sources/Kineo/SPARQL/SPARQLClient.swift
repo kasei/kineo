@@ -20,7 +20,7 @@ public struct SPARQLClient {
     }
     
     public func execute(_ query: String) throws -> QueryResult<[TermResult], [Triple]> {
-        let n = SPARQLContentNegotiator()
+        let n = SPARQLContentNegotiator.shared
         var args : (Data?, URLResponse?, Error?) = (nil, nil, nil)
         do {
             guard var components = URLComponents(string: endpoint.absoluteString) else {
@@ -95,6 +95,33 @@ public struct SPARQLClient {
 }
 
 public struct SPARQLContentNegotiator {
+    public static var shared = SPARQLContentNegotiator()
+    
+    private var supportedSerializations : [ResultFormat]
+    private var serializers: [SPARQLSerializable]
+    
+    public init() {
+        // TODO: The `#if os(Linux)` conditions in this variable is temporarily
+        //       required because XML serialization is broken on linux.
+        #if os(Linux)
+        supportedSerializations = [.sparqlJSON, .sparqlTSV, .ntriples, .turtle]
+        #else
+        supportedSerializations = [.sparqlXML, .sparqlJSON, .sparqlTSV, .ntriples, .turtle]
+        #endif
+        
+        serializers = [
+            SPARQLJSONSerializer<TermResult>(),
+            SPARQLXMLSerializer<TermResult>(),
+            SPARQLTSVSerializer<TermResult>(),
+            TurtleSerializer(),
+            NTriplesSerializer()
+        ]
+    }
+    
+    public mutating func addSerializer(_ s: SPARQLSerializable) {
+        serializers.append(s)
+    }
+    
     public enum ResultFormat : String {
         case rdfxml = "http://www.w3.org/ns/formats/RDF_XML"
         case turtle = "http://www.w3.org/ns/formats/Turtle"
@@ -105,74 +132,44 @@ public struct SPARQLContentNegotiator {
         case sparqlTSV = "http://www.w3.org/ns/formats/SPARQL_Results_TSV"
         
     }
-    public let supportedSerializations : [ResultFormat] = {
-        // TODO: The `#if os(Linux)` conditions in this variable is temporarily
-        //       required because XML serialization is broken on linux.
-        #if os(Linux)
-        return [.sparqlJSON, .sparqlTSV, .ntriples, .turtle]
-        #else
-        return [.sparqlXML, .sparqlJSON, .sparqlTSV, .ntriples, .turtle]
-        #endif
-    }()
-
-    public init() {
-    }
-
-    public func negotiateSerializer<S : Sequence, B, T>(for result: QueryResult<B, T>, accept: S) -> SPARQLSerializable where S.Element == String {
-        let xml = SPARQLXMLSerializer<TermResult>()
+    
+    public func negotiateSerializer<S : Sequence, B, T>(for result: QueryResult<B, T>, accept: S) -> SPARQLSerializable? where S.Element == String {
         let json = SPARQLJSONSerializer<TermResult>()
-        let tsv = SPARQLTSVSerializer<TermResult>()
-        let turtle = TurtleSerializer()
-        let ntriples = NTriplesSerializer()
+        let valid : [SPARQLSerializable]
         switch result {
-        // TODO: improve to use the media types present in each serializer class
-        // TODO: The `#if os(Linux)` conditions in this method are temporarily
-        //       required because XML serialization is broken on linux.
-        case .bindings(_), .boolean(_):
-            for a in accept {
-                if a == "*/*" {
-                    #if os(Linux)
-                    return json
-                    #else
-                    return xml
-                    #endif
-                } else if a.hasPrefix("application/sparql-results+json") {
-                    return json
-                } else if a.hasPrefix("application/json") {
-                    return json
-                } else if a.hasPrefix("text/plain") {
-                    return json
-                } else if a.hasPrefix("text/tab-separated-values") {
-                    return tsv
-                }
-
-                #if !os(Linux)
-                if a.hasPrefix("application/sparql-results+xml") {
-                    return xml
-                }
-                #endif
-            }
-            #if os(Linux)
-            return json
-            #else
-            return xml
-            #endif
+        case .boolean(_):
+            valid = serializers.filter { $0.serializesBoolean }
+        case .bindings(_):
+            valid = serializers.filter { $0.serializesBindings }
         case .triples(_):
-            for a in accept {
-                if a == "*/*" {
-                    return turtle
-                } else if a.hasPrefix("application/turtle") {
-                    return turtle
-                } else if a.hasPrefix("text/turtle") {
-                    return turtle
-                } else if a.hasPrefix("application/n-triples") {
-                    return ntriples
-                } else if a.hasPrefix("text/plain") {
-                    return ntriples
+            valid = serializers.filter { $0.serializesTriples }
+        }
+        
+        if valid.isEmpty {
+            return nil
+        }
+        
+        for a in accept {
+            if a == "*/*" {
+                return valid.first!
+            }
+            
+            for s in valid {
+                for mt in s.acceptableMediaTypes {
+                    print(">>> \(mt)")
+                    if a.hasPrefix(mt) {
+                        return s
+                    } else {
+                        print("skipping \(mt) while looking for \(a)")
+                    }
                 }
             }
-            return ntriples
+            
+            if a.hasPrefix("text/plain") {
+                return json
+            }
         }
+        return nil
     }
     
     public func negotiateParser(for response: URLResponse) -> SPARQLParsable {
