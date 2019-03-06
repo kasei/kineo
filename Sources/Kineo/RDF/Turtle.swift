@@ -151,7 +151,7 @@ open class TurtleSerializer : RDFSerializer {
     }
     
     public init(prefixes: [String:Term]? = nil) {
-        self.prefixes = prefixes ?? [:] // TODO: implement prefix use
+        self.prefixes = prefixes ?? [:]
     }
     
     public func add(name: String, for namespace: String) {

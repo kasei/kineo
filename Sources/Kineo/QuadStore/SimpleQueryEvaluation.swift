@@ -44,7 +44,7 @@ public protocol SimpleQueryEvaluatorProtocol: QueryEvaluatorProtocol {
     func evaluateAvg<S: Sequence>(results: S, expression keyExpr: Expression, distinct: Bool) -> Term? where S.Iterator.Element == TermResult
     func evaluateSum<S: Sequence>(results: S, expression keyExpr: Expression, distinct: Bool) -> Term? where S.Iterator.Element == TermResult
     func evaluateGroupConcat<S: Sequence>(results: S, expression keyExpr: Expression, separator: String, distinct: Bool) -> Term? where S.Iterator.Element == TermResult
-    func evaluateWindow(algebra child: Algebra, groups: [Expression], functions: [Algebra.WindowFunctionMapping], activeGraph: Term) throws -> AnyIterator<TermResult>
+    func evaluateWindow(algebra child: Algebra, function: Algebra.WindowFunctionMapping, activeGraph: Term) throws -> AnyIterator<TermResult>
     func evaluatePath(subject: Node, object: Node, graph: Term, path: PropertyPath) throws -> AnyIterator<TermResult>
     func evaluateAggregation(algebra child: Algebra, groups: [Expression], aggregations aggs: Set<Algebra.AggregationMapping>, activeGraph: Term) throws -> AnyIterator<TermResult>
     func evaluateSort<S: Sequence>(_ results: S, comparators: [Algebra.SortComparator]) -> [TermResult] where S.Element == TermResult
@@ -315,8 +315,12 @@ extension SimpleQueryEvaluatorProtocol {
                 }
             }
             return try evaluateAggregation(algebra: child, groups: groups, aggregations: aggs, activeGraph: activeGraph)
-        case let .window(child, groups, funcs):
-            return try evaluateWindow(algebra: child, groups: groups, functions: funcs, activeGraph: activeGraph)
+        case let .window(child, funcs):
+            if funcs.count != 1 {
+                fatalError("Unimplemented: more than one window function")
+            }
+            let f = funcs.first!
+            return try evaluateWindow(algebra: child, function: f, activeGraph: activeGraph)
         case let .filter(child, expr):
             let i = try self.evaluate(algebra: child, activeGraph: activeGraph)
             return try evaluateFilter(i, expression: expr, activeGraph: activeGraph)
@@ -801,16 +805,18 @@ extension SimpleQueryEvaluatorProtocol {
         }
     }
     
-    public func evaluateWindow(algebra child: Algebra, groups: [Expression], functions: [Algebra.WindowFunctionMapping], activeGraph: Term) throws -> AnyIterator<TermResult> {
+    public func evaluateWindow(algebra child: Algebra, function windowMap: Algebra.WindowFunctionMapping, activeGraph: Term) throws -> AnyIterator<TermResult> {
         let i = try self.evaluate(algebra: child, activeGraph: activeGraph)
         var groupBuckets = [String:[TermResult]]()
+        let application = windowMap.windowApplication
+        let partitions = application.partition
         for result in i {
-            let group = groups.map { (expr) -> Term? in return try? self.ee.evaluate(expression: expr, result: result) }
+            let group = partitions.map { (expr) -> Term? in return try? self.ee.evaluate(expression: expr, result: result) }
             let groupKey = "\(group)"
             if groupBuckets[groupKey] == nil {
                 groupBuckets[groupKey] = [result]
                 var bindings = [String:Term]()
-                for (g, term) in zip(groups, group) {
+                for (g, term) in zip(partitions, group) {
                     if case .node(.variable(let name, true)) = g {
                         if let term = term {
                             bindings[name] = term
@@ -823,46 +829,44 @@ extension SimpleQueryEvaluatorProtocol {
         }
         
         var groups = Array(groupBuckets.values)
-        for windowMap in functions {
-            let f = windowMap.windowFunction
-            let comparators = windowMap.comparators
-            let name = windowMap.variableName
-            let results = groups.map { (results) -> [TermResult] in
-                var newResults = [TermResult]()
-                
-                if case .rowNumber = f {
-                    for (n, result) in evaluateSort(results, comparators: comparators).enumerated() {
+        let f = application.windowFunction
+        let comparators = application.comparators
+        let name = windowMap.variableName
+        let results = groups.map { (results) -> [TermResult] in
+            var newResults = [TermResult]()
+            
+            if case .rowNumber = f {
+                for (n, result) in evaluateSort(results, comparators: comparators).enumerated() {
+                    var r = result
+                    try? r.extend(variable: name, value: Term(integer: n))
+                    newResults.append(r)
+                }
+            } else if case .rank = f {
+                let sorted = evaluateSort(results, comparators: comparators)
+                if sorted.count > 0 {
+                    var last = sorted.first!
+                    var n = 0
+                    
+                    try? last.extend(variable: name, value: Term(integer: n))
+                    newResults.append(last)
+                    
+                    for result in sorted.dropFirst() {
                         var r = result
+                        if !resultsAreEqual(r, last, usingComparators: comparators) {
+                            n += 1
+                        }
                         try? r.extend(variable: name, value: Term(integer: n))
                         newResults.append(r)
                     }
-                } else if case .rank = f {
-                    let sorted = evaluateSort(results, comparators: comparators)
-                    if sorted.count > 0 {
-                        var last = sorted.first!
-                        var n = 0
-                        
-                        try? last.extend(variable: name, value: Term(integer: n))
-                        newResults.append(last)
-                        
-                        for result in sorted.dropFirst() {
-                            var r = result
-                            if !resultsAreEqual(r, last, usingComparators: comparators) {
-                                n += 1
-                            }
-                            try? r.extend(variable: name, value: Term(integer: n))
-                            newResults.append(r)
-                        }
-                    }
                 }
-                
-                return newResults
             }
-            groups = results
+            
+            return newResults
         }
+        groups = results
         
-        let results = groups.flatMap { $0 }
-        return AnyIterator(results.makeIterator())
+        let windowResults = groups.flatMap { $0 }
+        return AnyIterator(windowResults.makeIterator())
     }
     
     internal func alp(term: Term, path: PropertyPath, graph: Term) throws -> AnyIterator<Term> {
@@ -1353,7 +1357,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol>: SimpleQueryEvaluatorProto
             return try effectiveVersion(matching: child, activeGraph: activeGraph)
         case .aggregate(let child, _, _):
             return try effectiveVersion(matching: child, activeGraph: activeGraph)
-        case .window(let child, _, _):
+        case .window(let child, _):
             return try effectiveVersion(matching: child, activeGraph: activeGraph)
         case .service(_):
             return nil

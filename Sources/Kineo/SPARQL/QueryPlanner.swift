@@ -218,9 +218,9 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
         case let .aggregate(child, groups, aggs):
             let p = try plan(algebra: child, activeGraph: activeGraph)
             return AggregationPlan(child: p, groups: groups, aggregates: aggs)
-        case let .window(child, groups, funcs):
+        case let .window(child, funcs):
             let p = try plan(algebra: child, activeGraph: activeGraph)
-            return WindowPlan(child: p, groups: groups, functions: Set(funcs))
+            return WindowPlan(child: p, functions: Set(funcs))
         case let .filter(child, expr):
             var p = try plan(algebra: child, activeGraph: activeGraph)
             let (e, mapping) = try expr.removingExistsExpressions(namingVariables: &freshCounter)

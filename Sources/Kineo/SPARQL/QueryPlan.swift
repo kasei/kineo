@@ -452,9 +452,8 @@ public struct OrderPlan: UnaryQueryPlan {
 
 public struct WindowPlan: UnaryQueryPlan {
     public var child: QueryPlan
-    var groups: [Expression]
     var functions: Set<Algebra.WindowFunctionMapping>
-    public var selfDescription: String { return "Window \(functions) over groups \(groups)" }
+    public var selfDescription: String { return "Window \(functions.map { $0.description }.joined(separator: ", "))" }
     public func evaluate() throws -> AnyIterator<TermResult> {
         print("unimplemented: WindowPlan")
         throw QueryPlanError.unimplemented // TODO: implement

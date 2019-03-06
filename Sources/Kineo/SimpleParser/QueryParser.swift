@@ -118,7 +118,12 @@ open class QueryParser<T: LineReadable> {
             let w = pair[0].split(separator: ",")
             guard w.count > 0 else { throw QueryError.parseError("Bad syntax for window operation") }
             let groupby = pair.count == 2 ? pair[1].split(separator: ",") : []
-            
+
+            let groups = try groupby.map { (gstrings) -> Expression in
+                guard let e = try ExpressionParser.parseExpression(Array(gstrings)) else { throw QueryError.parseError("Failed to parse aggregate expression") }
+                return e
+            }
+
             var windows: [Algebra.WindowFunctionMapping] = []
             for a in w {
                 let strings = Array(a)
@@ -135,17 +140,14 @@ open class QueryParser<T: LineReadable> {
                 default:
                     throw QueryError.parseError("Unexpected window operation: \(op)")
                 }
-                let windowMap = Algebra.WindowFunctionMapping(windowFunction: f, comparators: [], variableName: name)
+                let frame = WindowFrame(type: .rows, from: .unbound, to: .unbound)
+                let windowApp = WindowApplication(windowFunction: f, comparators: [], partition: groups, frame: frame)
+                let windowMap = Algebra.WindowFunctionMapping(windowApplication: windowApp, variableName: name)
                 windows.append(windowMap)
             }
             
-            let groups = try groupby.map { (gstrings) -> Expression in
-                guard let e = try ExpressionParser.parseExpression(Array(gstrings)) else { throw QueryError.parseError("Failed to parse aggregate expression") }
-                return e
-            }
-            
             guard let child = stack.popLast() else { return nil }
-            return .window(child, groups, windows)
+            return .window(child, windows)
         } else if op == "avg" { // (AVG(?key) AS ?name) ... GROUP BY ?x ?y ?z --> "avg key name x y z"
             guard parts.count > 2 else { return nil }
             let key = parts[1]

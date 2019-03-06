@@ -30,6 +30,9 @@ extension SimpleQueryEvaluationTest {
             ("testTermAccessors", testTermAccessors),
             ("testAggregationProjection", testAggregationProjection),
             ("testEmptyAggregation", testEmptyAggregation),
+            ("testRankWindowFunction1", testRankWindowFunction1),
+            ("testRankWindowFunction2", testRankWindowFunction2),
+            ("testRankWindowFunctionWithHaving", testRankWindowFunctionWithHaving),
         ]
     }
 }
@@ -503,6 +506,58 @@ extension QueryEvaluationTests {
         }
     }
     
+    func _testRankWindowFunction1() throws {
+        let data = "SELECT ?s ?p ?o (RANK() OVER (ORDER BY ?o) AS ?rank) WHERE { ?s ?p ?o } ORDER BY DESC(?rank)".data(using: .utf8)!
+        guard var p = SPARQLParser(data: data) else { fatalError("Failed to construct SPARQL parser") }
+        let results = try Array(eval(query: p.parseQuery()))
+        XCTAssertEqual(results.count, 3)
+        
+        let ranks = results.map { $0["rank"]! }.map { $0.numericValue }
+        let values = results.map { $0["o"]! }.map { $0.value }
+        XCTAssertEqual(ranks, [2.0, 1.0, 0.0])
+        XCTAssertEqual(values, [
+            "Santa Monica",
+            "Berlin",
+            "http://www.berlin.de/en/"
+            ])
+    }
+    
+    func _testRankWindowFunction2() throws {
+        let data = "SELECT ?s ?p ?o (RANK() OVER (ORDER BY DESC(?o)) AS ?rank) WHERE { ?s ?p ?o } ORDER BY ASC(?rank)".data(using: .utf8)!
+        guard var p = SPARQLParser(data: data) else { fatalError("Failed to construct SPARQL parser") }
+        let results = try Array(eval(query: p.parseQuery()))
+        XCTAssertEqual(results.count, 3)
+        
+        let ranks = results.map { $0["rank"]! }.map { $0.numericValue }
+        let values = results.map { $0["o"]! }.map { $0.value }
+        XCTAssertEqual(ranks, [0.0, 1.0, 2.0])
+        XCTAssertEqual(values, [
+            "Santa Monica",
+            "Berlin",
+            "http://www.berlin.de/en/"
+            ])
+    }
+    
+    func _testRankWindowFunctionWithHaving() throws {
+        let data = """
+        SELECT ?s ?p ?o (RANK() OVER (ORDER BY ?o) AS ?rank)
+        WHERE { ?s ?p ?o }
+        HAVING (?rank <= 1)
+        ORDER BY ?rank
+        """.data(using: .utf8)!
+        guard var p = SPARQLParser(data: data) else { fatalError("Failed to construct SPARQL parser") }
+        let results = try Array(eval(query: p.parseQuery()))
+        XCTAssertEqual(results.count, 2)
+        
+        let ranks = results.map { $0["rank"]! }.map { $0.numericValue }
+        let values = results.map { $0["o"]! }.map { $0.value }
+        XCTAssertEqual(ranks, [0.0, 1.0])
+        XCTAssertEqual(values, [
+            "http://www.berlin.de/en/",
+            "Berlin",
+            ])
+    }
+
     var testQuads: [Quad] {
         let parser = NTriplesParser(reader: "")
         
@@ -563,6 +618,9 @@ class SimpleQueryEvaluationTest: XCTestCase, QueryEvaluationTests {
     func testTermAccessors() { _testTermAccessors() }
     func testAggregationProjection() { _testAggregationProjection() }
     func testEmptyAggregation() { _testEmptyAggregation() }
+    func testRankWindowFunction1() throws { try _testRankWindowFunction1() }
+    func testRankWindowFunction2() throws { try _testRankWindowFunction2() }
+    func testRankWindowFunctionWithHaving() throws { try _testRankWindowFunctionWithHaving() }
 }
 
 class QueryPlanEvaluationTest: XCTestCase, QueryEvaluationTests {

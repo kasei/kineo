@@ -466,6 +466,8 @@ public class ExpressionEvaluator {
         switch expression {
         case .aggregate(_):
             fatalError("Cannot evaluate an aggregate expression without a query context: \(expression)")
+        case .window(_):
+            fatalError("Cannot evaluate a window expression without a query context: \(expression)")
         case .node(.bound(let term)):
             return term
         case .node(.variable(let name, _)):
