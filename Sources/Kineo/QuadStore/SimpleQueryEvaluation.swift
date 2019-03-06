@@ -836,13 +836,21 @@ extension SimpleQueryEvaluatorProtocol {
             var newResults = [TermResult]()
             
             if case .rowNumber = f {
-                for (n, result) in evaluateSort(results, comparators: comparators).enumerated() {
-                    var r = result
-                    try? r.extend(variable: name, value: Term(integer: n))
-                    newResults.append(r)
+                if comparators.isEmpty {
+                    for (n, result) in results.enumerated() {
+                        var r = result
+                        try? r.extend(variable: name, value: Term(integer: n))
+                        newResults.append(r)
+                    }
+                } else {
+                    for (n, result) in evaluateSort(results, comparators: comparators).enumerated() {
+                        var r = result
+                        try? r.extend(variable: name, value: Term(integer: n))
+                        newResults.append(r)
+                    }
                 }
             } else if case .rank = f {
-                let sorted = evaluateSort(results, comparators: comparators)
+                let sorted = comparators.isEmpty ? results : evaluateSort(results, comparators: comparators)
                 if sorted.count > 0 {
                     var last = sorted.first!
                     var n = 0
@@ -860,7 +868,7 @@ extension SimpleQueryEvaluatorProtocol {
                     }
                 }
             }
-            
+
             return newResults
         }
         groups = results
@@ -1147,6 +1155,9 @@ extension SimpleQueryEvaluatorProtocol {
     }
     
     public func resultsAreEqual(_ a : TermResult, _ b : TermResult, usingComparators comparators: [Algebra.SortComparator]) -> Bool {
+        if comparators.isEmpty {
+            return a == b
+        }
         for cmp in comparators {
             guard var lhs = try? self.ee.evaluate(expression: cmp.expression, result: a) else { return true }
             guard var rhs = try? self.ee.evaluate(expression: cmp.expression, result: b) else { return false }
