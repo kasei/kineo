@@ -525,6 +525,49 @@ extension SimpleQueryEvaluatorProtocol {
             return Term(integer: count)
         }
     }
+
+    public func evaluateAggregation<S: Sequence>(_ agg: Aggregation, group results: S) -> Term? where S.Iterator.Element == TermResult {
+        switch agg {
+        case .countAll:
+            if let n = self.evaluateCountAll(results: results) {
+                return n
+            }
+        case .count(let keyExpr, let distinct):
+            if let n = self.evaluateCount(results: results, expression: keyExpr, distinct: distinct) {
+                return n
+            }
+        case .sum(let keyExpr, let distinct):
+            if let n = self.evaluateSum(results: results, expression: keyExpr, distinct: distinct) {
+                return n
+            }
+        case .avg(let keyExpr, let distinct):
+            if let n = self.evaluateAvg(results: results, expression: keyExpr, distinct: distinct) {
+                return n
+            }
+        case .min(let keyExpr):
+            let terms = results.map { try? self.ee.evaluate(expression: keyExpr, result: $0) }.compactMap { $0 }
+            if terms.count > 0 {
+                let n = terms.reduce(terms.first!) { min($0, $1) }
+                return n
+            }
+        case .max(let keyExpr):
+            let terms = results.map { try? self.ee.evaluate(expression: keyExpr, result: $0) }.compactMap { $0 }
+            if terms.count > 0 {
+                let n = terms.reduce(terms.first!) { max($0, $1) }
+                return n
+            }
+        case .sample(let keyExpr):
+            let terms = results.map { try? self.ee.evaluate(expression: keyExpr, result: $0) }.compactMap { $0 }
+            if let n = terms.first {
+                return n
+            }
+        case .groupConcat(let keyExpr, let sep, let distinct):
+            if let n = self.evaluateGroupConcat(results: results, expression: keyExpr, separator: sep, distinct: distinct) {
+                return n
+            }
+        }
+        return nil
+    }
     
     public func evaluateCountAll<S: Sequence>(results: S) -> Term? where S.Iterator.Element == TermResult {
         var count = 0
@@ -831,31 +874,41 @@ extension SimpleQueryEvaluatorProtocol {
         var groups = Array(groupBuckets.values)
         let f = application.windowFunction
         let comparators = application.comparators
+        let frame = application.frame
         let name = windowMap.variableName
         let results = groups.map { (results) -> [TermResult] in
             var newResults = [TermResult]()
-            
-            if case .rowNumber = f {
-                if comparators.isEmpty {
-                    for (n, result) in results.enumerated() {
+            let sorted = comparators.isEmpty ? results : evaluateSort(results, comparators: comparators)
+
+            switch f {
+            case .aggregation(let agg):
+                do {
+                    var w = try frame.startRowsRange()
+                    for result in sorted {
+                        let range = w.indices(relativeTo: sorted)
+                        let group = sorted[range]
                         var r = result
-                        try? r.extend(variable: name, value: Term(integer: n))
+                        if let term = self.evaluateAggregation(agg, group: group) {
+                            try? r.extend(variable: name, value: term)
+                        }
                         newResults.append(r)
+                        w.slide(by: 1)
                     }
-                } else {
-                    for (n, result) in evaluateSort(results, comparators: comparators).enumerated() {
-                        var r = result
-                        try? r.extend(variable: name, value: Term(integer: n))
-                        newResults.append(r)
-                    }
+                } catch {}
+            case .rowNumber:
+                // ROW_NUMBER ignores any specified window frame
+                for (n, result) in sorted.enumerated() {
+                    var r = result
+                    try? r.extend(variable: name, value: Term(integer: n+1))
+                    newResults.append(r)
                 }
-            } else if case .rank = f {
-                let sorted = comparators.isEmpty ? results : evaluateSort(results, comparators: comparators)
+            case .rank:
+                // RANK ignores any specified window frame
                 if sorted.count > 0 {
                     var last = sorted.first!
                     var n = 0
                     
-                    try? last.extend(variable: name, value: Term(integer: n))
+                    try? last.extend(variable: name, value: Term(integer: n+1))
                     newResults.append(last)
                     
                     for result in sorted.dropFirst() {
@@ -863,7 +916,7 @@ extension SimpleQueryEvaluatorProtocol {
                         if !resultsAreEqual(r, last, usingComparators: comparators) {
                             n += 1
                         }
-                        try? r.extend(variable: name, value: Term(integer: n))
+                        try? r.extend(variable: name, value: Term(integer: n+1))
                         newResults.append(r)
                     }
                 }
@@ -1100,7 +1153,7 @@ extension SimpleQueryEvaluatorProtocol {
             groupBindings[""] = [:]
         }
         var a = groupBuckets.makeIterator()
-        return AnyIterator {
+        return AnyIterator { () -> TermResult? in
             guard let pair = a.next() else { return nil }
             let (groupKey, results) = pair
             guard var bindings = groupBindings[groupKey] else {
@@ -1110,44 +1163,8 @@ extension SimpleQueryEvaluatorProtocol {
             for aggMap in aggs {
                 let agg = aggMap.aggregation
                 let name = aggMap.variableName
-                switch agg {
-                case .countAll:
-                    if let n = self.evaluateCountAll(results: results) {
-                        bindings[name] = n
-                    }
-                case .count(let keyExpr, let distinct):
-                    if let n = self.evaluateCount(results: results, expression: keyExpr, distinct: distinct) {
-                        bindings[name] = n
-                    }
-                case .sum(let keyExpr, let distinct):
-                    if let n = self.evaluateSum(results: results, expression: keyExpr, distinct: distinct) {
-                        bindings[name] = n
-                    }
-                case .avg(let keyExpr, let distinct):
-                    if let n = self.evaluateAvg(results: results, expression: keyExpr, distinct: distinct) {
-                        bindings[name] = n
-                    }
-                case .min(let keyExpr):
-                    let terms = results.map { try? self.ee.evaluate(expression: keyExpr, result: $0) }.compactMap { $0 }
-                    if terms.count > 0 {
-                        let n = terms.reduce(terms.first!) { min($0, $1) }
-                        bindings[name] = n
-                    }
-                case .max(let keyExpr):
-                    let terms = results.map { try? self.ee.evaluate(expression: keyExpr, result: $0) }.compactMap { $0 }
-                    if terms.count > 0 {
-                        let n = terms.reduce(terms.first!) { max($0, $1) }
-                        bindings[name] = n
-                    }
-                case .sample(let keyExpr):
-                    let terms = results.map { try? self.ee.evaluate(expression: keyExpr, result: $0) }.compactMap { $0 }
-                    if let n = terms.first {
-                        bindings[name] = n
-                    }
-                case .groupConcat(let keyExpr, let sep, let distinct):
-                    if let n = self.evaluateGroupConcat(results: results, expression: keyExpr, separator: sep, distinct: distinct) {
-                        bindings[name] = n
-                    }
+                if let term = self.evaluateAggregation(agg, group: results) {
+                    bindings[name] = term
                 }
             }
             return TermResult(bindings: bindings)
