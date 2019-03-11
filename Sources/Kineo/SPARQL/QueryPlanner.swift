@@ -220,7 +220,19 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
             return AggregationPlan(child: p, groups: groups, aggregates: aggs)
         case let .window(child, funcs):
             let p = try plan(algebra: child, activeGraph: activeGraph)
-            return WindowPlan(child: p, functions: Set(funcs))
+            guard funcs.count == 1, let f = funcs.first else {
+                throw QueryError.evaluationError("Unimplmented: Query plan evaluation of multiple window functions")
+            }
+            
+            let app = f.windowApplication
+            let partitionComparators = app.partition.map { Algebra.SortComparator(ascending: true, expression: $0) }
+            let orderComparators = app.comparators
+            let sorted = OrderPlan(
+                child: p,
+                comparators: partitionComparators + orderComparators,
+                evaluator: evaluator
+            )
+            return WindowPlan(child: sorted, function: f, evaluator: evaluator)
         case let .filter(child, expr):
             var p = try plan(algebra: child, activeGraph: activeGraph)
             let (e, mapping) = try expr.removingExistsExpressions(namingVariables: &freshCounter)

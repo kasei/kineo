@@ -451,12 +451,92 @@ public struct OrderPlan: UnaryQueryPlan {
 }
 
 public struct WindowPlan: UnaryQueryPlan {
+    // NOTE: WindowPlan assumes the child plan is sorted in the expected order of the window application's partitioning and sort comparators
     public var child: QueryPlan
-    var functions: Set<Algebra.WindowFunctionMapping>
-    public var selfDescription: String { return "Window \(functions.map { $0.description }.joined(separator: ", "))" }
+    var function: Algebra.WindowFunctionMapping
+    var evaluator: ExpressionEvaluator
+    public var selfDescription: String {
+        return "Window \(function.description))"
+    }
+    
+    private func partition<I: IteratorProtocol>(_ results: I, by partition: [Expression]) -> AnyIterator<AnyIterator<TermResult>> where I.Element == TermResult {
+        let ee = evaluator
+        let seq = AnySequence { return results }
+        let withGroups = seq.lazy.map { (r) -> (TermResult, [Term?]) in
+            let group = partition.map { try? ee.evaluate(expression: $0, result: r) }
+            return (r, group)
+        }
+        var buffer = [TermResult]()
+        var currentGroup = [Term?]()
+        var i = withGroups.makeIterator()
+        let grouped = AnyIterator { () -> AnyIterator<TermResult>? in
+            while true {
+                guard let pair = i.next() else {
+                    if buffer.isEmpty {
+                        return nil
+                    } else {
+                        let b = buffer
+                        buffer = []
+                        return AnyIterator(b.makeIterator())
+                    }
+                }
+                let r = pair.0
+                let g = pair.1
+                if g != currentGroup {
+                    currentGroup = g
+                    if !buffer.isEmpty {
+                        let b = buffer
+                        buffer = []
+                        return AnyIterator(b.makeIterator())
+                    }
+                }
+                buffer.append(r)
+            }
+        }
+        
+        return grouped
+    }
+    
     public func evaluate() throws -> AnyIterator<TermResult> {
-        print("unimplemented: WindowPlan")
-        throw QueryPlanError.unimplemented // TODO: implement
+        let app = function.windowApplication
+        let group = app.partition
+        let results = try child.evaluate()
+        let partitionGroups = partition(results, by: group)
+        let v = function.variableName
+        
+        let groups = AnySequence(partitionGroups).lazy.map { (g) -> [TermResult] in
+            let groupResults = g.lazy.enumerated().map { (i, r) -> TermResult in
+                let rr = r.extended(variable: v, value: Term(integer: i+1)) ?? r
+                return rr
+            }
+            return groupResults
+        }
+        let groupsResults = groups.flatMap { $0 }
+
+        switch app.windowFunction {
+        case .rank:
+            // RANK ignores any specified window frame
+            let order = app.comparators
+            print("TODO: implement peer equality tests in WindowPlan RANK handling")
+            return AnyIterator(groupsResults.makeIterator())
+        case .rowNumber:
+            // ROW_NUMBER ignores any specified window frame
+            return AnyIterator(groupsResults.makeIterator())
+        case .aggregation(let agg):
+            let frame = app.frame
+            print("unimplemented: query plan aggregate window function \(agg)")
+            throw QueryPlanError.unimplemented // TODO: implement
+        }
+        
+        /**
+         
+         For each group:
+            * Buffer each TermResult in the group
+            * create a sequence that will emit a Sequence<TermResult> with the window value
+            * zip the group buffer and the window sequence, produing a joined result sequence
+         Return the concatenation of each group's zipped result sequence
+         
+         **/
     }
 }
 

@@ -695,4 +695,8 @@ class QueryPlanEvaluationTest: XCTestCase, QueryEvaluationTests {
     func testTermAccessors() { _testTermAccessors() }
     func testAggregationProjection() { _testAggregationProjection() }
     func testEmptyAggregation() { _testEmptyAggregation() }
+    func testRankWindowFunction1() throws { try _testRankWindowFunction1() }
+    func testRankWindowFunction2() throws { try _testRankWindowFunction2() }
+    func testRankWindowFunctionWithHaving() throws { try _testRankWindowFunctionWithHaving() }
+    func testAggregateWindowFunction() throws { try _testAggregateWindowFunction() }
 }
