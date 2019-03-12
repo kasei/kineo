@@ -33,6 +33,9 @@ extension SimpleQueryEvaluationTest {
             ("testRankWindowFunction1", testRankWindowFunction1),
             ("testRankWindowFunction2", testRankWindowFunction2),
             ("testRankWindowFunctionWithHaving", testRankWindowFunctionWithHaving),
+            ("testAggregateWindowFunction1", testAggregateWindowFunction1),
+            ("testAggregateWindowFunction2", testAggregateWindowFunction2),
+
         ]
     }
 }
@@ -63,6 +66,11 @@ extension QueryPlanEvaluationTest {
             ("testTermAccessors", testTermAccessors),
             ("testAggregationProjection", testAggregationProjection),
             ("testEmptyAggregation", testEmptyAggregation),
+            ("testRankWindowFunction1", testRankWindowFunction1),
+            ("testRankWindowFunction2", testRankWindowFunction2),
+            ("testRankWindowFunctionWithHaving", testRankWindowFunctionWithHaving),
+            ("testAggregateWindowFunction1", testAggregateWindowFunction1),
+            ("testAggregateWindowFunction2", testAggregateWindowFunction2),
         ]
     }
 }
@@ -558,7 +566,7 @@ extension QueryEvaluationTests {
             ])
     }
     
-    func _testAggregateWindowFunction() throws {
+    func _testAggregateWindowFunction1() throws {
         let data = """
         PREFIX : <http://example.org/>
         SELECT ?date ?value (AVG(?value) OVER (ORDER BY ?date ROWS BETWEEN 2 PRECEDING AND CURRENT ROW) AS ?movingAverage) WHERE {
@@ -580,6 +588,37 @@ extension QueryEvaluationTests {
         let avgs = results.map { $0["movingAverage"] }.compactMap { $0?.numericValue }
         let values = results.map { $0["value"]! }.compactMap { $0.numericValue }
         let expectedAvgs = [1.0, 1.5, 2.0, 1.0, 3.0, 2.9, 3.0]
+        let expectedValues = [1.0, 2.0, 3.0, -2.0, 8.0, 2.7, -1.7]
+        for (got, expected) in zip(avgs, expectedAvgs) {
+            XCTAssertEqual(got, expected, accuracy: 0.01)
+        }
+        for (got, expected) in zip(values, expectedValues) {
+            XCTAssertEqual(got, expected, accuracy: 0.01)
+        }
+    }
+    
+    func _testAggregateWindowFunction2() throws {
+        let data = """
+        PREFIX : <http://example.org/>
+        SELECT ?date ?value (AVG(?value) OVER (ORDER BY ?date ROWS BETWEEN 3 PRECEDING AND CURRENT ROW) AS ?movingAverage) WHERE {
+            VALUES (?date ?value) {
+                (1 1.0) # 1.0
+                (2 2.0) # 1.5
+                (3 3.0) # 2.0
+                (4 -2.0) # 1.0
+                (5 8.0) # 3.0
+                (6 2.7) # 2.9
+                (7 -1.7) # 3.0
+            }
+        }
+        """.data(using: .utf8)!
+        guard var p = SPARQLParser(data: data) else { fatalError("Failed to construct SPARQL parser") }
+        let results = try Array(eval(query: p.parseQuery()))
+        XCTAssertEqual(results.count, 7)
+        
+        let avgs = results.map { $0["movingAverage"] }.compactMap { $0?.numericValue }
+        let values = results.map { $0["value"]! }.compactMap { $0.numericValue }
+        let expectedAvgs = [1.0, 1.5, 2.0, 1.0, 2.75, 2.925, 1.75]
         let expectedValues = [1.0, 2.0, 3.0, -2.0, 8.0, 2.7, -1.7]
         for (got, expected) in zip(avgs, expectedAvgs) {
             XCTAssertEqual(got, expected, accuracy: 0.01)
@@ -652,7 +691,8 @@ class SimpleQueryEvaluationTest: XCTestCase, QueryEvaluationTests {
     func testRankWindowFunction1() throws { try _testRankWindowFunction1() }
     func testRankWindowFunction2() throws { try _testRankWindowFunction2() }
     func testRankWindowFunctionWithHaving() throws { try _testRankWindowFunctionWithHaving() }
-    func testAggregateWindowFunction() throws { try _testAggregateWindowFunction() }
+    func testAggregateWindowFunction1() throws { try _testAggregateWindowFunction1() }
+    func testAggregateWindowFunction2() throws { try _testAggregateWindowFunction2() }
 }
 
 class QueryPlanEvaluationTest: XCTestCase, QueryEvaluationTests {
@@ -698,5 +738,6 @@ class QueryPlanEvaluationTest: XCTestCase, QueryEvaluationTests {
     func testRankWindowFunction1() throws { try _testRankWindowFunction1() }
     func testRankWindowFunction2() throws { try _testRankWindowFunction2() }
     func testRankWindowFunctionWithHaving() throws { try _testRankWindowFunctionWithHaving() }
-    func testAggregateWindowFunction() throws { try _testAggregateWindowFunction() }
+    func testAggregateWindowFunction1() throws { try _testAggregateWindowFunction1() }
+    func testAggregateWindowFunction2() throws { try _testAggregateWindowFunction2() }
 }

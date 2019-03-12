@@ -11,6 +11,7 @@ import SPARQLSyntax
 enum QueryPlanError : Error {
     case invalidChild
     case unimplemented
+    case nonConstantExpression
 }
 
 public protocol PlanSerializable {
@@ -504,28 +505,46 @@ public struct WindowPlan: UnaryQueryPlan {
         let partitionGroups = partition(results, by: group)
         let v = function.variableName
         
-        let groups = AnySequence(partitionGroups).lazy.map { (g) -> [TermResult] in
-            let groupResults = g.lazy.enumerated().map { (i, r) -> TermResult in
-                let rr = r.extended(variable: v, value: Term(integer: i+1)) ?? r
-                return rr
-            }
-            return groupResults
-        }
-        let groupsResults = groups.flatMap { $0 }
-
         switch app.windowFunction {
         case .rank:
             // RANK ignores any specified window frame
+            let groups = AnySequence(partitionGroups).lazy.map { (g) -> [TermResult] in
+                let groupResults = g.lazy.enumerated().map { (i, r) -> TermResult in
+                    let rr = r.extended(variable: v, value: Term(integer: i+1)) ?? r
+                    return rr
+                }
+                return groupResults
+            }
+            let groupsResults = groups.flatMap { $0 }
             let order = app.comparators
             print("TODO: implement peer equality tests in WindowPlan RANK handling")
             return AnyIterator(groupsResults.makeIterator())
         case .rowNumber:
             // ROW_NUMBER ignores any specified window frame
+            let groups = AnySequence(partitionGroups).lazy.map { (g) -> [TermResult] in
+                let groupResults = g.lazy.enumerated().map { (i, r) -> TermResult in
+                    let rr = r.extended(variable: v, value: Term(integer: i+1)) ?? r
+                    return rr
+                }
+                return groupResults
+            }
+            let groupsResults = groups.flatMap { $0 }
             return AnyIterator(groupsResults.makeIterator())
         case .aggregation(let agg):
             let frame = app.frame
-            print("unimplemented: query plan aggregate window function \(agg)")
-            throw QueryPlanError.unimplemented // TODO: implement
+            let impl = windowAggregation(agg)
+            let seq = AnySequence(partitionGroups)
+            let groups = try seq.lazy.map { (g) -> [TermResult] in
+                let groupResults = try impl.evaluate(
+                    g,
+                    frame: frame,
+                    variableName: v,
+                    evaluator: evaluator
+                )
+                return Array(groupResults)
+            }
+            let groupsResults = groups.flatMap { $0 }
+            return AnyIterator(groupsResults.makeIterator())
         }
         
         /**
@@ -538,6 +557,271 @@ public struct WindowPlan: UnaryQueryPlan {
          
          **/
     }
+    
+    struct SlidingWindowImplementation {
+        var add: (TermResult) -> ()
+        var remove: (TermResult) -> ()
+        var value: () -> Term?
+
+        func evaluate<I: IteratorProtocol>(_ group: I, frame: WindowFrame, variableName: String, evaluator: ExpressionEvaluator) throws -> AnyIterator<TermResult> where I.Element == TermResult {
+            switch (frame.from, frame.to) {
+            case (_, .current):
+                return try evaluateToCurrent(group, frame: frame, variableName: variableName, evaluator: evaluator)
+            default:
+                print("*** unimplemented: WindowPlan.evaluate(_:frame:variableName:)")
+                throw QueryPlanError.unimplemented
+            }
+        }
+        
+        func evaluateToCurrent<I: IteratorProtocol>(_ group: I, frame: WindowFrame, variableName: String, evaluator: ExpressionEvaluator) throws -> AnyIterator<TermResult> where I.Element == TermResult {
+            var precedingLimit: Int? = nil
+            switch frame.from {
+            case .preceding(let expr):
+                let t = try evaluator.evaluate(expression: expr, result: TermResult(bindings: [:]))
+                guard let n = t.numeric else {
+                    throw QueryPlanError.nonConstantExpression
+                }
+                precedingLimit = Int(n.value)
+            default:
+                break
+            }
+            
+            var group = group
+            if case .unbound = frame.from {
+                let i = AnyIterator { () -> TermResult? in
+                    guard let r = group.next() else { return nil }
+                    self.add(r)
+                    var result = r
+                    if let v = self.value() {
+                        result = result.extended(variable: variableName, value: v) ?? result
+                    }
+                    return result
+                }
+                return i
+            } else if case .current = frame.from {
+                let i = AnyIterator { () -> TermResult? in
+                    guard let r = group.next() else { return nil }
+                    self.add(r)
+                    var result = r
+                    if let v = self.value() {
+                        result = result.extended(variable: variableName, value: v) ?? result
+                    }
+                    self.remove(r)
+                    return result
+                }
+                return i
+            } else {
+                var buffer = [TermResult]()
+                let i = AnyIterator { () -> TermResult? in
+                    guard let r = group.next() else { return nil }
+                    if let l = precedingLimit, !buffer.isEmpty, buffer.count > l {
+                        let r = buffer.first!
+                        self.remove(r)
+                        buffer.removeFirst()
+                    }
+                    buffer.append(r)
+                    self.add(r)
+                    var result = r
+                    if let v = self.value() {
+                        result = result.extended(variable: variableName, value: v) ?? result
+                    }
+                    return result
+                }
+                return i
+            }
+        }
+    }
+    
+    private func windowAggregation(_ agg: Aggregation) -> SlidingWindowImplementation {
+        let ee = evaluator
+        switch agg {
+        case .countAll:
+            var value = 0
+            return SlidingWindowImplementation(
+                add: { (_) in value += 1 },
+                remove: { (_) in value -= 1 },
+                value: { return Term(integer: value) }
+            )
+        case .count(let expr, _):
+            var value = 0
+            return SlidingWindowImplementation(
+                add: { (r) in
+                    if let _ = try? ee.evaluate(expression: expr, result: r) {
+                        value += 1
+                    }
+                },
+                remove: { (r) in
+                    if let _ = try? ee.evaluate(expression: expr, result: r) {
+                        value -= 1
+                    }
+                },
+                value: { return Term(integer: value) }
+            )
+        case .sum(let expr, _):
+            var intCount = 0
+            var fltCount = 0
+            var decCount = 0
+            var dblCount = 0
+            var int = NumericValue.integer(0)
+            var flt = NumericValue.float(mantissa: 0, exponent: 0)
+            var dec = NumericValue.decimal(Decimal(integerLiteral: 0))
+            var dbl = NumericValue.double(mantissa: 0, exponent: 0)
+            return SlidingWindowImplementation(
+                add: { (r) in
+                    if let t = try? ee.evaluate(expression: expr, result: r), let n = t.numeric {
+                        switch n {
+                        case .integer(_):
+                            intCount += 1
+                            int += n
+                        case .float(_):
+                            fltCount += 1
+                            flt += n
+                        case .decimal(_):
+                            decCount += 1
+                            dec += n
+                        case .double(_):
+                            dblCount += 1
+                            dbl += n
+                        }
+                    }
+                },
+                remove: { (r) in
+                    if let t = try? ee.evaluate(expression: expr, result: r), let n = t.numeric {
+                        switch n {
+                        case .integer(_):
+                            intCount -= 1
+                            int -= n
+                        case .float(_):
+                            fltCount -= 1
+                            flt -= n
+                        case .decimal(_):
+                            decCount -= 1
+                            dec -= n
+                        case .double(_):
+                            dblCount -= 1
+                            dbl -= n
+                        }
+                    }
+                },
+                value: {
+                    var value = NumericValue.integer(0)
+                    if intCount > 0 { value += int }
+                    if fltCount > 0 { value += flt }
+                    if decCount > 0 { value += dec }
+                    if dblCount > 0 { value += dbl }
+                    return value.term
+                }
+            )
+        case .avg(let expr, _):
+            var intCount = 0
+            var fltCount = 0
+            var decCount = 0
+            var dblCount = 0
+            var int = NumericValue.integer(0)
+            var flt = NumericValue.float(mantissa: 0, exponent: 0)
+            var dec = NumericValue.decimal(Decimal(integerLiteral: 0))
+            var dbl = NumericValue.double(mantissa: 0, exponent: 0)
+            return SlidingWindowImplementation(
+                add: { (r) in
+                    if let t = try? ee.evaluate(expression: expr, result: r), let n = t.numeric {
+                        switch n {
+                        case .integer(_):
+                            intCount += 1
+                            int += n
+                        case .float(_):
+                            fltCount += 1
+                            flt += n
+                        case .decimal(_):
+                            decCount += 1
+                            dec += n
+                        case .double(_):
+                            dblCount += 1
+                            dbl += n
+                        }
+                    }
+                },
+                remove: { (r) in
+                    if let t = try? ee.evaluate(expression: expr, result: r), let n = t.numeric {
+                        switch n {
+                        case .integer(_):
+                            intCount -= 1
+                            int -= n
+                        case .float(_):
+                            fltCount -= 1
+                            flt -= n
+                        case .decimal(_):
+                            decCount -= 1
+                            dec -= n
+                        case .double(_):
+                            dblCount -= 1
+                            dbl -= n
+                        }
+                    }
+                },
+                value: {
+                    var value = NumericValue.integer(0)
+                    if intCount > 0 { value += int }
+                    if fltCount > 0 { value += flt }
+                    if decCount > 0 { value += dec }
+                    if dblCount > 0 { value += dbl }
+                    let count = NumericValue.integer(intCount + fltCount + decCount + dblCount)
+                    return (value / count).term
+                }
+            )
+        case .min(let expr):
+            var values = [Term]()
+            return SlidingWindowImplementation(
+                add: { (r) in
+                    if let t = try? ee.evaluate(expression: expr, result: r) {
+                        values.append(t)
+                    }
+                },
+                remove: { (r) in
+                    if let t = try? ee.evaluate(expression: expr, result: r) {
+                        if let i = values.firstIndex(of: t) {
+                            precondition(i == 0)
+                            values.remove(at: i)
+                        }
+                    }
+                },
+                value: { return values.min() }
+            )
+        case .max(let expr):
+            var values = [Term]()
+            return SlidingWindowImplementation(
+                add: { (r) in
+                    if let t = try? ee.evaluate(expression: expr, result: r) {
+                        values.append(t)
+                    }
+                },
+                remove: { (r) in
+                    if let t = try? ee.evaluate(expression: expr, result: r) {
+                        if let i = values.firstIndex(of: t) {
+                            precondition(i == 0)
+                            values.remove(at: i)
+                        }
+                    }
+                },
+                value: { return values.max() }
+            )
+        case .sample(let expr):
+            var value : Term? = nil
+            return SlidingWindowImplementation(
+                add: { (r) in
+                    if let t = try? ee.evaluate(expression: expr, result: r) {
+                        value = t
+                    }
+                },
+                remove: { (_) in return },
+                value: { return value }
+            )
+        case .groupConcat(let expr, let sep, _):
+            fatalError("unimplemented: Window GROUP_CONCAT") // TODO: implement
+        }
+        
+        
+    }
+    
 }
 
 public struct HeapSortLimitPlan: UnaryQueryPlan {
