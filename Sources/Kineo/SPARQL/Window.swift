@@ -35,7 +35,7 @@ public struct WindowRowsRange {
     }
 }
 
-extension WindowFrame {
+public extension WindowFrame {
     private func offsetValue(for bound: FrameBound, evaluator ee: ExpressionEvaluator) throws -> Int? {
         switch bound {
         case .unbound:
