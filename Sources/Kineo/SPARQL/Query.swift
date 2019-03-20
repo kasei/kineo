@@ -61,11 +61,15 @@ extension QuadPattern {
     }
 }
 
-extension Query {
-    func execute<Q: QuadStoreProtocol>(quadstore: Q, defaultGraph: Term) throws -> QueryResult<[TermResult], [Triple]> {
+public extension Query {
+    func execute<Q: QuadStoreProtocol>(quadstore: Q, defaultGraph: Term, bind: [String:Term]? = nil) throws -> QueryResult<[TermResult], [Triple]> {
         let dataset = quadstore.dataset(withDefault: defaultGraph)
         let e       = SimpleQueryEvaluator(store: quadstore, dataset: dataset, verbose: false)
-        let result = try e.evaluate(query: self)
+        var q = self
+        if let bind = bind {
+            q = try q.replace(bind)
+        }
+        let result = try e.evaluate(query: q)
         return result
     }
 }
