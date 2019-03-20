@@ -92,17 +92,7 @@ public struct Graph<QS: QuadStoreProtocol> {
     }
     
     public func vertices() throws -> [GraphVertex<QS>] {
-        var outQp = QuadPattern.all
-        outQp.graph = .bound(term)
-        let oq = try store.quads(matching: outQp)
-        let outV = Set(oq.map { $0.object })
-        
-        var inQp = QuadPattern.all
-        inQp.graph = .bound(term)
-        let iq = try store.quads(matching: inQp)
-        let inV = Set(iq.map { $0.subject })
-        
-        let vertices = outV.union(inV)
+        let vertices = store.graphTerms(in: term)
         return vertices.map { GraphVertex(store: store, graph: self, term: $0) }
     }
     

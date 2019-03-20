@@ -64,9 +64,6 @@ class GraphAPITest: XCTestCase {
         let v2 = incoming[0]
         XCTAssertEqual(v2.term.value, "greg")
         
-        for q in s {
-            print(q)
-        }
         let lists = try graph.extensionOf(Term(iri: "http://example.org/base/values"))
         XCTAssertEqual(lists.count, 1)
         let list = lists[0].1
