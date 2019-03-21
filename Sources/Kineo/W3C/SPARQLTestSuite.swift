@@ -419,16 +419,15 @@ public struct SPARQLTestRunner {
         if verbose {
             print("Retrieving evaluation tests from manifest file...")
         }
-        let testType : Node = type == nil ? .variable("test_type", binding: false) : .bound(type!)
         let sparql = """
         PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
         PREFIX mf: <http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#>
         PREFIX qt: <http://www.w3.org/2001/sw/DataAccess/tests/test-query#>
         PREFIX dawgt: <http://www.w3.org/2001/sw/DataAccess/tests/test-dawg#>
         SELECT * WHERE {
-            <\(manifest.value)> a mf:Manifest ;
+            ?manifest a mf:Manifest ;
                 mf:entries/rdf:rest*/rdf:first ?test .
-            ?test a \(testType) ;
+            ?test a ?test_type ;
                 mf:action ?action ;
                 mf:result ?result ;
                 dawgt:approval dawgt:Approved .
@@ -437,7 +436,11 @@ public struct SPARQLTestRunner {
         """
         guard var p = SPARQLParser(data: sparql.data(using: .utf8)!) else { fatalError("Failed to construct SPARQL parser") }
         let q = try p.parseQuery()
-        let result = try q.execute(quadstore: quadstore, defaultGraph: manifest)
+        var bind = ["manifest": manifest]
+        if let tt = type {
+            bind["test_type"] = tt
+        }
+        let result = try q.execute(quadstore: quadstore, defaultGraph: manifest, bind: bind)
         var results = [TermResult]()
         guard case let .bindings(_, iter) = result else { fatalError() }
         for result in iter {
@@ -450,22 +453,25 @@ public struct SPARQLTestRunner {
         if verbose {
             print("Retrieving syntax tests from manifest file...")
         }
-        let testType : Node = type == nil ? .variable("test_type", binding: false) : .bound(type!)
         let sparql = """
         PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
         PREFIX mf: <http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#>
         PREFIX dawgt: <http://www.w3.org/2001/sw/DataAccess/tests/test-dawg#>
         SELECT * WHERE {
-            <\(manifest.value)> a mf:Manifest ;
+            ?manifest a mf:Manifest ;
                 mf:entries/rdf:rest*/rdf:first ?test .
-            ?test a \(testType.description) ;
+            ?test a ?test_type ;
                 mf:action ?action ;
                 dawgt:approval dawgt:Approved .
         }
         """
         guard var p = SPARQLParser(data: sparql.data(using: .utf8)!) else { fatalError("Failed to construct SPARQL parser") }
         let q = try p.parseQuery()
-        let result = try q.execute(quadstore: quadstore, defaultGraph: manifest)
+        var bind = ["manifest": manifest]
+        if let tt = type {
+            bind["test_type"] = tt
+        }
+        let result = try q.execute(quadstore: quadstore, defaultGraph: manifest, bind: bind)
         var results = [TermResult]()
         guard case let .bindings(_, iter) = result else { fatalError() }
         for result in iter {
