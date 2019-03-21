@@ -8,19 +8,46 @@
 import Foundation
 import SPARQLSyntax
 
+public protocol GraphProtocol {
+    associatedtype VertexType
+    var term: Term { get }
+    
+    func instancesOf(_ type: Term) throws -> [VertexType]
+    func vertex(_ term: Term) -> VertexType
+    func vertices() throws -> [VertexType]
+    func extensionOf(_ predicate: Term) throws -> [(VertexType, VertexType)]
+}
+
+public protocol GraphVertexProtocol {
+    associatedtype VertexType
+    associatedtype GraphType
+    var term: Term { get }
+    
+    func listElements() throws -> [VertexType]
+    func incoming(_ predicate: Term) throws -> [VertexType]
+    func outgoing(_ predicate: Term) throws -> [VertexType]
+    func incoming() throws -> Set<Term>
+    func outgoing() throws -> Set<Term>
+    func edges() throws -> [(Term, VertexType)]
+    func graphs() throws -> [GraphType]
+}
+
 public enum GraphAPI {
-    public struct GraphVertex<QS: QuadStoreProtocol> {
+    public struct GraphVertex<QS: QuadStoreProtocol>: GraphVertexProtocol {
+        public typealias VertexType = GraphVertex<QS>
+        public typealias GraphType = Graph<QS>
+
         var store: QS
         var graph: Graph<QS>
         public var term: Term
         
-        public func listElements() throws -> [GraphVertex] {
+        public func listElements() throws -> [GraphVertex<QS>] {
             let first = Term(iri: Namespace.rdf.first)
             let rest = Term(iri: Namespace.rdf.rest)
             let _nil = Term(iri: Namespace.rdf.nil)
             
             var head = self
-            var values = [GraphVertex]()
+            var values = [GraphVertex<QS>]()
             while head.term != _nil {
                 values += try head.outgoing(first)
                 guard let tail = try head.outgoing(rest).first else {
@@ -92,11 +119,13 @@ public enum GraphAPI {
         
     }
 
-    public struct Graph<QS: QuadStoreProtocol> {
+    public struct Graph<QS: QuadStoreProtocol>: GraphProtocol {
+        public typealias VertexType = GraphVertex<QS>
+        
         var store: QS
         public var term: Term
         
-        public func instancesOf(_ type: Term) throws -> [GraphVertex<QS>] {
+        public func instancesOf(_ type: Term) throws -> [VertexType] {
             var qp = QuadPattern.all
             qp.predicate = .bound(Term(iri: Namespace.rdf.type))
             qp.object = .bound(type)
@@ -106,16 +135,16 @@ public enum GraphAPI {
             return subjects
         }
         
-        public func vertex(_ term: Term) -> GraphVertex<QS> {
+        public func vertex(_ term: Term) -> VertexType {
             return GraphVertex(store: store, graph: self, term: term)
         }
         
-        public func vertices() throws -> [GraphVertex<QS>] {
+        public func vertices() throws -> [VertexType] {
             let vertices = store.graphTerms(in: term)
             return vertices.map { GraphVertex(store: store, graph: self, term: $0) }
         }
         
-        public func extensionOf(_ predicate: Term) throws -> [(GraphVertex<QS>, GraphVertex<QS>)] {
+        public func extensionOf(_ predicate: Term) throws -> [(VertexType, VertexType)] {
             var qp = QuadPattern.all
             qp.predicate = .bound(predicate)
             qp.graph = .bound(term)
