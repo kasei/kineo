@@ -59,7 +59,7 @@ public extension WindowFrame {
         }
     }
     
-    public func startRowsRange() throws -> WindowRowsRange {
+    func startRowsRange() throws -> WindowRowsRange {
         let ee = ExpressionEvaluator(base: nil)
         let begin = try offsetValue(for: from, evaluator: ee)
         let end = try offsetValue(for: to, evaluator: ee)

@@ -39,6 +39,7 @@ public protocol BGPQuadStoreProtocol: QuadStoreProtocol {
 
 public enum MutableQuadStoreProtocolError: Error {
     case missingMapping(UInt64)
+    case loadingError(String)
 }
 
 public protocol MutableQuadStoreProtocol: QuadStoreProtocol {
@@ -67,6 +68,32 @@ extension MutableQuadStoreProtocol {
         }
         try load(version: version, quads: materialized)
     }
+    
+    public func load(version: Version, files: [String], graph defaultGraphTerm: Term? = nil) throws {
+        for filename in files {
+            #if os (OSX)
+            guard let path = NSURL(fileURLWithPath: filename).absoluteString else {
+                throw MutableQuadStoreProtocolError.loadingError("Not a valid graph path: \(filename)")
+            }
+            #else
+            let path = NSURL(fileURLWithPath: filename).absoluteString
+            #endif
+            let graph   = defaultGraphTerm ?? Term(value: path, type: .iri)
+            
+            let syntax = RDFParserCombined.guessSyntax(filename: filename)
+            let parser = RDFParserCombined()
+            var quads = [Quad]()
+            //                    print("Parsing RDF...")
+            _ = try parser.parse(file: filename, syntax: syntax, base: graph.value) { (s, p, o) in
+                let q = Quad(subject: s, predicate: p, object: o, graph: graph)
+                quads.append(q)
+            }
+            
+            //                    print("Loading RDF...")
+            try load(version: version, quads: quads)
+        }
+    }
+
 }
 
 extension Term {
@@ -80,6 +107,12 @@ extension QuadStoreProtocol {
         var named = Set(self.graphs())
         named.remove(defaultGraph)
         let dataset = Dataset(defaultGraphs: [defaultGraph], namedGraphs: Array(named))
+        return dataset
+    }
+    
+    public func dataset() -> Dataset {
+        let named = self.graphs()
+        let dataset = Dataset(defaultGraphs: [], namedGraphs: Array(named))
         return dataset
     }
     

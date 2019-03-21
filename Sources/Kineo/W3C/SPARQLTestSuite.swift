@@ -33,38 +33,15 @@ public struct SPARQLTestRunner {
         self.quadstore = MemoryQuadStore()
     }
     
-    func parse<Q : MutableQuadStoreProtocol>(version: Version, quadstore: Q, files: [String], graph defaultGraphTerm: Term? = nil) throws {
-        for filename in files {
-            #if os (OSX)
-            guard let path = NSURL(fileURLWithPath: filename).absoluteString else { throw DatabaseError.DataError("Not a valid graph path: \(filename)") }
-            #else
-            let path = NSURL(fileURLWithPath: filename).absoluteString
-            #endif
-            let graph   = defaultGraphTerm ?? Term(value: path, type: .iri)
-            
-            let syntax = RDFParserCombined.guessSyntax(filename: filename)
-            let parser = RDFParserCombined()
-            var quads = [Quad]()
-            //                    print("Parsing RDF...")
-            _ = try parser.parse(file: filename, syntax: syntax, base: graph.value) { (s, p, o) in
-                let q = Quad(subject: s, predicate: p, object: o, graph: graph)
-                quads.append(q)
-            }
-            
-            //                    print("Loading RDF...")
-            try quadstore.load(version: version, quads: quads)
-        }
-    }
-    
     func quadStore(from dataset: Dataset, defaultGraph: Term) throws -> TestedQuadStore {
         let q = try TestedQuadStore()
         do {
             let defaultUrls = dataset.defaultGraphs.compactMap { URL(string: $0.value) }
-            try parse(version: Version(0), quadstore: q, files: defaultUrls.map{ $0.path }, graph: defaultGraph)
+            try q.load(version: Version(0), files: defaultUrls.map{ $0.path }, graph: defaultGraph)
             
             let namedUrls = dataset.namedGraphs.compactMap { URL(string: $0.value) }
             for url in namedUrls {
-                try parse(version: Version(0), quadstore: q, files: [url.path], graph: Term(iri: url.absoluteString))
+                try q.load(version: Version(0), files: [url.path], graph: Term(iri: url.absoluteString))
             }
         } catch let e {
             print("*** \(e)")
@@ -95,7 +72,7 @@ public struct SPARQLTestRunner {
         var results = [TestResult]()
         do {
             let manifest = path.appendingPathComponent("manifest.ttl")
-            try parse(version: Version(0), quadstore: quadstore, files: [manifest.path])
+            try quadstore.load(version: Version(0), files: [manifest.path])
             let manifestTerm = Term(iri: manifest.absoluteString)
             let items = try manifestSyntaxItems(quadstore: quadstore, manifest: manifestTerm, type: testType)
             for item in items {
@@ -172,7 +149,7 @@ public struct SPARQLTestRunner {
         var results = [TestResult]()
         do {
             let manifest = path.appendingPathComponent("manifest.ttl")
-            try parse(version: Version(0), quadstore: quadstore, files: [manifest.path])
+            try quadstore.load(version: Version(0), files: [manifest.path])
             let manifestTerm = Term(iri: manifest.absoluteString)
             let testRecords = try Array(manifestEvaluationItems(quadstore: quadstore, manifest: manifestTerm, type: testType))
             for testRecord in testRecords {
