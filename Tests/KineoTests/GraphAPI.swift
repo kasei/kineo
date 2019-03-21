@@ -41,6 +41,7 @@ class GraphAPITest: XCTestCase {
         <tag:g> a foaf:Person ; foaf:nick "Greg" .
 
         <list1> <values> (1 3 9 4 2) .
+        <list2> <otherValues> (1 2 3) .
         """
         let s = try SQLiteQuadStore()
         let g = Term(iri: "http://example.org/a")
@@ -67,9 +68,7 @@ class GraphAPITest: XCTestCase {
         let lists = try graph.extensionOf(Term(iri: "http://example.org/base/values"))
         XCTAssertEqual(lists.count, 1)
         let list = lists[0].1
-        let v = try list.listElements()
-        XCTAssertNotNil(v)
-        let values = v!
+        let values = try list.listElements()
         let expected = [1,3,9,4,2].map { Term(integer: $0) }
         XCTAssertEqual(values.map { $0.term }, expected)
     }
