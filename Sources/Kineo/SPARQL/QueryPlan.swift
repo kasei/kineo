@@ -816,7 +816,22 @@ public struct WindowPlan: UnaryQueryPlan {
                 value: { return value }
             )
         case .groupConcat(let expr, let sep, _):
-            fatalError("unimplemented: Window GROUP_CONCAT") // TODO: implement
+            var values = [Term?]()
+            return SlidingWindowImplementation(
+                add: { (r) in
+                    let t = try? ee.evaluate(expression: expr, result: r)
+                    values.append(t)
+                },
+                remove: { (_) in
+                    values.remove(at: 0)
+                },
+                value: {
+                    let strings = values.compactMap { $0?.value }
+                    let j = strings.joined(separator: sep)
+                    return Term(string: j)
+                    
+                }
+            )
         }
         
         
