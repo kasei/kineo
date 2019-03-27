@@ -22,7 +22,8 @@ public protocol GraphVertexProtocol {
     associatedtype VertexType
     associatedtype GraphType
     var term: Term { get }
-    
+    var graph: GraphType { get }
+
     func listElements() throws -> [VertexType]
     func incoming(_ predicate: Term) throws -> [VertexType]
     func outgoing(_ predicate: Term) throws -> [VertexType]
@@ -38,7 +39,7 @@ public enum GraphAPI {
         public typealias GraphType = Graph<QS>
 
         var store: QS
-        var graph: Graph<QS>
+        public var graph: Graph<QS>
         public var term: Term
         
         public func listElements() throws -> [GraphVertex<QS>] {
@@ -177,8 +178,8 @@ extension GraphAPI.Graph: Hashable {
     }
 }
 
-public extension QuadStoreProtocol {
-    func graph(_ iri: Term) -> GraphAPI.Graph<Self> {
+extension QuadStoreProtocol {
+    public func graph(_ iri: Term) -> GraphAPI.Graph<Self> {
        return GraphAPI.Graph(store: self, term: iri)
     }
 }
