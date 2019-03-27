@@ -71,6 +71,22 @@ public struct QuadStoreConfiguration {
                     .map { Double($0)/Double(langs.count) }
                     .map { (v: Double) -> Double in Double(Int(v*100.0))/100.0 }
                 acceptLanguages = Array(zip(langs, q))
+            case "-D":
+                let path = args.remove(at: index)
+                let url = URL(fileURLWithPath: path)
+                let m = FileManager.default
+                let d = url.appendingPathComponent("default")
+                let n = url.appendingPathComponent("named")
+                if m.fileExists(atPath: d.path) {
+                    for file in try m.contentsOfDirectory(at: d, includingPropertiesForKeys: []) {
+                        defaultGraphs.append(file.path)
+                    }
+                }
+                if m.fileExists(atPath: n.path) {
+                    for file in try m.contentsOfDirectory(at: n, includingPropertiesForKeys: []) {
+                        namedGraphs.append((Term(iri: file.absoluteString), file.path))
+                    }
+                }
             case "-d":
                 defaultGraphs.append(args.remove(at: index))
             case _ where arg.hasPrefix("--language="):
