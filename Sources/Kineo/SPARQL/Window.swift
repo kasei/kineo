@@ -13,11 +13,25 @@ public struct WindowRowsRange {
     var to: Int?
     
     public func indices<C>(relativeTo results: C) -> Range<Int> where C : Collection, C.Indices == Range<Int> {
-        let begin = from ?? Int.min
-        let end = to ?? Int.max
-        let window = begin...end
-        let range = window.relative(to: results)
-        return range.clamped(to: results.indices)
+        if let begin = from {
+            if let end = to {
+                let window = begin...end
+                let range = window.relative(to: results)
+                return range.clamped(to: results.indices)
+            } else {
+                let window = begin...
+                let range = window.relative(to: results)
+                return range.clamped(to: results.indices)
+            }
+        } else {
+            if let end = to {
+                let window = ...end
+                let range = window.relative(to: results)
+                return range.clamped(to: results.indices)
+            } else {
+                return results.indices
+            }
+        }
     }
     
     public mutating func slide(by offset: Int) {
