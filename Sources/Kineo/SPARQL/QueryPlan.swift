@@ -581,6 +581,12 @@ public struct WindowPlan: UnaryQueryPlan {
         var value: () -> Term?
 
         func evaluate<I: IteratorProtocol>(_ group: I, frame: WindowFrame, variableName: String, evaluator: ExpressionEvaluator) throws -> AnyIterator<TermResult> where I.Element == TermResult {
+            // This is broken down into several different methods that each implement
+            // a different frame bound type (e.g. anything to current row, anything
+            // from current row, unbounded/preceding(n) to preceding(m), etc.)
+            // It's likely that these could be combined into fewer distinct methods
+            // and be implemented more efficiently in the future.
+            
             switch (frame.from, frame.to) {
             case (_, .current):
                 return try evaluateToCurrent(group, frame: frame, variableName: variableName, evaluator: evaluator)
