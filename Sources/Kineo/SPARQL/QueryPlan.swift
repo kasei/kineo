@@ -591,17 +591,11 @@ public struct WindowPlan: UnaryQueryPlan {
             case (.unbound, .preceding(let tpe)), (.preceding(_), .preceding(let tpe)):
                 return try evaluateToPreceding(group, frame: frame, variableName: variableName, evaluator: evaluator, bound: tpe)
             case (.following(let ffe), .unbound), (.following(let ffe), .following(_)):
-                // evaluateFromFollowing
-                print("*** unimplemented: WindowPlan.evaluate(_:frame:variableName:) on frame: \(frame)")
-                throw QueryPlanError.unimplemented
+                return try evaluateFromFollowing(group, frame: frame, variableName: variableName, evaluator: evaluator, bound: ffe)
             case (.unbound, .following(let tfe)), (.preceding(_), .following(let tfe)):
-                // evaluateToFollowing
-                print("*** unimplemented: WindowPlan.evaluate(_:frame:variableName:) on frame: \(frame)")
-                throw QueryPlanError.unimplemented
+                return try evaluateToFollowing(group, frame: frame, variableName: variableName, evaluator: evaluator, bound: tfe)
             case (.preceding(let fpe), .unbound):
-                // evaluateFromPreceding
-                print("*** unimplemented: WindowPlan.evaluate(_:frame:variableName:) on frame: \(frame)")
-                throw QueryPlanError.unimplemented
+                return try evaluateFromPrecedingToUnbounded(group, frame: frame, variableName: variableName, evaluator: evaluator, bound: fpe)
             case (_, .preceding(_)), (.following(_), _):
                 throw QueryPlanError.invalidExpression
             }
@@ -625,13 +619,98 @@ public struct WindowPlan: UnaryQueryPlan {
             return i
         }
         
+        func evaluateFromFollowing<I: IteratorProtocol>(_ group: I, frame: WindowFrame, variableName: String, evaluator: ExpressionEvaluator, bound toPrecedingExpression: Expression) throws -> AnyIterator<TermResult> where I.Element == TermResult {
+            let fflt = try evaluator.evaluate(expression: toPrecedingExpression, result: TermResult(bindings: [:]))
+            guard let ffln = fflt.numeric else {
+                throw QueryPlanError.nonConstantExpression
+            }
+            let fromFollowingLimit = Int(ffln.value)
+            
+            var toFollowingLimit: Int? = nil
+            switch frame.to {
+            case .following(let expr):
+                let t = try evaluator.evaluate(expression: expr, result: TermResult(bindings: [:]))
+                guard let n = t.numeric else {
+                    throw QueryPlanError.nonConstantExpression
+                }
+                toFollowingLimit = Int(n.value)
+            default:
+                break
+            }
+            
+            var group = group
+            if let toFollowingLimit = toFollowingLimit {
+                // BETWEEN $fromFollowingLimit AND $toFollowingLimit
+                let buffer = Array(consuming: &group)
+                buffer.prefix(1+toFollowingLimit).forEach { self.add($0) }
+                
+                var windowEndIndex = buffer.index(buffer.startIndex, offsetBy: toFollowingLimit)
+                var window = Array(buffer.prefix(upTo: buffer.index(after: windowEndIndex)))
+
+                for _ in 0..<fromFollowingLimit {
+                    guard !window.isEmpty else { break }
+                    let rr = window.removeFirst()
+                    self.remove(rr)
+                }
+
+                let seq = buffer.map { (r) ->TermResult in
+                    var result = r
+                    if let v = self.value() {
+                        result = result.extended(variable: variableName, value: v) ?? result
+                    }
+                    
+                    if !window.isEmpty {
+                        let rr = window.removeFirst()
+                        self.remove(rr)
+                        
+                        if windowEndIndex != buffer.endIndex {
+                            windowEndIndex = buffer.index(after: windowEndIndex)
+                            if windowEndIndex != buffer.endIndex {
+                                let r = buffer[windowEndIndex]
+                                window.append(r)
+                                self.add(r)
+                            }
+                        }
+                    }
+                    
+                    return result
+                }
+                return AnyIterator(seq.makeIterator())
+            } else {
+                // BETWEEN $fromFollowingLimit AND UNBOUNDED
+                let buffer = Array(consuming: &group)
+                buffer.forEach { self.add($0) }
+                
+                var window = buffer
+                for _ in 0..<fromFollowingLimit {
+                    guard !window.isEmpty else { break }
+                    let rr = window.removeFirst()
+                    self.remove(rr)
+                }
+                
+                let seq = buffer.map { (r) ->TermResult in
+                    var result = r
+                    if let v = self.value() {
+                        result = result.extended(variable: variableName, value: v) ?? result
+                    }
+                    
+                    if !window.isEmpty {
+                        self.remove(window.removeFirst())
+                    }
+                    
+                    return result
+                }
+                return AnyIterator(seq.makeIterator())
+            }
+        }
+        
         func evaluateToPreceding<I: IteratorProtocol>(_ group: I, frame: WindowFrame, variableName: String, evaluator: ExpressionEvaluator, bound toPrecedingExpression: Expression) throws -> AnyIterator<TermResult> where I.Element == TermResult {
             let tplt = try evaluator.evaluate(expression: toPrecedingExpression, result: TermResult(bindings: [:]))
             guard let tpln = tplt.numeric else {
                 throw QueryPlanError.nonConstantExpression
             }
             let toPrecedingLimit = Int(tpln.value)
-
+            
             var fromPrecedingLimit: Int? = nil
             switch frame.from {
             case .preceding(let expr):
@@ -666,11 +745,95 @@ public struct WindowPlan: UnaryQueryPlan {
                     self.add(r)
                     window.append(r)
                 }
-
+                
                 var result = r
                 if let v = self.value() {
                     result = result.extended(variable: variableName, value: v) ?? result
                 }
+                count += 1
+                return result
+            }
+            return i
+        }
+        
+        func evaluateFromPrecedingToUnbounded<I: IteratorProtocol>(_ group: I, frame: WindowFrame, variableName: String, evaluator: ExpressionEvaluator, bound fromPrecedingExpression: Expression) throws -> AnyIterator<TermResult> where I.Element == TermResult {
+            let fplt = try evaluator.evaluate(expression: fromPrecedingExpression, result: TermResult(bindings: [:]))
+            guard let fpln = fplt.numeric else {
+                throw QueryPlanError.nonConstantExpression
+            }
+            let fromPrecedingLimit = Int(fpln.value)
+            
+            var group = group
+            var buffer = Array(consuming: &group)
+            var window = buffer
+            buffer.forEach { self.add($0) }
+
+            var count = 0
+            let i = AnyIterator { () -> TermResult? in
+                guard !buffer.isEmpty else { return nil }
+                let r = buffer.removeFirst()
+                if count > fromPrecedingLimit {
+                    let rr = window.removeFirst()
+                    self.remove(rr)
+                }
+                var result = r
+                if let v = self.value() {
+                    result = result.extended(variable: variableName, value: v) ?? result
+                }
+                
+                count += 1
+                return result
+            }
+            return i
+        }
+        
+        func evaluateToFollowing<I: IteratorProtocol>(_ group: I, frame: WindowFrame, variableName: String, evaluator: ExpressionEvaluator, bound toPrecedingExpression: Expression) throws -> AnyIterator<TermResult> where I.Element == TermResult {
+            let tflt = try evaluator.evaluate(expression: toPrecedingExpression, result: TermResult(bindings: [:]))
+            guard let tfln = tflt.numeric else {
+                throw QueryPlanError.nonConstantExpression
+            }
+            let toFollowingLimit = Int(tfln.value)
+            
+            var fromPrecedingLimit: Int? = nil
+            switch frame.from {
+            case .preceding(let expr):
+                let t = try evaluator.evaluate(expression: expr, result: TermResult(bindings: [:]))
+                guard let n = t.numeric else {
+                    throw QueryPlanError.nonConstantExpression
+                }
+                fromPrecedingLimit = Int(n.value)
+            default:
+                break
+            }
+            
+            var group = group
+            var buffer = Array(consuming: &group, limit: 1+toFollowingLimit)
+            var window = buffer.prefix(1+toFollowingLimit)
+            buffer.forEach { self.add($0) }
+            var count = 0
+            let i = AnyIterator { () -> TermResult? in
+                guard !buffer.isEmpty else { return nil }
+                let r = buffer.removeFirst()
+                if let fromPrecedingLimit = fromPrecedingLimit {
+                    // BETWEEN $fromPrecedingLimit AND $toFollowingLimit FOLLOWING
+                    if count > fromPrecedingLimit {
+                        let rr = window.removeFirst()
+                        self.remove(rr)
+                    }
+                } else {
+                    // BETWEEN UNBOUNDED AND $toFollowingLimit FOLLOWING
+                }
+                var result = r
+                if let v = self.value() {
+                    result = result.extended(variable: variableName, value: v) ?? result
+                }
+                
+                if let rr = group.next() {
+                    window.append(rr)
+                    buffer.append(rr)
+                    self.add(rr)
+                }
+                
                 count += 1
                 return result
             }

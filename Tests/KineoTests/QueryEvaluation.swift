@@ -38,6 +38,11 @@ extension SimpleQueryEvaluationTest {
             ("testAggregateWindowFunction4", testAggregateWindowFunction4),
             ("testAggregateWindowFunction5", testAggregateWindowFunction5),
             ("testAggregateWindowFunction6", testAggregateWindowFunction6),
+            ("testAggregateWindowFunction7", testAggregateWindowFunction7),
+            ("testAggregateWindowFunction8", testAggregateWindowFunction8),
+            ("testAggregateWindowFunction9", testAggregateWindowFunction9),
+            ("testAggregateWindowFunction10", testAggregateWindowFunction10),
+            ("testAggregateWindowFunction11", testAggregateWindowFunction11),
         ]
     }
 }
@@ -576,13 +581,13 @@ extension QueryEvaluationTests {
         PREFIX : <http://example.org/>
         SELECT ?date ?value (AVG(?value) OVER (ORDER BY ?date ROWS BETWEEN 2 PRECEDING AND CURRENT ROW) AS ?movingAverage) WHERE {
             VALUES (?date ?value) {
-                (1 1.0) # 1.0
-                (2 2.0) # 1.5
-                (3 3.0) # 2.0
-                (4 -2.0) # 1.0
-                (5 8.0) # 3.0
-                (6 2.7) # 2.9
-                (7 -1.7) # 3.0
+                (1 1.0)     # 1.0
+                (2 2.0)     # 1.5
+                (3 3.0)     # 2.0
+                (4 -2.0)    # 1.0
+                (5 8.0)     # 3.0
+                (6 2.7)     # 2.9
+                (7 -1.7)    # 3.0
             }
         }
         """.data(using: .utf8)!
@@ -607,13 +612,13 @@ extension QueryEvaluationTests {
         PREFIX : <http://example.org/>
         SELECT ?date ?value (AVG(?value) OVER (ORDER BY ?date ROWS BETWEEN 3 PRECEDING AND CURRENT ROW) AS ?movingAverage) WHERE {
             VALUES (?date ?value) {
-                (1 1.0) # 1.0
-                (2 2.0) # 1.5
-                (3 3.0) # 2.0
-                (4 -2.0) # 1.0
-                (5 8.0) # 3.0
-                (6 2.7) # 2.9
-                (7 -1.7) # 3.0
+                (1 1.0)     # 1.0
+                (2 2.0)     # 1.5
+                (3 3.0)     # 2.0
+                (4 -2.0)    # 1.0
+                (5 8.0)     # 3.0
+                (6 2.7)     # 2.9
+                (7 -1.7)    # 3.0
             }
         }
         """.data(using: .utf8)!
@@ -638,13 +643,13 @@ extension QueryEvaluationTests {
         PREFIX : <http://example.org/>
         SELECT ?date ?value (AVG(?value) OVER (ORDER BY ?date ROWS BETWEEN CURRENT ROW AND UNBOUNDED) AS ?movingAverage) WHERE {
             VALUES (?date ?value) {
-                (1 1.0) # 1.857
-                (2 2.0) # 2.0
-                (3 3.0) # 2.0
-                (4 -2.0) # 1.75
-                (5 8.0) # 3.0
-                (6 2.7) # 0.5
-                (7 -1.7) # -1.7
+                (1 1.0)     # 1.857
+                (2 2.0)     # 2.0
+                (3 3.0)     # 2.0
+                (4 -2.0)    # 1.75
+                (5 8.0)     # 3.0
+                (6 2.7)     # 0.5
+                (7 -1.7)    # -1.7
             }
         }
         """.data(using: .utf8)!
@@ -669,13 +674,13 @@ extension QueryEvaluationTests {
         PREFIX : <http://example.org/>
         SELECT ?date ?value (AVG(?value) OVER (ORDER BY ?date ROWS BETWEEN 2 PRECEDING AND 1 PRECEDING) AS ?movingAverage) WHERE {
             VALUES (?date ?value) {
-                (1 1.0) # _
-                (2 2.0) # 1.0
-                (3 3.0) # 1.5
-                (4 -2.0) # 2.5
-                (5 8.0) # 0.5
-                (6 2.7) # 3.0
-                (7 -1.7) # 5.35
+                (1 1.0)     # 0.0
+                (2 2.0)     # 1.0
+                (3 3.0)     # 1.5
+                (4 -2.0)    # 2.5
+                (5 8.0)     # 0.5
+                (6 2.7)     # 3.0
+                (7 -1.7)    # 5.35
             }
         }
         """.data(using: .utf8)!
@@ -700,13 +705,13 @@ extension QueryEvaluationTests {
         PREFIX : <http://example.org/>
         SELECT ?date ?value (AVG(?value) OVER (ORDER BY ?date ROWS BETWEEN CURRENT ROW AND 1 FOLLOWING) AS ?movingAverage) WHERE {
             VALUES (?date ?value) {
-                (1 1.0) # 1.5
-                (2 2.0) # 2.5
-                (3 3.0) # 0.5
-                (4 -2.0) # 3.0
-                (5 8.0) # 5.35
-                (6 2.7) # 0.5
-                (7 -1.7) # -1.7
+                (1 1.0)     # 1.5
+                (2 2.0)     # 2.5
+                (3 3.0)     # 0.5
+                (4 -2.0)    # 3.0
+                (5 8.0)     # 5.35
+                (6 2.7)     # 0.5
+                (7 -1.7)    # -1.7
             }
         }
         """.data(using: .utf8)!
@@ -731,21 +736,18 @@ extension QueryEvaluationTests {
         PREFIX : <http://example.org/>
         SELECT ?date ?value (AVG(?value) OVER (ORDER BY ?date ROWS BETWEEN UNBOUNDED AND 1 PRECEDING) AS ?movingAverage) WHERE {
             VALUES (?date ?value) {
-                (1 1.0) # 0
-                (2 2.0) # 1.0
-                (3 3.0) # 1.5
-                (4 -2.0) # 2.0
-                (5 8.0) # 1.0
-                (6 2.7) # 2.4
-                (7 -1.7) # 2.45
+                (1 1.0)     # 0
+                (2 2.0)     # 1.0
+                (3 3.0)     # 1.5
+                (4 -2.0)    # 2.0
+                (5 8.0)     # 1.0
+                (6 2.7)     # 2.4
+                (7 -1.7)    # 2.45
             }
         }
         """.data(using: .utf8)!
         guard var p = SPARQLParser(data: data) else { fatalError("Failed to construct SPARQL parser") }
         let results = try Array(eval(query: p.parseQuery()))
-        for r in results {
-            print(r)
-        }
         XCTAssertEqual(results.count, 7)
         
         let avgs = results.map { $0["movingAverage"] }.compactMap { $0?.numericValue }
@@ -759,7 +761,177 @@ extension QueryEvaluationTests {
             XCTAssertEqual(got, expected, accuracy: 0.01)
         }
     }
-
+    
+    func _testAggregateWindowFunction7() throws {
+        let data = """
+        PREFIX : <http://example.org/>
+        SELECT ?date ?value (AVG(?value) OVER (ORDER BY ?date ROWS BETWEEN 1 FOLLOWING AND UNBOUNDED) AS ?movingAverage) WHERE {
+            VALUES (?date ?value) {
+                (1 1.0)     # 2.0
+                (2 2.0)     # 2.0
+                (3 3.0)     # 1.75
+                (4 -2.0)    # 3.0
+                (5 8.0)     # 0.5
+                (6 2.7)     # -1.7
+                (7 -1.7)    # 0.0
+            }
+        }
+        """.data(using: .utf8)!
+        guard var p = SPARQLParser(data: data) else { fatalError("Failed to construct SPARQL parser") }
+        let results = try Array(eval(query: p.parseQuery()))
+        for r in results {
+            print(r)
+        }
+        XCTAssertEqual(results.count, 7)
+        
+        let avgs = results.map { $0["movingAverage"] }.compactMap { $0?.numericValue }
+        let values = results.map { $0["value"]! }.compactMap { $0.numericValue }
+        let expectedAvgs = [2.0, 2.0, 1.75, 3.0, 0.5, -1.7, 0.0]
+        let expectedValues = [1.0, 2.0, 3.0, -2.0, 8.0, 2.7, -1.7]
+        for (got, expected) in zip(avgs, expectedAvgs) {
+            XCTAssertEqual(got, expected, accuracy: 0.01)
+        }
+        for (got, expected) in zip(values, expectedValues) {
+            XCTAssertEqual(got, expected, accuracy: 0.01)
+        }
+    }
+    
+    func _testAggregateWindowFunction8() throws {
+        let data = """
+        PREFIX : <http://example.org/>
+        SELECT ?date ?value (AVG(?value) OVER (ORDER BY ?date ROWS BETWEEN 1 FOLLOWING AND 3 FOLLOWING) AS ?movingAverage) WHERE {
+            VALUES (?date ?value) {
+                (1 1.0)     # 1.0
+                (2 2.0)     # 3.0
+                (3 3.0)     # 2.9
+                (4 -2.0)    # 3.0
+                (5 8.0)     # 0.5
+                (6 2.7)     # -1.7
+                (7 -1.7)    # 0.0
+            }
+        }
+        """.data(using: .utf8)!
+        guard var p = SPARQLParser(data: data) else { fatalError("Failed to construct SPARQL parser") }
+        let results = try Array(eval(query: p.parseQuery()))
+        for r in results {
+            print(r)
+        }
+        XCTAssertEqual(results.count, 7)
+        
+        let avgs = results.map { $0["movingAverage"] }.compactMap { $0?.numericValue }
+        let values = results.map { $0["value"]! }.compactMap { $0.numericValue }
+        let expectedAvgs = [1.0, 3.0, 2.9, 3.0, 0.5, -1.7, 0.0]
+        let expectedValues = [1.0, 2.0, 3.0, -2.0, 8.0, 2.7, -1.7]
+        for (got, expected) in zip(avgs, expectedAvgs) {
+            XCTAssertEqual(got, expected, accuracy: 0.01)
+        }
+        for (got, expected) in zip(values, expectedValues) {
+            XCTAssertEqual(got, expected, accuracy: 0.01)
+        }
+    }
+    
+    func _testAggregateWindowFunction9() throws {
+        let data = """
+        PREFIX : <http://example.org/>
+        SELECT ?date ?value (AVG(?value) OVER (ORDER BY ?date ROWS BETWEEN UNBOUNDED AND 1 FOLLOWING) AS ?movingAverage) WHERE {
+            VALUES (?date ?value) {
+                (1 1.0)     # 1.5
+                (2 2.0)     # 2.0
+                (3 3.0)     # 1.0
+                (4 -2.0)    # 2.4
+                (5 8.0)     # 2.45
+                (6 2.7)     # 1.857
+                (7 -1.7)    # 1.857
+            }
+        }
+        """.data(using: .utf8)!
+        guard var p = SPARQLParser(data: data) else { fatalError("Failed to construct SPARQL parser") }
+        let results = try Array(eval(query: p.parseQuery()))
+        for r in results {
+            print(r)
+        }
+        XCTAssertEqual(results.count, 7)
+        
+        let avgs = results.map { $0["movingAverage"] }.compactMap { $0?.numericValue }
+        let values = results.map { $0["value"]! }.compactMap { $0.numericValue }
+        let expectedAvgs = [1.5, 2.0, 1.0, 2.4, 2.45, 1.857, 1.857]
+        let expectedValues = [1.0, 2.0, 3.0, -2.0, 8.0, 2.7, -1.7]
+        for (got, expected) in zip(avgs, expectedAvgs) {
+            XCTAssertEqual(got, expected, accuracy: 0.01)
+        }
+        for (got, expected) in zip(values, expectedValues) {
+            XCTAssertEqual(got, expected, accuracy: 0.01)
+        }
+    }
+    
+    func _testAggregateWindowFunction10() throws {
+        let data = """
+        PREFIX : <http://example.org/>
+        SELECT ?date ?value (AVG(?value) OVER (ORDER BY ?date ROWS BETWEEN 1 PRECEDING AND 2 FOLLOWING) AS ?movingAverage) WHERE {
+            VALUES (?date ?value) {
+                (1 1.0)     # 2.0
+                (2 2.0)     # 1.0
+                (3 3.0)     # 2.75
+                (4 -2.0)    # 2.925
+                (5 8.0)     # 1.75
+                (6 2.7)     # 3.0
+                (7 -1.7)    # 0.5
+            }
+        }
+        """.data(using: .utf8)!
+        guard var p = SPARQLParser(data: data) else { fatalError("Failed to construct SPARQL parser") }
+        let results = try Array(eval(query: p.parseQuery()))
+        for r in results {
+            print(r)
+        }
+        XCTAssertEqual(results.count, 7)
+        
+        let avgs = results.map { $0["movingAverage"] }.compactMap { $0?.numericValue }
+        let values = results.map { $0["value"]! }.compactMap { $0.numericValue }
+        let expectedAvgs = [2.0, 1.0, 2.75, 2.925, 1.75, 3.0, 0.5]
+        let expectedValues = [1.0, 2.0, 3.0, -2.0, 8.0, 2.7, -1.7]
+        for (got, expected) in zip(avgs, expectedAvgs) {
+            XCTAssertEqual(got, expected, accuracy: 0.01)
+        }
+        for (got, expected) in zip(values, expectedValues) {
+            XCTAssertEqual(got, expected, accuracy: 0.01)
+        }
+    }
+    
+    func _testAggregateWindowFunction11() throws {
+        let data = """
+        PREFIX : <http://example.org/>
+        SELECT ?date ?value (AVG(?value) OVER (ORDER BY ?date ROWS BETWEEN 2 PRECEDING AND UNBOUNDED) AS ?movingAverage) WHERE {
+            VALUES (?date ?value) {
+                (1 1.0)     # 1.857
+                (2 2.0)     # 1.857
+                (3 3.0)     # 1.857
+                (4 -2.0)    # 2.0
+                (5 8.0)     # 2.0
+                (6 2.7)     # 1.75
+                (7 -1.7)    # 3.0
+            }
+        }
+        """.data(using: .utf8)!
+        guard var p = SPARQLParser(data: data) else { fatalError("Failed to construct SPARQL parser") }
+        let results = try Array(eval(query: p.parseQuery()))
+        for r in results {
+            print(r)
+        }
+        XCTAssertEqual(results.count, 7)
+        
+        let avgs = results.map { $0["movingAverage"] }.compactMap { $0?.numericValue }
+        let values = results.map { $0["value"]! }.compactMap { $0.numericValue }
+        let expectedAvgs = [1.857, 1.857, 1.857, 2.0, 2.0, 1.75, 3.0]
+        let expectedValues = [1.0, 2.0, 3.0, -2.0, 8.0, 2.7, -1.7]
+        for (got, expected) in zip(avgs, expectedAvgs) {
+            XCTAssertEqual(got, expected, accuracy: 0.01)
+        }
+        for (got, expected) in zip(values, expectedValues) {
+            XCTAssertEqual(got, expected, accuracy: 0.01)
+        }
+    }
+    
     var testQuads: [Quad] {
         let parser = NTriplesParser(reader: "")
         
@@ -829,6 +1001,11 @@ class SimpleQueryEvaluationTest: XCTestCase, QueryEvaluationTests {
     func testAggregateWindowFunction4() throws { try _testAggregateWindowFunction4() }
     func testAggregateWindowFunction5() throws { try _testAggregateWindowFunction5() }
     func testAggregateWindowFunction6() throws { try _testAggregateWindowFunction6() }
+    func testAggregateWindowFunction7() throws { try _testAggregateWindowFunction7() }
+    func testAggregateWindowFunction8() throws { try _testAggregateWindowFunction8() }
+    func testAggregateWindowFunction9() throws { try _testAggregateWindowFunction9() }
+    func testAggregateWindowFunction10() throws { try _testAggregateWindowFunction10() }
+    func testAggregateWindowFunction11() throws { try _testAggregateWindowFunction11() }
 }
 
 class QueryPlanEvaluationTest: XCTestCase, QueryEvaluationTests {
@@ -880,4 +1057,9 @@ class QueryPlanEvaluationTest: XCTestCase, QueryEvaluationTests {
     func testAggregateWindowFunction4() throws { try _testAggregateWindowFunction4() }
     func testAggregateWindowFunction5() throws { try _testAggregateWindowFunction5() }
     func testAggregateWindowFunction6() throws { try _testAggregateWindowFunction6() }
+    func testAggregateWindowFunction7() throws { try _testAggregateWindowFunction7() }
+    func testAggregateWindowFunction8() throws { try _testAggregateWindowFunction8() }
+    func testAggregateWindowFunction9() throws { try _testAggregateWindowFunction9() }
+    func testAggregateWindowFunction10() throws { try _testAggregateWindowFunction10() }
+    func testAggregateWindowFunction11() throws { try _testAggregateWindowFunction11() }
 }
