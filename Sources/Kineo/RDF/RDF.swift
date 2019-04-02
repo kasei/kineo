@@ -9,7 +9,7 @@
 import Foundation
 import SPARQLSyntax
 
-enum RDFTriplePosition {
+public enum RDFTriplePosition {
     case subject
     case predicate
     case object

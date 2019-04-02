@@ -14,7 +14,19 @@ public enum QuadStoreFeature : String {
 }
 
 public struct GraphDescription {
+    public struct Histogram {
+        public struct Bucket {
+            public var term: Term
+            public var count: Int
+        }
+        public var isComplete: Bool
+        public var position: RDFTriplePosition
+        public var buckets: [Bucket]
+    }
     public var triplesCount: Int
+    public var isComplete: Bool
+    public var predicates: Set<Term>
+    public var histograms: [Histogram]
 }
 
 public protocol QuadStoreProtocol {
@@ -129,9 +141,60 @@ extension QuadStoreProtocol {
     public var features: [QuadStoreFeature] {
         return []
     }
+}
 
+extension QuadStoreProtocol {
+    private func _generate_service_description(graph: Term) throws -> (Int, [Term: Int], [Term: Int]) {
+        var preds = [Term: Int]()
+        var classes = [Term: Int]()
+        var qp = QuadPattern.all
+        qp.graph = .bound(graph)
+        var count = 0
+        for q in try quads(matching: qp) {
+            count += 1
+            let p = q.predicate
+            preds[p, default: 0] += 1
+            
+            if p == Term(iri: Namespace.rdf.type) {
+                let c = q.object
+                classes[c, default: 0] += 1
+            }
+        }
+        
+        return (count, preds, classes)
+    }
+    
+    public func graphDescription(_ graph: Term, limit topK: Int) throws -> GraphDescription {
+        let (count, preds, _) = try _generate_service_description(graph: graph)
+        let topPreds = preds.sorted(by: { $0.value < $1.value }).prefix(topK)
+        let predsSet = Set(topPreds.map { $0.key })
+        let predBuckets = topPreds.map {
+            GraphDescription.Histogram.Bucket(term: $0.key, count: $0.value)
+        }
+        
+        let predHistogram = GraphDescription.Histogram(
+            isComplete: false,
+            position: .predicate,
+            buckets: predBuckets
+        )
+        
+        return GraphDescription(
+            triplesCount: count,
+            isComplete: false,
+            predicates: predsSet,
+            histograms: [predHistogram]
+        )
+    }
+    
     public var graphDescriptions: [Term:GraphDescription] {
-        return [:] // TODO
+        var descriptions = [Term:GraphDescription]()
+        for g in graphs() {
+            do {
+                let topK = Int.max
+                descriptions[g] = try graphDescription(g, limit: topK)
+            } catch {}
+        }
+        return descriptions
     }
 }
 
