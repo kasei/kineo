@@ -52,6 +52,7 @@ open class SQLiteQuadStore: Sequence, MutableQuadStoreProtocol {
         }
     }
     
+    var cachedGraphDescriptions: [Term:GraphDescription]?
     var db: Connection
     var t2icache: LRUCache<Term, TermID>
     var i2tcache: LRUCache<TermID, Term>
@@ -64,6 +65,7 @@ open class SQLiteQuadStore: Sequence, MutableQuadStoreProtocol {
 //        }
         i2tcache = LRUCache(capacity: 1024)
         t2icache = LRUCache(capacity: 1024)
+        cachedGraphDescriptions = nil
         if initialize {
             next = (iri: 0, blank: 0, datatype: 0, language: 0)
             try initializeTables()
@@ -80,6 +82,7 @@ open class SQLiteQuadStore: Sequence, MutableQuadStoreProtocol {
         next = (iri: 0, blank: 0, datatype: 0, language: 0)
         i2tcache = LRUCache(capacity: 1024)
         t2icache = LRUCache(capacity: 1024)
+        cachedGraphDescriptions = nil
         try initializeTables()
         if let v = version {
             try db.run(sysTable.update(versionColumn <- Int64(v)))
@@ -421,6 +424,65 @@ open class SQLiteQuadStore: Sequence, MutableQuadStoreProtocol {
                 try db.run(quadsTable.insert(or: .ignore, subjColumn <- sid, predColumn <- pid, objColumn <- oid, graphColumn <- gid))
             }
             try db.run(sysTable.update(versionColumn <- Int64(version)))
+        }
+    }
+
+    public func graphDescription(_ graph: Term, limit topK: Int) throws -> GraphDescription {
+        guard let gid = id(for: graph) else {
+            return GraphDescription(triplesCount: 0, isComplete: true, predicates: [], histograms: [])
+        }
+
+        let countDbh = try db.prepare("SELECT COUNT(*) FROM quads WHERE graph = ?", [gid])
+        let rows = countDbh.compactMap { $0[0] as? Int64 }
+        let count = Int(rows.first ?? 0)
+
+        let sql = "SELECT COUNT(*) AS c, \(termValueColumn.template) AS p FROM quads JOIN terms ON (predicate = terms.id) WHERE quads.graph = ? GROUP BY \(predColumn.template) ORDER BY COUNT(*) DESC"
+        do {
+            let dbh = try db.prepare(sql, [gid])
+            let map = Dictionary(uniqueKeysWithValues: dbh.columnNames.enumerated().map { ($1, $0) })
+            let p = map["p"]!
+            let c = map["c"]!
+            let preds = dbh.lazy.compactMap { (row) -> (key: Term, value: Int)? in
+                guard let pb = row[p], let pred = pb as? String, let cb = row[c], let count = cb as? Int64 else { return nil }
+                return (key: Term(iri: pred), value: Int(count))
+            }
+            let topPreds = preds.prefix(topK)
+            let predsSet = Set(topPreds.map { $0.key })
+            let predBuckets = topPreds.map {
+                GraphDescription.Histogram.Bucket(term: $0.key, count: $0.value)
+            }
+            
+            let predHistogram = GraphDescription.Histogram(
+                isComplete: false,
+                position: .predicate,
+                buckets: predBuckets
+            )
+            
+            return GraphDescription(
+                triplesCount: count,
+                isComplete: false,
+                predicates: predsSet,
+                histograms: [predHistogram]
+            )
+        } catch {
+            throw error
+        }
+    }
+
+    public var graphDescriptions: [Term:GraphDescription] {
+        if let d = cachedGraphDescriptions {
+            return d
+        } else {
+            var descriptions = [Term:GraphDescription]()
+            for g in graphs() {
+                do {
+                    descriptions[g] = try graphDescription(g, limit: Int.max)
+                } catch {
+                    print("*** \(error)")
+                }
+            }
+            cachedGraphDescriptions = descriptions
+            return descriptions
         }
     }
 }

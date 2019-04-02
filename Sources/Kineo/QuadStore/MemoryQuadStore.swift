@@ -13,11 +13,16 @@ open class MemoryQuadStore: Sequence, MutableQuadStoreProtocol {
     public enum MemoryQuadStoreError: Error {
         case existingMapping(UInt64, Term)
     }
-    
+    public var cachedGraphDescriptions: [Term:GraphDescription]?
+
     typealias TermID = UInt64
     typealias MemoryQuad = (subject: TermID, predicate: TermID, object: TermID, graph: TermID)
     public var count: Int
-    var idquads: [MemoryQuad]
+    var idquads: [MemoryQuad] {
+        didSet {
+            cachedGraphDescriptions = nil
+        }
+    }
     var i2t: [TermID: Term]
     var t2i: [Term: TermID]
     var version: Version?
@@ -32,6 +37,7 @@ open class MemoryQuadStore: Sequence, MutableQuadStoreProtocol {
         self.graphIDs = []
         self.version = version
         self.next = 1
+        self.cachedGraphDescriptions = nil
         try? load(version: self.version ?? 0, dictionary: dictionary, quads: quads)
     }
     
@@ -235,6 +241,21 @@ open class MemoryQuadStore: Sequence, MutableQuadStoreProtocol {
             self.graphIDs.insert(g)
         }
         self.idquads.append(contentsOf: idq)
+    }
+
+    public var graphDescriptions: [Term:GraphDescription] {
+        if let d = cachedGraphDescriptions {
+            return d
+        } else {
+            var descriptions = [Term:GraphDescription]()
+            for g in graphs() {
+                do {
+                    descriptions[g] = try graphDescription(g, limit: Int.max)
+                } catch {}
+            }
+            cachedGraphDescriptions = descriptions
+            return descriptions
+        }
     }
 }
 

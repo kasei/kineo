@@ -6,21 +6,19 @@ import SPARQLSyntax
 extension QuadStoreGraphDescriptionTest {
     static var allTests : [(String, (QuadStoreGraphDescriptionTest) -> () throws -> Void)] {
         return [
-            ("testGraphPredicates", testGraphPredicates),
+            ("testGraphPredicates1", testGraphPredicates1),
+            ("testGraphPredicates2", testGraphPredicates2),
         ]
     }
 }
 #endif
 
 class QuadStoreGraphDescriptionTest: XCTestCase {
-    var store: MemoryQuadStore!
-    
     override func setUp() {
         super.setUp()
-        self.store = MemoryQuadStore(version: 0)
     }
 
-    func load(turtle: String, graph: Term, version: Version) throws {
+    func load<T: MutableQuadStoreProtocol>(turtle: String, into store: T, graph: Term, version: Version) throws {
         let PREFIXES = "@prefix foaf: <http://xmlns.com/foaf/0.1/> .\n"
         let parser = RDFParserCombined(base: "http://example.org/", produceUniqueBlankIdentifiers: false)
         var quads = [Quad]()
@@ -32,15 +30,16 @@ class QuadStoreGraphDescriptionTest: XCTestCase {
         try store.load(version: version, quads: quads)
     }
     
-    func testGraphPredicates() throws {
+    func _testGraphPredicates<T: MutableQuadStoreProtocol>(_ store: T) throws {
         let turtle = """
         _:alice a foaf:Person ; foaf:name "Alice" ; foaf:knows _:bob .
         _:bob a foaf:Person ; foaf:name "Bob" ; foaf:knows _:alice .
         _:eve a foaf:Agent ; foaf:name "Eve" ; foaf:knows _:alice, _:bob .
         """
         let g = Term(iri: "http://example.org/people")
-        try load(turtle: turtle, graph: g, version: 1)
-        let d = try store.graphDescription(g, limit: 100)
+        try load(turtle: turtle, into: store, graph: g, version: 1)
+        let gd = store.graphDescriptions
+        let d = gd[g]!
         
         let foaf = Namespace(value: "http://xmlns.com/foaf/0.1/")
         let predStrings = [foaf.name, foaf.knows, Namespace.rdf.type]
@@ -57,5 +56,15 @@ class QuadStoreGraphDescriptionTest: XCTestCase {
             Term(iri: foaf.knows): 4,
             Term(iri: Namespace.rdf.type): 3,
             ])
+    }
+    
+    func testGraphPredicates1() throws {
+        let store = MemoryQuadStore(version: 0)
+        try _testGraphPredicates(store)
+    }
+    
+    func testGraphPredicates2() throws {
+        let store = try SQLiteQuadStore()
+        try _testGraphPredicates(store)
     }
 }
