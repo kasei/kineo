@@ -918,6 +918,7 @@ extension SimpleQueryEvaluatorProtocol {
                         }
                         try? r.extend(variable: name, value: Term(integer: n+1))
                         newResults.append(r)
+                        last = result
                     }
                 }
             }

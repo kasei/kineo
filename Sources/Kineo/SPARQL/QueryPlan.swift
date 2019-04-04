@@ -504,7 +504,7 @@ public struct WindowPlan: UnaryQueryPlan {
                     currentGroup = g
                     if !buffer.isEmpty {
                         let b = buffer
-                        buffer = []
+                        buffer = [r]
                         return AnyIterator(b.makeIterator())
                     }
                 }
@@ -513,6 +513,25 @@ public struct WindowPlan: UnaryQueryPlan {
         }
         
         return grouped
+    }
+    
+    private func resultsAreEqual(_ a : TermResult, _ b : TermResult, usingComparators comparators: [Algebra.SortComparator]) -> Bool {
+        if comparators.isEmpty {
+            return a == b
+        }
+        for cmp in comparators {
+            guard var lhs = try? evaluator.evaluate(expression: cmp.expression, result: a) else { return true }
+            guard var rhs = try? evaluator.evaluate(expression: cmp.expression, result: b) else { return false }
+            if !cmp.ascending {
+                (lhs, rhs) = (rhs, lhs)
+            }
+            if lhs < rhs {
+                return false
+            } else if lhs > rhs {
+                return false
+            }
+        }
+        return true
     }
     
     public func evaluate() throws -> AnyIterator<TermResult> {
@@ -525,16 +544,25 @@ public struct WindowPlan: UnaryQueryPlan {
         switch app.windowFunction {
         case .rank:
             // RANK ignores any specified window frame
+            let order = app.comparators
             let groups = AnySequence(partitionGroups).lazy.map { (g) -> [TermResult] in
-                let groupResults = g.lazy.enumerated().map { (i, r) -> TermResult in
-                    let rr = r.extended(variable: v, value: Term(integer: i+1)) ?? r
+                var rank = 0
+                var last: TermResult? = nil
+                let groupResults = g.map { (r) -> TermResult in
+                    if let last = last {
+                        if !self.resultsAreEqual(last, r, usingComparators: order) {
+                            rank += 1
+                        }
+                    } else {
+                        rank += 1
+                    }
+                    last = r
+                    let rr = r.extended(variable: v, value: Term(integer: rank)) ?? r
                     return rr
                 }
                 return groupResults
             }
-            let groupsResults = groups.flatMap { $0 }
-            let order = app.comparators
-            print("TODO: implement peer equality tests in WindowPlan RANK handling")
+            let groupsResults = groups.lazy.flatMap { $0 }
             return AnyIterator(groupsResults.makeIterator())
         case .rowNumber:
             // ROW_NUMBER ignores any specified window frame
