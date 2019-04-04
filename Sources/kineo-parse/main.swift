@@ -23,11 +23,15 @@ func prettyPrint(_ qfile: String, silent: Bool = false, includeComments: Bool = 
 }
 
 @discardableResult
-func parseQuery(_ qfile: String, silent: Bool = false, includeComments: Bool = false) throws -> Query {
+func parseQuery(_ qfile: String, simplify: Bool, silent: Bool = false, includeComments: Bool = false) throws -> Query {
     let url = URL(fileURLWithPath: qfile)
     let sparql = try Data(contentsOf: url)
     guard var p = SPARQLParser(data: sparql, includeComments: includeComments) else { fatalError("Failed to construct SPARQL parser") }
-    let query = try p.parseQuery()
+    var query = try p.parseQuery()
+    if simplify {
+        let r = SPARQLQueryRewriter()
+        query = try r.simplify(query: query)
+    }
     let s = query.serialize()
     if !silent {
         print(s)
@@ -48,7 +52,7 @@ func parseTokens(_ qfile: String, silent: Bool = false) throws {
     }
 }
 
-func parseSPARQL(_ qfile: String, printTokens: Bool, pretty: Bool, silent: Bool) throws -> Int32 {
+func parseSPARQL(_ qfile: String, printTokens: Bool, pretty: Bool, simplify: Bool, silent: Bool) throws -> Int32 {
     do {
         warn("# \(qfile)")
         if pretty {
@@ -56,7 +60,7 @@ func parseSPARQL(_ qfile: String, printTokens: Bool, pretty: Bool, silent: Bool)
         } else if printTokens {
             try parseTokens(qfile, silent: silent)
         } else {
-            try parseQuery(qfile, silent: silent)
+            try parseQuery(qfile, simplify: simplify, silent: silent)
         }
         //print("ok")
     } catch SerializationError.parsingError(let message) {
@@ -152,12 +156,42 @@ var silent = false
 var printTokens = false
 var lint = false
 var sort = false
+var simplify = false
 let argscount = CommandLine.arguments.count
 var args = PeekableIterator(generator: CommandLine.arguments.makeIterator())
 guard let pname = args.next() else { fatalError("Missing command name") }
 guard argscount >= 2 else {
     print("Usage: \(pname) [-v] query.rq")
-    print("")
+    print("""
+        Usage:
+        
+            \(pname) [OPTIONS] data.ttl
+            \(pname) [OPTIONS] query.rq
+
+        Options:
+        
+        -i
+                Apply simplification rewriting the parsed query before
+                printing the resulting query algebra.
+        
+        -p
+                Reformat (pretty-print) the input SPARQL query.
+        
+        -s
+                Silent Mode. Suppress non-critical output.
+        
+        -S
+                Sort the terms from the input RDF document and print them
+                in SPARQL-sorted order.
+        
+        -t
+                Print the lexical tokens of the input SPARQL query.
+        
+        -v
+                Print verbose output.
+
+        
+        """)
     exit(1)
 }
 
@@ -174,6 +208,8 @@ if let next = args.peek(), next.hasPrefix("-") {
         printTokens = true
     } else if next == "-p" {
         pretty = true
+    } else if next == "-i" {
+        simplify = true
     }
 }
 
@@ -200,5 +236,5 @@ do {
     exit(xr)
 } catch {}
 
-let sr = try parseSPARQL(qfile, printTokens: printTokens, pretty: pretty, silent: silent)
+let sr = try parseSPARQL(qfile, printTokens: printTokens, pretty: pretty, simplify: simplify, silent: silent)
 exit(sr)
