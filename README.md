@@ -18,15 +18,13 @@ Install [serd](http://drobilla.net/software/serd):
 
 ### Load data
 
-Create a database file (`geo.db`) and load one or more N-Triples files:
+Create a database file (`geo.db`) and load one or more N-Triples or Turtle files:
 
 ```
 % ./.build/release/kineo-cli -s geo.db -d examples/geo-data/geo.ttl
 ```
 
-Each file will be loaded into its own graph. By default, the first graph created
-during data loading will be used as the default graph when querying the database.
-
+Specifying `-d FILENAME` will load data from `FILENAME` into the default graph.
 Alternatively, data can be loaded into a specific named graph (similarly, a
 custom graph name can be used for the query default graph):
 
@@ -51,7 +49,7 @@ WHERE {
 }
 ORDER BY ?s
 
-% ./.build/release/kineo-cli geo.db query examples/geo-data/geo.rq
+% ./.build/release/kineo-cli -s geo.db query examples/geo-data/geo.rq
 Using default graph <file://examples/geo-data/geo.ttl>
 1	Result[s: <http://dbpedia.org/resource/Buellton,_California>]
 2	Result[s: <http://dbpedia.org/resource/Lompoc,_California>]
@@ -71,7 +69,7 @@ Finally, using the companion [kineo-endpoint](https://github.com/kasei/kineo-end
 a SPARQL endpoint can be run allowing SPARQL Protocol clients to access the data:
 
 ```
-% kineo-endpoint -f geo.db &
+% kineo-endpoint -s geo.db &
 % curl -H "Accept: application/sparql-results+json" -H "Content-Type: application/sparql-query" --data 'PREFIX geo: <http://www.w3.org/2003/01/geo/wgs84_pos#> SELECT ?s ?lat ?long WHERE { ?s geo:lat ?lat ; geo:long ?long } LIMIT 3' 'http://localhost:8080/sparql'
 {
   "head": {
