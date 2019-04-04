@@ -316,11 +316,14 @@ extension SimpleQueryEvaluatorProtocol {
             }
             return try evaluateAggregation(algebra: child, groups: groups, aggregations: aggs, activeGraph: activeGraph)
         case let .window(child, funcs):
-            if funcs.count != 1 {
-                fatalError("Unimplemented: more than one window function")
+            if funcs.count == 1 {
+                let f = funcs.first!
+                return try evaluateWindow(algebra: child, function: f, activeGraph: activeGraph)
+            } else {
+                print("*** multiple window functions")
+                let windows : Algebra = funcs.reduce(child) { Algebra.window($0, [$1]) }
+                return try evaluate(algebra: windows, activeGraph: activeGraph)
             }
-            let f = funcs.first!
-            return try evaluateWindow(algebra: child, function: f, activeGraph: activeGraph)
         case let .filter(child, expr):
             let i = try self.evaluate(algebra: child, activeGraph: activeGraph)
             return try evaluateFilter(i, expression: expr, activeGraph: activeGraph)
