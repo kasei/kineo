@@ -1011,7 +1011,7 @@ public struct WindowPlan: UnaryQueryPlan {
                 remove: { (_) in value -= 1 },
                 value: { return Term(integer: value) }
             )
-        case .count(let expr, _):
+        case let .count(expr, _):
             var value = 0
             return SlidingWindowImplementation(
                 add: { (r) in
@@ -1026,7 +1026,7 @@ public struct WindowPlan: UnaryQueryPlan {
                 },
                 value: { return Term(integer: value) }
             )
-        case .sum(let expr, _):
+        case let .sum(expr, _):
             var intCount = 0
             var fltCount = 0
             var decCount = 0
@@ -1081,7 +1081,7 @@ public struct WindowPlan: UnaryQueryPlan {
                     return value.term
                 }
             )
-        case .avg(let expr, _):
+        case let .avg(expr, _):
             var intCount = 0
             var fltCount = 0
             var decCount = 0
@@ -1184,7 +1184,7 @@ public struct WindowPlan: UnaryQueryPlan {
                 remove: { (_) in return },
                 value: { return value }
             )
-        case .groupConcat(let expr, let sep, _):
+        case let .groupConcat(expr, sep, _):
             var values = [Term?]()
             return SlidingWindowImplementation(
                 add: { (r) in
@@ -1852,6 +1852,7 @@ public struct AggregationPlan: UnaryQueryPlan {
             }
         }
         func result() -> Term? {
+            print("COUNT DISTINCT has these values: \(values)")
             return Term(integer: values.count)
         }
     }
@@ -1892,7 +1893,7 @@ public struct AggregationPlan: UnaryQueryPlan {
             }
         }
         func result() -> Term? {
-            let s = values.lazy.map { $0.value }.joined(separator: separator)
+            let s = values.sorted().map { $0.value }.joined(separator: separator)
             return Term(string: s)
         }
     }

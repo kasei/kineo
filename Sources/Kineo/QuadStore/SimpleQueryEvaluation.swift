@@ -320,7 +320,6 @@ extension SimpleQueryEvaluatorProtocol {
                 let f = funcs.first!
                 return try evaluateWindow(algebra: child, function: f, activeGraph: activeGraph)
             } else {
-                print("*** multiple window functions")
                 let windows : Algebra = funcs.reduce(child) { Algebra.window($0, [$1]) }
                 return try evaluate(algebra: windows, activeGraph: activeGraph)
             }
@@ -588,7 +587,7 @@ extension SimpleQueryEvaluatorProtocol {
         
         var terms = results.map { try? self.ee.evaluate(expression: keyExpr, result: $0) }.compactMap { $0 }
         if distinct {
-            terms = Array(Set(terms))
+            terms = Set(terms).sorted()
         }
         
         for term in terms {
@@ -653,7 +652,7 @@ extension SimpleQueryEvaluatorProtocol {
     public func evaluateGroupConcat<S: Sequence>(results: S, expression keyExpr: Expression, separator: String, distinct: Bool) -> Term? where S.Iterator.Element == TermResult {
         var terms = results.map { try? self.ee.evaluate(expression: keyExpr, result: $0) }.compactMap { $0 }
         if distinct {
-            terms = Array(Set(terms))
+            terms = Set(terms).sorted()
         }
         
         if terms.count == 0 {
