@@ -43,6 +43,8 @@ extension SimpleQueryEvaluationTest {
             ("testAggregateWindowFunction9", testAggregateWindowFunction9),
             ("testAggregateWindowFunction10", testAggregateWindowFunction10),
             ("testAggregateWindowFunction11", testAggregateWindowFunction11),
+            ("testAggregateWindowFunction_aggregates", testAggregateWindowFunction_aggregates),
+            ("testDistinctAggregate", testDistinctAggregate),
         ]
     }
 }
@@ -81,6 +83,13 @@ extension QueryPlanEvaluationTest {
             ("testAggregateWindowFunction3", testAggregateWindowFunction3),
             ("testAggregateWindowFunction5", testAggregateWindowFunction5),
             ("testAggregateWindowFunction6", testAggregateWindowFunction6),
+            ("testAggregateWindowFunction7", testAggregateWindowFunction7),
+            ("testAggregateWindowFunction8", testAggregateWindowFunction8),
+            ("testAggregateWindowFunction9", testAggregateWindowFunction9),
+            ("testAggregateWindowFunction10", testAggregateWindowFunction10),
+            ("testAggregateWindowFunction11", testAggregateWindowFunction11),
+            ("testAggregateWindowFunction_aggregates", testAggregateWindowFunction_aggregates),
+            ("testDistinctAggregate", testDistinctAggregate),
         ]
     }
 }
@@ -143,6 +152,25 @@ protocol QueryEvaluationTests {
 }
 
 extension QueryEvaluationTests {
+    var testQuads: [Quad] {
+        let parser = NTriplesParser(reader: "")
+        
+        guard let b1 = parser.parseQuad(line: "<http://example.org/Berlin> <http://xmlns.com/foaf/0.1/name> \"Berlin\"", graph: self.graph) else { fatalError() }
+        guard let b2 = parser.parseQuad(line: "<http://example.org/Berlin> <http://xmlns.com/foaf/0.1/homepage> <http://www.berlin.de/en/>", graph: self.graph) else { fatalError() }
+        guard let s = parser.parseQuad(line: "_:a <http://purl.org/dc/elements/1.1/title> \"Santa Monica\"", graph: self.graph) else { fatalError() }
+        
+        let numbers = Term(value: "http://example.org/numbers", type: .iri)
+        guard let n0 = parser.parseQuad(line: "_:n1 <http://xmlns.com/foaf/0.1/name> \"a number\"", graph: numbers) else { fatalError() }
+        guard let n1 = parser.parseQuad(line: "_:n1 <http://example.org/value> \"32.7\"^^<http://www.w3.org/2001/XMLSchema#float>", graph: numbers) else { fatalError() }
+        guard let n2 = parser.parseQuad(line: "_:n2 <http://example.org/value> \"-118\"^^<http://www.w3.org/2001/XMLSchema#integer>", graph: numbers) else { fatalError() }
+        
+        let other = Term(value: "http://example.org/other", type: .iri)
+        guard let x1 = parser.parseQuad(line: "_:x <http://example.org/p> \"hello\"@en", graph: other) else { fatalError() }
+        
+        let quads = [b1, b2, s, n0, n1, n2, x1]
+        return quads
+    }
+
     func parse(query: String) -> Algebra? {
         let qp      = QueryParser(reader: query)
         do {
@@ -779,9 +807,6 @@ extension QueryEvaluationTests {
         """.data(using: .utf8)!
         guard var p = SPARQLParser(data: data) else { fatalError("Failed to construct SPARQL parser") }
         let results = try Array(eval(query: p.parseQuery()))
-        for r in results {
-            print(r)
-        }
         XCTAssertEqual(results.count, 7)
         
         let avgs = results.map { $0["movingAverage"] }.compactMap { $0?.numericValue }
@@ -813,9 +838,6 @@ extension QueryEvaluationTests {
         """.data(using: .utf8)!
         guard var p = SPARQLParser(data: data) else { fatalError("Failed to construct SPARQL parser") }
         let results = try Array(eval(query: p.parseQuery()))
-        for r in results {
-            print(r)
-        }
         XCTAssertEqual(results.count, 7)
         
         let avgs = results.map { $0["movingAverage"] }.compactMap { $0?.numericValue }
@@ -847,9 +869,6 @@ extension QueryEvaluationTests {
         """.data(using: .utf8)!
         guard var p = SPARQLParser(data: data) else { fatalError("Failed to construct SPARQL parser") }
         let results = try Array(eval(query: p.parseQuery()))
-        for r in results {
-            print(r)
-        }
         XCTAssertEqual(results.count, 7)
         
         let avgs = results.map { $0["movingAverage"] }.compactMap { $0?.numericValue }
@@ -881,9 +900,6 @@ extension QueryEvaluationTests {
         """.data(using: .utf8)!
         guard var p = SPARQLParser(data: data) else { fatalError("Failed to construct SPARQL parser") }
         let results = try Array(eval(query: p.parseQuery()))
-        for r in results {
-            print(r)
-        }
         XCTAssertEqual(results.count, 7)
         
         let avgs = results.map { $0["movingAverage"] }.compactMap { $0?.numericValue }
@@ -915,9 +931,6 @@ extension QueryEvaluationTests {
         """.data(using: .utf8)!
         guard var p = SPARQLParser(data: data) else { fatalError("Failed to construct SPARQL parser") }
         let results = try Array(eval(query: p.parseQuery()))
-        for r in results {
-            print(r)
-        }
         XCTAssertEqual(results.count, 7)
         
         let avgs = results.map { $0["movingAverage"] }.compactMap { $0?.numericValue }
@@ -932,23 +945,118 @@ extension QueryEvaluationTests {
         }
     }
     
-    var testQuads: [Quad] {
-        let parser = NTriplesParser(reader: "")
+    func _testAggregateWindowFunction_aggregates() throws {
+        let data = """
+        PREFIX : <http://example.org/>
+        SELECT
+            ?date
+            (COUNT(*) OVER (ORDER BY ?date ROWS BETWEEN 2 PRECEDING AND UNBOUNDED) AS ?countAll)
+            (COUNT(?date) OVER (ORDER BY ?date ROWS BETWEEN 2 PRECEDING AND UNBOUNDED) AS ?count)
+            (SUM(?date) OVER (ORDER BY ?date ROWS BETWEEN 2 PRECEDING AND CURRENT ROW) AS ?sum)
+            (MIN(?value) OVER (ORDER BY ?date ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING) AS ?min)
+            (MAX(?value) OVER (ORDER BY ?date ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING) AS ?max)
+            (GROUP_CONCAT(STR(?value)) OVER (ORDER BY ?date ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING) AS ?groupConcat)
+        WHERE {
+            VALUES (?date ?value) {
+                (1      3)
+                (2      1)
+                (5      0)
+                (6      -10)
+                (9      17)
+                (10     2)
+                (100    7)
+            }
+        }
+        """.data(using: .utf8)!
         
-        guard let b1 = parser.parseQuad(line: "<http://example.org/Berlin> <http://xmlns.com/foaf/0.1/name> \"Berlin\"", graph: self.graph) else { fatalError() }
-        guard let b2 = parser.parseQuad(line: "<http://example.org/Berlin> <http://xmlns.com/foaf/0.1/homepage> <http://www.berlin.de/en/>", graph: self.graph) else { fatalError() }
-        guard let s = parser.parseQuad(line: "_:a <http://purl.org/dc/elements/1.1/title> \"Santa Monica\"", graph: self.graph) else { fatalError() }
+        guard var p = SPARQLParser(data: data) else { fatalError("Failed to construct SPARQL parser") }
+        let results = try Array(eval(query: p.parseQuery()))
+        XCTAssertEqual(results.count, 7)
         
-        let numbers = Term(value: "http://example.org/numbers", type: .iri)
-        guard let n0 = parser.parseQuad(line: "_:n1 <http://xmlns.com/foaf/0.1/name> \"a number\"", graph: numbers) else { fatalError() }
-        guard let n1 = parser.parseQuad(line: "_:n1 <http://example.org/value> \"32.7\"^^<http://www.w3.org/2001/XMLSchema#float>", graph: numbers) else { fatalError() }
-        guard let n2 = parser.parseQuad(line: "_:n2 <http://example.org/value> \"-118\"^^<http://www.w3.org/2001/XMLSchema#integer>", graph: numbers) else { fatalError() }
+        let gotCountAllValues = results.map { $0["countAll"] }.compactMap { $0?.numericValue }.map { Int($0) }
+        for (got, expected) in zip(gotCountAllValues, [7, 7, 7, 6, 5, 4, 3]) {
+            XCTAssertEqual(got, expected)
+        }
         
-        let other = Term(value: "http://example.org/other", type: .iri)
-        guard let x1 = parser.parseQuad(line: "_:x <http://example.org/p> \"hello\"@en", graph: other) else { fatalError() }
+        let gotCountValues = results.map { $0["count"] }.compactMap { $0?.numericValue }.map { Int($0) }
+        for (got, expected) in zip(gotCountValues, [7, 7, 7, 6, 5, 4, 3]) {
+            XCTAssertEqual(got, expected)
+        }
         
-        let quads = [b1, b2, s, n0, n1, n2, x1]
-        return quads
+        let gotSumValues = results.map { $0["sum"] }.compactMap { $0?.numericValue }.map { Int($0) }
+        for (got, expected) in zip(gotSumValues, [1, 3, 8, 13, 20, 25, 119]) {
+            XCTAssertEqual(got, expected)
+        }
+        
+        let gotMinValues = results.map { $0["min"] }.compactMap { $0?.numericValue }.map { Int($0) }
+        for (got, expected) in zip(gotMinValues, [1, 0, -10, -10, -10, 2, 2]) {
+            XCTAssertEqual(got, expected)
+        }
+        
+        let gotMaxValues = results.map { $0["max"] }.compactMap { $0?.numericValue }.map { Int($0) }
+        for (got, expected) in zip(gotMaxValues, [3, 3, 1, 17, 17, 17, 7]) {
+            XCTAssertEqual(got, expected)
+        }
+        
+        let gotGroupConcatValues = results.map { $0["groupConcat"] }.compactMap { $0?.value }
+        print(gotGroupConcatValues)
+        let expectedGroupConcatValues = ["3 1", "3 1 0", "1 0 -10", "0 -10 17", "-10 17 2", "17 2 7", "2 7"]
+        for (got, expected) in zip(gotGroupConcatValues, expectedGroupConcatValues) {
+            XCTAssertEqual(got, expected)
+        }
+    }
+
+    func _testDistinctAggregate() throws {
+        let data = """
+        PREFIX : <http://example.org/>
+        SELECT
+            (GROUP_CONCAT(DISTINCT ?str) AS ?groupConcat)
+            (SUM(DISTINCT ?value) AS ?sum)
+            (COUNT(DISTINCT ?value) AS ?count)
+            (AVG(DISTINCT ?value) AS ?avg)
+        WHERE {
+            VALUES (?seq ?value ?str) {
+                (1  1.0     "e")
+                (2  1       "b")
+                (3  2e0     "e")
+                (4  2.0     "e")
+                (5  2       "Z")
+                (6  1       "火星")
+                (7  1       "é")
+            }
+        }
+        """.data(using: .utf8)!
+        
+        guard var p = SPARQLParser(data: data) else { fatalError("Failed to construct SPARQL parser") }
+        let results = try Array(eval(query: p.parseQuery()))
+        for r in results {
+            print(r)
+        }
+        XCTAssertEqual(results.count, 1)
+        
+        let gotSumValues = results.map { $0["sum"] }.compactMap { $0?.numericValue }
+        let expectedSumValues = [8.0]
+        for (got, expected) in zip(gotSumValues, expectedSumValues) {
+            XCTAssertEqual(got, expected)
+        }
+        
+        let gotAvgValues = results.map { $0["avg"] }.compactMap { $0?.numericValue }
+        let expectedAvgValues = [1.6]
+        for (got, expected) in zip(gotAvgValues, expectedAvgValues) {
+            XCTAssertEqual(got, expected)
+        }
+        
+        let gotCountValues = results.map { $0["count"] }.compactMap { $0?.numericValue }
+        let expectedCountValues = [5.0]
+        for (got, expected) in zip(gotCountValues, expectedCountValues) {
+            XCTAssertEqual(got, expected)
+        }
+        
+        let gotGroupConcatValues = results.map { $0["groupConcat"] }.compactMap { $0?.value }
+        let expectedGroupConcatValues = ["Z b e é 火星"]
+        for (got, expected) in zip(gotGroupConcatValues, expectedGroupConcatValues) {
+            XCTAssertEqual(got, expected)
+        }
     }
 }
 
@@ -1006,6 +1114,8 @@ class SimpleQueryEvaluationTest: XCTestCase, QueryEvaluationTests {
     func testAggregateWindowFunction9() throws { try _testAggregateWindowFunction9() }
     func testAggregateWindowFunction10() throws { try _testAggregateWindowFunction10() }
     func testAggregateWindowFunction11() throws { try _testAggregateWindowFunction11() }
+    func testAggregateWindowFunction_aggregates() throws { try _testAggregateWindowFunction_aggregates() }
+    func testDistinctAggregate() throws { try _testDistinctAggregate() }
 }
 
 class QueryPlanEvaluationTest: XCTestCase, QueryEvaluationTests {
@@ -1021,6 +1131,7 @@ class QueryPlanEvaluationTest: XCTestCase, QueryEvaluationTests {
     
     func evaluator(dataset: Dataset) -> Evaluator {
         let e = QueryPlanEvaluator(store: store, dataset: dataset)
+        e.planner.allowStoreOptimizedPlans = false
         return e
     }
     
@@ -1062,4 +1173,6 @@ class QueryPlanEvaluationTest: XCTestCase, QueryEvaluationTests {
     func testAggregateWindowFunction9() throws { try _testAggregateWindowFunction9() }
     func testAggregateWindowFunction10() throws { try _testAggregateWindowFunction10() }
     func testAggregateWindowFunction11() throws { try _testAggregateWindowFunction11() }
+    func testAggregateWindowFunction_aggregates() throws { try _testAggregateWindowFunction_aggregates() }
+    func testDistinctAggregate() throws { try _testDistinctAggregate() }
 }
