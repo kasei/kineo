@@ -15,6 +15,7 @@ public protocol PlanningQuadStore: QuadStoreProtocol {
 public class QueryPlanner<Q: QuadStoreProtocol> {
     public var allowStoreOptimizedPlans: Bool
     public var store: Q
+    public var verbose: Bool
     public var dataset: Dataset
     public var evaluator: ExpressionEvaluator
     private var freshCounter: UnfoldSequence<Int, (Int?, Bool)>
@@ -25,6 +26,7 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
         self.evaluator = ExpressionEvaluator(base: base)
         self.freshCounter = sequence(first: 1) { $0 + 1 }
         self.allowStoreOptimizedPlans = true
+        self.verbose = false
     }
     
     public func freshVariable() -> Node {
@@ -61,7 +63,10 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
 
         let f = plans.first!
         let p = plans.dropFirst().reduce(f) { UnionPlan(lhs: $0, rhs: $1) }
-        
+        if verbose {
+            warn("QueryPlanner plan: " + p.serialize(depth: 0))
+        }
+
         switch query.form {
         case .select(.star):
             return p
@@ -219,10 +224,11 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
             let p = try plan(algebra: child, activeGraph: activeGraph)
             return AggregationPlan(child: p, groups: groups, aggregates: aggs)
         case let .window(child, funcs):
-            let p = try plan(algebra: child, activeGraph: activeGraph)
             guard funcs.count == 1, let f = funcs.first else {
-                throw QueryError.evaluationError("Unimplmented: Query plan evaluation of multiple window functions")
+                let pp = funcs.reduce(child) { Algebra.window($0, [$1]) }
+                return try plan(algebra: pp, activeGraph: activeGraph)
             }
+            let p = try plan(algebra: child, activeGraph: activeGraph)
             
             let app = f.windowApplication
             let partitionComparators = app.partition.map { Algebra.SortComparator(ascending: true, expression: $0) }
