@@ -907,6 +907,7 @@ extension SimpleQueryEvaluatorProtocol {
             case .rank:
                 // RANK ignores any specified window frame
                 if sorted.count > 0 {
+                    var increment = 1
                     var last = sorted.first!
                     var n = 0
                     
@@ -916,7 +917,10 @@ extension SimpleQueryEvaluatorProtocol {
                     for result in sorted.dropFirst() {
                         var r = result
                         if !resultsAreEqual(r, last, usingComparators: comparators) {
-                            n += 1
+                            n += increment
+                            increment = 1
+                        } else {
+                            increment += 1
                         }
                         try? r.extend(variable: name, value: Term(integer: n+1))
                         newResults.append(r)

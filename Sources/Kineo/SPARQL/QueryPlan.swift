@@ -545,16 +545,20 @@ public struct WindowPlan: UnaryQueryPlan {
         case .rank:
             // RANK ignores any specified window frame
             let order = app.comparators
+            var increment = 1
             let groups = AnySequence(partitionGroups).lazy.map { (g) -> [TermResult] in
                 var rank = 0
                 var last: TermResult? = nil
                 let groupResults = g.map { (r) -> TermResult in
                     if let last = last {
                         if !self.resultsAreEqual(last, r, usingComparators: order) {
-                            rank += 1
+                            rank += increment
+                            increment = 1
+                        } else {
+                            increment += 1
                         }
                     } else {
-                        rank += 1
+                        rank += increment
                     }
                     last = r
                     let rr = r.extended(variable: v, value: Term(integer: rank)) ?? r
@@ -577,9 +581,9 @@ public struct WindowPlan: UnaryQueryPlan {
             return AnyIterator(groupsResults.makeIterator())
         case .aggregation(let agg):
             let frame = app.frame
-            let impl = windowAggregation(agg)
             let seq = AnySequence(partitionGroups)
             let groups = try seq.lazy.map { (g) -> [TermResult] in
+                let impl = windowAggregation(agg)
                 let groupResults = try impl.evaluate(
                     g,
                     frame: frame,
@@ -1852,7 +1856,6 @@ public struct AggregationPlan: UnaryQueryPlan {
             }
         }
         func result() -> Term? {
-            print("COUNT DISTINCT has these values: \(values)")
             return Term(integer: values.count)
         }
     }

@@ -44,6 +44,8 @@ extension SimpleQueryEvaluationTest {
             ("testAggregateWindowFunction10", testAggregateWindowFunction10),
             ("testAggregateWindowFunction11", testAggregateWindowFunction11),
             ("testAggregateWindowFunction_aggregates", testAggregateWindowFunction_aggregates),
+            ("testAggregateWindowFunctionPartition", testAggregateWindowFunctionPartition),
+            ("testAggregateWindowFunctionRank", testAggregateWindowFunctionRank),
             ("testDistinctAggregate", testDistinctAggregate),
         ]
     }
@@ -89,6 +91,8 @@ extension QueryPlanEvaluationTest {
             ("testAggregateWindowFunction10", testAggregateWindowFunction10),
             ("testAggregateWindowFunction11", testAggregateWindowFunction11),
             ("testAggregateWindowFunction_aggregates", testAggregateWindowFunction_aggregates),
+            ("testAggregateWindowFunctionPartition", testAggregateWindowFunctionPartition),
+            ("testAggregateWindowFunctionRank", testAggregateWindowFunctionRank),
             ("testDistinctAggregate", testDistinctAggregate),
         ]
     }
@@ -945,6 +949,45 @@ extension QueryEvaluationTests {
         }
     }
     
+    func _testAggregateWindowFunctionPartition() throws {
+        let data = """
+        PREFIX : <http://example.org/>
+        SELECT
+            ?seq
+            ?partition
+            (SUM(?value) OVER (PARTITION BY ?partition ORDER BY ?seq ROWS BETWEEN 1 PRECEDING AND CURRENT ROW) AS ?sum)
+            (ROW_NUMBER() OVER (PARTITION BY ?partition ORDER BY ?value) AS ?row)
+        WHERE {
+            VALUES (?seq ?partition ?value) {
+                (1      1   3)
+                (2      2   1)
+                (5      3   0)
+                (6      1   -10)
+                (9      2   17)
+                (10     2   2)
+                (100    2   7)
+            }
+        }
+        ORDER BY ?partition ?seq
+        """.data(using: .utf8)!
+        
+        guard var p = SPARQLParser(data: data) else { fatalError("Failed to construct SPARQL parser") }
+        let results = try Array(eval(query: p.parseQuery()))
+        XCTAssertEqual(results.count, 7)
+        
+        for r in results {
+            print(r)
+        }
+        
+        let gotSums = results.map { $0["sum"] }.compactMap { $0?.numericValue }.map { Int($0) }
+        let gotRows = results.map { $0["row"] }.compactMap { $0?.numericValue }.map { Int($0) }
+        XCTAssertEqual(gotRows, [2, 1, 1, 4, 2, 3, 1])
+        let expectedSums = [3, -7, 1, 18, 19, 9, 0]
+        for (got, expected) in zip(gotSums, expectedSums) {
+            XCTAssertEqual(got, expected)
+        }
+    }
+    
     func _testAggregateWindowFunction_aggregates() throws {
         let data = """
         PREFIX : <http://example.org/>
@@ -1058,6 +1101,39 @@ extension QueryEvaluationTests {
             XCTAssertEqual(got, expected)
         }
     }
+
+    func _testAggregateWindowFunctionRank() throws {
+        let data = """
+        PREFIX : <http://example.org/>
+        SELECT
+            ?partition
+            ?value
+            (RANK() OVER (PARTITION BY ?partition ORDER BY ?value) AS ?rank)
+        WHERE {
+            VALUES (?partition ?value) {
+                (1 1)
+                (1 2)
+                (1 2)
+                (1 3)
+                (2 4)
+                (2 4)
+                (2 5)
+            }
+        }
+        ORDER BY ?partition ?value ?rank
+        """.data(using: .utf8)!
+        
+        guard var p = SPARQLParser(data: data) else { fatalError("Failed to construct SPARQL parser") }
+        let results = try Array(eval(query: p.parseQuery()))
+        XCTAssertEqual(results.count, 7)
+        
+        for r in results {
+            print(r)
+        }
+        
+        let gotRanks = results.map { $0["rank"] }.compactMap { $0?.numericValue }.map { Int($0) }
+        XCTAssertEqual(gotRanks, [1, 2, 2, 4, 1, 1, 3])
+    }
 }
 
 class SimpleQueryEvaluationTest: XCTestCase, QueryEvaluationTests {
@@ -1115,7 +1191,9 @@ class SimpleQueryEvaluationTest: XCTestCase, QueryEvaluationTests {
     func testAggregateWindowFunction10() throws { try _testAggregateWindowFunction10() }
     func testAggregateWindowFunction11() throws { try _testAggregateWindowFunction11() }
     func testAggregateWindowFunction_aggregates() throws { try _testAggregateWindowFunction_aggregates() }
+    func testAggregateWindowFunctionPartition() throws { try _testAggregateWindowFunctionPartition() }
     func testDistinctAggregate() throws { try _testDistinctAggregate() }
+    func testAggregateWindowFunctionRank() throws { try _testAggregateWindowFunctionRank() }
 }
 
 class QueryPlanEvaluationTest: XCTestCase, QueryEvaluationTests {
@@ -1174,5 +1252,7 @@ class QueryPlanEvaluationTest: XCTestCase, QueryEvaluationTests {
     func testAggregateWindowFunction10() throws { try _testAggregateWindowFunction10() }
     func testAggregateWindowFunction11() throws { try _testAggregateWindowFunction11() }
     func testAggregateWindowFunction_aggregates() throws { try _testAggregateWindowFunction_aggregates() }
+    func testAggregateWindowFunctionPartition() throws { try _testAggregateWindowFunctionPartition() }
     func testDistinctAggregate() throws { try _testDistinctAggregate() }
+    func testAggregateWindowFunctionRank() throws { try _testAggregateWindowFunctionRank() }
 }
