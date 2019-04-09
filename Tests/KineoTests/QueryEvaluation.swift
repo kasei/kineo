@@ -1134,6 +1134,33 @@ extension QueryEvaluationTests {
         let gotRanks = results.map { $0["rank"] }.compactMap { $0?.numericValue }.map { Int($0) }
         XCTAssertEqual(gotRanks, [1, 2, 2, 4, 1, 1, 3])
     }
+
+    func _testAggregateWindowFunctionRank2() throws {
+        let data = """
+        SELECT ?row ?partition ?value (RANK() OVER (PARTITION BY ?partition ORDER BY ?value) AS ?rank) WHERE {
+            VALUES (?row ?partition ?value) {
+                (1 1 1)
+                (2 1 2)
+                (3 1 2)
+                (4 1 2)
+                (5 2 3)
+                (6 2 3)
+            }
+        }
+        ORDER BY ?partition ?value ?rank
+        """.data(using: .utf8)!
+        
+        guard var p = SPARQLParser(data: data) else { fatalError("Failed to construct SPARQL parser") }
+        let results = try Array(eval(query: p.parseQuery()))
+        XCTAssertEqual(results.count, 6)
+        
+        for r in results {
+            print(r)
+        }
+        
+        let gotRanks = results.map { $0["rank"] }.compactMap { $0?.numericValue }.map { Int($0) }
+        XCTAssertEqual(gotRanks, [1, 2, 2, 2, 1, 1])
+    }
 }
 
 class SimpleQueryEvaluationTest: XCTestCase, QueryEvaluationTests {
@@ -1194,6 +1221,7 @@ class SimpleQueryEvaluationTest: XCTestCase, QueryEvaluationTests {
     func testAggregateWindowFunctionPartition() throws { try _testAggregateWindowFunctionPartition() }
     func testDistinctAggregate() throws { try _testDistinctAggregate() }
     func testAggregateWindowFunctionRank() throws { try _testAggregateWindowFunctionRank() }
+    func testAggregateWindowFunctionRank2() throws { try _testAggregateWindowFunctionRank2() }
 }
 
 class QueryPlanEvaluationTest: XCTestCase, QueryEvaluationTests {
@@ -1255,4 +1283,5 @@ class QueryPlanEvaluationTest: XCTestCase, QueryEvaluationTests {
     func testAggregateWindowFunctionPartition() throws { try _testAggregateWindowFunctionPartition() }
     func testDistinctAggregate() throws { try _testDistinctAggregate() }
     func testAggregateWindowFunctionRank() throws { try _testAggregateWindowFunctionRank() }
+    func testAggregateWindowFunctionRank2() throws { try _testAggregateWindowFunctionRank2() }
 }

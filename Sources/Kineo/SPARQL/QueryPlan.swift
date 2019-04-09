@@ -545,9 +545,9 @@ public struct WindowPlan: UnaryQueryPlan {
         case .rank:
             // RANK ignores any specified window frame
             let order = app.comparators
-            var increment = 1
             let groups = AnySequence(partitionGroups).lazy.map { (g) -> [TermResult] in
                 var rank = 0
+                var increment = 1
                 var last: TermResult? = nil
                 let groupResults = g.map { (r) -> TermResult in
                     if let last = last {
