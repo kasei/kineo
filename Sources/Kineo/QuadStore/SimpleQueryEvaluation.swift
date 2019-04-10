@@ -877,6 +877,10 @@ extension SimpleQueryEvaluatorProtocol {
         let f = application.windowFunction
         let comparators = application.comparators
         let frame = application.frame
+        guard frame.type == .rows else {
+            throw QueryError.evaluationError("RANGE window frames are not implemented")
+        }
+        
         let name = windowMap.variableName
         let results = groups.map { (results) -> [TermResult] in
             var newResults = [TermResult]()
