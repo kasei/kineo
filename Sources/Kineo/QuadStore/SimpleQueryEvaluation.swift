@@ -882,7 +882,7 @@ extension SimpleQueryEvaluatorProtocol {
         }
         
         let name = windowMap.variableName
-        let results = groups.map { (results) -> [TermResult] in
+        let results = try groups.map { (results) -> [TermResult] in
             var newResults = [TermResult]()
             let sorted = comparators.isEmpty ? results : evaluateSort(results, comparators: comparators)
 
@@ -908,7 +908,7 @@ extension SimpleQueryEvaluatorProtocol {
                     try? r.extend(variable: name, value: Term(integer: n+1))
                     newResults.append(r)
                 }
-            case .rank:
+            case .rank, .denseRank:
                 // RANK ignores any specified window frame
                 if sorted.count > 0 {
                     var increment = 1
@@ -923,7 +923,7 @@ extension SimpleQueryEvaluatorProtocol {
                         if !resultsAreEqual(r, last, usingComparators: comparators) {
                             n += increment
                             increment = 1
-                        } else {
+                        } else if application.windowFunction == .rank {
                             increment += 1
                         }
                         try? r.extend(variable: name, value: Term(integer: n+1))
@@ -931,6 +931,9 @@ extension SimpleQueryEvaluatorProtocol {
                         last = result
                     }
                 }
+            case .ntile(let n):
+                // TODO: implement NTILE(n)
+                throw QueryError.evaluationError("NTILE is unimplemented")
             }
 
             return newResults

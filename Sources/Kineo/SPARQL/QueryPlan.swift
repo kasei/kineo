@@ -547,7 +547,7 @@ public struct WindowPlan: UnaryQueryPlan {
         }
 
         switch app.windowFunction {
-        case .rank:
+        case .rank, .denseRank:
             // RANK ignores any specified window frame
             let order = app.comparators
             let groups = AnySequence(partitionGroups).lazy.map { (g) -> [TermResult] in
@@ -559,7 +559,7 @@ public struct WindowPlan: UnaryQueryPlan {
                         if !self.resultsAreEqual(last, r, usingComparators: order) {
                             rank += increment
                             increment = 1
-                        } else {
+                        } else if app.windowFunction == .rank {
                             increment += 1
                         }
                     } else {
@@ -599,6 +599,9 @@ public struct WindowPlan: UnaryQueryPlan {
             }
             let groupsResults = groups.flatMap { $0 }
             return AnyIterator(groupsResults.makeIterator())
+        case .ntile(let n):
+            // TODO: implement NTILE(n)
+            throw QueryPlanError.unimplemented("NTILE")
         }
         
         /**
