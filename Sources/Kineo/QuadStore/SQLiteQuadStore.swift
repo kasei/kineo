@@ -615,7 +615,7 @@ extension SQLiteQuadStore: PlanningQuadStore {
             """
             return (sql, bindings + bindings)
         default:
-            fatalError()
+            throw QueryPlanError.unexpectedError("pathQuery other than link, plus, or star")
         }
         /**
         WITH RECURSIVE

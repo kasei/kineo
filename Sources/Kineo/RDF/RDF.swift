@@ -377,7 +377,8 @@ extension Term {
                 let d = f.date(from: lexical)
                 return d
             } else {
-                fatalError("OSX 10.12 is required to use date functions")
+                warn("MacOS 10.12 is required to use date functions")
+                return nil
             }
         } else if dt.value == Namespace.xsd.date {
             if #available (OSX 10.12, *) {
@@ -387,7 +388,8 @@ extension Term {
                 let d = f.date(from: lexical)
                 return d
             } else {
-                fatalError("OSX 10.12 is required to use date functions")
+                warn("MacOS 10.12 is required to use date functions")
+                return nil
             }
         }
         return nil
@@ -401,7 +403,8 @@ extension Term {
             guard let ld = f.locatedDate(from: lexical) else { return nil }
             return ld.timezone
         } else {
-            fatalError("OSX 10.12 is required to use date functions")
+            warn("MacOS 10.12 is required to use date functions")
+            return nil
         }
     }
 }

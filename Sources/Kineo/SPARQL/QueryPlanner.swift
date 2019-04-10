@@ -417,8 +417,7 @@ public struct QueryPlanEvaluator<Q: QuadStoreProtocol>: QueryEvaluatorProtocol {
             }
             return QueryResult.triples(Array(triples))
         case .describe(_):
-            print("unimplemented: describe")
-            throw QueryPlanError.unimplemented // TODO: implement
+            throw QueryPlanError.unimplemented("DESCRIBE")
         }
     }
 }

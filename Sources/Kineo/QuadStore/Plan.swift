@@ -118,7 +118,7 @@ public class ResultPlanEvaluator {
                 return TermResult(bindings: b)
             }
         default:
-            fatalError("Cannot evaluate ResultPlan \(plan)")
+            throw QueryPlanError.unexpectedError("Cannot evaluate ResultPlan \(plan)")
         }
     }
 }
@@ -163,7 +163,7 @@ public class IDPlanEvaluator {
                 return r
             }
         default:
-            fatalError("Unimplemented: \(plan)")
+            throw QueryPlanError.unimplemented("\(plan)")
         }
     }
 }
@@ -210,7 +210,9 @@ public class PageQuadStorePlanner {
             for n in nodes {
                 switch n {
                 case .bound(let t):
-                    guard let id = store.id.id(for: t) else { fatalError("Failed to retrieve ID for RDF Term during query planning") }
+                    guard let id = store.id.id(for: t) else {
+                        throw QueryPlanError.unexpectedError("Failed to retrieve ID for RDF Term during query planning")
+                    }
                     idnodes.append(.bound(id))
                 case .variable(let name, binding: _):
                     idnodes.append(.variable(self.variableNumber(name)))
@@ -224,7 +226,9 @@ public class PageQuadStorePlanner {
             for n in nodes {
                 switch n {
                 case .bound(let t):
-                    guard let id = store.id.id(for: t) else { fatalError("Failed to retrieve ID for RDF Term during query planning") }
+                    guard let id = store.id.id(for: t) else {
+                        throw QueryPlanError.unexpectedError("Failed to retrieve ID for RDF Term during query planning")
+                    }
                     idnodes.append(.bound(id))
                 case .variable(let name, binding: _):
                     idnodes.append(.variable(self.variableNumber(name)))
@@ -242,7 +246,7 @@ public class PageQuadStorePlanner {
                 return .hashJoin(l, r)
             }
         default:
-            fatalError("Cannot plan algebra:\n\(algebra.serialize())")
+            throw QueryPlanError.unexpectedError("Cannot plan algebra:\n\(algebra.serialize())")
         }
     }
 }

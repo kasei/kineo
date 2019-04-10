@@ -158,7 +158,7 @@ private func serd_node_as_term(env: OpaquePointer?, node: SerdNode, datatype: St
         }
         return term
     default:
-        fatalError("Unexpected SerdNode type: \(node.type)")
+        throw RDFParserCombined.RDFParserError.parseError("Unexpected SerdNode type: \(node.type)")
     }
 }
 
@@ -181,8 +181,10 @@ public struct SerdParser {
         base = serd_node_new_uri_from_string(defaultBase, nil, &baseUri)
         
         var context = ParserContext(env: env, handler: handleTriple, produceUniqueBlankIdentifiers: produceUniqueBlankIdentifiers)
-        let status = withUnsafePointer(to: &context) { (ctx) -> SerdStatus in
-            guard let reader = serd_reader_new(inputSyntax.serdSyntax!, UnsafeMutableRawPointer(mutating: ctx), serd_free_handle, serd_base_sink, serd_prefix_sink, serd_statement_sink, serd_end_sink) else { fatalError() }
+        let status = try withUnsafePointer(to: &context) { (ctx) -> SerdStatus in
+            guard let reader = serd_reader_new(inputSyntax.serdSyntax!, UnsafeMutableRawPointer(mutating: ctx), serd_free_handle, serd_base_sink, serd_prefix_sink, serd_statement_sink, serd_end_sink) else {
+                throw RDFParserCombined.RDFParserError.parseError("Failed to construct Serd reader")
+            }
             
             serd_reader_set_strict(reader, true)
             serd_reader_set_error_sink(reader, serd_error_sink, nil)
@@ -217,7 +219,9 @@ public struct SerdParser {
         
         var context = ParserContext(env: env, handler: handleTriple, produceUniqueBlankIdentifiers: produceUniqueBlankIdentifiers)
         _ = try withUnsafePointer(to: &context) { (ctx) throws -> SerdStatus in
-            guard let reader = serd_reader_new(inputSyntax.serdSyntax!, UnsafeMutableRawPointer(mutating: ctx), serd_free_handle, serd_base_sink, serd_prefix_sink, serd_statement_sink, serd_end_sink) else { fatalError() }
+            guard let reader = serd_reader_new(inputSyntax.serdSyntax!, UnsafeMutableRawPointer(mutating: ctx), serd_free_handle, serd_base_sink, serd_prefix_sink, serd_statement_sink, serd_end_sink) else {
+                throw RDFParserCombined.RDFParserError.parseError("Failed to construct Serd reader")
+            }
             
             serd_reader_set_strict(reader, true)
             serd_reader_set_error_sink(reader, serd_error_sink, UnsafeMutableRawPointer(mutating: ctx))
@@ -287,7 +291,7 @@ fileprivate extension SerdChunk {
                 if let string = String(bytes) {
                     return string
                 } else {
-                    fatalError()
+                    fatalError("Internal error while transforming SerdChunk into a value string")
                 }
             } else {
                 return value
@@ -308,7 +312,7 @@ fileprivate extension SerdNode {
                 if let string = String(bytes) {
                     return string
                 } else {
-                    fatalError()
+                    fatalError("Internal error while transforming SerdNode into a value string")
                 }
             } else {
                 return value

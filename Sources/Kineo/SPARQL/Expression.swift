@@ -443,7 +443,7 @@ public class ExpressionEvaluator {
             case .floor:
                 return numeric.floor.term
             default:
-                fatalError()
+                throw QueryError.evaluationError("Unexpected numeric function \(numericFunction)")
             }
         }
 //        throw QueryError.evaluationError("Unrecognized numeric function: \(numericFunction)")
@@ -465,9 +465,9 @@ public class ExpressionEvaluator {
     public func evaluate(expression: Expression, result: TermResult) throws -> Term {
         switch expression {
         case .aggregate(_):
-            fatalError("Cannot evaluate an aggregate expression without a query context: \(expression)")
+            throw QueryError.evaluationError("Cannot evaluate an aggregate expression without a query context: \(expression)")
         case .window(_):
-            fatalError("Cannot evaluate a window expression without a query context: \(expression)")
+            throw QueryError.evaluationError("Cannot evaluate a window expression without a query context: \(expression)")
         case .node(.bound(let term)):
             return term
         case .node(.variable(let name, _)):
@@ -732,7 +732,7 @@ public class ExpressionEvaluator {
     public func numericEvaluate(expression: Expression, result: TermResult) throws -> NumericValue {
         switch expression {
         case .aggregate(_):
-            fatalError("Cannot evaluate an aggregate expression without a query context")
+            throw QueryError.evaluationError("Cannot evaluate an aggregate expression without a query context")
         case .node(.bound(let term)):
             if let num = term.numeric {
                 return num

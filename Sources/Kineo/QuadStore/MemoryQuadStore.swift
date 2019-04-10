@@ -12,6 +12,7 @@ import SPARQLSyntax
 open class MemoryQuadStore: Sequence, MutableQuadStoreProtocol {
     public enum MemoryQuadStoreError: Error {
         case existingMapping(UInt64, Term)
+        case unexpectedError
     }
     public var cachedGraphDescriptions: [Term:GraphDescription]?
 
@@ -163,7 +164,7 @@ open class MemoryQuadStore: Sequence, MutableQuadStoreProtocol {
             }
         }
         
-        let matching = idquads.filter { (idquad) -> Bool in
+        let matching = try idquads.filter { (idquad) -> Bool in
             if s > 0 && idquad.subject != s {
                 return false
             }
@@ -178,7 +179,7 @@ open class MemoryQuadStore: Sequence, MutableQuadStoreProtocol {
             }
 
             for (_, pos) in repeats {
-                let terms = pos.map { (i) -> TermID in
+                let terms = try pos.map { (i) -> TermID in
                     switch i {
                     case 0:
                         return idquad.0
@@ -189,7 +190,7 @@ open class MemoryQuadStore: Sequence, MutableQuadStoreProtocol {
                     case 3:
                         return idquad.3
                     default:
-                        fatalError()
+                        throw MemoryQuadStoreError.unexpectedError
                     }
                 }
                 if Set(terms).count != 1 {

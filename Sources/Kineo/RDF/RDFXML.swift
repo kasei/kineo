@@ -159,10 +159,11 @@ public struct RDFXMLParser {
             return Term(iri: iri)
         }
         
-        func new_literal(_ value: String) -> Term {
+        func new_literal(_ value: String) -> Term? {
             if let dt = datatype {
                 if dt == "http://www.w3.org/1999/02/22-rdf-syntax-ns#XMLLiteral" {
-                    fatalError("TODO: Implement support for rdf:XMLLiteral")
+                    errors.append(ParserError.parsingError("rdf:XMLLiteral literals are not supported"))
+                    return nil
                 } else {
                     return Term(value: value, type: .datatype(TermDataType(stringLiteral: dt)))
                 }
@@ -211,7 +212,9 @@ public struct RDFXMLParser {
                 guard pair.count == 2 else { continue }
                 let u = try uri(for: pair[0], local: pair[1])
                 let pred = Term(iri: u)
-                let obj = new_literal(data)
+                guard let obj = new_literal(data) else {
+                    throw errors.first!
+                }
                 if let subj = nodes.last {
                     tripleHandler(subj, pred, obj)
                     asserted = true
@@ -424,11 +427,12 @@ public struct RDFXMLParser {
                 pop_expect()
                 let string = characters
                 if string.count > 0 {
-                    let literal = new_literal(string)
-                    let pair = nodes.suffix(2)
-                    if pair.count == 2 {
-                        let i = pair.startIndex
-                        tripleHandler(pair[i], pair[i+1], literal)
+                    if let literal = new_literal(string) {
+                        let pair = nodes.suffix(2)
+                        if pair.count == 2 {
+                            let i = pair.startIndex
+                            tripleHandler(pair[i], pair[i+1], literal)
+                        }
                     }
                 }
                 characters = ""
@@ -468,7 +472,7 @@ public struct RDFXMLParser {
                 characters += "</\(tag)>"
                 cleanup = false
             } else {
-                fatalError()
+                errors.append(ParserError.parsingError("Unexpected end element </\(elementName)>"))
             }
             
             if cleanup {
@@ -525,6 +529,9 @@ public struct RDFXMLParser {
         }
         
         if let e = delegate.error {
+            throw e
+        }
+        if let e = delegate.errors.first {
             throw e
         }
     }

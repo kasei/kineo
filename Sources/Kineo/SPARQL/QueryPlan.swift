@@ -11,8 +11,9 @@ import SPARQLSyntax
 enum QueryPlanError : Error {
     case invalidChild
     case invalidExpression
-    case unimplemented
+    case unimplemented(String)
     case nonConstantExpression
+    case unexpectedError(String)
 }
 
 public protocol PlanSerializable {
@@ -1545,7 +1546,7 @@ public struct PlusPathPlan : PathPlan {
             
             return AnyIterator(i.makeIterator())
         default:
-            fatalError()
+            throw QueryPlanError.unexpectedError("Unexpected subject to PlusPathPlan")
         }
     }
 }
@@ -1597,7 +1598,7 @@ public struct StarPathPlan : PathPlan {
                     } while true
                 }
             case .bound(_):
-                fatalError("unimplemented: ?var :starpath* <bound>") // TODO: implement
+                throw QueryPlanError.unimplemented("unimplemented: ?var :starpath* <bound>") // TODO: implement
             }
         }
     }
