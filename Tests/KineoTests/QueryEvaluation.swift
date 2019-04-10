@@ -975,10 +975,6 @@ extension QueryEvaluationTests {
         let results = try Array(eval(query: p.parseQuery()))
         XCTAssertEqual(results.count, 7)
         
-        for r in results {
-            print(r)
-        }
-        
         let gotSums = results.map { $0["sum"] }.compactMap { $0?.numericValue }.map { Int($0) }
         let gotRows = results.map { $0["row"] }.compactMap { $0?.numericValue }.map { Int($0) }
         XCTAssertEqual(gotRows, [2, 1, 1, 4, 2, 3, 1])
@@ -1042,7 +1038,6 @@ extension QueryEvaluationTests {
         }
         
         let gotGroupConcatValues = results.map { $0["groupConcat"] }.compactMap { $0?.value }
-        print(gotGroupConcatValues)
         let expectedGroupConcatValues = ["3 1", "3 1 0", "1 0 -10", "0 -10 17", "-10 17 2", "17 2 7", "2 7"]
         for (got, expected) in zip(gotGroupConcatValues, expectedGroupConcatValues) {
             XCTAssertEqual(got, expected)
@@ -1072,9 +1067,6 @@ extension QueryEvaluationTests {
         
         guard var p = SPARQLParser(data: data) else { fatalError("Failed to construct SPARQL parser") }
         let results = try Array(eval(query: p.parseQuery()))
-        for r in results {
-            print(r)
-        }
         XCTAssertEqual(results.count, 1)
         
         let gotSumValues = results.map { $0["sum"] }.compactMap { $0?.numericValue }
@@ -1127,10 +1119,6 @@ extension QueryEvaluationTests {
         let results = try Array(eval(query: p.parseQuery()))
         XCTAssertEqual(results.count, 7)
         
-        for r in results {
-            print(r)
-        }
-        
         let gotRanks = results.map { $0["rank"] }.compactMap { $0?.numericValue }.map { Int($0) }
         XCTAssertEqual(gotRanks, [1, 2, 2, 4, 1, 1, 3])
     }
@@ -1153,10 +1141,6 @@ extension QueryEvaluationTests {
         guard var p = SPARQLParser(data: data) else { fatalError("Failed to construct SPARQL parser") }
         let results = try Array(eval(query: p.parseQuery()))
         XCTAssertEqual(results.count, 6)
-        
-        for r in results {
-            print(r)
-        }
         
         let gotRanks = results.map { $0["rank"] }.compactMap { $0?.numericValue }.map { Int($0) }
         XCTAssertEqual(gotRanks, [1, 2, 2, 2, 1, 1])
