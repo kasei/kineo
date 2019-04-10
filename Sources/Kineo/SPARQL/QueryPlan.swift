@@ -541,7 +541,11 @@ public struct WindowPlan: UnaryQueryPlan {
         let results = try child.evaluate()
         let partitionGroups = partition(results, by: group)
         let v = function.variableName
-        
+        let frame = app.frame
+        guard frame.type == .rows else {
+            throw QueryPlanError.unimplemented("RANGE window frames are not implemented")
+        }
+
         switch app.windowFunction {
         case .rank:
             // RANK ignores any specified window frame
