@@ -932,10 +932,41 @@ extension SimpleQueryEvaluatorProtocol {
                     }
                 }
             case .ntile(let n):
-                // TODO: implement NTILE(n)
-                throw QueryError.evaluationError("NTILE is unimplemented")
+                // NTILE ignores any specified window frame
+                if sorted.count > 0 {
+                    var last = sorted.first!
+                    
+                    var row = 1
+                    try? last.extend(variable: name, value: Term(integer: 1))
+                    newResults.append(last)
+                    
+                    for result in sorted.dropFirst() {
+                        var r = result
+                        if !resultsAreEqual(r, last, usingComparators: comparators) {
+                            row += 1
+                        }
+                        
+                        let peerGroupsCount = Set(sorted.map { self.comparisonTerms(from: $0, using: comparators) }).count
+                        let nSize = peerGroupsCount / n
+                        let nLarge = peerGroupsCount - n*nSize
+                        let iSmall = nLarge * (nSize+1)
+                        let iRow = row-1
+                        let q: Int
+                        if iRow < iSmall {
+                            q = 1 + iRow/(nSize+1)
+                        } else {
+                            q = 1 + nLarge + (iRow-iSmall)/nSize
+                        }
+                        
+                        try? r.extend(variable: name, value: Term(integer: q))
+                        newResults.append(r)
+                        last = result
+                    }
+                }
+            case .custom(_, _):
+                throw QueryError.evaluationError("Extension window functions are not supported")
             }
-
+            
             return newResults
         }
         groups = results
@@ -1183,6 +1214,13 @@ extension SimpleQueryEvaluatorProtocol {
             }
             return TermResult(bindings: bindings)
         }
+    }
+    
+    private func comparisonTerms(from term: TermResult, using comparators: [Algebra.SortComparator]) -> [Term?] {
+        let terms = comparators.map { (cmp) -> Term? in
+            return try? self.ee.evaluate(expression: cmp.expression, result: term)
+        }
+        return terms
     }
     
     public func resultsAreEqual(_ a : TermResult, _ b : TermResult, usingComparators comparators: [Algebra.SortComparator]) -> Bool {

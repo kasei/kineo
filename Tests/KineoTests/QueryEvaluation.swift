@@ -33,19 +33,20 @@ extension SimpleQueryEvaluationTest {
             ("testRankWindowFunction1", testRankWindowFunction1),
             ("testRankWindowFunction2", testRankWindowFunction2),
             ("testRankWindowFunctionWithHaving", testRankWindowFunctionWithHaving),
-            ("testAggregateWindowFunction1", testAggregateWindowFunction1),
-            ("testAggregateWindowFunction2", testAggregateWindowFunction2),
-            ("testAggregateWindowFunction4", testAggregateWindowFunction4),
-            ("testAggregateWindowFunction5", testAggregateWindowFunction5),
-            ("testAggregateWindowFunction6", testAggregateWindowFunction6),
-            ("testAggregateWindowFunction7", testAggregateWindowFunction7),
-            ("testAggregateWindowFunction8", testAggregateWindowFunction8),
-            ("testAggregateWindowFunction9", testAggregateWindowFunction9),
-            ("testAggregateWindowFunction10", testAggregateWindowFunction10),
-            ("testAggregateWindowFunction11", testAggregateWindowFunction11),
-            ("testAggregateWindowFunction_aggregates", testAggregateWindowFunction_aggregates),
-            ("testAggregateWindowFunctionPartition", testAggregateWindowFunctionPartition),
-            ("testAggregateWindowFunctionRank", testAggregateWindowFunctionRank),
+            ("testWindowFunction1", testWindowFunction1),
+            ("testWindowFunction2", testWindowFunction2),
+            ("testWindowFunction4", testWindowFunction4),
+            ("testWindowFunction5", testWindowFunction5),
+            ("testWindowFunction6", testWindowFunction6),
+            ("testWindowFunction7", testWindowFunction7),
+            ("testWindowFunction8", testWindowFunction8),
+            ("testWindowFunction9", testWindowFunction9),
+            ("testWindowFunction10", testWindowFunction10),
+            ("testWindowFunction11", testWindowFunction11),
+            ("testWindowFunction_aggregates", testWindowFunction_aggregates),
+            ("testWindowFunctionPartition", testWindowFunctionPartition),
+            ("testWindowFunctionRank", testWindowFunctionRank),
+            ("testWindowFunctionNtile", testWindowFunctionNtile),
             ("testDistinctAggregate", testDistinctAggregate),
         ]
     }
@@ -80,19 +81,20 @@ extension QueryPlanEvaluationTest {
             ("testRankWindowFunction1", testRankWindowFunction1),
             ("testRankWindowFunction2", testRankWindowFunction2),
             ("testRankWindowFunctionWithHaving", testRankWindowFunctionWithHaving),
-            ("testAggregateWindowFunction1", testAggregateWindowFunction1),
-            ("testAggregateWindowFunction2", testAggregateWindowFunction2),
-            ("testAggregateWindowFunction3", testAggregateWindowFunction3),
-            ("testAggregateWindowFunction5", testAggregateWindowFunction5),
-            ("testAggregateWindowFunction6", testAggregateWindowFunction6),
-            ("testAggregateWindowFunction7", testAggregateWindowFunction7),
-            ("testAggregateWindowFunction8", testAggregateWindowFunction8),
-            ("testAggregateWindowFunction9", testAggregateWindowFunction9),
-            ("testAggregateWindowFunction10", testAggregateWindowFunction10),
-            ("testAggregateWindowFunction11", testAggregateWindowFunction11),
-            ("testAggregateWindowFunction_aggregates", testAggregateWindowFunction_aggregates),
-            ("testAggregateWindowFunctionPartition", testAggregateWindowFunctionPartition),
-            ("testAggregateWindowFunctionRank", testAggregateWindowFunctionRank),
+            ("testWindowFunction1", testWindowFunction1),
+            ("testWindowFunction2", testWindowFunction2),
+            ("testWindowFunction3", testWindowFunction3),
+            ("testWindowFunction5", testWindowFunction5),
+            ("testWindowFunction6", testWindowFunction6),
+            ("testWindowFunction7", testWindowFunction7),
+            ("testWindowFunction8", testWindowFunction8),
+            ("testWindowFunction9", testWindowFunction9),
+            ("testWindowFunction10", testWindowFunction10),
+            ("testWindowFunction11", testWindowFunction11),
+            ("testWindowFunction_aggregates", testWindowFunction_aggregates),
+            ("testWindowFunctionPartition", testWindowFunctionPartition),
+            ("testWindowFunctionRank", testWindowFunctionRank),
+            ("testWindowFunctionNtile", testWindowFunctionNtile),
             ("testDistinctAggregate", testDistinctAggregate),
         ]
     }
@@ -608,7 +610,7 @@ extension QueryEvaluationTests {
             ])
     }
     
-    func _testAggregateWindowFunction1() throws {
+    func _testWindowFunction1() throws {
         let data = """
         PREFIX : <http://example.org/>
         SELECT ?date ?value (AVG(?value) OVER (ORDER BY ?date ROWS BETWEEN 2 PRECEDING AND CURRENT ROW) AS ?movingAverage) WHERE {
@@ -639,7 +641,7 @@ extension QueryEvaluationTests {
         }
     }
     
-    func _testAggregateWindowFunction2() throws {
+    func _testWindowFunction2() throws {
         let data = """
         PREFIX : <http://example.org/>
         SELECT ?date ?value (AVG(?value) OVER (ORDER BY ?date ROWS BETWEEN 3 PRECEDING AND CURRENT ROW) AS ?movingAverage) WHERE {
@@ -670,7 +672,7 @@ extension QueryEvaluationTests {
         }
     }
     
-    func _testAggregateWindowFunction3() throws {
+    func _testWindowFunction3() throws {
         let data = """
         PREFIX : <http://example.org/>
         SELECT ?date ?value (AVG(?value) OVER (ORDER BY ?date ROWS BETWEEN CURRENT ROW AND UNBOUNDED) AS ?movingAverage) WHERE {
@@ -701,7 +703,7 @@ extension QueryEvaluationTests {
         }
     }
     
-    func _testAggregateWindowFunction4() throws {
+    func _testWindowFunction4() throws {
         let data = """
         PREFIX : <http://example.org/>
         SELECT ?date ?value (AVG(?value) OVER (ORDER BY ?date ROWS BETWEEN 2 PRECEDING AND 1 PRECEDING) AS ?movingAverage) WHERE {
@@ -732,7 +734,7 @@ extension QueryEvaluationTests {
         }
     }
     
-    func _testAggregateWindowFunction5() throws {
+    func _testWindowFunction5() throws {
         let data = """
         PREFIX : <http://example.org/>
         SELECT ?date ?value (AVG(?value) OVER (ORDER BY ?date ROWS BETWEEN CURRENT ROW AND 1 FOLLOWING) AS ?movingAverage) WHERE {
@@ -763,7 +765,7 @@ extension QueryEvaluationTests {
         }
     }
     
-    func _testAggregateWindowFunction6() throws {
+    func _testWindowFunction6() throws {
         let data = """
         PREFIX : <http://example.org/>
         SELECT ?date ?value (AVG(?value) OVER (ORDER BY ?date ROWS BETWEEN UNBOUNDED AND 1 PRECEDING) AS ?movingAverage) WHERE {
@@ -794,7 +796,7 @@ extension QueryEvaluationTests {
         }
     }
     
-    func _testAggregateWindowFunction7() throws {
+    func _testWindowFunction7() throws {
         let data = """
         PREFIX : <http://example.org/>
         SELECT ?date ?value (AVG(?value) OVER (ORDER BY ?date ROWS BETWEEN 1 FOLLOWING AND UNBOUNDED) AS ?movingAverage) WHERE {
@@ -825,7 +827,7 @@ extension QueryEvaluationTests {
         }
     }
     
-    func _testAggregateWindowFunction8() throws {
+    func _testWindowFunction8() throws {
         let data = """
         PREFIX : <http://example.org/>
         SELECT ?date ?value (AVG(?value) OVER (ORDER BY ?date ROWS BETWEEN 1 FOLLOWING AND 3 FOLLOWING) AS ?movingAverage) WHERE {
@@ -856,7 +858,7 @@ extension QueryEvaluationTests {
         }
     }
     
-    func _testAggregateWindowFunction9() throws {
+    func _testWindowFunction9() throws {
         let data = """
         PREFIX : <http://example.org/>
         SELECT ?date ?value (AVG(?value) OVER (ORDER BY ?date ROWS BETWEEN UNBOUNDED AND 1 FOLLOWING) AS ?movingAverage) WHERE {
@@ -887,7 +889,7 @@ extension QueryEvaluationTests {
         }
     }
     
-    func _testAggregateWindowFunction10() throws {
+    func _testWindowFunction10() throws {
         let data = """
         PREFIX : <http://example.org/>
         SELECT ?date ?value (AVG(?value) OVER (ORDER BY ?date ROWS BETWEEN 1 PRECEDING AND 2 FOLLOWING) AS ?movingAverage) WHERE {
@@ -918,7 +920,7 @@ extension QueryEvaluationTests {
         }
     }
     
-    func _testAggregateWindowFunction11() throws {
+    func _testWindowFunction11() throws {
         let data = """
         PREFIX : <http://example.org/>
         SELECT ?date ?value (AVG(?value) OVER (ORDER BY ?date ROWS BETWEEN 2 PRECEDING AND UNBOUNDED) AS ?movingAverage) WHERE {
@@ -949,7 +951,7 @@ extension QueryEvaluationTests {
         }
     }
     
-    func _testAggregateWindowFunctionPartition() throws {
+    func _testWindowFunctionPartition() throws {
         let data = """
         PREFIX : <http://example.org/>
         SELECT
@@ -984,7 +986,7 @@ extension QueryEvaluationTests {
         }
     }
     
-    func _testAggregateWindowFunction_aggregates() throws {
+    func _testWindowFunction_aggregates() throws {
         let data = """
         PREFIX : <http://example.org/>
         SELECT
@@ -1094,7 +1096,7 @@ extension QueryEvaluationTests {
         }
     }
 
-    func _testAggregateWindowFunctionRank() throws {
+    func _testWindowFunctionRank() throws {
         let data = """
         PREFIX : <http://example.org/>
         SELECT
@@ -1123,7 +1125,7 @@ extension QueryEvaluationTests {
         XCTAssertEqual(gotRanks, [1, 2, 2, 4, 1, 1, 3])
     }
 
-    func _testAggregateWindowFunctionRank2() throws {
+    func _testWindowFunctionRank2() throws {
         let data = """
         SELECT ?row ?partition ?value (RANK() OVER (PARTITION BY ?partition ORDER BY ?value) AS ?rank) WHERE {
             VALUES (?row ?partition ?value) {
@@ -1144,6 +1146,47 @@ extension QueryEvaluationTests {
         
         let gotRanks = results.map { $0["rank"] }.compactMap { $0?.numericValue }.map { Int($0) }
         XCTAssertEqual(gotRanks, [1, 2, 2, 2, 1, 1])
+    }
+    
+    func _testWindowFunctionNtile() throws {
+        let data = """
+        SELECT
+            ?row
+            ?partition
+            ?value
+            (NTILE(2) OVER (ORDER BY ?value ?row) AS ?n2)
+            (NTILE(3) OVER (ORDER BY ?value ?row) AS ?n3)
+            (NTILE(5) OVER (ORDER BY ?value ?row) AS ?n5)
+            (NTILE(5) OVER (ORDER BY ?value) AS ?n5tie)
+        WHERE {
+            VALUES (?row ?partition ?value) {
+                (1 1 1)     # 1 1 1
+                (2 1 1)     # 1 1 1
+                (3 1 5)     # 2 2 3
+                (4 1 7)     # 2 3 4
+                (5 1 2)     # 1 2 2
+                (6 1 1)     # 1 1 2
+                (7 1 10)    # 2 3 5
+            }
+        }
+        ORDER BY ?row
+        """.data(using: .utf8)!
+        
+        guard var p = SPARQLParser(data: data) else { fatalError("Failed to construct SPARQL parser") }
+        let results = try Array(eval(query: p.parseQuery()))
+        XCTAssertEqual(results.count, 7)
+        
+        let gotN2 = results.map { $0["n2"] }.compactMap { $0?.numericValue }.map { Int($0) }
+        XCTAssertEqual(gotN2, [1, 1, 2, 2, 1, 1, 2])
+        
+        let gotN3 = results.map { $0["n3"] }.compactMap { $0?.numericValue }.map { Int($0) }
+        XCTAssertEqual(gotN3, [1, 1, 2, 3, 2, 1, 3])
+        
+        let gotN5 = results.map { $0["n5"] }.compactMap { $0?.numericValue }.map { Int($0) }
+        XCTAssertEqual(gotN5, [1, 1, 3, 4, 2, 2, 5])
+        
+        let gotN5tie = results.map { $0["n5tie"] }.compactMap { $0?.numericValue }.map { Int($0) }
+        XCTAssertEqual(gotN5tie, [1, 1, 3, 4, 2, 1, 5])
     }
 }
 
@@ -1190,22 +1233,23 @@ class SimpleQueryEvaluationTest: XCTestCase, QueryEvaluationTests {
     func testRankWindowFunction1() throws { try _testRankWindowFunction1() }
     func testRankWindowFunction2() throws { try _testRankWindowFunction2() }
     func testRankWindowFunctionWithHaving() throws { try _testRankWindowFunctionWithHaving() }
-    func testAggregateWindowFunction1() throws { try _testAggregateWindowFunction1() }
-    func testAggregateWindowFunction2() throws { try _testAggregateWindowFunction2() }
-    func testAggregateWindowFunction3() throws { try _testAggregateWindowFunction3() }
-    func testAggregateWindowFunction4() throws { try _testAggregateWindowFunction4() }
-    func testAggregateWindowFunction5() throws { try _testAggregateWindowFunction5() }
-    func testAggregateWindowFunction6() throws { try _testAggregateWindowFunction6() }
-    func testAggregateWindowFunction7() throws { try _testAggregateWindowFunction7() }
-    func testAggregateWindowFunction8() throws { try _testAggregateWindowFunction8() }
-    func testAggregateWindowFunction9() throws { try _testAggregateWindowFunction9() }
-    func testAggregateWindowFunction10() throws { try _testAggregateWindowFunction10() }
-    func testAggregateWindowFunction11() throws { try _testAggregateWindowFunction11() }
-    func testAggregateWindowFunction_aggregates() throws { try _testAggregateWindowFunction_aggregates() }
-    func testAggregateWindowFunctionPartition() throws { try _testAggregateWindowFunctionPartition() }
+    func testWindowFunction1() throws { try _testWindowFunction1() }
+    func testWindowFunction2() throws { try _testWindowFunction2() }
+    func testWindowFunction3() throws { try _testWindowFunction3() }
+    func testWindowFunction4() throws { try _testWindowFunction4() }
+    func testWindowFunction5() throws { try _testWindowFunction5() }
+    func testWindowFunction6() throws { try _testWindowFunction6() }
+    func testWindowFunction7() throws { try _testWindowFunction7() }
+    func testWindowFunction8() throws { try _testWindowFunction8() }
+    func testWindowFunction9() throws { try _testWindowFunction9() }
+    func testWindowFunction10() throws { try _testWindowFunction10() }
+    func testWindowFunction11() throws { try _testWindowFunction11() }
+    func testWindowFunction_aggregates() throws { try _testWindowFunction_aggregates() }
+    func testWindowFunctionPartition() throws { try _testWindowFunctionPartition() }
     func testDistinctAggregate() throws { try _testDistinctAggregate() }
-    func testAggregateWindowFunctionRank() throws { try _testAggregateWindowFunctionRank() }
-    func testAggregateWindowFunctionRank2() throws { try _testAggregateWindowFunctionRank2() }
+    func testWindowFunctionRank() throws { try _testWindowFunctionRank() }
+    func testWindowFunctionRank2() throws { try _testWindowFunctionRank2() }
+    func testWindowFunctionNtile() throws { try _testWindowFunctionNtile() }
 }
 
 class QueryPlanEvaluationTest: XCTestCase, QueryEvaluationTests {
@@ -1252,20 +1296,21 @@ class QueryPlanEvaluationTest: XCTestCase, QueryEvaluationTests {
     func testRankWindowFunction1() throws { try _testRankWindowFunction1() }
     func testRankWindowFunction2() throws { try _testRankWindowFunction2() }
     func testRankWindowFunctionWithHaving() throws { try _testRankWindowFunctionWithHaving() }
-    func testAggregateWindowFunction1() throws { try _testAggregateWindowFunction1() }
-    func testAggregateWindowFunction2() throws { try _testAggregateWindowFunction2() }
-    func testAggregateWindowFunction3() throws { try _testAggregateWindowFunction3() }
-    func testAggregateWindowFunction4() throws { try _testAggregateWindowFunction4() }
-    func testAggregateWindowFunction5() throws { try _testAggregateWindowFunction5() }
-    func testAggregateWindowFunction6() throws { try _testAggregateWindowFunction6() }
-    func testAggregateWindowFunction7() throws { try _testAggregateWindowFunction7() }
-    func testAggregateWindowFunction8() throws { try _testAggregateWindowFunction8() }
-    func testAggregateWindowFunction9() throws { try _testAggregateWindowFunction9() }
-    func testAggregateWindowFunction10() throws { try _testAggregateWindowFunction10() }
-    func testAggregateWindowFunction11() throws { try _testAggregateWindowFunction11() }
-    func testAggregateWindowFunction_aggregates() throws { try _testAggregateWindowFunction_aggregates() }
-    func testAggregateWindowFunctionPartition() throws { try _testAggregateWindowFunctionPartition() }
+    func testWindowFunction1() throws { try _testWindowFunction1() }
+    func testWindowFunction2() throws { try _testWindowFunction2() }
+    func testWindowFunction3() throws { try _testWindowFunction3() }
+    func testWindowFunction4() throws { try _testWindowFunction4() }
+    func testWindowFunction5() throws { try _testWindowFunction5() }
+    func testWindowFunction6() throws { try _testWindowFunction6() }
+    func testWindowFunction7() throws { try _testWindowFunction7() }
+    func testWindowFunction8() throws { try _testWindowFunction8() }
+    func testWindowFunction9() throws { try _testWindowFunction9() }
+    func testWindowFunction10() throws { try _testWindowFunction10() }
+    func testWindowFunction11() throws { try _testWindowFunction11() }
+    func testWindowFunction_aggregates() throws { try _testWindowFunction_aggregates() }
+    func testWindowFunctionPartition() throws { try _testWindowFunctionPartition() }
     func testDistinctAggregate() throws { try _testDistinctAggregate() }
-    func testAggregateWindowFunctionRank() throws { try _testAggregateWindowFunctionRank() }
-    func testAggregateWindowFunctionRank2() throws { try _testAggregateWindowFunctionRank2() }
+    func testWindowFunctionRank() throws { try _testWindowFunctionRank() }
+    func testWindowFunctionRank2() throws { try _testWindowFunctionRank2() }
+    func testWindowFunctionNtile() throws { try _testWindowFunctionNtile() }
 }

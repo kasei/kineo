@@ -516,6 +516,13 @@ public struct WindowPlan: UnaryQueryPlan {
         return grouped
     }
     
+    private func comparisonTerms(from term: TermResult, using comparators: [Algebra.SortComparator]) -> [Term?] {
+        let terms = comparators.map { (cmp) -> Term? in
+            return try? evaluator.evaluate(expression: cmp.expression, result: term)
+        }
+        return terms
+    }
+    
     private func resultsAreEqual(_ a : TermResult, _ b : TermResult, usingComparators comparators: [Algebra.SortComparator]) -> Bool {
         if comparators.isEmpty {
             return a == b
@@ -584,6 +591,41 @@ public struct WindowPlan: UnaryQueryPlan {
             }
             let groupsResults = groups.flatMap { $0 }
             return AnyIterator(groupsResults.makeIterator())
+        case .ntile(let n):
+            // NTILE ignores any specified window frame
+            let order = app.comparators
+            let groups = AnySequence(partitionGroups).lazy.map { (g) -> [TermResult] in
+                let sorted = Array(g)
+                let peerGroupsCount = Set(sorted.map { self.comparisonTerms(from: $0, using: order) }).count
+                let nSize = peerGroupsCount / n
+                let nLarge = peerGroupsCount - n*nSize
+                let iSmall = nLarge * (nSize+1)
+                var last: TermResult? = nil
+                var groupResults = [TermResult]()
+                var iRow = -1
+                for r in sorted {
+                    if let last = last {
+                        if !self.resultsAreEqual(last, r, usingComparators: order) {
+                            iRow += 1
+                        }
+                    } else {
+                        iRow += 1
+                    }
+                    last = r
+
+                    let q: Int
+                    if iRow < iSmall {
+                        q = 1 + iRow/(nSize+1)
+                    } else {
+                        q = 1 + nLarge + (iRow-iSmall)/nSize
+                    }
+                    let rr = r.extended(variable: v, value: Term(integer: q)) ?? r
+                    groupResults.append(rr)
+                }
+                return groupResults
+            }
+            let groupsResults = groups.flatMap { $0 }
+            return AnyIterator(groupsResults.makeIterator())
         case .aggregation(let agg):
             let frame = app.frame
             let seq = AnySequence(partitionGroups)
@@ -599,9 +641,8 @@ public struct WindowPlan: UnaryQueryPlan {
             }
             let groupsResults = groups.flatMap { $0 }
             return AnyIterator(groupsResults.makeIterator())
-        case .ntile(let n):
-            // TODO: implement NTILE(n)
-            throw QueryPlanError.unimplemented("NTILE")
+        case .custom(_, _):
+            throw QueryPlanError.unimplemented("Extension window functions are not supported")
         }
         
         /**
