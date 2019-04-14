@@ -257,6 +257,9 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
         case let .distinct(child):
             let p = try plan(algebra: child, activeGraph: activeGraph)
             return DistinctPlan(child: p)
+        case let .reduced(child):
+            let p = try plan(algebra: child, activeGraph: activeGraph)
+            return ReducedPlan(child: p)
         case .bgp(let patterns):
             return try plan(bgp: patterns, activeGraph: .bound(activeGraph))
         case let .minus(lhs, rhs):

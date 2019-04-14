@@ -217,6 +217,9 @@ open class QueryParser<T: LineReadable> {
         } else if op == "distinct" {
             guard let child = stack.popLast() else { throw QueryError.parseError("Not enough operands for \(op)") }
             return .distinct(child)
+        } else if op == "reduced" {
+            guard let child = stack.popLast() else { throw QueryError.parseError("Not enough operands for \(op)") }
+            return .reduced(child)
         }
         warn("Cannot parse query line: \(line)")
         return nil

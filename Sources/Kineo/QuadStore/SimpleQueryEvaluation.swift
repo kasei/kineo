@@ -326,6 +326,20 @@ extension SimpleQueryEvaluatorProtocol {
         case let .filter(child, expr):
             let i = try self.evaluate(algebra: child, activeGraph: activeGraph)
             return try evaluateFilter(i, expression: expr, activeGraph: activeGraph)
+        case let .reduced(child):
+            let i = try self.evaluate(algebra: child, activeGraph: activeGraph)
+            var last: TermResult? = nil
+            return AnyIterator {
+                repeat {
+                    guard let result = i.next() else { return nil }
+                    if let l = last, l == result {
+                        last = result
+                        continue
+                    }
+                    last = result
+                    return result
+                } while true
+            }
         case let .distinct(child):
             let i = try self.evaluate(algebra: child, activeGraph: activeGraph)
             var seen = Set<TermResult>()
@@ -1433,7 +1447,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol>: SimpleQueryEvaluatorProto
             } else {
                 return try effectiveVersion(algebra: child, inGraph: graph)
             }
-        case .distinct(let child), .project(let child, _), .slice(let child, _, _), .extend(let child, _, _), .order(let child, _), .filter(let child, _):
+        case .distinct(let child), .reduced(let child), .project(let child, _), .slice(let child, _, _), .extend(let child, _, _), .order(let child, _), .filter(let child, _):
             return try effectiveVersion(matching: child, activeGraph: activeGraph)
         case .aggregate(let child, _, _):
             return try effectiveVersion(matching: child, activeGraph: activeGraph)

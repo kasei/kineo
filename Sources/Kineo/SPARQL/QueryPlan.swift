@@ -391,6 +391,22 @@ public struct DistinctPlan: UnaryQueryPlan {
     }
 }
 
+public struct ReducedPlan: UnaryQueryPlan {
+    public var child: QueryPlan
+    public var selfDescription: String { return "Distinct" }
+    public func evaluate() throws -> AnyIterator<TermResult> {
+        var last: TermResult? = nil
+        let s = try child.evaluate().lazy.compactMap { (r) -> TermResult? in
+            if let l = last, l == r {
+                return nil
+            }
+            last = r
+            return r
+        }
+        return AnyIterator(s.makeIterator())
+    }
+}
+
 public struct ServicePlan: NullaryQueryPlan {
     var endpoint: URL
     var query: String
