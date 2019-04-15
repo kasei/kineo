@@ -411,9 +411,17 @@ public struct ServicePlan: NullaryQueryPlan {
     var endpoint: URL
     var query: String
     var silent: Bool
+    var client: SPARQLClient
+    
+    public init(endpoint: URL, query: String, silent: Bool, client: SPARQLClient) {
+        self.endpoint = endpoint
+        self.query = query
+        self.silent = silent
+        self.client = client
+    }
+    
     public var selfDescription: String { return "Service \(silent ? "Silent " : "")<\(endpoint)>: \(query)" }
     public func evaluate() throws -> AnyIterator<TermResult> {
-        let client = SPARQLClient(endpoint: endpoint, silent: silent)
         do {
             let r = try client.execute(query)
             switch r {

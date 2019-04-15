@@ -19,6 +19,7 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
     public var dataset: Dataset
     public var evaluator: ExpressionEvaluator
     private var freshCounter: UnfoldSequence<Int, (Int?, Bool)>
+    var serviceClients: [URL:SPARQLClient]
 
     public init(store: Q, dataset: Dataset, base: String? = nil) {
         self.store = store
@@ -27,6 +28,7 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
         self.freshCounter = sequence(first: 1) { $0 + 1 }
         self.allowStoreOptimizedPlans = true
         self.verbose = false
+        self.serviceClients = [:]
     }
     
     public func freshVariable() -> Node {
@@ -274,7 +276,14 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
             }
             let tokens = try q.sparqlTokens()
             let query = s.serialize(tokens)
-            return ServicePlan(endpoint: endpoint, query: query, silent: silent)
+            let client: SPARQLClient
+            if let c = serviceClients[endpoint] {
+                client = c
+            } else {
+                client = SPARQLClient(endpoint: endpoint, silent: silent)
+                serviceClients[endpoint] = client
+            }
+            return ServicePlan(endpoint: endpoint, query: query, silent: silent, client: client)
         case let .namedGraph(child, .bound(g)):
             return try plan(algebra: child, activeGraph: g)
         case let .namedGraph(child, .variable(graph, binding: _)):
