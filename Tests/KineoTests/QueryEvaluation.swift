@@ -43,6 +43,7 @@ extension SimpleQueryEvaluationTest {
             ("testWindowFunction9", testWindowFunction9),
             ("testWindowFunction10", testWindowFunction10),
             ("testWindowFunction11", testWindowFunction11),
+            ("testWindowFunction12", testWindowFunction12),
             ("testWindowFunction_aggregates", testWindowFunction_aggregates),
             ("testWindowFunctionPartition", testWindowFunctionPartition),
             ("testWindowFunctionRank", testWindowFunctionRank),
@@ -91,6 +92,7 @@ extension QueryPlanEvaluationTest {
             ("testWindowFunction9", testWindowFunction9),
             ("testWindowFunction10", testWindowFunction10),
             ("testWindowFunction11", testWindowFunction11),
+            ("testWindowFunction12", testWindowFunction12),
             ("testWindowFunction_aggregates", testWindowFunction_aggregates),
             ("testWindowFunctionPartition", testWindowFunctionPartition),
             ("testWindowFunctionRank", testWindowFunctionRank),
@@ -951,6 +953,32 @@ extension QueryEvaluationTests {
         }
     }
     
+    func _testWindowFunction12() throws {
+        let data = """
+        PREFIX : <http://example.org/>
+        SELECT ?date ?value (AVG(?value) OVER (ORDER BY ?date ROWS BETWEEN UNBOUNDED AND UNBOUNDED) AS ?average) WHERE {
+            VALUES (?date ?value) {
+                (1 1.0)
+                (2 2.0)
+                (3 3.0)
+                (4 -2.0)
+                (5 8.0)
+                (6 2.7)
+                (7 -1.7)
+            }
+        }
+        """.data(using: .utf8)!
+        guard var p = SPARQLParser(data: data) else { fatalError("Failed to construct SPARQL parser") }
+        let results = try Array(eval(query: p.parseQuery()))
+        XCTAssertEqual(results.count, 7)
+        
+        let avgs = results.map { $0["average"] }.compactMap { $0?.numericValue }
+        let expectedAvgs = [1.857, 1.857, 1.857, 1.857, 1.857, 1.857, 1.857]
+        for (got, expected) in zip(avgs, expectedAvgs) {
+            XCTAssertEqual(got, expected, accuracy: 0.01)
+        }
+    }
+    
     func _testWindowFunctionPartition() throws {
         let data = """
         PREFIX : <http://example.org/>
@@ -1244,6 +1272,7 @@ class SimpleQueryEvaluationTest: XCTestCase, QueryEvaluationTests {
     func testWindowFunction9() throws { try _testWindowFunction9() }
     func testWindowFunction10() throws { try _testWindowFunction10() }
     func testWindowFunction11() throws { try _testWindowFunction11() }
+    func testWindowFunction12() throws { try _testWindowFunction12() }
     func testWindowFunction_aggregates() throws { try _testWindowFunction_aggregates() }
     func testWindowFunctionPartition() throws { try _testWindowFunctionPartition() }
     func testDistinctAggregate() throws { try _testDistinctAggregate() }
@@ -1307,6 +1336,7 @@ class QueryPlanEvaluationTest: XCTestCase, QueryEvaluationTests {
     func testWindowFunction9() throws { try _testWindowFunction9() }
     func testWindowFunction10() throws { try _testWindowFunction10() }
     func testWindowFunction11() throws { try _testWindowFunction11() }
+    func testWindowFunction12() throws { try _testWindowFunction12() }
     func testWindowFunction_aggregates() throws { try _testWindowFunction_aggregates() }
     func testWindowFunctionPartition() throws { try _testWindowFunctionPartition() }
     func testDistinctAggregate() throws { try _testDistinctAggregate() }
