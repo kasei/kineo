@@ -531,7 +531,7 @@ public class ExpressionEvaluator {
         let m = calendar.component(.minute, from: dd)
         let s = calendar.component(.second, from: dd)
         let ts = String(format: "%02d:%02d:%02d", h, m, s)
-        return Term(value: ts, type: .datatype(.custom("http://www.w3.org/2001/XMLSchema#time")))
+        return Term(value: ts, type: .datatype(.time))
     }
     
     private func evaluate(date term: Term, duration: Term, withOperatorFrom expr: Expression, truncateToDate: Bool = false) throws -> Term {
