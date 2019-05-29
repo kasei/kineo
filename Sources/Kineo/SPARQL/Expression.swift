@@ -284,6 +284,18 @@ public class ExpressionEvaluator {
         }
     }
     
+    private func throwUnlessDateType(_ term: Term) throws {
+        guard term.isADateType else {
+            throw QueryError.typeError("Operand must be one of: xsd:time, xsd:date, or xsd:dateTime: \(term)")
+        }
+    }
+    
+    private func throwUnlessDurationType(_ term: Term) throws {
+        guard term.isDuration else {
+            throw QueryError.typeError("Operand must be a duration type: xsd:duration, xsd:yearMonthDuration, or xsd:dayTimeDuration: \(term)")
+        }
+    }
+    
     private func throwUnlessStringLiteral(_ term: Term) throws {
         if !term.isStringLiteral {
             throw QueryError.evaluationError("Operand must be a string literal")
@@ -423,6 +435,137 @@ public class ExpressionEvaluator {
         }
         throw QueryError.evaluationError("Unrecognized string function: \(stringFunction)")
     }
+
+    private func evaluateDateSub(_ l: Term, _ r: Term) throws -> Term {
+        guard var ldate = l.dateValue else {
+            throw QueryError.evaluationError("Failed to extract date from term: \(l)")
+        }
+        guard var rdate = r.dateValue else {
+            throw QueryError.evaluationError("Failed to extract date from term: \(r)")
+        }
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+
+        if let tz = l.timeZone {
+            let s = tz.secondsFromGMT(for: ldate)
+            guard let d = calendar.date(byAdding: DateComponents(second: -s), to: ldate) else {
+                throw QueryError.evaluationError("Failed to adjust for timezone offset: \(l)")
+            }
+            ldate = d
+        }
+        
+        if let tz = r.timeZone {
+            let s = tz.secondsFromGMT(for: rdate)
+            guard let d = calendar.date(byAdding: DateComponents(second: -s), to: rdate) else {
+                throw QueryError.evaluationError("Failed to adjust for timezone offset: \(r)")
+            }
+            rdate = d
+        }
+
+        var neg = true
+        if ldate > rdate {
+            (ldate, rdate) = (rdate, ldate)
+            neg = false
+        }
+        
+        let components = calendar.dateComponents([.day, .hour, .minute, .second], from: ldate, to: rdate)
+        var s: String
+        if neg {
+            s = "-P"
+        } else {
+            s = "P"
+        }
+        if let v = components.day, v > 0 {
+            s += "\(v)D"
+        }
+        
+        var timeSet = false
+        if let v = components.hour, v > 0 {
+            if !timeSet {
+                s += "T"
+                timeSet = true
+            }
+            s += "\(v)H"
+        }
+        if let v = components.minute, v > 0 {
+            if !timeSet {
+                s += "T"
+                timeSet = true
+            }
+            s += "\(v)M"
+        }
+        if let v = components.second, v > 0 {
+            if !timeSet {
+                s += "T"
+            }
+            s += "\(v)S"
+        }
+        return Term(value: s, type: .datatype(.custom("http://www.w3.org/2001/XMLSchema#dayTimeDuration")))
+    }
+    
+    private func evaluate(time term: Term, duration: Term, withOperatorFrom expr: Expression) throws -> Term {
+        try throwUnlessDurationType(duration)
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        guard let components = term.dateComponents else {
+            throw QueryError.evaluationError("Failed to extract date components from term: \(term)")
+        }
+        guard let date = calendar.date(from: components) else {
+            throw QueryError.evaluationError("Failed to construct date from xsd:time components")
+        }
+        guard var durationInterval = duration.duration else {
+            throw QueryError.evaluationError("Failed to extract interval from duration: \(duration)")
+        }
+        switch expr {
+        case .sub:
+            durationInterval.months *= -1
+            durationInterval.seconds *= -1.0
+        default:
+            break
+        }
+        guard let d = calendar.date(byAdding: .second, value: Int(durationInterval.seconds), to: date),
+            let dd = calendar.date(byAdding: .month, value: durationInterval.months, to: d) else {
+                throw QueryError.evaluationError("Failed to add duration to date")
+        }
+        let h = calendar.component(.hour, from: dd)
+        let m = calendar.component(.minute, from: dd)
+        let s = calendar.component(.second, from: dd)
+        let ts = String(format: "%02d:%02d:%02d", h, m, s)
+        return Term(value: ts, type: .datatype(.custom("http://www.w3.org/2001/XMLSchema#time")))
+    }
+    
+    private func evaluate(date term: Term, duration: Term, withOperatorFrom expr: Expression, truncateToDate: Bool = false) throws -> Term {
+        try throwUnlessDurationType(duration)
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        guard let date = term.dateValue else {
+            throw QueryError.evaluationError("Failed to extract date from term: \(term)")
+        }
+        guard var durationInterval = duration.duration else {
+            throw QueryError.evaluationError("Failed to extract interval from duration: \(duration)")
+        }
+        switch expr {
+        case .sub:
+            durationInterval.months *= -1
+            durationInterval.seconds *= -1.0
+        default:
+            break
+        }
+        guard let d = calendar.date(byAdding: .second, value: Int(durationInterval.seconds), to: date),
+            let dd = calendar.date(byAdding: .month, value: durationInterval.months, to: d) else {
+                throw QueryError.evaluationError("Failed to add duration to date")
+        }
+        
+        if truncateToDate {
+            let y = calendar.component(.year, from: dd)
+            let m = calendar.component(.month, from: dd)
+            let d = calendar.component(.day, from: dd)
+            let ts = String(format: "%04d-%02d-%02d", y, m, d)
+            return Term(value: ts, type: .datatype(.date))
+        }
+
+        return Term(dateTime: dd, timeZone: term.timeZone)
+    }
     
     private func evaluate(numericFunction: NumericFunction, terms: [Term?]) throws -> Term {
         switch numericFunction {
@@ -530,28 +673,53 @@ public class ExpressionEvaluator {
             }
         case let .add(lhs, rhs), let .sub(lhs, rhs), let .mul(lhs, rhs), let .div(lhs, rhs):
             if let lval = try? evaluate(expression: lhs, result: result), let rval = try? evaluate(expression: rhs, result: result) {
-                guard lval.isNumeric else { throw QueryError.typeError("Value \(lval) is not numeric") }
-                guard rval.isNumeric else { throw QueryError.typeError("Value \(lval) is not numeric") }
-                let value: Double
-                let termType: TermType?
-                switch expression {
-                case .add:
-                    value = lval.numericValue + rval.numericValue
-                    termType = lval.type.resultType(for: "+", withOperandType: rval.type)
-                case .sub:
-                    value = lval.numericValue - rval.numericValue
-                    termType = lval.type.resultType(for: "-", withOperandType: rval.type)
-                case .mul:
-                    value = lval.numericValue * rval.numericValue
-                    termType = lval.type.resultType(for: "*", withOperandType: rval.type)
-                case .div:
-                    guard rval.numericValue != 0.0 else { throw QueryError.typeError("Cannot divide by zero") }
-                    value = lval.numericValue / rval.numericValue
-                    termType = lval.type.resultType(for: "/", withOperandType: rval.type)
+                switch (lval, rval) {
+                case _ where lval.isTime && rval.isTime:
+                    guard case .sub = expression else {
+                        throw QueryError.typeError("Time arithmetic is limited to subtraction: \(expression)")
+                    }
+                    let ll = Term(value: "2000-01-01T\(lval.value)", type: .datatype(TermDataType.dateTime))
+                    let rr = Term(value: "2000-01-01T\(rval.value)", type: .datatype(TermDataType.dateTime))
+                    return try evaluateDateSub(ll, rr)
+                case _ where lval.isADateType && rval.isADateType:
+                    guard case .sub = expression else {
+                        throw QueryError.typeError("Date arithmetic is limited to subtraction: \(expression)")
+                    }
+                    return try evaluateDateSub(lval, rval)
+                case let (date, dur) where date.isADateType && dur.isDuration:
+                    var truncateToDate = false
+                    if case .datatype(.custom("http://www.w3.org/2001/XMLSchema#yearMonthDuration")) = dur.type {
+                        if case .datatype(.date) = date.type {
+                            truncateToDate = true
+                        }
+                    }
+                    return try evaluate(date: date, duration: dur, withOperatorFrom: expression, truncateToDate: truncateToDate)
+                case let (time, dur) where time.isTime && dur.isDuration:
+                    return try evaluate(time: time, duration: dur, withOperatorFrom: expression)
+                case (_, _) where lval.isNumeric && rval.isNumeric:
+                    let value: Double
+                    let termType: TermType?
+                    switch expression {
+                    case .add:
+                        value = lval.numericValue + rval.numericValue
+                        termType = lval.type.resultType(for: "+", withOperandType: rval.type)
+                    case .sub:
+                        value = lval.numericValue - rval.numericValue
+                        termType = lval.type.resultType(for: "-", withOperandType: rval.type)
+                    case .mul:
+                        value = lval.numericValue * rval.numericValue
+                        termType = lval.type.resultType(for: "*", withOperandType: rval.type)
+                    case .div:
+                        guard rval.numericValue != 0.0 else { throw QueryError.typeError("Cannot divide by zero") }
+                        value = lval.numericValue / rval.numericValue
+                        termType = lval.type.resultType(for: "/", withOperandType: rval.type)
+                    }
+                    guard let type = termType else { throw QueryError.typeError("Cannot determine resulting numeric type for combining \(lval) and \(rval)") }
+                    guard let term = Term(numeric: value, type: type) else { throw QueryError.typeError("Cannot combine \(lval) and \(rval) and produce a valid numeric term") }
+                    return term
+                default:
+                    throw QueryError.typeError("Operands to arithmetic operator are not compatible: \(expression)")
                 }
-                guard let type = termType else { throw QueryError.typeError("Cannot determine resulting numeric type for combining \(lval) and \(rval)") }
-                guard let term = Term(numeric: value, type: type) else { throw QueryError.typeError("Cannot combine \(lval) and \(rval) and produce a valid numeric term") }
-                return term
             }
         case .not(let expr):
             let val = try evaluate(expression: expr, result: result)
