@@ -7,7 +7,7 @@ import SPARQLSyntax
 extension SPARQL12EvaluationTest {
     static var allTests : [(String, (SPARQL12EvaluationTest) -> () throws -> Void)] {
         return [
-            ("test11Evaluation_xsdfunctions", test11Evaluation_xsdfunctions),
+            ("test12Evaluation_xsdfunctions", test12Evaluation_xsdfunctions),
         ]
     }
 }
@@ -48,7 +48,7 @@ class SPARQL12EvaluationTest: XCTestCase {
         handle(testResults: results)
     }
 
-    func test11Evaluation_xsdfunctions() throws {
+    func test12Evaluation_xsdfunctions() throws {
         let path = sparql12Base.appendingPathComponent("xsd_functions")
         try runEvaluationTests(inPath: path)
     }
