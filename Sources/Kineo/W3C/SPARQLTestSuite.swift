@@ -12,7 +12,8 @@ public struct SPARQLTestRunner {
     typealias TestedQuadStore = SQLiteQuadStore
 //    typealias TestedQuadStore = MemoryQuadStore
 
-    var quadstore: MemoryQuadStore
+    public var requireTestApproval: Bool
+    public var quadstore: MemoryQuadStore
     public var verbose: Bool
     public var testSimpleQueryEvaluation: Bool
     public var testQueryPlanEvaluation: Bool
@@ -31,6 +32,7 @@ public struct SPARQLTestRunner {
         self.testSimpleQueryEvaluation = true
         self.testQueryPlanEvaluation = true
         self.quadstore = MemoryQuadStore()
+        self.requireTestApproval = true
     }
     
     func quadStore(from dataset: Dataset, defaultGraph: Term) throws -> TestedQuadStore {
@@ -430,12 +432,16 @@ public struct SPARQLTestRunner {
             ?test a ?test_type ;
                 mf:action ?action ;
                 mf:result ?result ;
-                dawgt:approval dawgt:Approved .
+                dawgt:approval ?approval ;
+            .
             ?action qt:query ?query .
         }
         """
         guard var p = SPARQLParser(data: sparql.data(using: .utf8)!) else { fatalError("Failed to construct SPARQL parser") }
-        let q = try p.parseQuery()
+        var q = try p.parseQuery()
+        if self.requireTestApproval {
+            q = try q.replace(["approval": Term(iri: "http://www.w3.org/2001/sw/DataAccess/tests/test-dawg#Approved")])
+        }
         var bind = ["manifest": manifest]
         if let tt = type {
             bind["test_type"] = tt

@@ -53,6 +53,7 @@ guard let path = args.next() else { fatalError("Missing path") }
 let sparqlPath = URL(fileURLWithPath: path)
 var testRunner = SPARQLTestRunner()
 testRunner.verbose = verbose
+testRunner.requireTestApproval = false
 
 if let testIRI = args.next() {
     testRunner.verbose = true
