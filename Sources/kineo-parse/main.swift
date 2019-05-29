@@ -10,10 +10,12 @@ import Foundation
 import Kineo
 import SPARQLSyntax
 
-func prettyPrint(_ qfile: String, silent: Bool = false, includeComments: Bool = false) throws {
-    let url = URL(fileURLWithPath: qfile)
-    let sparql = try Data(contentsOf: url)
-    let stream = InputStream(data: sparql)
+enum KineoParseError: Error {
+    case fileDoesNotExist
+}
+
+func prettyPrint(_ data: Data, silent: Bool = false, includeComments: Bool = false) throws {
+    let stream = InputStream(data: data)
     stream.open()
     let lexer = SPARQLLexer(source: stream, includeComments: includeComments)
     let s = SPARQLSerializer(prettyPrint: true)
@@ -23,10 +25,8 @@ func prettyPrint(_ qfile: String, silent: Bool = false, includeComments: Bool = 
 }
 
 @discardableResult
-func parseQuery(_ qfile: String, simplify: Bool, silent: Bool = false, includeComments: Bool = false) throws -> Query {
-    let url = URL(fileURLWithPath: qfile)
-    let sparql = try Data(contentsOf: url)
-    guard var p = SPARQLParser(data: sparql, includeComments: includeComments) else { fatalError("Failed to construct SPARQL parser") }
+func parseQuery(_ data: Data, simplify: Bool, silent: Bool = false, includeComments: Bool = false) throws -> Query {
+    guard var p = SPARQLParser(data: data, includeComments: includeComments) else { fatalError("Failed to construct SPARQL parser") }
     var query = try p.parseQuery()
     if simplify {
         let r = SPARQLQueryRewriter()
@@ -39,10 +39,8 @@ func parseQuery(_ qfile: String, simplify: Bool, silent: Bool = false, includeCo
     return query
 }
 
-func parseTokens(_ qfile: String, silent: Bool = false) throws {
-    let url = URL(fileURLWithPath: qfile)
-    let sparql = try Data(contentsOf: url)
-    let stream = InputStream(data: sparql)
+func parseTokens(_ data: Data, silent: Bool = false) throws {
+    let stream = InputStream(data: data)
     stream.open()
     let lexer = SPARQLLexer(source: stream)
     while let t = lexer.next() {
@@ -52,25 +50,39 @@ func parseTokens(_ qfile: String, silent: Bool = false) throws {
     }
 }
 
-func parseSPARQL(_ qfile: String, printTokens: Bool, pretty: Bool, simplify: Bool, silent: Bool) throws -> Int32 {
-    do {
-        warn("# \(qfile)")
-        if pretty {
-            try prettyPrint(qfile, includeComments: true)
-        } else if printTokens {
-            try parseTokens(qfile, silent: silent)
+func parseSPARQL(_ filename: String, printTokens: Bool, pretty: Bool, simplify: Bool, silent: Bool) throws -> Int32 {
+    let data: Data
+    if filename == "-" {
+        let fh = FileHandle.standardInput
+        data = fh.readDataToEndOfFile()
+    } else {
+        let url = URL(fileURLWithPath: filename)
+        let path = url.absoluteString
+        let manager = FileManager.default
+        if manager.fileExists(atPath: path) {
+            data = try Data(contentsOf: url)
         } else {
-            try parseQuery(qfile, simplify: simplify, silent: silent)
+            data = filename.data(using: .utf8)!
+        }
+    }
+
+    do {
+        if pretty {
+            try prettyPrint(data, includeComments: true)
+        } else if printTokens {
+            try parseTokens(data, silent: silent)
+        } else {
+            try parseQuery(data, simplify: simplify, silent: silent)
         }
         //print("ok")
     } catch SerializationError.parsingError(let message) {
         print("not ok \(message)")
-        let s = try String(contentsOfFile: qfile, encoding: .utf8)
+        let s = String(data: data, encoding: .utf8)!
         print(s)
         return 255
     } catch let e {
         print("not ok \(e)")
-        let s = try String(contentsOfFile: qfile, encoding: .utf8)
+        let s = String(data: data, encoding: .utf8)!
         print(s)
         return 255
     }
@@ -79,8 +91,14 @@ func parseSPARQL(_ qfile: String, printTokens: Bool, pretty: Bool, simplify: Boo
 
 func parseSRX(_ filename: String, silent: Bool) throws -> Int32 {
     let srxParser = SPARQLXMLParser()
-    let url = URL(fileURLWithPath: filename)
-    let data = try Data(contentsOf: url)
+    let data: Data
+    if filename == "-" {
+        let fh = FileHandle.standardInput
+        data = fh.readDataToEndOfFile()
+    } else {
+        let url = URL(fileURLWithPath: filename)
+        data = try Data(contentsOf: url)
+    }
     let results = try srxParser.parse(data)
     print(results.description)
     return 0
@@ -90,6 +108,11 @@ func parseRDF(_ filename: String, silent: Bool) throws -> Int32 {
     let syntax = RDFParserCombined.guessSyntax(filename: filename)
     let parser = RDFParserCombined()
     let url = URL(fileURLWithPath: filename)
+    let path = url.absoluteString
+    let manager = FileManager.default
+    guard manager.fileExists(atPath: path) else {
+        throw KineoParseError.fileDoesNotExist
+    }
     _ = try parser.parse(file: filename, syntax: syntax, base: url.absoluteString) { (s, p, o) in
         let t = Triple(subject: s, predicate: p, object: o)
         print("\(t)")
@@ -108,11 +131,16 @@ func sortParse(files: [String]) throws -> (Int, [Int:Term]) {
     var blanks = Set<Term>()
     var iris = Set<Term>()
     var literals = Set<Term>()
+    let manager = FileManager.default
     for filename in files {
         #if os (OSX)
         guard let path = NSURL(fileURLWithPath: filename).absoluteString else { throw DatabaseError.DataError("Not a valid graph path: \(filename)") }
         #else
         let path = NSURL(fileURLWithPath: filename).absoluteString
+        guard manager.fileExists(atPath: path) else {
+            throw KineoParseError.fileDoesNotExist
+        }
+        
         #endif
         let graph   = Term(value: path, type: .iri)
         
@@ -214,7 +242,6 @@ if let next = args.peek(), next.hasPrefix("-") {
 }
 
 guard let qfile = args.next() else { fatalError("No query file given") }
-
 do {
     if sort {
         let files = [qfile] + args.elements()
@@ -226,8 +253,8 @@ do {
         }
         exit(0)
     } else {
-        let rr = try parseRDF(qfile, silent: silent)
-        exit(rr)
+        let sr = try parseSPARQL(qfile, printTokens: printTokens, pretty: pretty, simplify: simplify, silent: silent)
+        exit(sr)
     }
 } catch {}
 
@@ -236,5 +263,5 @@ do {
     exit(xr)
 } catch {}
 
-let sr = try parseSPARQL(qfile, printTokens: printTokens, pretty: pretty, simplify: simplify, silent: silent)
-exit(sr)
+let rr = try parseRDF(qfile, silent: silent)
+exit(rr)
