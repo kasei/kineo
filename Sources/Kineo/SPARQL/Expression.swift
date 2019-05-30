@@ -812,7 +812,7 @@ public class ExpressionEvaluator {
             let term = try evaluate(expression: expr, result: result)
             if #available (OSX 10.12, *) {
                 let f = ISO8601DateFormatter()
-                f.formatOptions.remove(.withTimeZone)
+                f.formatOptions = [.withFullDate, .withDashSeparatorInDate]
                 if let _ = f.date(from: term.value) {
                     return Term(value: term.value, type: .datatype(.date))
                 }
@@ -828,6 +828,83 @@ public class ExpressionEvaluator {
                 }
             }
             throw QueryError.typeError("Cannot coerce term to a dateTime value")
+        case .timeCast(let expr):
+            let term = try evaluate(expression: expr, result: result)
+            let v = term.value
+            let parts = v.split(separator: ":")
+            let ints = parts.compactMap { Int($0) }
+            guard ints.count == 3 else {
+                throw QueryError.typeError("Bad xsd:type lexical form: \(term)")
+            }
+            var h = ints[0]
+            let m = ints[1]
+            let s = ints[2] // TODO: support fractional seconds
+            if h == 24 {
+                h = 0
+            }
+            guard (0..<24).contains(h), (0..<60).contains(m), (0..<60).contains(2) else {
+                throw QueryError.typeError("Bad xsd:type lexical form: \(term)")
+            }
+            let tv = String(format: "%02d:%02d:%02d", h, m, s)
+            return Term(value: tv, type: .datatype(.time))
+        case .durationCast(let expr):
+            let term = try evaluate(expression: expr, result: result)
+            if let d = term.duration {
+                var seconds = d.seconds
+                var months = d.months
+                var neg = ""
+                if (seconds < 0 || months < 0) {
+                    neg = "-"
+                    seconds = abs(seconds)
+                    months = abs(months)
+                }
+                var dv = "\(neg)P"
+                if months > 0 {
+                    let y = months / 12
+                    let m = months % 12
+                    if y > 0 {
+                        dv += "\(y)Y"
+                    }
+                    if m > 0 {
+                        dv += "\(m)M"
+                    }
+                }
+                
+                if seconds > 0 {
+                    let ss = Int(seconds)
+                    let d = ss / 86400
+                    let h = (ss % 86400) / 3600
+                    let m = (ss % 3600) / 60
+                    let _s = ss % 60
+                    let s = Double(_s) + (seconds - Double(ss))
+                    if d > 0 {
+                        dv += "\(d)D"
+                    }
+                    if h > 0 || m > 0 || s > 0 {
+                        dv += "T"
+                    }
+                    if h > 0 {
+                        dv += "\(h)H"
+                    }
+                    if m > 0 {
+                        dv += "\(m)M"
+                    }
+                    if s > 0 {
+                        if s.remainder(dividingBy: 1.0) == 0.0 {
+                            dv += "\(Int(s))S"
+                        } else {
+                            dv += "\(s)S"
+                        }
+                    }
+                }
+                
+                if let c = dv.last, c == "P" {
+                    dv += "T0S"
+                }
+                let duration = TermDataType(stringLiteral: "http://www.w3.org/2001/XMLSchema#duration")
+                return Term(value: dv, type: .datatype(duration))
+            }
+            throw QueryError.typeError("Cannot coerce term to a duration value")
         case .stringCast(let expr):
             let term = try evaluate(expression: expr, result: result)
             return Term(string: term.value)
