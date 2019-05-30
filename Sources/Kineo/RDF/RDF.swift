@@ -403,7 +403,7 @@ extension Term {
                 } else if v.contains("+") {
                     fatalError("TODO: implement timezone support for xsd:time")
                 }
-                let parts = v.split(separator: ":")
+                let parts = v.split(separator: ":").map { String($0) }
                 guard parts.count == 3 else {
                     return nil
                 }

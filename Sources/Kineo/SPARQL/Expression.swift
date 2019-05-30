@@ -655,6 +655,18 @@ public class ExpressionEvaluator {
             return Term.falseValue
         case let .eq(lhs, rhs), let .ne(lhs, rhs), let .gt(lhs, rhs), let .lt(lhs, rhs), let .ge(lhs, rhs), let .le(lhs, rhs):
             if let lval = try? evaluate(expression: lhs, result: result), let rval = try? evaluate(expression: rhs, result: result) {
+                if let ld = lval.duration, let rd = rval.duration {
+                    // in general, durations are not comparable, but they are equatable
+                    switch expression {
+                    case .eq:
+                        return Term(boolean: ld.months == rd.months && ld.seconds == rd.seconds)
+                    case .ne:
+                        return Term(boolean: ld.months != rd.months || ld.seconds != rd.seconds)
+                    default:
+                        break
+                    }
+                }
+                
                 let c = try lval.sparqlCompare(rval)
                 switch expression {
                 case .eq:
@@ -840,7 +852,7 @@ public class ExpressionEvaluator {
             throw QueryError.typeError("Cannot coerce term to a dateTime value")
         case .timeCast(let expr):
             let term = try evaluate(expression: expr, result: result)
-            var v = term.value
+            let v = term.value
             if v == "24:00:00" {
                 return Term(value: "00:00:00", type: .datatype(.time))
             }
@@ -849,7 +861,7 @@ public class ExpressionEvaluator {
             guard ints.count == 3 else {
                 throw QueryError.typeError("Bad xsd:time lexical form: \(term)")
             }
-            var h = ints[0]
+            let h = ints[0]
             let m = ints[1]
             let s = ints[2] // TODO: support fractional seconds
             guard (0..<24).contains(h), (0..<60).contains(m), (0...60).contains(s) else {
@@ -1060,25 +1072,44 @@ extension Term {
         case greaterThan
     }
     
+    private func _cmp<C: Comparable>(_ l: C, _ r: C) -> SPARQLComparisonResult {
+        if l == r {
+            return .equals
+        } else if l < r {
+            return .lessThan
+        } else {
+            return .greaterThan
+        }
+    }
+
     func sparqlCompare(_ rval: Term) throws -> SPARQLComparisonResult {
         let lval = self
         switch (lval.type, rval.type) {
         case (.iri, .iri):
-            if lval == rval {
-                return .equals
-            } else if lval < rval {
-                return .lessThan
-            } else {
-                return .greaterThan
-            }
-        case (.datatype(.dateTime), .datatype(.dateTime)):
+            return _cmp(lval, rval)
+        case (.datatype(.dateTime), .datatype(.dateTime)), (.datatype(.date), .datatype(.date)):
             if let ld = lval.dateValue, let rd = rval.dateValue {
-                if ld == rd {
+                return _cmp(ld, rd)
+            } else {
+                throw QueryError.typeError("Comparison on invalid xsd:dateTime")
+            }
+        case (.datatype(.time), .datatype(.time)):
+            var calendar = Calendar(identifier: .gregorian)
+            calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+            if let ld = lval.dateValue, let rd = rval.dateValue {
+                let lc = calendar.dateComponents([.hour, .minute, .second, .nanosecond], from: ld)
+                let rc = calendar.dateComponents([.hour, .minute, .second, .nanosecond], from: rd)
+                if lc == rc {
                     return .equals
-                } else if ld < rd {
-                    return .lessThan
+                }
+                if lc.hour != rc.hour {
+                    return _cmp(lc.hour ?? 0, rc.hour ?? 0)
+                } else if lc.minute != rc.minute {
+                    return _cmp(lc.minute ?? 0, rc.minute ?? 0)
+                } else if lc.second != rc.second {
+                    return _cmp(lc.second ?? 0, rc.second ?? 0)
                 } else {
-                    return .greaterThan
+                    return _cmp(lc.nanosecond ?? 0, rc.nanosecond ?? 0)
                 }
             } else {
                 throw QueryError.typeError("Comparison on invalid xsd:dateTime")
@@ -1096,22 +1127,20 @@ extension Term {
                 throw QueryError.typeError("Equality on invalid xsd:boolean")
             }
         case (_, _) where lval.isNumeric && rval.isNumeric:
-            if lval.equals(rval)  {
-                return .equals
-            } else if lval < rval {
-                return .lessThan
-            } else {
-                return .greaterThan
-            }
+            return _cmp(lval, rval)
         case (_, _) where lval.isStringLiteral && rval.isStringLiteral:
-            if lval.equals(rval)  {
-                return .equals
-            } else if lval < rval {
-                return .lessThan
-            } else {
-                return .greaterThan
-            }
+            return _cmp(lval, rval)
         default:
+            if let ld = lval.duration, let rd = rval.duration {
+                if ld.seconds == 0 && rd.seconds == 0 {
+                    // special case for xsd:yearMonthDuration
+                    return _cmp(ld.months, rd.months)
+                } else if ld.months == 0 && rd.months == 0 {
+                    // special case for xsd:dayTimeDuration
+                    return _cmp(ld.seconds, rd.seconds)
+                }
+            }
+            
             throw QueryError.typeError("Comparison cannot be made on these types: \(lval) <=> \(rval)")
         }
     }
