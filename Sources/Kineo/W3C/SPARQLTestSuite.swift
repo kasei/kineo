@@ -133,7 +133,7 @@ public struct SPARQLTestRunner {
         let results = try runEvaluationTests(inPath: path, testType: nil) { (test) in
             return (test == iri)
         }
-        guard let result = results.first else { fatalError() }
+        guard let result = results.first else { fatalError("Failed to get first result after query evaluation") }
         return result
     }
     

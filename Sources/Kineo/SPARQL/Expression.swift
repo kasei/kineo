@@ -121,10 +121,20 @@ public class ExpressionEvaluator {
         } else {
             guard terms.count == 1 else { throw QueryError.evaluationError("Wrong argument count for \(dateFunction) call") }
             guard let term = terms[0] else { throw QueryError.evaluationError("Not all arguments are bound in \(dateFunction) call") }
-            guard let date = term.dateValue else { throw QueryError.evaluationError("Argument is not a valid xsd:dateTime value in \(dateFunction) call") }
             var calendar = Calendar(identifier: .gregorian)
             calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+            if case .datatype(.time) = term.type {
+                switch dateFunction {
+                case .hours, .minutes, .seconds:
+                    break
+                case .timezone:
+                    fatalError("TODO: implement TIMEZONE(?time)")
+                default:
+                    throw QueryError.evaluationError("Cannot evaluate function on xsd:time value: \(dateFunction)")
+                }
+            }
             
+            guard let date = term.dateValue else { throw QueryError.evaluationError("Argument is not a valid xsd:dateTime value in \(dateFunction) call") }
             switch dateFunction {
             case .year:
                 return Term(integer: calendar.component(.year, from: date))
@@ -168,7 +178,7 @@ public class ExpressionEvaluator {
                     return Term(string: string)
                 }
             case .now:
-                return Term(dateTime: now, timeZone: term.timeZone)
+                fatalError() // handled above
             }
         }
     }
@@ -830,20 +840,20 @@ public class ExpressionEvaluator {
             throw QueryError.typeError("Cannot coerce term to a dateTime value")
         case .timeCast(let expr):
             let term = try evaluate(expression: expr, result: result)
-            let v = term.value
+            var v = term.value
+            if v == "24:00:00" {
+                return Term(value: "00:00:00", type: .datatype(.time))
+            }
             let parts = v.split(separator: ":")
             let ints = parts.compactMap { Int($0) }
             guard ints.count == 3 else {
-                throw QueryError.typeError("Bad xsd:type lexical form: \(term)")
+                throw QueryError.typeError("Bad xsd:time lexical form: \(term)")
             }
             var h = ints[0]
             let m = ints[1]
             let s = ints[2] // TODO: support fractional seconds
-            if h == 24 {
-                h = 0
-            }
-            guard (0..<24).contains(h), (0..<60).contains(m), (0..<60).contains(2) else {
-                throw QueryError.typeError("Bad xsd:type lexical form: \(term)")
+            guard (0..<24).contains(h), (0..<60).contains(m), (0...60).contains(s) else {
+                throw QueryError.typeError("Bad xsd:time lexical form: \(term)")
             }
             let tv = String(format: "%02d:%02d:%02d", h, m, s)
             return Term(value: tv, type: .datatype(.time))

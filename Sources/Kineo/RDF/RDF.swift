@@ -391,6 +391,36 @@ extension Term {
                 warn("MacOS 10.12 is required to use date functions")
                 return nil
             }
+        } else if dt.value == Namespace.xsd.time {
+            if #available (OSX 10.12, *) {
+                var v = lexical
+                var tz: TimeZone? = nil
+                if v.hasSuffix("Z") {
+                    v = String(v.dropLast())
+                    tz = TimeZone(secondsFromGMT: 0)
+                } else if v.contains("-") {
+                    fatalError("TODO: implement timezone support for xsd:time")
+                } else if v.contains("+") {
+                    fatalError("TODO: implement timezone support for xsd:time")
+                }
+                let parts = v.split(separator: ":")
+                guard parts.count == 3 else {
+                    return nil
+                }
+                guard let h = Int(parts[0]), let m = Int(parts[1]), let s = Double(parts[2]) else {
+                    return nil
+                }
+
+                var calendar = Calendar(identifier: .gregorian)
+                calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+                let seconds = Int(s)
+                let nanoseconds = Int((s - Double(seconds)) / 1_000_000_000.0)
+                let components = DateComponents(timeZone: tz, hour: h, minute: m, second: seconds, nanosecond: nanoseconds)
+                return calendar.date(from: components)
+            } else {
+                warn("MacOS 10.12 is required to use date functions")
+                return nil
+            }
         }
         return nil
     }
