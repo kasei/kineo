@@ -19,7 +19,7 @@ class SPARQL12EvaluationTest: XCTestCase {
     var testRunner: SPARQLTestRunner!
     override func setUp() {
         super.setUp()
-        guard let rdfTestsBase = ProcessInfo.processInfo.environment["KINEO_W3C_TEST_PATH_12"] else { fatalError("*** KINEO_W3C_TEST_PATH environment variable must be set") }
+        guard let rdfTestsBase = ProcessInfo.processInfo.environment["KINEO_W3C_TEST_PATH_12"] else { fatalError("*** KINEO_W3C_TEST_PATH_12 environment variable must be set") }
         let base = NSURL(fileURLWithPath: rdfTestsBase)
         sparql12Base = base.appendingPathComponent("tests")
         testRunner = SPARQLTestRunner()

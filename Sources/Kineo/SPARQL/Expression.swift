@@ -870,7 +870,8 @@ public class ExpressionEvaluator {
             let tv = String(format: "%02d:%02d:%02d", h, m, s)
             return Term(value: tv, type: .datatype(.time))
         case .durationCast(let expr):
-            let term = try evaluate(expression: expr, result: result)
+            let t = try evaluate(expression: expr, result: result)
+            let term = Term(value: t.value, type: .datatype(TermDataType(stringLiteral: "http://www.w3.org/2001/XMLSchema#duration")))
             if let d = term.duration {
                 var seconds = d.seconds
                 var months = d.months
@@ -1081,6 +1082,15 @@ extension Term {
             return .greaterThan
         }
     }
+    private func _valueCmp(_ l: Term, _ r: Term) -> SPARQLComparisonResult {
+        if l.equals(r) {
+            return .equals
+        } else if l < r {
+            return .lessThan
+        } else {
+            return .greaterThan
+        }
+    }
 
     func sparqlCompare(_ rval: Term) throws -> SPARQLComparisonResult {
         let lval = self
@@ -1127,9 +1137,9 @@ extension Term {
                 throw QueryError.typeError("Equality on invalid xsd:boolean")
             }
         case (_, _) where lval.isNumeric && rval.isNumeric:
-            return _cmp(lval, rval)
+            return _valueCmp(lval, rval)
         case (_, _) where lval.isStringLiteral && rval.isStringLiteral:
-            return _cmp(lval, rval)
+            return _valueCmp(lval, rval)
         default:
             if let ld = lval.duration, let rd = rval.duration {
                 if ld.seconds == 0 && rd.seconds == 0 {
