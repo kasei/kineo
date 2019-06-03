@@ -71,6 +71,7 @@ public class ExpressionEvaluator {
         case minutes = "MINUTES"
         case seconds = "SECONDS"
         case timezone = "TIMEZONE"
+        case adjust = "ADJUST"
         case tz = "TZ"
     }
     
@@ -117,6 +118,29 @@ public class ExpressionEvaluator {
                 return Term(value: f.string(from: now), type: .datatype(.dateTime))
             } else {
                 throw QueryError.evaluationError("OSX 10.12 is required to use date functions")
+            }
+        } else if dateFunction == .adjust {
+            guard terms.count == 2 else { throw QueryError.evaluationError("Wrong argument count for \(dateFunction) call") }
+            guard let term = terms[0] else { throw QueryError.evaluationError("Not all arguments are bound in \(dateFunction) call") }
+            guard let adjust = terms[1] else { throw QueryError.evaluationError("Not all arguments are bound in \(dateFunction) call") }
+            guard let date = term.dateValue else {
+                throw QueryError.typeError("Not a date value in \(dateFunction) call")
+            }
+            if adjust.value.isEmpty {
+                return Term(dateTime: date, timeZone: nil)
+            }
+            guard let tzdur = adjust.duration, let toTimezone = TimeZone(secondsFromGMT: Int(tzdur.seconds)) else {
+                throw QueryError.typeError("Timezone value is not a valid duration in \(dateFunction) call")
+            }
+            if let tz = term.timeZone {
+                let fromTimezone = tz
+                let offset = TimeInterval(toTimezone.secondsFromGMT() - fromTimezone.secondsFromGMT())
+                let d = date.addingTimeInterval(offset)
+                let t = Term(dateTime: d, timeZone: toTimezone)
+                return t
+            } else {
+                let t = Term(dateTime: date, timeZone: toTimezone)
+                return t
             }
         } else {
             guard terms.count == 1 else { throw QueryError.evaluationError("Wrong argument count for \(dateFunction) call") }
@@ -177,7 +201,7 @@ public class ExpressionEvaluator {
                     let string = String(format: "\(neg)%02d:%02d", hours, minutes)
                     return Term(string: string)
                 }
-            case .now:
+            case .adjust, .now:
                 fatalError() // handled above
             }
         }
