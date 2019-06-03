@@ -209,7 +209,7 @@ class TermIdentityMapTest: XCTestCase {
     }
     
     func testDateTimeToID() {
-        let id = map.id(for: Term(year: 2018, month: 4, day: 22, hours: 3, minutes: 19, seconds: 1.0, offset: (-5 * 60)))
+        let id = map.id(for: Term(year: 2018, month: 4, day: 22, hours: 3, minutes: 19, seconds: 1.0, offset: (-5 * 60 * 60)))
         XCTAssertEqual(id, APRIL_22_2018_03_19_01_EST)
         let term = map.term(for: APRIL_22_2018_03_19_01_EST)
         XCTAssertNotNil(term)
