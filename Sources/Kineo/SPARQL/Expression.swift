@@ -705,6 +705,8 @@ public class ExpressionEvaluator {
                     return (c != .lessThan) ? Term.trueValue: Term.falseValue
                 case .le:
                     return (c != .greaterThan) ? Term.trueValue: Term.falseValue
+                default:
+                    break
                 }
             }
         case .between(let expr, let lower, let upper):
@@ -759,6 +761,8 @@ public class ExpressionEvaluator {
                         guard rval.numericValue != 0.0 else { throw QueryError.typeError("Cannot divide by zero") }
                         value = lval.numericValue / rval.numericValue
                         termType = lval.type.resultType(for: "/", withOperandType: rval.type)
+                    default:
+                        fatalError()
                     }
                     guard let type = termType else { throw QueryError.typeError("Cannot determine resulting numeric type for combining \(lval) and \(rval)") }
                     guard let term = Term(numeric: value, type: type) else { throw QueryError.typeError("Cannot combine \(lval) and \(rval) and produce a valid numeric term") }
@@ -1056,6 +1060,8 @@ public class ExpressionEvaluator {
                 return lval * rval
             case .div:
                 return lval / rval
+            default:
+                break
             }
         case .intCast(let expr):
             let val = try numericEvaluate(expression: expr, result: result)
@@ -1067,8 +1073,9 @@ public class ExpressionEvaluator {
             let val = try numericEvaluate(expression: expr, result: result)
             return .double(mantissa: val.value, exponent: 0)
         default:
-            throw QueryError.evaluationError("Failed to numerically evaluate \(self) with result \(result)")
+            break
         }
+        throw QueryError.evaluationError("Failed to numerically evaluate \(self) with result \(result)")
     }
 }
 
