@@ -88,6 +88,8 @@ extension ResultPlan {
             s += "\(indent)Hash Join:\n"
             s += lhs.serialize(depth: depth+1)
             s += rhs.serialize(depth: depth+1)
+        default:
+            break
         }
         return s
     }
