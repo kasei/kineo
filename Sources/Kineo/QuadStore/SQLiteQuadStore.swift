@@ -97,13 +97,19 @@ open class SQLiteQuadStore: Sequence, MutableQuadStoreProtocol {
             // )
         })
         
-        try db.run(quadsTable.create { t in     // CREATE TABLE "quads" (
-            t.column(subjColumn) //     "subject" INTEGER NOT NULL,
-            t.column(predColumn) //     "predicate" INTEGER NOT NULL,
-            t.column(objColumn) //     "object" INTEGER NOT NULL,
-            t.column(graphColumn) //     "graph" INTEGER NOT NULL,
-            t.unique([subjColumn, predColumn, objColumn, graphColumn]) // UNIQUE("subject", "predicate", "object", "graph")
-            // )
+        try db.run(quadsTable.create { t in         // CREATE TABLE "quads" (
+            t.column(idColumn, primaryKey: true)    //     "id" INTEGER PRIMARY KEY NOT NULL
+            t.column(subjColumn)                    //     "subject" INTEGER NOT NULL,
+            t.column(predColumn)                    //     "predicate" INTEGER NOT NULL,
+            t.column(objColumn)                     //     "object" INTEGER NOT NULL,
+            t.column(graphColumn)                   //     "graph" INTEGER NOT NULL,
+            t.unique([
+                subjColumn,
+                predColumn,
+                objColumn,
+                graphColumn]
+            )                                       // UNIQUE("subject", "predicate", "object", "graph")
+                                                    // )
         })
         try db.run(quadsTable.createIndex(graphColumn))
         try db.run(quadsTable.createIndex(graphColumn, predColumn, objColumn, subjColumn))
