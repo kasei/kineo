@@ -1261,7 +1261,7 @@ public struct WindowPlan: UnaryQueryPlan {
                 remove: { (_) in return },
                 value: { return value }
             )
-        case let .groupConcat(expr, sep, _):
+        case let .groupConcat(expr, sep, _, _):
             var values = [Term?]()
             return SlidingWindowImplementation(
                 add: { (r) in
@@ -2023,9 +2023,11 @@ public struct AggregationPlan: UnaryQueryPlan {
                 self.aggregates[a.variableName] = { return MaximumAggregate(expression: e, evaluator: ee) }
             case .sample(let e):
                 self.aggregates[a.variableName] = { return SampleAggregate(expression: e, evaluator: ee) }
-            case let .groupConcat(e, sep, true):
+            case let .groupConcat(e, sep, cmps, true):
+                print("TODO: support sort comparators in GROUP_CONCAT")
                 self.aggregates[a.variableName] = { return GroupConcatDistinctAggregate(expression: e, separator: sep, evaluator: ee) }
-            case let .groupConcat(e, sep, false):
+            case let .groupConcat(e, sep, cmps, false):
+                print("TODO: support sort comparators in GROUP_CONCAT")
                 self.aggregates[a.variableName] = { return GroupConcatAggregate(expression: e, separator: sep, evaluator: ee) }
             case let .avg(e, false):
                 self.aggregates[a.variableName] = { return AverageAggregate(expression: e, evaluator: ee) }
