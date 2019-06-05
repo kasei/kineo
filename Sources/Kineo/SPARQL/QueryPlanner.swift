@@ -31,6 +31,10 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
         self.serviceClients = [:]
     }
     
+    public func addFunction(_ iri: String, _ f: @escaping ([Term]) throws -> Term) {
+        self.evaluator.functions[iri] = f
+    }
+    
     public func freshVariable() -> Node {
         return .variable(freshVariableName(), binding: true)
     }
@@ -369,6 +373,11 @@ public struct QueryPlanEvaluator<Q: QuadStoreProtocol>: QueryEvaluatorProtocol {
 
     var dataset: Dataset
     public var planner: QueryPlanner<Q>
+    
+    public init(planner: QueryPlanner<Q>) {
+        self.dataset = planner.dataset
+        self.planner = planner
+    }
     
     public init(store: Q, dataset: Dataset, base: String? = nil) {
         self.dataset = dataset
