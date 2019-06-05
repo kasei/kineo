@@ -895,6 +895,8 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
             let pathPlan = try plan(subject: s, path: path, object: o, activeGraph: activeGraph, estimator: estimator)
             plans.append(PathQueryPlan(subject: s, path: pathPlan, object: o, graph: activeGraph))
             return plans
+        case .matchStatement(_, _):
+            fatalError("TODO: implement plan(algebra: .matchStatement)")
         }
     }
 

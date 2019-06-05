@@ -133,6 +133,8 @@ extension Algebra {
             return false
         case .table(_, _):
             return false
+        case .matchStatement(_, _):
+            return true
         }
     }
 }

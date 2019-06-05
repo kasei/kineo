@@ -118,6 +118,7 @@ public protocol BinaryIDQueryPlan: IDQueryPlan {
     var lhs: IDQueryPlan { get }
     var rhs: IDQueryPlan { get }
 }
+
 public extension BinaryIDQueryPlan {
     var children : [IDQueryPlan] { return [lhs, rhs] }
     var isJoinIdentity: Bool { return false }
@@ -140,4 +141,3 @@ public extension IDQueryPlan {
         return d
     }
 }
-

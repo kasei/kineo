@@ -309,7 +309,7 @@ extension SimpleQueryEvaluatorProtocol {
             if aggs.count == 1 {
                 let aggMap = aggs.first!
                 switch aggMap.aggregation {
-                case .sum(_, false), .count(_, false), .countAll, .avg(_, false), .min(_), .max(_), .groupConcat(_, _, false), .sample(_):
+                case .sum(_, false), .count(_, false), .countAll, .avg(_, false), .min(_), .max(_), .groupConcat(_, _, _, false), .sample(_):
                     return try evaluateSinglePipelinedAggregation(algebra: child, groups: groups, aggregation: aggMap.aggregation, variable: aggMap.variableName, activeGraph: activeGraph)
                 default:
                     break
@@ -374,6 +374,8 @@ extension SimpleQueryEvaluatorProtocol {
             return try evaluatePath(subject: s, object: o, graph: activeGraph, path: path)
         case let .namedGraph(child, graph):
             return try evaluate(algebra: child, inGraph: graph)
+        case .matchStatement(_, _):
+            fatalError("TODO: implement evaluate(algebra: .matchStatement)")
         }
     }
     
@@ -578,7 +580,8 @@ extension SimpleQueryEvaluatorProtocol {
             if let n = terms.first {
                 return n
             }
-        case .groupConcat(let keyExpr, let sep, let distinct):
+        case let .groupConcat(keyExpr, sep, cmps, distinct):
+            print("TODO: support sort comparators in GROUP_CONCAT")
             if let n = self.evaluateGroupConcat(results: results, expression: keyExpr, separator: sep, distinct: distinct) {
                 return n
             }
@@ -705,7 +708,8 @@ extension SimpleQueryEvaluatorProtocol {
                         termGroups[groupKey] = max(value, term)
                     case .sample(_):
                         break
-                    case .groupConcat(let keyExpr, let sep, false):
+                    case let .groupConcat(keyExpr, sep, cmps, false):
+                        print("TODO: support sort comparators in GROUP_CONCAT")
                         guard case .datatype(_) = value.type else {
                             Logger.shared.error("Unexpected term in generating GROUP_CONCAT value")
                             throw QueryError.evaluationError("Unexpected term in generating GROUP_CONCAT value")
@@ -775,7 +779,8 @@ extension SimpleQueryEvaluatorProtocol {
                     case .sample(let keyExpr):
                         let term = try self.ee.evaluate(expression: keyExpr, result: result)
                         termGroups[groupKey] = term
-                    case .groupConcat(let keyExpr, _, false):
+                    case let .groupConcat(keyExpr, _, cmps, false):
+                        print("TODO: support sort comparators in GROUP_CONCAT")
                         let term = try self.ee.evaluate(expression: keyExpr, result: result)
                         switch term.type {
                         case .datatype(_):
@@ -1488,6 +1493,8 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol>: SimpleQueryEvaluatorProto
             return mtime
         case .subquery(let q):
             return try effectiveVersion(matching: q)
+        case .matchStatement(_, _):
+            return nil
         }
     }
 
