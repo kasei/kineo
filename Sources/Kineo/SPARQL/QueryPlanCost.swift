@@ -79,6 +79,9 @@ public struct QueryPlanSimpleCostEstimator: QueryPlanCostEstimator {
                 return QueryPlanSimpleCost(cost: cost)
             } else if let p = plan as? TablePlan {
                 return QueryPlanSimpleCost(cost: Double(p.rows.count))
+            } else {
+                // TODO: store-provided query plans will appear here, but we don't know how to cost them
+                return QueryPlanSimpleCost(cost: 1.0)
             }
         } else if let p = plan as? UnaryQueryPlan {
             let c = try cost(for: p.child)
@@ -100,10 +103,14 @@ public struct QueryPlanSimpleCostEstimator: QueryPlanCostEstimator {
                 return QueryPlanSimpleCost(cost: c.cost * log(c.cost))
             } else if let _ = plan as? WindowPlan {
                 return QueryPlanSimpleCost(cost: 2.0 * c.cost)
+            } else if let _ = plan as? ExtendPlan {
+                return QueryPlanSimpleCost(cost: 1.1 * c.cost)
             } else if let _ = plan as? FilterPlan {
                 return QueryPlanSimpleCost(cost: 1.1 * c.cost)
             } else if let _ = plan as? HeapSortLimitPlan {
                 return QueryPlanSimpleCost(cost: 1.2 * c.cost)
+            } else if let _ = plan as? AggregationPlan {
+                return QueryPlanSimpleCost(cost: 2.0 * c.cost)
             }
         } else if let p = plan as? BinaryQueryPlan {
             let lhs = p.children[0]
@@ -119,10 +126,14 @@ public struct QueryPlanSimpleCostEstimator: QueryPlanCostEstimator {
                 return QueryPlanSimpleCost(cost: penalty * (lc.cost + 2.0 * rc.cost)) // value rhs more, since that is the one that is materialized
             } else if let _ = plan as? NestedLoopJoinPlan {
                 return QueryPlanSimpleCost(cost: lc.cost * rc.cost)
+            } else if let _ = plan as? DiffPlan {
+                return QueryPlanSimpleCost(cost: lc.cost * rc.cost)
             } else if let _ = plan as? UnionPlan {
                 return QueryPlanSimpleCost(cost: lc.cost + rc.cost)
             }
         }
+        
+        print("Unrecognized query plan \(plan)")
         throw QueryPlanCostError.unrecognizedPlan(plan)
     }
 }
@@ -130,13 +141,9 @@ public struct QueryPlanSimpleCostEstimator: QueryPlanCostEstimator {
 
 /**
  
-DiffPlan: BinaryQueryPlan
-ExtendPlan: UnaryQueryPlan
-NextRowPlan: UnaryQueryPlan
 MinusPlan: BinaryQueryPlan
 ServicePlan: NullaryQueryPlan
 ExistsPlan: UnaryQueryPlan
 PathQueryPlan: NullaryQueryPlan
-AggregationPlan: UnaryQueryPlan
 
  **/
