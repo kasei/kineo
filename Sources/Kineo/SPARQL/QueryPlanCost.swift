@@ -39,8 +39,11 @@ extension Node {
 }
 
 public struct QueryPlanSimpleCostEstimator: QueryPlanCostEstimator {
+    var boundQuadCost: Double
+    var serviceCost: Double
     public init() {
-        
+        self.boundQuadCost = 1.0
+        self.serviceCost = 50.0
     }
     
     public struct QueryPlanSimpleCost: Comparable, CustomStringConvertible {
@@ -63,7 +66,7 @@ public struct QueryPlanSimpleCostEstimator: QueryPlanCostEstimator {
         if let _ = plan as? NullaryQueryPlan {
             if let p = plan as? QuadPlan {
                 let q = p.quad
-                var cost = 1.0
+                var cost = boundQuadCost
                 if q.subject.isVariable {
                     cost *= 7.5
                 }
@@ -79,6 +82,11 @@ public struct QueryPlanSimpleCostEstimator: QueryPlanCostEstimator {
                 return QueryPlanSimpleCost(cost: cost)
             } else if let p = plan as? TablePlan {
                 return QueryPlanSimpleCost(cost: Double(p.rows.count))
+            } else if let _ = plan as? ServicePlan {
+                return QueryPlanSimpleCost(cost: self.serviceCost)
+            } else if let _ = plan as? PathQueryPlan {
+                print("TODO: improve cost estimation for path queries")
+                return QueryPlanSimpleCost(cost: 20.0)
             } else {
                 // TODO: store-provided query plans will appear here, but we don't know how to cost them
                 return QueryPlanSimpleCost(cost: 1.0)
@@ -111,6 +119,9 @@ public struct QueryPlanSimpleCostEstimator: QueryPlanCostEstimator {
                 return QueryPlanSimpleCost(cost: 1.2 * c.cost)
             } else if let _ = plan as? AggregationPlan {
                 return QueryPlanSimpleCost(cost: 2.0 * c.cost)
+            } else if let p = plan as? ExistsPlan {
+                let patternCost = try cost(for: p.pattern)
+                return QueryPlanSimpleCost(cost: c.cost + sqrt(patternCost.cost))
             }
         } else if let p = plan as? BinaryQueryPlan {
             let lhs = p.children[0]
@@ -127,9 +138,11 @@ public struct QueryPlanSimpleCostEstimator: QueryPlanCostEstimator {
             } else if let _ = plan as? NestedLoopJoinPlan {
                 return QueryPlanSimpleCost(cost: lc.cost * rc.cost)
             } else if let _ = plan as? DiffPlan {
-                return QueryPlanSimpleCost(cost: lc.cost * rc.cost)
+                return QueryPlanSimpleCost(cost: lc.cost + 2.0 * rc.cost) // value rhs more, since that is the one that is materialized
             } else if let _ = plan as? UnionPlan {
                 return QueryPlanSimpleCost(cost: lc.cost + rc.cost)
+            } else if let _ = plan as? MinusPlan {
+                return QueryPlanSimpleCost(cost: lc.cost + 2.0 * rc.cost) // value rhs more, since that is the one that is materialized
             }
         }
         
@@ -137,13 +150,3 @@ public struct QueryPlanSimpleCostEstimator: QueryPlanCostEstimator {
         throw QueryPlanCostError.unrecognizedPlan(plan)
     }
 }
-
-
-/**
- 
-MinusPlan: BinaryQueryPlan
-ServicePlan: NullaryQueryPlan
-ExistsPlan: UnaryQueryPlan
-PathQueryPlan: NullaryQueryPlan
-
- **/
