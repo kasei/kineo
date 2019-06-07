@@ -248,16 +248,16 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
                 return OffsetPlan(child: hs, offset: offset)
             }
         case let .slice(child, offset, limit):
-            let p = try plan(algebra: child, activeGraph: activeGraph, estimator: estimator)
+            let plans = try plan(algebra: child, activeGraph: activeGraph, estimator: estimator)
             switch (offset, limit) {
             case let (.some(offset), .some(limit)):
-                return p.map { LimitPlan(child: OffsetPlan(child: $0, offset: offset), limit: limit) }
+                return plans.map { LimitPlan(child: OffsetPlan(child: $0, offset: offset), limit: limit) }
             case (.some(let offset), _):
-                return p.map { OffsetPlan(child: $0, offset: offset) }
+                return plans.map { OffsetPlan(child: $0, offset: offset) }
             case (_, .some(let limit)):
-                return p.map { LimitPlan(child: $0, limit: limit) }
+                return plans.map { LimitPlan(child: $0, limit: limit) }
             default:
-                return p
+                return plans
             }
             //NextRowPlan
         case let .extend(child, .exists(algebra), name):
