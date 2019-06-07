@@ -43,9 +43,13 @@ public struct QueryPlanSimpleCostEstimator: QueryPlanCostEstimator {
         
     }
     
-    public struct QueryPlanSimpleCost: Comparable {
+    public struct QueryPlanSimpleCost: Comparable, CustomStringConvertible {
         var cost: Double
 
+        public var description: String {
+            return String(format: "Cost(%.1lf)", cost)
+        }
+        
         public static func < (lhs: QueryPlanSimpleCostEstimator.QueryPlanSimpleCost, rhs: QueryPlanSimpleCostEstimator.QueryPlanSimpleCost) -> Bool {
             return lhs.cost < rhs.cost
         }
