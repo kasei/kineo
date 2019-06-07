@@ -90,13 +90,15 @@ public class ExpressionEvaluator {
     public var base: String?
     var activeGraph: Term?
     var algebraEvaluator: AlgebraEvaluator?
-    
+    var functions: [String: ([Term]) throws -> Term]
+
     public init(base: String? = nil) {
         self.base = base
         self.bnodes = [:]
         self.now = Date()
         self.activeGraph = nil
         self.algebraEvaluator = nil
+        self.functions = [:]
     }
     
     public func nextResult() {
@@ -996,6 +998,15 @@ public class ExpressionEvaluator {
                 return try evaluateIf(terms: terms)
             } else if iri == "COALESCE" {
                 return try evaluateCoalesce(terms: terms)
+            } else if let f = self.functions[iri] {
+                let t = try terms.map { (t) throws -> Term in
+                    if let t = t {
+                        return t
+                    } else {
+                        throw QueryError.evaluationError("Not all arguments are bound in call: <\(iri)>")
+                    }
+                }
+                return try f(t)
             }
             switch iri {
             default:

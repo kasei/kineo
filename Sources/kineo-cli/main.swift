@@ -137,9 +137,11 @@ func parseQuery<D : PageDatabase>(_ database: D, filename: String) throws -> Que
 /// - parameter graph: The graph name to use as the initial active graph.
 func explain<Q : QuadStoreProtocol>(in store: Q, query: Query, graph: Term? = nil, verbose: Bool) throws {
     let dataset = datasetForStore(store, graph: graph, verbose: verbose)
-    let planner     = QueryPlanner(store: store, dataset: dataset)
+    let planner     = queryPlanner(store: store, dataset: dataset)
     let plan        = try planner.plan(query: query)
-    print("Query plan:")
+    let ce = QueryPlanSimpleCostEstimator()
+    let cost = try ce.cost(for: plan)
+    print("Query plan [\(cost)]")
     print(plan.serialize())
 }
 
@@ -181,9 +183,19 @@ func runQuery<Q: QuadStoreProtocol>(_ query: Query, in store: Q, graph: Term?, v
     }
     
     //    let e       = SimpleQueryEvaluator(store: store, dataset: dataset, verbose: verbose)
-    let e       = QueryPlanEvaluator(store: store, dataset: dataset)
+    let planner     = queryPlanner(store: store, dataset: dataset)
+    let e       = QueryPlanEvaluator(planner: planner)
     let results = try e.evaluate(query: query)
     return results
+}
+
+func queryPlanner<Q : QuadStoreProtocol>(store: Q, dataset: Dataset) -> QueryPlanner<Q> {
+    let planner = QueryPlanner(store: store, dataset: dataset)
+    // Add extension functions here:
+//    planner.addFunction("http://example.org/func") { (terms) -> Term in
+//        return Term(string: "test")
+//    }
+    return planner
 }
 
 /// Evaluate the supplied Query against the database's QuadStore and print the results.
