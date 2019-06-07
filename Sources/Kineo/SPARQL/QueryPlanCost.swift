@@ -19,10 +19,15 @@ public protocol QueryPlanCostEstimator {
 }
 
 public extension QueryPlanCostEstimator {
-    func cheaperThan(lhs: QueryPlan, rhs: QueryPlan) throws -> Bool {
-        let lcost = try cost(for: lhs)
-        let rcost = try cost(for: rhs)
-        return cheaperThan(lhs: lcost, rhs: rcost)
+    func cheaperThan(lhs: QueryPlan, rhs: QueryPlan) -> Bool {
+        do {
+            let lcost = try cost(for: lhs)
+            let rcost = try cost(for: rhs)
+            return cheaperThan(lhs: lcost, rhs: rcost)
+        } catch let e {
+            print("*** Failed to compute cost for query plans: \(e)")
+            return false
+        }
     }
 }
 

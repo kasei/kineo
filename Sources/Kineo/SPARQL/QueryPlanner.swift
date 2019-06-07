@@ -126,10 +126,7 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
                 plans.append(contentsOf: j)
             }
         }
-        let sorted = try plans.sorted { (lhs, rhs) -> Bool in
-            return try estimator.cheaperThan(lhs: lhs, rhs: rhs)
-        }
-        return Array(sorted.prefix(self.maxInFlightPlans))
+        return candidatePlans(plans, estimator: estimator)
     }
     
     func plan<E: QueryPlanCostEstimator>(bgp: [TriplePattern], activeGraph g: Node, estimator: E) throws -> [QueryPlan] {
@@ -159,10 +156,10 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
         }
     }
 
-    private func candidatePlans<E: QueryPlanCostEstimator>(_ plans: [QueryPlan], estimator: E) throws -> [QueryPlan] {
+    private func candidatePlans<E: QueryPlanCostEstimator>(_ plans: [QueryPlan], estimator: E) -> [QueryPlan] {
         if plans.count > self.maxInFlightPlans {
-            let sorted = try plans.sorted { (lhs, rhs) -> Bool in
-                return try estimator.cheaperThan(lhs: lhs, rhs: rhs)
+            let sorted = plans.sorted { (lhs, rhs) -> Bool in
+                return estimator.cheaperThan(lhs: lhs, rhs: rhs)
             }
             return Array(sorted.prefix(self.maxInFlightPlans))
         } else {
@@ -171,7 +168,7 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
     }
     
     private func bestPlan<E: QueryPlanCostEstimator>(_ plans: [QueryPlan], estimator: E) throws -> QueryPlan {
-        guard let p = try plans.min(by: { try estimator.cheaperThan(lhs: $0, rhs: $1) }) else {
+        guard let p = plans.min(by: { estimator.cheaperThan(lhs: $0, rhs: $1) }) else {
             throw QueryPlannerError.noPlanAvailable
         }
         return p
@@ -213,7 +210,7 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
                     }
                 }
             }
-            return try candidatePlans(plans, estimator: estimator)
+            return candidatePlans(plans, estimator: estimator)
         case let .leftOuterJoin(lhs, rhs, expr):
             let fijplans = try plan(algebra: .filter(.innerJoin(lhs, rhs), expr), activeGraph: activeGraph, estimator: estimator)
             let lplans = try plan(algebra: lhs, activeGraph: activeGraph, estimator: estimator)
@@ -230,7 +227,7 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
                     }
                 }
             }
-            return try candidatePlans(plans, estimator: estimator)
+            return candidatePlans(plans, estimator: estimator)
         case let .union(lhs, rhs):
             let lplans = try plan(algebra: lhs, activeGraph: activeGraph, estimator: estimator)
             let rplans = try plan(algebra: rhs, activeGraph: activeGraph, estimator: estimator)
@@ -240,7 +237,7 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
                     plans.append(UnionPlan(lhs: l, rhs: r))
                 }
             }
-            return try candidatePlans(plans, estimator: estimator)
+            return candidatePlans(plans, estimator: estimator)
         case let .project(child, vars):
             let p = try plan(algebra: child, activeGraph: activeGraph, estimator: estimator)
             if child.inscope == vars {
@@ -284,10 +281,10 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
                     plans.append(ExistsPlan(child: p, pattern: pat, variable: name, patternAlgebra: algebra))
                 }
             }
-            return try candidatePlans(plans, estimator: estimator)
+            return candidatePlans(plans, estimator: estimator)
         case let .extend(child, expr, name):
             // TODO: handle multiple query plans from child
-            var pplans = try plan(algebra: child, activeGraph: activeGraph, estimator: estimator)
+            let pplans = try plan(algebra: child, activeGraph: activeGraph, estimator: estimator)
             guard var p = pplans.first else {
                 throw QueryPlannerError.noPlanAvailable
             }
@@ -299,7 +296,7 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
             let (e, mapping) = try expr.removingExistsExpressions(namingVariables: &freshCounter)
             try mapping.forEach { (name, algebra) throws in
                 let patplans = try plan(algebra: algebra, activeGraph: activeGraph, estimator: estimator)
-                guard var pat = patplans.first else {
+                guard let pat = patplans.first else {
                     throw QueryPlannerError.noPlanAvailable
                 }
                 p = ExistsPlan(child: p, pattern: pat, variable: name, patternAlgebra: algebra)
@@ -338,10 +335,10 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
                 )
                 plans.append(WindowPlan(child: sorted, function: f, evaluator: evaluator))
             }
-            return try candidatePlans(plans, estimator: estimator)
+            return candidatePlans(plans, estimator: estimator)
         case let .filter(child, expr):
             // TODO: handle multiple query plans from child
-            var pplans = try plan(algebra: child, activeGraph: activeGraph, estimator: estimator)
+            let pplans = try plan(algebra: child, activeGraph: activeGraph, estimator: estimator)
             guard var p = pplans.first else {
                 throw QueryPlannerError.noPlanAvailable
             }
@@ -369,7 +366,7 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
             return p.map { ReducedPlan(child: $0) }
         case .bgp(let patterns):
             let plans = try plan(bgp: patterns, activeGraph: .bound(activeGraph), estimator: estimator)
-            return try candidatePlans(plans, estimator: estimator)
+            return candidatePlans(plans, estimator: estimator)
         case let .minus(lhs, rhs):
             let lplans = try plan(algebra: lhs, activeGraph: activeGraph, estimator: estimator)
             let rplans = try plan(algebra: rhs, activeGraph: activeGraph, estimator: estimator)
@@ -379,7 +376,7 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
                     plans.append(MinusPlan(lhs: l, rhs: r))
                 }
             }
-            return try candidatePlans(plans, estimator: estimator)
+            return candidatePlans(plans, estimator: estimator)
         case let .service(endpoint, algebra, silent):
             let s = SPARQLSerializer(prettyPrint: true)
             guard let q = try? Query(form: .select(.star), algebra: algebra) else {
@@ -401,7 +398,7 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
             // TODO: handle multiple query plans from child
             let branches = try dataset.namedGraphs.map { (g) throws -> QueryPlan in
                 let pplans = try plan(algebra: child, activeGraph: g, estimator: estimator)
-                guard var p = pplans.first else {
+                guard let p = pplans.first else {
                     throw QueryPlannerError.noPlanAvailable
                 }
                 let table = TablePlan(columns: [.variable(graph, binding: true)], rows: [[g]])
