@@ -52,7 +52,6 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
     
     public func plan(query: Query, activeGraph: Term? = nil) throws -> QueryPlan {
         let costEstimator = QueryPlanSimpleCostEstimator()
-        print("TODO: pass cost estimator around into the planning methods")
         // The plan returned here does not fully handle the query form; it only sets up the correct query plan.
         // For CONSTRUCT and DESCRIBE queries, the production of triples must still be handled elsewhere.
         // For ASK queries, code must handle conversion of the iterator into a boolean result
@@ -101,7 +100,8 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
         }
     }
     
-    private func reduceJoin<E: QueryPlanCostEstimator>(_ plan: QueryPlan, rest tail: [QuadPattern], currentVariables: Set<String>, estimator: E) throws -> [QueryPlan] {
+    private func reduceQuadJoins<E: QueryPlanCostEstimator>(_ plan: QueryPlan, rest tail: [QuadPattern], currentVariables: Set<String>, estimator: E) throws -> [QueryPlan] {
+        // TODO: this is currently doing all possible permutations of [rest]; that's going to be prohibitive on large BGPs; use heuristics or something like IDP
         guard !tail.isEmpty else {
             return [plan]
         }
@@ -122,7 +122,7 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
             
             let u = currentVariables.union(tv)
             for p in intermediate {
-                let j = try reduceJoin(p, rest: rest, currentVariables: u, estimator: estimator)
+                let j = try reduceQuadJoins(p, rest: rest, currentVariables: u, estimator: estimator)
                 plans.append(contentsOf: j)
             }
         }
@@ -148,7 +148,7 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
         }
 
         let qp = QuadPlan(quad: firstQuad, store: store)
-        let plans = try reduceJoin(qp, rest: restQuads, currentVariables: firstQuad.variables, estimator: estimator)
+        let plans = try reduceQuadJoins(qp, rest: restQuads, currentVariables: firstQuad.variables, estimator: estimator)
 //        print("Got \(plans.count) possible BGP join plans...")
         if vars == proj {
             return plans
@@ -171,10 +171,7 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
     }
     
     private func bestPlan<E: QueryPlanCostEstimator>(_ plans: [QueryPlan], estimator: E) throws -> QueryPlan {
-        let sorted = try plans.sorted { (lhs, rhs) -> Bool in
-            return try estimator.cheaperThan(lhs: lhs, rhs: rhs)
-        }
-        guard var p = sorted.first else {
+        guard let p = try plans.min(by: { try estimator.cheaperThan(lhs: $0, rhs: $1) }) else {
             throw QueryPlannerError.noPlanAvailable
         }
         return p
@@ -209,8 +206,10 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
             for l in lplans {
                 for r in rplans {
                     plans.append(NestedLoopJoinPlan(lhs: l, rhs: r))
+                    plans.append(NestedLoopJoinPlan(lhs: r, rhs: l))
                     if !i.isEmpty {
                         plans.append(HashJoinPlan(lhs: l, rhs: r, joinVariables: i))
+                        plans.append(HashJoinPlan(lhs: r, rhs: l, joinVariables: i))
                     }
                 }
             }
@@ -245,7 +244,7 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
         case let .project(child, vars):
             let p = try plan(algebra: child, activeGraph: activeGraph, estimator: estimator)
             if child.inscope == vars {
-                return try candidatePlans(p, estimator: estimator)
+                return p
             } else {
                 return p.map { ProjectPlan(child: $0, variables: vars) }
             }
@@ -370,18 +369,6 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
             return p.map { ReducedPlan(child: $0) }
         case .bgp(let patterns):
             let plans = try plan(bgp: patterns, activeGraph: .bound(activeGraph), estimator: estimator)
-            if true {
-                let sorted = try plans.sorted { (lhs, rhs) -> Bool in
-                    return try estimator.cheaperThan(lhs: lhs, rhs: rhs)
-                }
-                print("===================")
-                for s in sorted {
-                    let cost = try estimator.cost(for: s)
-                    print("-----------------")
-                    print("Cost: \(cost)")
-                    print(s.serialize(depth: 2))
-                }
-            }
             return try candidatePlans(plans, estimator: estimator)
         case let .minus(lhs, rhs):
             let lplans = try plan(algebra: lhs, activeGraph: activeGraph, estimator: estimator)

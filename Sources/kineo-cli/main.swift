@@ -139,12 +139,10 @@ func explain<Q : QuadStoreProtocol>(in store: Q, query: Query, graph: Term? = ni
     let dataset = datasetForStore(store, graph: graph, verbose: verbose)
     let planner     = queryPlanner(store: store, dataset: dataset)
     let plan        = try planner.plan(query: query)
-    print("Query plan:")
-    print(plan.serialize())
-    
     let ce = QueryPlanSimpleCostEstimator()
     let cost = try ce.cost(for: plan)
-    print("Cost: \(cost)")
+    print("Query plan [\(cost)]")
+    print(plan.serialize())
 }
 
 func explain<D : PageDatabase>(_ database: D, query: Query, graph: Term? = nil, verbose: Bool) throws {
