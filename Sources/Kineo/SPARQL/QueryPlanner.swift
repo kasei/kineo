@@ -416,8 +416,8 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
             guard let first = branches.first else {
                 return [TablePlan(columns: [], rows: [])]
             }
-            let plan = branches.dropFirst().reduce(first) { UnionPlan(lhs: $0, rhs: $1) }
-            return [plan]
+            let p = branches.dropFirst().reduce(first) { UnionPlan(lhs: $0, rhs: $1) }
+            return [p]
         case let .triple(t):
             let quad = QuadPattern(subject: t.subject, predicate: t.predicate, object: t.object, graph: .bound(activeGraph))
             let plans = try plan(algebra: .quad(quad), activeGraph: activeGraph, estimator: estimator)
