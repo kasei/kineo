@@ -72,7 +72,8 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
         var plans = [QueryPlan]()
         for activeGraph in graphs {
             let ps = try plan(algebra: algebra, activeGraph: activeGraph, estimator: costEstimator)
-            plans.append(contentsOf: ps)
+            let p = try bestPlan(ps, estimator: costEstimator)
+            plans.append(p)
         }
 
         guard let f = plans.first else {
@@ -148,7 +149,7 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
 
         let qp = QuadPlan(quad: firstQuad, store: store)
         let plans = try reduceJoin(qp, rest: restQuads, currentVariables: firstQuad.variables, estimator: estimator)
-        print("Got \(plans.count) possible BGP join plans...")
+//        print("Got \(plans.count) possible BGP join plans...")
         if vars == proj {
             return plans
         } else {
@@ -167,6 +168,16 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
         } else {
             return plans
         }
+    }
+    
+    private func bestPlan<E: QueryPlanCostEstimator>(_ plans: [QueryPlan], estimator: E) throws -> QueryPlan {
+        let sorted = try plans.sorted { (lhs, rhs) -> Bool in
+            return try estimator.cheaperThan(lhs: lhs, rhs: rhs)
+        }
+        guard var p = sorted.first else {
+            throw QueryPlannerError.noPlanAvailable
+        }
+        return p
     }
     
     public func plan<E: QueryPlanCostEstimator>(algebra: Algebra, activeGraph: Term, estimator: E) throws -> [QueryPlan] {
