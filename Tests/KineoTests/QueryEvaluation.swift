@@ -519,8 +519,8 @@ extension QueryEvaluationTests {
             //            print(q.serialize())
             let results = try Array(eval(query: q))
             XCTAssertEqual(results.count, 2)
-        } catch {
-            XCTFail()
+        } catch let e {
+            XCTFail("\(e)")
         }
     }
     
