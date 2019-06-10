@@ -40,19 +40,6 @@ class ConfigurationTest: XCTestCase {
         }
     }
     
-    func testCLIConfiguration_pageFile() throws {
-        let filename = "filename.db"
-        var args = ["process-name", "--file=\(filename)"]
-        let config = try QuadStoreConfiguration(arguments: &args)
-        XCTAssertEqual(args.count, 1)
-        XCTAssertFalse(config.languageAware)
-        if case .filePageDatabase(filename) = config.type {
-            XCTAssert(true)
-        } else {
-            XCTFail("expected database type")
-        }
-    }
-    
     func testCLIConfiguration_memory() throws {
         var args = ["process-name", "-m"]
         let config = try QuadStoreConfiguration(arguments: &args)
