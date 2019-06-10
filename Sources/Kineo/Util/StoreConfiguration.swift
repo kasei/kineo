@@ -15,7 +15,6 @@ public enum StoreConfigurationError: Error {
 public struct QuadStoreConfiguration {
     public enum StoreType {
         case memoryDatabase
-        case filePageDatabase(String)
         case sqliteFileDatabase(String)
         case sqliteMemoryDatabase
     }
@@ -108,11 +107,6 @@ public struct QuadStoreConfiguration {
             case _ where arg.hasPrefix("--named-graph="):
                 let file = String(arg.dropFirst(14))
                 namedGraphs.append((Term(iri: file), file))
-            case "-f":
-                type = .filePageDatabase(args.remove(at: index))
-            case _ where arg.hasPrefix("--file="):
-                let filename = String(arg.dropFirst(7))
-                type = .filePageDatabase(filename)
             case "-s":
                 type = .sqliteFileDatabase(args.remove(at: index))
             case _ where arg.hasPrefix("--store="):
@@ -130,7 +124,7 @@ public struct QuadStoreConfiguration {
         }
     }
 
-    public func withStore(_ handler: (QuadStoreProtocol) throws -> ()) throws {
+    public func withStore<R>(_ handler: (QuadStoreProtocol) throws -> R) throws -> R {
         switch type {
         case .sqliteFileDatabase(let filename):
             let fileManager = FileManager.default
@@ -138,41 +132,27 @@ public struct QuadStoreConfiguration {
             let store = try SQLiteQuadStore(filename: filename, initialize: initialize)
             if languageAware {
                 let lstore = SQLiteLanguageQuadStore(quadstore: store, acceptLanguages: acceptLanguages)
-                try handler(lstore)
+                return try handler(lstore)
             } else {
-                try handler(store)
+                return try handler(store)
             }
         case .sqliteMemoryDatabase:
             let store = try SQLiteQuadStore()
             if languageAware {
                 let acceptLanguages = [("*", 1.0)] // can be changed later
                 let lstore = SQLiteLanguageQuadStore(quadstore: store, acceptLanguages: acceptLanguages)
-                try handler(lstore)
+                return try handler(lstore)
             } else {
-                try handler(store)
+                return try handler(store)
             }
         case .memoryDatabase:
             let store = MemoryQuadStore()
             if languageAware {
                 let acceptLanguages = [("*", 1.0)] // can be changed later
                 let lstore = LanguageMemoryQuadStore(quadstore: store, acceptLanguages: acceptLanguages)
-                try handler(lstore)
+                return try handler(lstore)
             } else {
-                try handler(store)
-            }
-        case .filePageDatabase(let filename):
-            let pageSize = 8192 // TODO: read from the database file
-            guard let database = FilePageDatabase(filename, size: pageSize) else {
-                warn("Failed to open database file '\(filename)'")
-                exit(1)
-            }
-            if languageAware {
-                let acceptLanguages = [("*", 1.0)] // can be changed later
-                let store = try LanguagePageQuadStore(database: database, acceptLanguages: acceptLanguages)
-                try handler(store)
-            } else {
-                let store = try PageQuadStore(database: database)
-                try handler(store)
+                return try handler(store)
             }
         }
     }

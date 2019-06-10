@@ -116,20 +116,6 @@ func parse<Q: MutableQuadStoreProtocol>(into store: Q, files: [String], version:
     return count
 }
 
-func parse<D : PageDatabase>(_ database: D, files: [String], startTime: UInt64, graph defaultGraphTerm: Term? = nil) throws -> Int {
-    var count   = 0
-    let version = Version(startTime)
-    let store = try PageQuadStore(database: database)
-    count += try parse(into: store, files: files, version: version, graph: defaultGraphTerm)
-    return count
-}
-
-func parseQuery<D : PageDatabase>(_ database: D, filename: String) throws -> Query? {
-    let reader      = FileReader(filename: filename)
-    let qp          = QueryParser(reader: reader)
-    return try qp.parse()
-}
-
 /// Parse a SPARQL query from the supplied file, produce a query plan for it in the context
 /// of the database's QuadStore, and print a serialized form of the resulting query plan.
 ///
@@ -145,17 +131,7 @@ func explain<Q : QuadStoreProtocol>(in store: Q, query: Query, graph: Term? = ni
     print(plan.serialize())
 }
 
-func explain<D : PageDatabase>(_ database: D, query: Query, graph: Term? = nil, verbose: Bool) throws {
-    print("- explaining query")
-    try database.read { (m) in
-        print("- mediator: \(m)")
-        //        let store       = try MediatedLanguagePageQuadStore(mediator: m, acceptLanguages: [("en", 1.0), ("", 0.5)])
-        let store       = try MediatedPageQuadStore(mediator: m)
-        try explain(in: store, query: query, graph: graph, verbose: verbose)
-    }
-}
-
-func datasetForStore<Q: QuadStoreProtocol>(_ store: Q, graph: Term?, verbose: Bool = false) -> Dataset {
+func datasetForStore(_ store: QuadStoreProtocol, graph: Term?, verbose: Bool = false) -> Dataset {
     var defaultGraph: Term
     if let g = graph {
         defaultGraph = g
@@ -228,10 +204,10 @@ func cliQuery<Q: QuadStoreProtocol>(in store: Q, query: Query, graph: Term? = ni
     return count
 }
 
-func query<D : PageDatabase>(_ database: D, query q: Query, graph: Term? = nil, verbose: Bool) throws -> Int {
-    let store = try PageQuadStore(database: database)
-    return try query(in: store, query: q, graph: graph, verbose: verbose)
-}
+//func query<D : PageDatabase>(_ database: D, query q: Query, graph: Term? = nil, verbose: Bool) throws -> Int {
+//    let store = try PageQuadStore(database: database)
+//    return try query(in: store, query: q, graph: graph, verbose: verbose)
+//}
 
 private func cliPrintResult<R, T>(_ results: QueryResult<R, T>) -> Int {
     var count       = 0
@@ -284,89 +260,6 @@ private func print(quad: Quad, lastGraph: Term?) {
     print("\(s) \(p) \(o) .")
 }
 
-/// Print all the quads present in the database's QuadStore. If an index name is supplied,
-/// use it to print quads in its native order.
-///
-/// - parameter index: The name of an index to use to sort the resulting output.
-func serialize<D : PageDatabase>(_ database: D, index: String? = nil) throws -> Int {
-    var count = 0
-    database.read { (m) in
-        do {
-            let store = try MediatedPageQuadStore(mediator: m)
-            var lastGraph: Term? = nil
-            if let index = index {
-                let i = try store.iterator(usingIndex: index)
-                for quad in i {
-                    print(quad: quad, lastGraph: lastGraph)
-                    count += 1
-                    lastGraph = quad.graph
-                }
-            } else {
-                for quad in store {
-                    print(quad: quad, lastGraph: lastGraph)
-                    count += 1
-                    lastGraph = quad.graph
-                }
-            }
-        } catch let e {
-            warn("*** \(e)")
-        }
-    }
-    return count
-}
-
-/// Print basic information about the database's QuadStore including the last-modified time,
-/// the number of quads, the available indexes, and the count of triples in each graph.
-func printSummary<D : PageDatabase>(of database: D) throws {
-    database.read { (m) in
-        guard let store = try? MediatedPageQuadStore(mediator: m) else { return }
-        print("Quad Store")
-        if let v = try? store.effectiveVersion(), let version = v {
-            let versionDate = getDateString(seconds: version)
-            print("Version: \(versionDate)")
-        }
-        print("Quads: \(store.count)")
-        
-        let indexes = store.availableQuadIndexes.joined(separator: ", ")
-        print("Indexes: \(indexes)")
-        
-        for graph in store.graphs() {
-            let pattern = QuadPattern(
-                subject: .variable("s", binding: true),
-                predicate: .variable("p", binding: true),
-                object: .variable("o", binding: true),
-                graph: .bound(graph)
-            )
-            let count = store.count(matching: pattern)
-            print("Graph: \(graph) (\(count) triples)")
-        }
-        
-        print("")
-    }
-    
-}
-
-/// Print the RDF terms encoded in the database's QuadStore.
-/// Note that some RDF terms used in the QuadStore's indexes may not show up in this list
-/// if they are directly encoded in the internal IDs. This will be true for many common
-/// numeric and date types (integer, decimal, date, dateTime) as well as terms with small
-/// values (short strings, blank nodes, etc.).
-///
-/// - Parameter database: PageDatabase object
-/// - Returns: The count of terms printed
- func printTerms<D : PageDatabase>(from database: D) -> Int {
-    var count = 0
-    database.read { (m) in
-        let t2iMapTreeName = PersistentPageTermIdentityMap.t2iMapTreeName
-        guard let t2i: Tree<Term, UInt64> = m.tree(name: t2iMapTreeName) else { print("*** no term map"); return }
-        for (term, id) in t2i {
-            count += 1
-            print("\(id) \(term)")
-        }
-    }
-    return count
-}
-
 func printGraphs(in store: QuadStoreProtocol) throws -> Int {
     var count = 0
     for graph in store.graphs() {
@@ -376,7 +269,7 @@ func printGraphs(in store: QuadStoreProtocol) throws -> Int {
     return count
 }
 
-func printDataset<Q: QuadStoreProtocol>(in store: Q, graph: Term? = nil) throws -> Int {
+func printDataset(in store: QuadStoreProtocol, graph: Term? = nil) throws -> Int {
     let dataset = datasetForStore(store, graph: graph)
     print("Dataset:")
     if !dataset.defaultGraphs.isEmpty {
@@ -392,28 +285,6 @@ func printDataset<Q: QuadStoreProtocol>(in store: Q, graph: Term? = nil) throws 
         }
     }
     return 0
-}
-
-func printGraphs<D : PageDatabase>(from database: D) throws -> Int {
-    var count = 0
-    let store = try PageQuadStore(database: database)
-    for graph in store.graphs() {
-        count += 1
-        print("\(graph)")
-    }
-    return count
-}
-
-func printIndexes<D : PageDatabase>(from database: D) throws -> Int {
-    var count = 0
-    database.read { (m) in
-        guard let store = try? MediatedPageQuadStore(mediator: m) else { return }
-        for idx in store.availableQuadIndexes {
-            count += 1
-            print("\(idx)")
-        }
-    }
-    return count
 }
 
 func printPageInfo(mediator: FilePageRMediator, name: String, page: PageId) {
@@ -494,200 +365,162 @@ func readLine(prompt: String) -> String? {
     return readLine()
 }
 
-do {
-    try config.withStore { (qs) throws in
-        if case let .loadFiles(defaultFiles, namedFiles) = config.initialize {
-            if let mqs = qs as? SQLiteQuadStore {
-                count += try parse(into: mqs, files: defaultFiles, version: startSecond, graph: nil, verbose: verbose)
-                try namedFiles.forEach { (graph, file) throws in
-                    count += try parse(into: mqs, files: [file], version: startSecond, graph: graph, verbose: verbose)
-                }
-            } else if let mqs = qs as? SQLiteLanguageQuadStore {
-                count += try parse(into: mqs, files: defaultFiles, version: startSecond, graph: nil, verbose: verbose)
-                try namedFiles.forEach { (graph, file) throws in
-                    count += try parse(into: mqs, files: [file], version: startSecond, graph: graph, verbose: verbose)
-                }
-            } else if let mqs = qs as? MemoryQuadStore {
-                count += try parse(into: mqs, files: defaultFiles, version: startSecond, graph: nil, verbose: verbose)
-                try namedFiles.forEach { (graph, file) throws in
-                    count += try parse(into: mqs, files: [file], version: startSecond, graph: graph, verbose: verbose)
-                }
-            } else if let mqs = qs as? LanguageMemoryQuadStore {
-                count += try parse(into: mqs, files: defaultFiles, version: startSecond, graph: nil, verbose: verbose)
-                try namedFiles.forEach { (graph, file) throws in
-                    count += try parse(into: mqs, files: [file], version: startSecond, graph: graph, verbose: verbose)
-                }
-            } else if let mqs = qs as? PageQuadStore<FilePageDatabase> {
-                count += try parse(into: mqs, files: defaultFiles, version: startSecond, graph: nil, verbose: verbose)
-                try namedFiles.forEach { (graph, file) throws in
-                    count += try parse(into: mqs, files: [file], version: startSecond, graph: graph, verbose: verbose)
-                }
-            } else if let mqs = qs as? LanguagePageQuadStore<FilePageDatabase> {
-                count += try parse(into: mqs, files: defaultFiles, version: startSecond, graph: nil, verbose: verbose)
-                try namedFiles.forEach { (graph, file) throws in
-                    count += try parse(into: mqs, files: [file], version: startSecond, graph: graph, verbose: verbose)
-                }
+func quadStore(_ config: QuadStoreConfiguration) throws -> QuadStoreProtocol {
+    let qs = try config.store()
+    if case let .loadFiles(defaultFiles, namedFiles) = config.initialize {
+        if let mqs = qs as? SQLiteQuadStore {
+            _ = try parse(into: mqs, files: defaultFiles, version: startSecond, graph: nil, verbose: verbose)
+            try namedFiles.forEach { (graph, file) throws in
+                _ = try parse(into: mqs, files: [file], version: startSecond, graph: graph, verbose: verbose)
+            }
+        } else if let mqs = qs as? SQLiteLanguageQuadStore {
+            _ = try parse(into: mqs, files: defaultFiles, version: startSecond, graph: nil, verbose: verbose)
+            try namedFiles.forEach { (graph, file) throws in
+                _ = try parse(into: mqs, files: [file], version: startSecond, graph: graph, verbose: verbose)
+            }
+        } else if let mqs = qs as? MemoryQuadStore {
+            _ = try parse(into: mqs, files: defaultFiles, version: startSecond, graph: nil, verbose: verbose)
+            try namedFiles.forEach { (graph, file) throws in
+                _ = try parse(into: mqs, files: [file], version: startSecond, graph: graph, verbose: verbose)
+            }
+        } else if let mqs = qs as? LanguageMemoryQuadStore {
+            _ = try parse(into: mqs, files: defaultFiles, version: startSecond, graph: nil, verbose: verbose)
+            try namedFiles.forEach { (graph, file) throws in
+                _ = try parse(into: mqs, files: [file], version: startSecond, graph: graph, verbose: verbose)
             }
         }
-        
-        if let op = args.next() {
-            if op == "load" {
-            } else if op == "dataset" {
-                var graph: Term? = nil
-                if let next = args.peek(), next == "-g" {
-                    _ = args.next()
-                    guard let iri = args.next() else { fatalError("No IRI value given after -g") }
-                    graph = Term(value: iri, type: .iri)
-                }
+    }
+    return qs
+}
+
+do {
+    let qs  = try quadStore(config)
+    if let op = args.next() {
+        if op == "load" {
+        } else if op == "dataset" {
+            var graph: Term? = nil
+            if let next = args.peek(), next == "-g" {
+                _ = args.next()
+                guard let iri = args.next() else { fatalError("No IRI value given after -g") }
+                graph = Term(value: iri, type: .iri)
+            }
+            count = try printDataset(in: qs, graph: graph)
+        } else if op == "graphs" {
+            count = try printGraphs(in: qs)
+        } else if op == "explain" {
+            var graph: Term? = nil
+            if let next = args.peek(), next == "-g" {
+                _ = args.next()
+                guard let iri = args.next() else { fatalError("No IRI value given after -g") }
+                graph = Term(value: iri, type: .iri)
+            }
+            guard let qfile = args.next() else { fatalError("No query file given") }
+            let sparql = try data(fromFileOrString: qfile)
+            guard var p = SPARQLParser(data: sparql) else { fatalError("Failed to construct SPARQL parser") }
+            do {
+                let q = try p.parseQuery()
+                print("Parsed query:")
+                print(q.serialize())
                 switch (config.type, config.languageAware) {
-                case (.filePageDatabase(_), false):
-                    let s = qs as! PageQuadStore<FilePageDatabase>
-                    count = try printDataset(in: s, graph: graph)
-                case (.filePageDatabase(_), true):
-                    let s = qs as! LanguagePageQuadStore<FilePageDatabase>
-                    count = try printDataset(in: s, graph: graph)
                 case (.memoryDatabase, false):
                     let s = qs as! MemoryQuadStore
-                    count = try printDataset(in: s, graph: graph)
+                    try explain(in: s, query: q, graph: graph, verbose: verbose)
                 case (.memoryDatabase, true):
                     let s = qs as! LanguageMemoryQuadStore
-                    count = try printDataset(in: s, graph: graph)
+                    try explain(in: s, query: q, graph: graph, verbose: verbose)
                 case (.sqliteFileDatabase(_), false), (.sqliteMemoryDatabase, false):
                     let s = qs as! SQLiteQuadStore
-                    count = try printDataset(in: s, graph: graph)
+                    try explain(in: s, query: q, graph: graph, verbose: verbose)
                 case (.sqliteFileDatabase(_), true), (.sqliteMemoryDatabase, true):
                     let s = qs as! SQLiteLanguageQuadStore
-                    count = try printDataset(in: s, graph: graph)
+                    try explain(in: s, query: q, graph: graph, verbose: verbose)
+                default:
+                    fatalError("Unusable configuration type: \(config)")
                 }
-            } else if op == "graphs" {
-                count = try printGraphs(in: qs)
-            } else if op == "explain" {
-                var graph: Term? = nil
-                if let next = args.peek(), next == "-g" {
-                    _ = args.next()
-                    guard let iri = args.next() else { fatalError("No IRI value given after -g") }
-                    graph = Term(value: iri, type: .iri)
-                }
-                guard let qfile = args.next() else { fatalError("No query file given") }
+            } catch let e {
+                warn("*** Failed to explain query: \(e)")
+            }
+        } else if op == "query" {
+            var graph: Term? = nil
+            if let next = args.peek(), next == "-g" {
+                _ = args.next()
+                guard let iri = args.next() else { fatalError("No IRI value given after -g") }
+                graph = Term(value: iri, type: .iri)
+            }
+            guard let qfile = args.next() else { fatalError("No query file given") }
+            do {
                 let sparql = try data(fromFileOrString: qfile)
                 guard var p = SPARQLParser(data: sparql) else { fatalError("Failed to construct SPARQL parser") }
-                do {
-                    let q = try p.parseQuery()
-                    print("Parsed query:")
-                    print(q.serialize())
-                    switch (config.type, config.languageAware) {
-                    case (.filePageDatabase(_), false):
-                        let s = qs as! PageQuadStore<FilePageDatabase>
-                        try explain(in: s, query: q, graph: graph, verbose: verbose)
-                    case (.filePageDatabase(_), true):
-                        let s = qs as! LanguagePageQuadStore<FilePageDatabase>
-                        try explain(in: s, query: q, graph: graph, verbose: verbose)
-                    case (.memoryDatabase, false):
-                        let s = qs as! MemoryQuadStore
-                        try explain(in: s, query: q, graph: graph, verbose: verbose)
-                    case (.memoryDatabase, true):
-                        let s = qs as! LanguageMemoryQuadStore
-                        try explain(in: s, query: q, graph: graph, verbose: verbose)
-                    case (.sqliteFileDatabase(_), false), (.sqliteMemoryDatabase, false):
-                        let s = qs as! SQLiteQuadStore
-                        try explain(in: s, query: q, graph: graph, verbose: verbose)
-                    case (.sqliteFileDatabase(_), true), (.sqliteMemoryDatabase, true):
-                        let s = qs as! SQLiteLanguageQuadStore
-                        try explain(in: s, query: q, graph: graph, verbose: verbose)
-                    }
-                } catch let e {
-                    warn("*** Failed to explain query: \(e)")
+                let q = try p.parseQuery()
+                switch (config.type, config.languageAware) {
+                case (.memoryDatabase, false):
+                    let s = qs as! MemoryQuadStore
+                    count = try query(in: s, query: q, graph: graph, verbose: verbose)
+                case (.memoryDatabase, true):
+                    let s = qs as! LanguageMemoryQuadStore
+                    count = try query(in: s, query: q, graph: graph, verbose: verbose)
+                case (.sqliteFileDatabase(_), false), (.sqliteMemoryDatabase, false):
+                    let s = qs as! SQLiteQuadStore
+                    count = try query(in: s, query: q, graph: graph, verbose: verbose)
+                case (.sqliteFileDatabase(_), true), (.sqliteMemoryDatabase, true):
+                    let s = qs as! SQLiteLanguageQuadStore
+                    count = try query(in: s, query: q, graph: graph, verbose: verbose)
+                default:
+                    fatalError("Unusable configuration type: \(config)")
                 }
-            } else if op == "query" {
-                var graph: Term? = nil
-                if let next = args.peek(), next == "-g" {
-                    _ = args.next()
-                    guard let iri = args.next() else { fatalError("No IRI value given after -g") }
-                    graph = Term(value: iri, type: .iri)
-                }
-                guard let qfile = args.next() else { fatalError("No query file given") }
-                do {
-                    let sparql = try data(fromFileOrString: qfile)
-                    guard var p = SPARQLParser(data: sparql) else { fatalError("Failed to construct SPARQL parser") }
-                    let q = try p.parseQuery()
-                    switch (config.type, config.languageAware) {
-                    case (.filePageDatabase(_), false):
-                        let s = qs as! PageQuadStore<FilePageDatabase>
-                        count = try query(in: s, query: q, graph: graph, verbose: verbose)
-                    case (.filePageDatabase(_), true):
-                        let s = qs as! LanguagePageQuadStore<FilePageDatabase>
-                        count = try query(in: s, query: q, graph: graph, verbose: verbose)
-                    case (.memoryDatabase, false):
-                        let s = qs as! MemoryQuadStore
-                        count = try query(in: s, query: q, graph: graph, verbose: verbose)
-                    case (.memoryDatabase, true):
-                        let s = qs as! LanguageMemoryQuadStore
-                        count = try query(in: s, query: q, graph: graph, verbose: verbose)
-                    case (.sqliteFileDatabase(_), false), (.sqliteMemoryDatabase, false):
-                        let s = qs as! SQLiteQuadStore
-                        count = try query(in: s, query: q, graph: graph, verbose: verbose)
-                    case (.sqliteFileDatabase(_), true), (.sqliteMemoryDatabase, true):
-                        let s = qs as! SQLiteLanguageQuadStore
-                        count = try query(in: s, query: q, graph: graph, verbose: verbose)
-                    }
-                } catch let e {
-                    warn("*** Failed to evaluate query:")
-                    warn("*** - \(e)")
-                }
-            } else if op == "dump" {
-                for q in try qs.quads(matching: QuadPattern.all) {
-                    print("\(q)")
-                }
-                return
-            } else {
-                warn("Unrecognized operation: '\(op)'")
-                exit(1)
+            } catch let e {
+                warn("*** Failed to evaluate query:")
+                warn("*** - \(e)")
+            }
+        } else if op == "dump" {
+            for q in try qs.quads(matching: QuadPattern.all) {
+                print("\(q)")
             }
         } else {
-            LOOP: while let input = readLine(prompt: "> ") {
-                switch input.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines) {
-                case "exit":
-                    break LOOP
-                case "":
-                    continue LOOP
+            warn("Unrecognized operation: '\(op)'")
+            exit(1)
+        }
+    } else {
+        LOOP: while let input = readLine(prompt: "> ") {
+            switch input.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines) {
+            case "exit":
+                break LOOP
+            case "":
+                continue LOOP
+            default:
+                break
+            }
+            let sparql = Data(input.utf8)
+            do {
+                let graph: Term? = nil
+                guard var p = SPARQLParser(data: sparql) else { fatalError("Failed to construct SPARQL parser") }
+                let q = try p.parseQuery()
+                switch (config.type, config.languageAware) {
+                case (.memoryDatabase, false):
+                    let s = qs as! MemoryQuadStore
+                    count = try cliQuery(in: s, query: q, graph: graph)
+                case (.memoryDatabase, true):
+                    let s = qs as! LanguageMemoryQuadStore
+                    count = try cliQuery(in: s, query: q, graph: graph)
+                case (.sqliteFileDatabase(_), false), (.sqliteMemoryDatabase, false):
+                    let s = qs as! SQLiteQuadStore
+                    count = try cliQuery(in: s, query: q, graph: graph)
+                case (.sqliteFileDatabase(_), true), (.sqliteMemoryDatabase, true):
+                    let s = qs as! SQLiteLanguageQuadStore
+                    count = try cliQuery(in: s, query: q, graph: graph)
                 default:
-                    break
+                    fatalError("Unusable configuration type: \(config)")
                 }
-                let sparql = Data(input.utf8)
-                do {
-                    let graph: Term? = nil
-                    guard var p = SPARQLParser(data: sparql) else { fatalError("Failed to construct SPARQL parser") }
-                    let q = try p.parseQuery()
-                    switch (config.type, config.languageAware) {
-                    case (.filePageDatabase(_), false):
-                        let s = qs as! PageQuadStore<FilePageDatabase>
-                        count = try cliQuery(in: s, query: q, graph: graph)
-                    case (.filePageDatabase(_), true):
-                        let s = qs as! LanguagePageQuadStore<FilePageDatabase>
-                        count = try cliQuery(in: s, query: q, graph: graph)
-                    case (.memoryDatabase, false):
-                        let s = qs as! MemoryQuadStore
-                        count = try cliQuery(in: s, query: q, graph: graph)
-                    case (.memoryDatabase, true):
-                        let s = qs as! LanguageMemoryQuadStore
-                        count = try cliQuery(in: s, query: q, graph: graph)
-                    case (.sqliteFileDatabase(_), false), (.sqliteMemoryDatabase, false):
-                        let s = qs as! SQLiteQuadStore
-                        count = try cliQuery(in: s, query: q, graph: graph)
-                    case (.sqliteFileDatabase(_), true), (.sqliteMemoryDatabase, true):
-                        let s = qs as! SQLiteLanguageQuadStore
-                        count = try cliQuery(in: s, query: q, graph: graph)
-                    }
-                } catch let e {
-                    warn("*** Failed to evaluate query:")
-                    warn("*** - \(e)")
-                }
+            } catch let e {
+                warn("*** Failed to evaluate query:")
+                warn("*** - \(e)")
             }
         }
     }
 } catch let error {
     print("*** \(error)")
 }
+
 
 let endTime = getCurrentTime()
 let elapsed = Double(endTime - startTime)
