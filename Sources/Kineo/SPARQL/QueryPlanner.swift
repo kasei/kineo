@@ -283,31 +283,35 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
             }
             return candidatePlans(plans, estimator: estimator)
         case let .extend(child, expr, name):
-            // TODO: handle multiple query plans from child
-            let pplans = try plan(algebra: child, activeGraph: activeGraph, estimator: estimator)
-            guard var p = pplans.first else {
-                throw QueryPlannerError.noPlanAvailable
-            }
-            if case .extend(_) = child {
-            } else {
-                // at the bottom of a chain of one or more extend()s, add a NextRow plan
-                p = NextRowPlan(child: p, evaluator: evaluator)
-            }
             let (e, mapping) = try expr.removingExistsExpressions(namingVariables: &freshCounter)
-            try mapping.forEach { (name, algebra) throws in
-                let patplans = try plan(algebra: algebra, activeGraph: activeGraph, estimator: estimator)
-                guard let pat = patplans.first else {
-                    throw QueryPlannerError.noPlanAvailable
+            let pplans = try plan(algebra: child, activeGraph: activeGraph, estimator: estimator).map { (pp) -> QueryPlan in
+                var p = pp
+                switch child {
+                case .extend:
+                    // we're in the middle of several extend()s
+                    break
+                default:
+                    // at the bottom of a chain of one or more extend()s, add a NextRow plan
+                    p = NextRowPlan(child: p, evaluator: evaluator)
                 }
-                p = ExistsPlan(child: p, pattern: pat, variable: name, patternAlgebra: algebra)
+                try mapping.forEach { (name, algebra) throws in
+                    let patplans = try plan(algebra: algebra, activeGraph: activeGraph, estimator: estimator)
+                    guard let pat = patplans.first else {
+                        throw QueryPlannerError.noPlanAvailable
+                    }
+                    p = ExistsPlan(child: p, pattern: pat, variable: name, patternAlgebra: algebra)
+                }
+                return p
             }
             
             if mapping.isEmpty {
-                return [ExtendPlan(child: p, expression: e, variable: name, evaluator: evaluator)]
+                return pplans.map { ExtendPlan(child: $0, expression: e, variable: name, evaluator: evaluator) }
             } else {
-                let extend = ExtendPlan(child: p, expression: e, variable: name, evaluator: evaluator)
                 let vars = child.inscope
-                return [ProjectPlan(child: extend, variables: vars.union([name]))]
+                return pplans.map { (p) -> QueryPlan in
+                    let extend = ExtendPlan(child: p, expression: e, variable: name, evaluator: evaluator)
+                    return ProjectPlan(child: extend, variables: vars.union([name]))
+                }
             }
         case let .order(child, orders):
             let p = try plan(algebra: child, activeGraph: activeGraph, estimator: estimator)
@@ -337,26 +341,27 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
             }
             return candidatePlans(plans, estimator: estimator)
         case let .filter(child, expr):
-            // TODO: handle multiple query plans from child
-            let pplans = try plan(algebra: child, activeGraph: activeGraph, estimator: estimator)
-            guard var p = pplans.first else {
-                throw QueryPlannerError.noPlanAvailable
-            }
             let (e, mapping) = try expr.removingExistsExpressions(namingVariables: &freshCounter)
-            try mapping.forEach { (name, algebra) throws in
-                let patplans = try plan(algebra: algebra, activeGraph: activeGraph, estimator: estimator)
-                guard let pat = patplans.first else {
-                    throw QueryPlannerError.noPlanAvailable
+            let pplans = try plan(algebra: child, activeGraph: activeGraph, estimator: estimator).map { (pp) -> QueryPlan in
+                var p = pp
+                try mapping.forEach { (name, algebra) throws in
+                    let patplans = try plan(algebra: algebra, activeGraph: activeGraph, estimator: estimator)
+                    guard let pat = patplans.first else {
+                        throw QueryPlannerError.noPlanAvailable
+                    }
+                    p = ExistsPlan(child: p, pattern: pat, variable: name, patternAlgebra: algebra)
                 }
-                p = ExistsPlan(child: p, pattern: pat, variable: name, patternAlgebra: algebra)
+                p = NextRowPlan(child: p, evaluator: evaluator)
+                return p
             }
-            p = NextRowPlan(child: p, evaluator: evaluator)
             
             if mapping.isEmpty {
-                return [FilterPlan(child: p, expression: e, evaluator: evaluator)]
+                return pplans.map { FilterPlan(child: $0, expression: e, evaluator: evaluator) }
             } else {
-                let filter = FilterPlan(child: p, expression: e, evaluator: evaluator)
-                return [ProjectPlan(child: filter, variables: child.inscope)]
+                return pplans.map { (p) -> QueryPlan in
+                    let filter = FilterPlan(child: p, expression: e, evaluator: evaluator)
+                    return ProjectPlan(child: filter, variables: child.inscope)
+                }
             }
         case let .distinct(child):
             let p = try plan(algebra: child, activeGraph: activeGraph, estimator: estimator)
