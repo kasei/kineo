@@ -10,23 +10,6 @@ import Foundation
 import SPARQLSyntax
 import Kineo
 
-@discardableResult
-func load<Q: MutableQuadStoreProtocol>(store: Q, configuration config: QuadStoreConfiguration, verbose: Bool = false) throws -> Int {
-    var count = 0
-    let startSecond = getCurrentDateSeconds()
-    if case let .loadFiles(defaultGraphs, namedGraphs) = config.initialize {
-        let defaultGraph = Term(iri: "tag:kasei.us,2018:default-graph")
-        print("Loading RDF files into default graph (\(defaultGraph)): \(defaultGraphs)")
-        count += try parse(into: store, files: defaultGraphs, version: startSecond, graph: defaultGraph, verbose: verbose)
-        
-        for (graph, file) in namedGraphs {
-            print("Loading RDF file into named graph \(graph): \(file)")
-            count = try parse(into: store, files: [file], version: startSecond, graph: graph, verbose: verbose)
-        }
-    }
-    return count
-}
-
 /// Parse the supplied RDF files and assign each unique RDF term an integer ID such that the
 /// ordering of IDs corresponds to the terms' ordering according to the sorting rules of SPARQL.
 ///
@@ -88,7 +71,7 @@ func sortParse(files: [String], graph defaultGraphTerm: Term? = nil) throws -> (
 /// - parameter files: Filenames of Turtle or N-Triples files to parse.
 /// - parameter startTime: The timestamp to use as the database transaction version number.
 /// - parameter graph: The graph into which parsed triples should be load.
-func parse<Q: MutableQuadStoreProtocol>(into store: Q, files: [String], version: Version, graph defaultGraphTerm: Term? = nil, verbose: Bool = false) throws -> Int {
+func parse(into store: MutableQuadStoreProtocol, files: [String], version: Version, graph defaultGraphTerm: Term? = nil, verbose: Bool = false) throws -> Int {
     var count = 0
     for filename in files {
         #if os (OSX)
@@ -368,22 +351,7 @@ func readLine(prompt: String) -> String? {
 func quadStore(_ config: QuadStoreConfiguration) throws -> QuadStoreProtocol {
     let qs = try config.store()
     if case let .loadFiles(defaultFiles, namedFiles) = config.initialize {
-        if let mqs = qs as? SQLiteQuadStore {
-            _ = try parse(into: mqs, files: defaultFiles, version: startSecond, graph: nil, verbose: verbose)
-            try namedFiles.forEach { (graph, file) throws in
-                _ = try parse(into: mqs, files: [file], version: startSecond, graph: graph, verbose: verbose)
-            }
-        } else if let mqs = qs as? SQLiteLanguageQuadStore {
-            _ = try parse(into: mqs, files: defaultFiles, version: startSecond, graph: nil, verbose: verbose)
-            try namedFiles.forEach { (graph, file) throws in
-                _ = try parse(into: mqs, files: [file], version: startSecond, graph: graph, verbose: verbose)
-            }
-        } else if let mqs = qs as? MemoryQuadStore {
-            _ = try parse(into: mqs, files: defaultFiles, version: startSecond, graph: nil, verbose: verbose)
-            try namedFiles.forEach { (graph, file) throws in
-                _ = try parse(into: mqs, files: [file], version: startSecond, graph: graph, verbose: verbose)
-            }
-        } else if let mqs = qs as? LanguageMemoryQuadStore {
+        if let mqs = qs as? MutableQuadStoreProtocol {
             _ = try parse(into: mqs, files: defaultFiles, version: startSecond, graph: nil, verbose: verbose)
             try namedFiles.forEach { (graph, file) throws in
                 _ = try parse(into: mqs, files: [file], version: startSecond, graph: graph, verbose: verbose)
