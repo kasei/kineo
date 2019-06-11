@@ -31,18 +31,6 @@ public extension QueryPlanCostEstimator {
     }
 }
 
-extension Node {
-    var isBound: Bool { return !isVariable }
-    var isVariable: Bool {
-        switch self {
-        case .bound:
-            return false
-        case .variable:
-            return true
-        }
-    }
-}
-
 public struct QueryPlanSimpleCostEstimator: QueryPlanCostEstimator {
     var boundQuadCost: Double
     var serviceCost: Double

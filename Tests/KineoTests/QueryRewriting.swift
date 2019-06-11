@@ -27,17 +27,6 @@ extension QueryRewritingTest {
 }
 #endif
 
-extension Node {
-    var term : Term? {
-        switch  self {
-        case .bound(let t):
-            return t
-        default:
-            return nil
-        }
-    }
-}
-
 class QueryRewritingTest: XCTestCase {
     var rewriter : SPARQLQueryRewriter!
 
