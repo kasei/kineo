@@ -11,7 +11,8 @@ let package = Package(
 		.package(url: "https://github.com/kasei/swift-serd.git", .upToNextMinor(from: "0.0.3")),
 		.package(url: "https://github.com/krzyzanowskim/CryptoSwift.git", .upToNextMinor(from: "1.0.0")),
 		.package(url: "https://github.com/kasei/URITemplate.git", .upToNextMinor(from: "2.0.10")),
-		.package(url: "https://github.com/stephencelis/SQLite.swift.git", .upToNextMinor(from: "0.11.5")),
+//		.package(url: "https://github.com/stephencelis/SQLite.swift.git", .upToNextMajor(from: "0.11.5")),
+		.package(url: "https://github.com/kasei/SQLite.swift.git", .branch("custom-aggs")),
     ],
     targets: [
     	.target(
