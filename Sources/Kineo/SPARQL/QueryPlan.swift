@@ -442,13 +442,7 @@ public struct OrderPlan: UnaryQueryPlan {
         var terms: [Term?]
     }
     
-    public var child: QueryPlan
-    var comparators: [Algebra.SortComparator]
-    var evaluator: ExpressionEvaluator
-    public var selfDescription: String { return "Order { \(comparators) }" }
-    public func evaluate() throws -> AnyIterator<TermResult> {
-        let evaluator = self.evaluator
-        let results = try Array(child.evaluate())
+    static func sort(results: [TermResult], comparators: [Algebra.SortComparator], evaluator: ExpressionEvaluator) -> [TermResult] {
         let elements = results.map { (r) -> SortElem in
             let terms = comparators.map { (cmp) in
                 try? evaluator.evaluate(expression: cmp.expression, result: r)
@@ -473,7 +467,18 @@ public struct OrderPlan: UnaryQueryPlan {
             return false
         }
         
-        return AnyIterator(sorted.map { $0.result }.makeIterator())
+        return sorted.map { $0.result }
+    }
+    
+    public var child: QueryPlan
+    var comparators: [Algebra.SortComparator]
+    var evaluator: ExpressionEvaluator
+    public var selfDescription: String { return "Order { \(comparators) }" }
+    public func evaluate() throws -> AnyIterator<TermResult> {
+        let evaluator = self.evaluator
+        let results = try Array(child.evaluate())
+        let sorted = OrderPlan.sort(results: results, comparators: comparators, evaluator: evaluator)
+        return AnyIterator(sorted.makeIterator())
     }
 }
 
@@ -1261,7 +1266,7 @@ public struct WindowPlan: UnaryQueryPlan {
                 remove: { (_) in return },
                 value: { return value }
             )
-        case let .groupConcat(expr, sep, _):
+        case let .groupConcat(expr, sep, _, _):
             var values = [Term?]()
             return SlidingWindowImplementation(
                 add: { (r) in
@@ -1952,6 +1957,35 @@ public struct AggregationPlan: UnaryQueryPlan {
         }
     }
 
+    private class SortedGroupConcatAggregate: Aggregate {
+        var values: Set<TermResult>
+        var separator: String
+        var distinct: Bool
+        var expression: Expression
+        var comparators: [Algebra.SortComparator]
+        var ee: ExpressionEvaluator
+        init(expression: Expression, distinct: Bool, separator: String, comparators: [Algebra.SortComparator], evaluator: ExpressionEvaluator) {
+            self.distinct = distinct
+            self.expression = expression
+            self.separator = separator
+            self.comparators = comparators
+            self.values = Set()
+            self.ee = evaluator
+        }
+        func handle(_ row: TermResult) {
+            values.insert(row)
+        }
+        func result() -> Term? {
+            let rows = Array(values)
+            let sorted = OrderPlan.sort(results: rows, comparators: comparators, evaluator: ee)
+            let terms = sorted.compactMap { (row) -> Term? in
+                return try? ee.evaluate(expression: expression, result: row)
+            }
+            let s = terms.map { $0.value }.joined(separator: separator)
+            return Term(string: s)
+        }
+    }
+    
     private class GroupConcatDistinctAggregate: Aggregate {
         var values: Set<Term>
         var separator: String
@@ -2002,7 +2036,7 @@ public struct AggregationPlan: UnaryQueryPlan {
     var groups: [Expression]
     var aggregates: [String: () -> (Aggregate)]
     var ee: ExpressionEvaluator
-    public init(child: QueryPlan, groups: [Expression], aggregates: Set<Algebra.AggregationMapping>) {
+    public init(child: QueryPlan, groups: [Expression], aggregates: Set<Algebra.AggregationMapping>) throws {
         self.child = child
         self.groups = groups
         self.aggregates = [:]
@@ -2023,10 +2057,18 @@ public struct AggregationPlan: UnaryQueryPlan {
                 self.aggregates[a.variableName] = { return MaximumAggregate(expression: e, evaluator: ee) }
             case .sample(let e):
                 self.aggregates[a.variableName] = { return SampleAggregate(expression: e, evaluator: ee) }
-            case let .groupConcat(e, sep, true):
-                self.aggregates[a.variableName] = { return GroupConcatDistinctAggregate(expression: e, separator: sep, evaluator: ee) }
-            case let .groupConcat(e, sep, false):
-                self.aggregates[a.variableName] = { return GroupConcatAggregate(expression: e, separator: sep, evaluator: ee) }
+            case let .groupConcat(e, sep, cmps, true):
+                if cmps.isEmpty {
+                    self.aggregates[a.variableName] = { return GroupConcatDistinctAggregate(expression: e, separator: sep, evaluator: ee) }
+                } else {
+                    throw QueryPlanError.unimplemented("GROUP_CONCAT with both DISTINCT and ORDER BY parameters is not implemented")
+                }
+            case let .groupConcat(e, sep, cmps, false):
+                if cmps.isEmpty {
+                    self.aggregates[a.variableName] = { return GroupConcatAggregate(expression: e, separator: sep, evaluator: ee) }
+                } else {
+                    self.aggregates[a.variableName] = { return SortedGroupConcatAggregate(expression: e, distinct: false, separator: sep, comparators: cmps, evaluator: ee) }
+                }
             case let .avg(e, false):
                 self.aggregates[a.variableName] = { return AverageAggregate(expression: e, evaluator: ee) }
             case let .avg(e, true):

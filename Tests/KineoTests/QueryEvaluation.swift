@@ -49,6 +49,7 @@ extension SimpleQueryEvaluationTest {
             ("testWindowFunctionRank", testWindowFunctionRank),
             ("testWindowFunctionNtile", testWindowFunctionNtile),
             ("testDistinctAggregate", testDistinctAggregate),
+            ("testGroupConcatOrdering", testGroupConcatOrdering),
         ]
     }
 }
@@ -98,6 +99,7 @@ extension QueryPlanEvaluationTest {
             ("testWindowFunctionRank", testWindowFunctionRank),
             ("testWindowFunctionNtile", testWindowFunctionNtile),
             ("testDistinctAggregate", testDistinctAggregate),
+            ("testGroupConcatOrdering", testGroupConcatOrdering),
         ]
     }
 }
@@ -1216,6 +1218,35 @@ extension QueryEvaluationTests {
         let gotN5tie = results.map { $0["n5tie"] }.compactMap { $0?.numericValue }.map { Int($0) }
         XCTAssertEqual(gotN5tie, [1, 1, 3, 4, 2, 1, 5])
     }
+    
+    func _testGroupConcatOrdering() throws {
+        let data = """
+        SELECT
+            (GROUP_CONCAT(?v; SEPARATOR=""; ORDER BY ?x) AS ?vx)
+            (GROUP_CONCAT(?v; SEPARATOR=""; ORDER BY ?y) AS ?vy)
+            (GROUP_CONCAT(?v; SEPARATOR=""; ORDER BY (-?x)) AS ?vnx)
+        WHERE {
+            VALUES (?x ?y ?v) {
+                (1 1 "a")
+                (3 5 "b")
+                (5 2 "c")
+                (0 9 "d")
+            }
+        }
+        """.data(using: .utf8)!
+        
+        guard var p = SPARQLParser(data: data) else { fatalError("Failed to construct SPARQL parser") }
+        let results = try Array(eval(query: p.parseQuery()))
+        XCTAssertEqual(results.count, 1)
+
+        let row = results[0]
+        let gotX = row["vx"]?.value ?? ""
+        let gotY = row["vy"]?.value ?? ""
+        let gotNX = row["vnx"]?.value ?? ""
+        XCTAssertEqual(gotX, "dabc")
+        XCTAssertEqual(gotY, "acbd")
+        XCTAssertEqual(gotNX, "cbad")
+    }
 }
 
 class SimpleQueryEvaluationTest: XCTestCase, QueryEvaluationTests {
@@ -1279,6 +1310,7 @@ class SimpleQueryEvaluationTest: XCTestCase, QueryEvaluationTests {
     func testWindowFunctionRank() throws { try _testWindowFunctionRank() }
     func testWindowFunctionRank2() throws { try _testWindowFunctionRank2() }
     func testWindowFunctionNtile() throws { try _testWindowFunctionNtile() }
+    func testGroupConcatOrdering() throws { try _testGroupConcatOrdering() }
 }
 
 class QueryPlanEvaluationTest: XCTestCase, QueryEvaluationTests {
@@ -1343,4 +1375,5 @@ class QueryPlanEvaluationTest: XCTestCase, QueryEvaluationTests {
     func testWindowFunctionRank() throws { try _testWindowFunctionRank() }
     func testWindowFunctionRank2() throws { try _testWindowFunctionRank2() }
     func testWindowFunctionNtile() throws { try _testWindowFunctionNtile() }
+    func testGroupConcatOrdering() throws { try _testGroupConcatOrdering() }
 }

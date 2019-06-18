@@ -318,7 +318,7 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
             return p.map { OrderPlan(child: $0, comparators: orders, evaluator: evaluator) }
         case let .aggregate(child, groups, aggs):
             let p = try plan(algebra: child, activeGraph: activeGraph, estimator: estimator)
-            return p.map { AggregationPlan(child: $0, groups: groups, aggregates: aggs) }
+            return try p.map { try AggregationPlan(child: $0, groups: groups, aggregates: aggs) }
         case let .window(child, funcs):
             guard funcs.count == 1, let f = funcs.first else {
                 let pp = funcs.reduce(child) { Algebra.window($0, [$1]) }

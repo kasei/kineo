@@ -43,7 +43,7 @@ public protocol SimpleQueryEvaluatorProtocol: QueryEvaluatorProtocol {
     func evaluateCountAll<S: Sequence>(results: S) -> Term? where S.Iterator.Element == TermResult
     func evaluateAvg<S: Sequence>(results: S, expression keyExpr: Expression, distinct: Bool) -> Term? where S.Iterator.Element == TermResult
     func evaluateSum<S: Sequence>(results: S, expression keyExpr: Expression, distinct: Bool) -> Term? where S.Iterator.Element == TermResult
-    func evaluateGroupConcat<S: Sequence>(results: S, expression keyExpr: Expression, separator: String, distinct: Bool) -> Term? where S.Iterator.Element == TermResult
+    func evaluateGroupConcat<S: Sequence>(results: S, expression keyExpr: Expression, separator: String, distinct: Bool, comparators: [Algebra.SortComparator]) -> Term? where S.Iterator.Element == TermResult
     func evaluateWindow(algebra child: Algebra, function: Algebra.WindowFunctionMapping, activeGraph: Term) throws -> AnyIterator<TermResult>
     func evaluatePath(subject: Node, object: Node, graph: Term, path: PropertyPath) throws -> AnyIterator<TermResult>
     func evaluateAggregation(algebra child: Algebra, groups: [Expression], aggregations aggs: Set<Algebra.AggregationMapping>, activeGraph: Term) throws -> AnyIterator<TermResult>
@@ -308,7 +308,7 @@ extension SimpleQueryEvaluatorProtocol {
             if aggs.count == 1 {
                 let aggMap = aggs.first!
                 switch aggMap.aggregation {
-                case .sum(_, false), .count(_, false), .countAll, .avg(_, false), .min(_), .max(_), .groupConcat(_, _, false), .sample(_):
+                case .sum(_, false), .count(_, false), .countAll, .avg(_, false), .min(_), .max(_), .groupConcat(_, _, [], false), .sample(_):
                     return try evaluateSinglePipelinedAggregation(algebra: child, groups: groups, aggregation: aggMap.aggregation, variable: aggMap.variableName, activeGraph: activeGraph)
                 default:
                     break
@@ -577,8 +577,8 @@ extension SimpleQueryEvaluatorProtocol {
             if let n = terms.first {
                 return n
             }
-        case .groupConcat(let keyExpr, let sep, let distinct):
-            if let n = self.evaluateGroupConcat(results: results, expression: keyExpr, separator: sep, distinct: distinct) {
+        case let .groupConcat(keyExpr, sep, cmps, distinct):
+            if let n = self.evaluateGroupConcat(results: results, expression: keyExpr, separator: sep, distinct: distinct, comparators: cmps) {
                 return n
             }
         }
@@ -663,8 +663,10 @@ extension SimpleQueryEvaluatorProtocol {
         }
     }
     
-    public func evaluateGroupConcat<S: Sequence>(results: S, expression keyExpr: Expression, separator: String, distinct: Bool) -> Term? where S.Iterator.Element == TermResult {
-        var terms = results.map { try? self.ee.evaluate(expression: keyExpr, result: $0) }.compactMap { $0 }
+    public func evaluateGroupConcat<S: Sequence>(results: S, expression keyExpr: Expression, separator: String, distinct: Bool, comparators: [Algebra.SortComparator]) -> Term? where S.Iterator.Element == TermResult {
+
+        let sorted = evaluateSort(results, comparators: comparators)
+        var terms = sorted.map { try? self.ee.evaluate(expression: keyExpr, result: $0) }.compactMap { $0 }
         if distinct {
             terms = Set(terms).sorted()
         }
@@ -704,7 +706,7 @@ extension SimpleQueryEvaluatorProtocol {
                         termGroups[groupKey] = max(value, term)
                     case .sample(_):
                         break
-                    case .groupConcat(let keyExpr, let sep, false):
+                    case let .groupConcat(keyExpr, sep, _, false): // single pipelined aggregation will not be invoked for GROUP CONCAT with sort comparators
                         guard case .datatype(_) = value.type else {
                             Logger.shared.error("Unexpected term in generating GROUP_CONCAT value")
                             throw QueryError.evaluationError("Unexpected term in generating GROUP_CONCAT value")
@@ -774,7 +776,7 @@ extension SimpleQueryEvaluatorProtocol {
                     case .sample(let keyExpr):
                         let term = try self.ee.evaluate(expression: keyExpr, result: result)
                         termGroups[groupKey] = term
-                    case .groupConcat(let keyExpr, _, false):
+                    case let .groupConcat(keyExpr, _, _, false): // single pipelined aggregation will not be invoked for GROUP CONCAT with sort comparators
                         let term = try self.ee.evaluate(expression: keyExpr, result: result)
                         switch term.type {
                         case .datatype(_):
@@ -1257,6 +1259,10 @@ extension SimpleQueryEvaluatorProtocol {
     }
     
     public func evaluateSort<S: Sequence>(_ results: S, comparators: [Algebra.SortComparator]) -> [TermResult] where S.Element == TermResult {
+        if comparators.isEmpty {
+            return Array(results)
+        }
+        
         let elements = results.map { (r) -> SortElem in
             let terms = comparators.map { (cmp) in
                 try? self.ee.evaluate(expression: cmp.expression, result: r)

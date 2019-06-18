@@ -6,7 +6,6 @@ import SPARQLSyntax
 extension ConfigurationTest {
     static var allTests : [(String, (ConfigurationTest) -> () throws -> Void)] {
         return [
-            ("testCLIConfiguration_pageFile", testCLIConfiguration_pageFile),
             ("testCLIConfiguration_sqliteFile", testCLIConfiguration_sqliteFile),
             ("testCLIConfiguration_memory", testCLIConfiguration_memory),
             ("testCLIConfiguration_memory_language", testCLIConfiguration_memory_language),
