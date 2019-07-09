@@ -499,7 +499,7 @@ public class ExpressionEvaluator {
         }
 
         var neg = true
-        if ldate > rdate {
+        if ldate >= rdate {
             (ldate, rdate) = (rdate, ldate)
             neg = false
         }
@@ -535,6 +535,9 @@ public class ExpressionEvaluator {
                 s += "T"
             }
             s += "\(v)S"
+        }
+        if s.hasSuffix("P") {
+            s.append("T0S")
         }
         return Term(value: s, type: .datatype(.custom("http://www.w3.org/2001/XMLSchema#dayTimeDuration")))
     }
