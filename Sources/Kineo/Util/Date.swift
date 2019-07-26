@@ -21,7 +21,7 @@ public class W3CDTFLocatedDateFormatter : ISO8601DateFormatter {
     }
     
     public func locatedDate(from string: String) -> LocatedDate? {
-        guard let date = super.date(from: string) else { return nil }
+        guard let date = self.date(from: string) else { return nil }
         var seconds = 0
         if !string.hasSuffix("Z") {
             let index = string.index(string.endIndex, offsetBy: -6)
