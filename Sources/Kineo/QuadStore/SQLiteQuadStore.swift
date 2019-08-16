@@ -723,6 +723,13 @@ extension SQLiteQuadStore: PlanningQuadStore {
     }
 }
 
+extension SQLiteQuadStore: LanguageUpgradableQuadStore {
+    public typealias LanguageAwareStoreType = SQLiteLanguageQuadStore
+    public func languageAwareQuadStore(acceptLanguages: [(String, Double)]) -> SQLiteLanguageQuadStore {
+        return SQLiteLanguageQuadStore(quadstore: self, acceptLanguages: acceptLanguages)
+    }
+}
+
 open class SQLiteLanguageQuadStore: Sequence, LanguageAwareQuadStore, MutableQuadStoreProtocol {
     public var count: Int {
         let qp = QuadPattern(

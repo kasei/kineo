@@ -260,6 +260,13 @@ open class MemoryQuadStore: Sequence, MutableQuadStoreProtocol {
     }
 }
 
+extension MemoryQuadStore: LanguageUpgradableQuadStore {
+    public typealias LanguageAwareStoreType = LanguageMemoryQuadStore
+    public func languageAwareQuadStore(acceptLanguages: [(String, Double)]) -> LanguageMemoryQuadStore {
+        return LanguageMemoryQuadStore(quadstore: self, acceptLanguages: acceptLanguages)
+    }
+}
+
 extension MemoryQuadStore: CustomStringConvertible {
     public var description: String {
         var s = "MemoryQuadStore {\n"

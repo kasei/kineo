@@ -220,7 +220,8 @@ public struct AnyQuadStore: QuadStoreProtocol {
     private let _graphDescriptions: () -> [Term:GraphDescription]
     private let _features: () -> [QuadStoreFeature]
     private let _plan: (Algebra, Term, Dataset) throws -> QueryPlan?
-    
+    private let _language: ([(String, Double)]) -> AnyQuadStore?
+
     init<Q: QuadStoreProtocol>(_ value: Q) {
         self._count = { value.count }
         self._graphs = value.graphs
@@ -235,6 +236,30 @@ public struct AnyQuadStore: QuadStoreProtocol {
             self._plan = pqs.plan
         } else {
             self._plan = { (_, _, _) -> QueryPlan? in return nil }
+        }
+        self._language = { (_) in return nil }
+    }
+    
+    init<Q: QuadStoreProtocol & LanguageUpgradableQuadStore>(_ value: Q) {
+        print("Constructing language upgradable AnyQuadStore")
+        self._count = { value.count }
+        self._graphs = value.graphs
+        self._graphTerms = value.graphTerms
+        self._makeIterator = value.makeIterator
+        self._results = value.results
+        self._quads = value.quads
+        self._effectiveVersion = value.effectiveVersion
+        self._graphDescriptions = { value.graphDescriptions }
+        self._features = { value.features }
+        if let pqs = value as? PlanningQuadStore {
+            self._plan = pqs.plan
+        } else {
+            self._plan = { (_, _, _) -> QueryPlan? in return nil }
+        }
+        self._language = { (acceptLanguages) in
+            let lqs = value.languageAwareQuadStore(acceptLanguages: acceptLanguages)
+            return AnyQuadStore(lqs)
+            
         }
     }
     
@@ -267,6 +292,10 @@ public struct AnyQuadStore: QuadStoreProtocol {
     public func plan(algebra: Algebra, activeGraph: Term, dataset: Dataset) throws -> QueryPlan? {
         return try _plan(algebra, activeGraph, dataset)
     }
+    
+    public func languageQuadStore(acceptLanguages: [(String, Double)]) -> AnyQuadStore? {
+        return _language(acceptLanguages)
+    }
 }
 
 public struct AnyMutableQuadStore: MutableQuadStoreProtocol, PlanningQuadStore {
@@ -282,7 +311,8 @@ public struct AnyMutableQuadStore: MutableQuadStoreProtocol, PlanningQuadStore {
     private let _features: () -> [QuadStoreFeature]
     private let _load: (Version, AnySequence<Quad>) throws -> ()
     private let _plan: (Algebra, Term, Dataset) throws -> QueryPlan?
-
+    private let _language: ([(String, Double)]) -> AnyQuadStore?
+    
     init<Q: MutableQuadStoreProtocol>(_ value: Q) {
         self._store = value
         self._count = { value.count }
@@ -299,6 +329,31 @@ public struct AnyMutableQuadStore: MutableQuadStoreProtocol, PlanningQuadStore {
             self._plan = pqs.plan
         } else {
             self._plan = { (_, _, _) -> QueryPlan? in return nil }
+        }
+        self._language = { (_) in return nil }
+    }
+    
+    init<Q: MutableQuadStoreProtocol & LanguageUpgradableQuadStore>(_ value: Q) {
+        self._store = value
+        self._count = { value.count }
+        self._graphs = value.graphs
+        self._graphTerms = value.graphTerms
+        self._makeIterator = value.makeIterator
+        self._results = value.results
+        self._quads = value.quads
+        self._effectiveVersion = value.effectiveVersion
+        self._graphDescriptions = { value.graphDescriptions }
+        self._features = { value.features }
+        self._load = { try value.load(version: $0, quads: $1) }
+        if let pqs = value as? PlanningQuadStore {
+            self._plan = pqs.plan
+        } else {
+            self._plan = { (_, _, _) -> QueryPlan? in return nil }
+        }
+        self._language = { (acceptLanguages) in
+            let lqs = value.languageAwareQuadStore(acceptLanguages: acceptLanguages)
+            return AnyQuadStore(lqs)
+            
         }
     }
     
@@ -334,5 +389,9 @@ public struct AnyMutableQuadStore: MutableQuadStoreProtocol, PlanningQuadStore {
 
     public func plan(algebra: Algebra, activeGraph: Term, dataset: Dataset) throws -> QueryPlan? {
         return try _plan(algebra, activeGraph, dataset)
+    }
+    
+    public func languageQuadStore(acceptLanguages: [(String, Double)]) -> AnyQuadStore? {
+        return _language(acceptLanguages)
     }
 }

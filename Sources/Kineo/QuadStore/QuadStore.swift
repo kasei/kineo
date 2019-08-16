@@ -41,6 +41,11 @@ public protocol QuadStoreProtocol {
     var features: [QuadStoreFeature] { get }
 }
 
+public protocol LanguageUpgradableQuadStore: QuadStoreProtocol {
+    associatedtype LanguageAwareStoreType: QuadStoreProtocol
+    func languageAwareQuadStore(acceptLanguages: [(String, Double)]) -> LanguageAwareStoreType
+}
+
 public protocol LanguageAwareQuadStore: QuadStoreProtocol {
     var acceptLanguages: [(String, Double)] { get set }
 }
