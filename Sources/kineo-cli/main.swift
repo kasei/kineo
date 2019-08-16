@@ -10,77 +10,6 @@ import Foundation
 import SPARQLSyntax
 import Kineo
 
-@discardableResult
-func load<Q: MutableQuadStoreProtocol>(store: Q, configuration config: QuadStoreConfiguration, verbose: Bool = false) throws -> Int {
-    var count = 0
-    let startSecond = getCurrentDateSeconds()
-    if case let .loadFiles(defaultGraphs, namedGraphs) = config.initialize {
-        let defaultGraph = Term(iri: "tag:kasei.us,2018:default-graph")
-        print("Loading RDF files into default graph (\(defaultGraph)): \(defaultGraphs)")
-        count += try parse(into: store, files: defaultGraphs, version: startSecond, graph: defaultGraph, verbose: verbose)
-        
-        for (graph, file) in namedGraphs {
-            print("Loading RDF file into named graph \(graph): \(file)")
-            count = try parse(into: store, files: [file], version: startSecond, graph: graph, verbose: verbose)
-        }
-    }
-    return count
-}
-
-/// Parse the supplied RDF files and assign each unique RDF term an integer ID such that the
-/// ordering of IDs corresponds to the terms' ordering according to the sorting rules of SPARQL.
-///
-/// - parameter files: Filenames of Turtle or N-Triples files to parse.
-/// - parameter graph: An optional graph name to be included in the list of terms.
-func sortParse(files: [String], graph defaultGraphTerm: Term? = nil) throws -> (Int, [Int:Term]) {
-    var count   = 0
-    var blanks = Set<Term>()
-    var iris = Set<Term>()
-    var literals = Set<Term>()
-    for filename in files {
-        #if os (OSX)
-        guard let path = NSURL(fileURLWithPath: filename).absoluteString else { throw DatabaseError.DataError("Not a valid graph path: \(filename)") }
-        #else
-        let path = NSURL(fileURLWithPath: filename).absoluteString
-        #endif
-        let graph   = defaultGraphTerm ?? Term(value: path, type: .iri)
-
-        iris.insert(graph)
-
-        let parser = RDFParserCombined()
-        count = try parser.parse(file: filename, base: graph.value) { (s, p, o) in
-            for term in [s, p, o] {
-                switch term.type {
-                case .iri:
-                    iris.insert(term)
-                case .blank:
-                    blanks.insert(term)
-                default:
-                    literals.insert(term)
-                }
-            }
-        }
-        if verbose {
-            warn("\r\(count) triples parsed")
-        }
-    }
-
-    let blanksCount = blanks.count
-    let irisAndBlanksCount = iris.count + blanksCount
-
-    var mapping = [Int:Term]()
-    for (i, term) in blanks.enumerated() { // blanks don't have inherent ordering amongst themselves
-        mapping[i] = term
-    }
-    for (i, term) in iris.sorted().enumerated() {
-        mapping[i + blanksCount] = term
-    }
-    for (i, term) in literals.sorted().enumerated() {
-        mapping[i + irisAndBlanksCount] = term
-    }
-    return (count, mapping)
-}
-
 /// Parse the supplied RDF files and load the resulting RDF triples into the database's
 /// QuadStore in the supplied named graph (or into a graph named with the corresponding
 /// filename, if no graph name is given).
@@ -88,7 +17,7 @@ func sortParse(files: [String], graph defaultGraphTerm: Term? = nil) throws -> (
 /// - parameter files: Filenames of Turtle or N-Triples files to parse.
 /// - parameter startTime: The timestamp to use as the database transaction version number.
 /// - parameter graph: The graph into which parsed triples should be load.
-func parse<Q: MutableQuadStoreProtocol>(into store: Q, files: [String], version: Version, graph defaultGraphTerm: Term? = nil, verbose: Bool = false) throws -> Int {
+func parse(into store: MutableQuadStoreProtocol, files: [String], version: Version, graph defaultGraphTerm: Term? = nil, verbose: Bool = false) throws -> Int {
     var count = 0
     for filename in files {
         #if os (OSX)
@@ -121,7 +50,7 @@ func parse<Q: MutableQuadStoreProtocol>(into store: Q, files: [String], version:
 ///
 /// - parameter query: The query to plan.
 /// - parameter graph: The graph name to use as the initial active graph.
-func explain<Q : QuadStoreProtocol>(in store: Q, query: Query, graph: Term? = nil, verbose: Bool) throws {
+func explain<Q: QuadStoreProtocol>(in store: Q, query: Query, graph: Term? = nil, verbose: Bool) throws {
     let dataset = datasetForStore(store, graph: graph, verbose: verbose)
     let planner     = queryPlanner(store: store, dataset: dataset)
     let plan        = try planner.plan(query: query)
@@ -203,11 +132,6 @@ func cliQuery<Q: QuadStoreProtocol>(in store: Q, query: Query, graph: Term? = ni
     }
     return count
 }
-
-//func query<D : PageDatabase>(_ database: D, query q: Query, graph: Term? = nil, verbose: Bool) throws -> Int {
-//    let store = try PageQuadStore(database: database)
-//    return try query(in: store, query: q, graph: graph, verbose: verbose)
-//}
 
 private func cliPrintResult<R, T>(_ results: QueryResult<R, T>) -> Int {
     var count       = 0
@@ -365,32 +289,18 @@ func readLine(prompt: String) -> String? {
     return readLine()
 }
 
-func quadStore(_ config: QuadStoreConfiguration) throws -> QuadStoreProtocol {
-    let qs = try config.store()
+func quadStore(_ config: QuadStoreConfiguration) throws -> AnyMutableQuadStore {
+    print("Using AnyQuadStore")
+    let mqs = try config.anymutablestore()
     if case let .loadFiles(defaultFiles, namedFiles) = config.initialize {
-        if let mqs = qs as? SQLiteQuadStore {
-            _ = try parse(into: mqs, files: defaultFiles, version: startSecond, graph: nil, verbose: verbose)
-            try namedFiles.forEach { (graph, file) throws in
-                _ = try parse(into: mqs, files: [file], version: startSecond, graph: graph, verbose: verbose)
-            }
-        } else if let mqs = qs as? SQLiteLanguageQuadStore {
-            _ = try parse(into: mqs, files: defaultFiles, version: startSecond, graph: nil, verbose: verbose)
-            try namedFiles.forEach { (graph, file) throws in
-                _ = try parse(into: mqs, files: [file], version: startSecond, graph: graph, verbose: verbose)
-            }
-        } else if let mqs = qs as? MemoryQuadStore {
-            _ = try parse(into: mqs, files: defaultFiles, version: startSecond, graph: nil, verbose: verbose)
-            try namedFiles.forEach { (graph, file) throws in
-                _ = try parse(into: mqs, files: [file], version: startSecond, graph: graph, verbose: verbose)
-            }
-        } else if let mqs = qs as? LanguageMemoryQuadStore {
-            _ = try parse(into: mqs, files: defaultFiles, version: startSecond, graph: nil, verbose: verbose)
-            try namedFiles.forEach { (graph, file) throws in
-                _ = try parse(into: mqs, files: [file], version: startSecond, graph: graph, verbose: verbose)
-            }
+        _ = try parse(into: mqs, files: defaultFiles, version: startSecond, graph: nil, verbose: verbose)
+        try namedFiles.forEach { (graph, file) throws in
+            _ = try parse(into: mqs, files: [file], version: startSecond, graph: graph, verbose: verbose)
         }
+        return mqs
+    } else {
+        return mqs
     }
-    return qs
 }
 
 do {
@@ -421,22 +331,7 @@ do {
                 let q = try p.parseQuery()
                 print("Parsed query:")
                 print(q.serialize())
-                switch (config.type, config.languageAware) {
-                case (.memoryDatabase, false):
-                    let s = qs as! MemoryQuadStore
-                    try explain(in: s, query: q, graph: graph, verbose: verbose)
-                case (.memoryDatabase, true):
-                    let s = qs as! LanguageMemoryQuadStore
-                    try explain(in: s, query: q, graph: graph, verbose: verbose)
-                case (.sqliteFileDatabase(_), false), (.sqliteMemoryDatabase, false):
-                    let s = qs as! SQLiteQuadStore
-                    try explain(in: s, query: q, graph: graph, verbose: verbose)
-                case (.sqliteFileDatabase(_), true), (.sqliteMemoryDatabase, true):
-                    let s = qs as! SQLiteLanguageQuadStore
-                    try explain(in: s, query: q, graph: graph, verbose: verbose)
-                default:
-                    fatalError("Unusable configuration type: \(config)")
-                }
+                try explain(in: qs, query: q, graph: graph, verbose: verbose)
             } catch let e {
                 warn("*** Failed to explain query: \(e)")
             }
@@ -452,22 +347,7 @@ do {
                 let sparql = try data(fromFileOrString: qfile)
                 guard var p = SPARQLParser(data: sparql) else { fatalError("Failed to construct SPARQL parser") }
                 let q = try p.parseQuery()
-                switch (config.type, config.languageAware) {
-                case (.memoryDatabase, false):
-                    let s = qs as! MemoryQuadStore
-                    count = try query(in: s, query: q, graph: graph, verbose: verbose)
-                case (.memoryDatabase, true):
-                    let s = qs as! LanguageMemoryQuadStore
-                    count = try query(in: s, query: q, graph: graph, verbose: verbose)
-                case (.sqliteFileDatabase(_), false), (.sqliteMemoryDatabase, false):
-                    let s = qs as! SQLiteQuadStore
-                    count = try query(in: s, query: q, graph: graph, verbose: verbose)
-                case (.sqliteFileDatabase(_), true), (.sqliteMemoryDatabase, true):
-                    let s = qs as! SQLiteLanguageQuadStore
-                    count = try query(in: s, query: q, graph: graph, verbose: verbose)
-                default:
-                    fatalError("Unusable configuration type: \(config)")
-                }
+                count = try query(in: qs, query: q, graph: graph, verbose: verbose)
             } catch let e {
                 warn("*** Failed to evaluate query:")
                 warn("*** - \(e)")
@@ -495,22 +375,7 @@ do {
                 let graph: Term? = nil
                 guard var p = SPARQLParser(data: sparql) else { fatalError("Failed to construct SPARQL parser") }
                 let q = try p.parseQuery()
-                switch (config.type, config.languageAware) {
-                case (.memoryDatabase, false):
-                    let s = qs as! MemoryQuadStore
-                    count = try cliQuery(in: s, query: q, graph: graph)
-                case (.memoryDatabase, true):
-                    let s = qs as! LanguageMemoryQuadStore
-                    count = try cliQuery(in: s, query: q, graph: graph)
-                case (.sqliteFileDatabase(_), false), (.sqliteMemoryDatabase, false):
-                    let s = qs as! SQLiteQuadStore
-                    count = try cliQuery(in: s, query: q, graph: graph)
-                case (.sqliteFileDatabase(_), true), (.sqliteMemoryDatabase, true):
-                    let s = qs as! SQLiteLanguageQuadStore
-                    count = try cliQuery(in: s, query: q, graph: graph)
-                default:
-                    fatalError("Unusable configuration type: \(config)")
-                }
+                count = try cliQuery(in: qs, query: q, graph: graph)
             } catch let e {
                 warn("*** Failed to evaluate query:")
                 warn("*** - \(e)")
