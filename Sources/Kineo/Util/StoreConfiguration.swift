@@ -222,7 +222,7 @@ public struct AnyQuadStore: QuadStoreProtocol {
     private let _plan: (Algebra, Term, Dataset) throws -> QueryPlan?
     private let _language: ([(String, Double)]) -> AnyQuadStore?
 
-    init<Q: QuadStoreProtocol>(_ value: Q) {
+    public init<Q: QuadStoreProtocol>(_ value: Q) {
         self._count = { value.count }
         self._graphs = value.graphs
         self._graphTerms = value.graphTerms
@@ -240,7 +240,7 @@ public struct AnyQuadStore: QuadStoreProtocol {
         self._language = { (_) in return nil }
     }
     
-    init<Q: QuadStoreProtocol & LanguageUpgradableQuadStore>(_ value: Q) {
+    public init<Q: QuadStoreProtocol & LanguageUpgradableQuadStore>(_ value: Q) {
         print("Constructing language upgradable AnyQuadStore")
         self._count = { value.count }
         self._graphs = value.graphs
@@ -313,7 +313,7 @@ public struct AnyMutableQuadStore: MutableQuadStoreProtocol, PlanningQuadStore {
     private let _plan: (Algebra, Term, Dataset) throws -> QueryPlan?
     private let _language: ([(String, Double)]) -> AnyQuadStore?
     
-    init<Q: MutableQuadStoreProtocol>(_ value: Q) {
+    public init<Q: MutableQuadStoreProtocol>(_ value: Q) {
         self._store = value
         self._count = { value.count }
         self._graphs = value.graphs
@@ -333,7 +333,7 @@ public struct AnyMutableQuadStore: MutableQuadStoreProtocol, PlanningQuadStore {
         self._language = { (_) in return nil }
     }
     
-    init<Q: MutableQuadStoreProtocol & LanguageUpgradableQuadStore>(_ value: Q) {
+    public init<Q: MutableQuadStoreProtocol & LanguageUpgradableQuadStore>(_ value: Q) {
         self._store = value
         self._count = { value.count }
         self._graphs = value.graphs
