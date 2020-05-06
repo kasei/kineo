@@ -149,6 +149,14 @@ open class TriplePatternFragmentQuadStore: Sequence, QuadStoreProtocol {
         }
     }
     
+    public func countQuads(matching pattern: QuadPattern) throws -> Int {
+        var count = 0
+        for _ in try quads(matching: pattern) {
+            count += 1
+        }
+        return count
+    }
+
     public func effectiveVersion(matching pattern: QuadPattern) throws -> Version? {
         return nil
     }
