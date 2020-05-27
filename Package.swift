@@ -13,7 +13,7 @@ let package = Package(
 		.package(name: "CryptoSwift", url: "https://github.com/krzyzanowskim/CryptoSwift.git", .upToNextMinor(from: "1.0.0")),
 		.package(url: "https://github.com/kasei/URITemplate.git", .upToNextMinor(from: "2.0.10")),
 		.package(name: "SQLite.swift", url: "https://github.com/stephencelis/SQLite.swift.git", .upToNextMinor(from: "0.11.5")),
-		.package(name: "Diomede", url: "https://github.com/kasei/diomede.git", .upToNextMinor(from: "0.0.2")),
+		.package(name: "Diomede", url: "https://github.com/kasei/diomede.git", .upToNextMinor(from: "0.0.10")),
     ],
     targets: [
     	.target(
