@@ -191,6 +191,17 @@ public struct QuadStoreConfiguration {
     
     public func _anystore(mutable: Bool) throws -> Any {
         switch type {
+        case .diomedeDatabase(let filename):
+            let fileManager = FileManager.default
+            let initialize = !fileManager.fileExists(atPath: filename)
+            guard let store = DiomedeQuadStore(path: filename, create: initialize) else {
+                throw StoreConfigurationError.initializationError
+            }
+            if languageAware {
+                throw StoreConfigurationError.unsupportedConfiguration("DiomedeQuadStore does not support language-aware queries")
+            } else {
+                return mutable ? AnyMutableQuadStore(store) : AnyQuadStore(store)
+            }
         case .sqliteFileDatabase(let filename):
             let fileManager = FileManager.default
             let initialize = !fileManager.fileExists(atPath: filename)
@@ -237,6 +248,7 @@ public struct AnyQuadStore: QuadStoreProtocol {
     private let _features: () -> [QuadStoreFeature]
     private let _plan: (Algebra, Term, Dataset) throws -> QueryPlan?
     private let _language: ([(String, Double)]) -> AnyQuadStore?
+    private let _countQuads: (QuadPattern) throws -> Int
 
     public init<Q: QuadStoreProtocol>(_ value: Q) {
         self._count = { value.count }
@@ -248,6 +260,7 @@ public struct AnyQuadStore: QuadStoreProtocol {
         self._effectiveVersion = value.effectiveVersion
         self._graphDescriptions = { value.graphDescriptions }
         self._features = { value.features }
+        self._countQuads = { (qp) throws -> Int in return try value.countQuads(matching: qp) }
         if let pqs = value as? PlanningQuadStore {
             self._plan = pqs.plan
         } else {
@@ -267,6 +280,7 @@ public struct AnyQuadStore: QuadStoreProtocol {
         self._effectiveVersion = value.effectiveVersion
         self._graphDescriptions = { value.graphDescriptions }
         self._features = { value.features }
+        self._countQuads = { (qp) throws -> Int in return try value.countQuads(matching: qp) }
         if let pqs = value as? PlanningQuadStore {
             self._plan = pqs.plan
         } else {
@@ -312,6 +326,10 @@ public struct AnyQuadStore: QuadStoreProtocol {
     public func languageQuadStore(acceptLanguages: [(String, Double)]) -> AnyQuadStore? {
         return _language(acceptLanguages)
     }
+
+    public func countQuads(matching pattern: QuadPattern) throws -> Int {
+        return try _countQuads(pattern)
+    }
 }
 
 public struct AnyMutableQuadStore: MutableQuadStoreProtocol, PlanningQuadStore {
@@ -328,7 +346,8 @@ public struct AnyMutableQuadStore: MutableQuadStoreProtocol, PlanningQuadStore {
     private let _load: (Version, AnySequence<Quad>) throws -> ()
     private let _plan: (Algebra, Term, Dataset) throws -> QueryPlan?
     private let _language: ([(String, Double)]) -> AnyQuadStore?
-    
+    private let _countQuads: (QuadPattern) throws -> Int
+
     public init<Q: MutableQuadStoreProtocol>(_ value: Q) {
         self._store = value
         self._count = { value.count }
@@ -340,6 +359,7 @@ public struct AnyMutableQuadStore: MutableQuadStoreProtocol, PlanningQuadStore {
         self._effectiveVersion = value.effectiveVersion
         self._graphDescriptions = { value.graphDescriptions }
         self._features = { value.features }
+        self._countQuads = { (qp) throws -> Int in return try value.countQuads(matching: qp) }
         self._load = { try value.load(version: $0, quads: $1) }
         if let pqs = value as? PlanningQuadStore {
             self._plan = pqs.plan
@@ -360,6 +380,7 @@ public struct AnyMutableQuadStore: MutableQuadStoreProtocol, PlanningQuadStore {
         self._effectiveVersion = value.effectiveVersion
         self._graphDescriptions = { value.graphDescriptions }
         self._features = { value.features }
+        self._countQuads = { (qp) throws -> Int in return try value.countQuads(matching: qp) }
         self._load = { try value.load(version: $0, quads: $1) }
         if let pqs = value as? PlanningQuadStore {
             self._plan = pqs.plan
@@ -409,5 +430,9 @@ public struct AnyMutableQuadStore: MutableQuadStoreProtocol, PlanningQuadStore {
     
     public func languageQuadStore(acceptLanguages: [(String, Double)]) -> AnyQuadStore? {
         return _language(acceptLanguages)
+    }
+
+    public func countQuads(matching pattern: QuadPattern) throws -> Int {
+        return try _countQuads(pattern)
     }
 }
