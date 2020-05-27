@@ -69,6 +69,14 @@ open class PageQuadStore<D: PageDatabase>: Sequence, QuadStoreProtocol, MutableQ
         return i
     }
     
+    public func countQuads(matching pattern: QuadPattern) throws -> Int {
+        var count = 0
+        for _ in try quads(matching: pattern) {
+            count += 1
+        }
+        return count
+    }
+
     public func effectiveVersion(matching pattern: QuadPattern) throws -> Version? {
         var v : Version? = nil
         try database.read { (m) in
@@ -158,6 +166,14 @@ open class LanguagePageQuadStore<D: PageDatabase>: Sequence, LanguageAwareQuadSt
         return i
     }
     
+    public func countQuads(matching pattern: QuadPattern) throws -> Int {
+        var count = 0
+        for _ in try quads(matching: pattern) {
+            count += 1
+        }
+        return count
+    }
+
     public func effectiveVersion(matching pattern: QuadPattern) throws -> Version? {
         var v : Version? = nil
         try database.read { (m) in
@@ -201,10 +217,10 @@ open class MediatedPageQuadStore: Sequence, QuadStoreProtocol {
             object: .variable("o", binding: true),
             graph: .variable("g", binding: true)
         )
-        return count(matching: pattern)
+        return countQuads(matching: pattern)
     }
     
-    public func count(matching pattern: QuadPattern) -> Int {
+    public func countQuads(matching pattern: QuadPattern) -> Int {
         guard let idquads = try? idquads(matching: pattern) else { return 0 }
         var count = 0
         for _ in idquads {

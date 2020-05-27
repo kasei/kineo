@@ -413,6 +413,20 @@ open class SQLiteQuadStore: Sequence, MutableQuadStoreProtocol {
         return AnyIterator(quads.makeIterator())
     }
     
+    public func countQuads(matching pattern: QuadPattern) throws -> Int {
+        guard let query = quadsQuery(matching: pattern) else {
+            throw QueryError.evaluationError("Failed to get count of matching quads from endpoint")
+        }
+        guard let dbh = try? db.prepare(query) else {
+            throw QueryError.evaluationError("Failed to get count of matching quads from endpoint")
+        }
+        var count = 0
+        for _ in dbh.lazy {
+            count += 1
+        }
+        return count
+    }
+
     public func effectiveVersion(matching pattern: QuadPattern) throws -> Version? {
         let query = sysTable.select(versionColumn)
         guard let row = try db.pluck(query) else { return nil }
@@ -830,6 +844,14 @@ open class SQLiteLanguageQuadStore: Sequence, LanguageAwareQuadStore, MutableQua
         }
     }
     
+    public func countQuads(matching pattern: QuadPattern) throws -> Int {
+        var count = 0
+        for _ in try quads(matching: pattern) {
+            count += 1
+        }
+        return count
+    }
+
     internal func qValue(_ language: String, qualityValues: [(String, Double)]) -> Double {
         for (lang, value) in qualityValues {
             if language.hasPrefix(lang) || lang == "*" {

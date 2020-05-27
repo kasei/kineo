@@ -103,7 +103,7 @@ extension String {
 }
 
 extension Term {
-    func ntriplesData() -> Data? {
+    public func ntriplesData() -> Data? {
         switch self.type {
         case .iri:
             return "<\(self.value.ntriplesIRIEscaped)>".data(using: .utf8)
@@ -118,7 +118,7 @@ extension Term {
         }
     }
     
-    func printNTriplesString<T: TextOutputStream>(to stream: inout T) {
+    public func printNTriplesString<T: TextOutputStream>(to stream: inout T) {
         // OPTIMIZE: benchmark whether multiple writes or a single write of a built-up string is faster here
         switch self.type {
         case .iri:
