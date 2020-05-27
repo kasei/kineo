@@ -7,14 +7,17 @@
 
 import Foundation
 import SPARQLSyntax
+import DiomedeQuadStore
 
 public enum StoreConfigurationError: Error {
+    case initializationError
     case unsupportedConfiguration(String)
 }
 
 public struct QuadStoreConfiguration {
     public enum StoreType {
         case memoryDatabase
+        case diomedeDatabase(String)
         case sqliteFileDatabase(String)
         case sqliteMemoryDatabase
     }
@@ -107,6 +110,8 @@ public struct QuadStoreConfiguration {
             case _ where arg.hasPrefix("--named-graph="):
                 let file = String(arg.dropFirst(14))
                 namedGraphs.append((Term(iri: file), file))
+            case "-q":
+                type = .diomedeDatabase(args.remove(at: index))
             case "-s":
                 type = .sqliteFileDatabase(args.remove(at: index))
             case _ where arg.hasPrefix("--store="):
@@ -126,6 +131,17 @@ public struct QuadStoreConfiguration {
 
     public func withStore<R>(_ handler: (QuadStoreProtocol) throws -> R) throws -> R {
         switch type {
+        case .diomedeDatabase(let filename):
+            let fileManager = FileManager.default
+            let initialize = !fileManager.fileExists(atPath: filename)
+            guard let store = DiomedeQuadStore(path: filename, create: initialize) else {
+                throw StoreConfigurationError.initializationError
+            }
+            if languageAware {
+                throw StoreConfigurationError.unsupportedConfiguration("DiomedeQuadStore does not support language-aware queries")
+            } else {
+                return try handler(store)
+            }
         case .sqliteFileDatabase(let filename):
             let fileManager = FileManager.default
             let initialize = !fileManager.fileExists(atPath: filename)
