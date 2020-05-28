@@ -280,7 +280,6 @@ public struct AnyQuadStore: QuadStoreProtocol {
         self._effectiveVersion = value.effectiveVersion
         self._graphDescriptions = { value.graphDescriptions }
         self._features = { value.features }
-        self._countQuads = { (qp) throws -> Int in return try value.countQuads(matching: qp) }
         self._countQuads = { try value.countQuads(matching: $0) }
         if let pqs = value as? PlanningQuadStore {
             self._plan = pqs.plan
@@ -360,9 +359,8 @@ public struct AnyMutableQuadStore: MutableQuadStoreProtocol, PlanningQuadStore {
         self._effectiveVersion = value.effectiveVersion
         self._graphDescriptions = { value.graphDescriptions }
         self._features = { value.features }
-        self._countQuads = { (qp) throws -> Int in return try value.countQuads(matching: qp) }
-        self._load = { try value.load(version: $0, quads: $1) }
         self._countQuads = { try value.countQuads(matching: $0) }
+        self._load = { try value.load(version: $0, quads: $1) }
         if let pqs = value as? PlanningQuadStore {
             self._plan = pqs.plan
         } else {
