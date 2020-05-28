@@ -206,7 +206,15 @@ open class MemoryQuadStore: Sequence, MutableQuadStoreProtocol {
         let matching = try idquads(matching: pattern).map{ quad(from: $0) }
         return AnyIterator(matching.makeIterator())
     }
-    
+
+    public func countQuads(matching pattern: QuadPattern) throws -> Int {
+        var count = 0
+        for _ in try idquads(matching: pattern) {
+            count += 1
+        }
+        return count
+    }
+
     public func effectiveVersion(matching pattern: QuadPattern) throws -> Version? {
         return version
     }
@@ -327,6 +335,10 @@ open class LanguageMemoryQuadStore: Sequence, LanguageAwareQuadStore, MutableQua
     public func quads(matching pattern: QuadPattern) throws -> AnyIterator<Quad> {
         let matching = try idquads(matching: pattern).map{ quadstore.quad(from: $0) }
         return AnyIterator(matching.makeIterator())
+    }
+
+    public func countQuads(matching pattern: QuadPattern) throws -> Int {
+        return try quadstore.countQuads(matching: pattern)
     }
 
     public var acceptLanguages: [(String, Double)]

@@ -60,6 +60,11 @@ struct PerformanceTestStore: QuadStoreProtocol, Sequence {
         let s = quads.filter { pattern.matches(quad: $0) != nil }
         return AnyIterator(s.makeIterator())
     }
+
+    func countQuads(matching pattern: QuadPattern) throws -> Int {
+        let s = quads.filter { pattern.matches(quad: $0) != nil }
+        return s.count
+    }
 }
 
 class QueryEvaluationPerformanceTest: XCTestCase {

@@ -86,10 +86,10 @@ open class SPARQLClientQuadStore: Sequence, QuadStoreProtocol {
         var p = pattern.predicate
         var o = pattern.object
         var g = pattern.graph
-        if case .variable(_) = s { s = .variable("s", binding: true) }
-        if case .variable(_) = p { p = .variable("p", binding: true) }
-        if case .variable(_) = o { o = .variable("o", binding: true) }
-        if case .variable(_) = g { g = .variable("g", binding: true) }
+        if case .variable = s { s = .variable("s", binding: true) }
+        if case .variable = p { p = .variable("p", binding: true) }
+        if case .variable = o { o = .variable("o", binding: true) }
+        if case .variable = g { g = .variable("g", binding: true) }
         let query: String
         
         if case .bound(defaultGraph) = g {
@@ -146,6 +146,43 @@ open class SPARQLClientQuadStore: Sequence, QuadStoreProtocol {
             }
         }
         return AnyIterator([].makeIterator())
+    }
+    
+    public func countQuads(matching pattern: QuadPattern) throws -> Int {
+        var s = pattern.subject
+        var p = pattern.predicate
+        var o = pattern.object
+        var g = pattern.graph
+        if case .variable = s { s = .variable("s", binding: true) }
+        if case .variable = p { p = .variable("p", binding: true) }
+        if case .variable = o { o = .variable("o", binding: true) }
+        if case .variable = g { g = .variable("g", binding: true) }
+        let query: String
+        
+        if case .bound(defaultGraph) = g {
+            query = "SELECT (COUNT(*) AS ?count) WHERE { \(s) \(p) \(o) }"
+        } else if case .bound(_) = g {
+            query = "SELECT (COUNT(*) AS ?count) WHERE { GRAPH \(g) { \(s) \(p) \(o) } }" // TODO: pull default graph also
+        } else {
+            query = """
+                SELECT (COUNT(*) AS ?count) WHERE {
+                    {
+                        GRAPH \(g) { \(s) \(p) \(o) }
+                    } UNION {
+                        \(s) \(p) \(o)
+                    }
+                }
+            """
+        }
+        if let r = try? client.execute(query) {
+            if case .bindings(_, let rows) = r {
+                guard let row = rows.first, let count = row["count"] else {
+                    throw QueryError.evaluationError("Failed to get count of matching quads from endpoint")
+                }
+                return Int(count.numericValue)
+            }
+        }
+        throw QueryError.evaluationError("Failed to get count of matching quads from endpoint")
     }
     
     public func effectiveVersion(matching pattern: QuadPattern) throws -> Version? {

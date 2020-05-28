@@ -36,6 +36,7 @@ public protocol QuadStoreProtocol {
     func makeIterator() -> AnyIterator<Quad>
     func results(matching pattern: QuadPattern) throws -> AnyIterator<TermResult>
     func quads(matching pattern: QuadPattern) throws -> AnyIterator<Quad>
+    func countQuads(matching pattern: QuadPattern) throws -> Int
     func effectiveVersion(matching pattern: QuadPattern) throws -> Version?
     var graphDescriptions: [Term:GraphDescription] { get }
     var features: [QuadStoreFeature] { get }
