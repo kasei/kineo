@@ -185,7 +185,7 @@ open class NTriplesSerializer : RDFSerializer {
     }
 }
 
-open class NTriplesParser<T: LineReadable> : Sequence {
+open class NTuplesParser<T: LineReadable> {
     var blanks: [String:Term]
     let reader: T
     public init(reader: T) {
@@ -349,7 +349,9 @@ open class NTriplesParser<T: LineReadable> : Sequence {
             }
         } while true
     }
+}
 
+open class NTriplesParser<T: LineReadable> : NTuplesParser<T>, Sequence {
     public func parseQuad(line: String, graph: Term) -> Quad? {
         guard let t = parseTriple(line: line) else { return nil }
         return Quad(subject: t.subject, predicate: t.predicate, object: t.object, graph: graph)
@@ -375,6 +377,46 @@ open class NTriplesParser<T: LineReadable> : Sequence {
                 guard let line = lines.next() else { return nil }
                 if let t = self.parseTriple(line: line) {
                     return t
+                }
+            } while true
+        }
+    }
+}
+
+open class NQuadsParser<T: LineReadable> : NTuplesParser<T>, Sequence {
+    var defaultGraph: Term
+
+    public init(reader: T, defaultGraph graph: Term) {
+        self.defaultGraph = graph
+        super.init(reader: reader)
+    }
+
+    public func parseQuad(line: String, defaultGraph graph: Term) -> Quad? {
+        var chars = PeekableIterator(generator: line.unicodeScalars.makeIterator())
+        chars.dropWhile { $0 == " " || $0 == "\t" }
+        if chars.peek() == "#" { return nil }
+        var terms: [Term] = []
+        repeat {
+            guard let t = parseTerm(&chars) else { return nil }
+            terms.append(t)
+        } while true
+        if terms.count == 3 {
+            return Quad(subject: terms[0], predicate: terms[1], object: terms[2], graph: graph)
+        } else if terms.count == 4 {
+            return Quad(subject: terms[0], predicate: terms[1], object: terms[2], graph: terms[3])
+        } else {
+            return nil
+        }
+    }
+
+    public func makeIterator() -> AnyIterator<Quad> {
+        let fr = self.reader
+        let lines = fr.lines()
+        return AnyIterator { () -> Quad? in
+            repeat {
+                guard let line = lines.next() else { return nil }
+                if let q = self.parseQuad(line: line, defaultGraph: self.defaultGraph) {
+                    return q
                 }
             } while true
         }
