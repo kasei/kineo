@@ -75,15 +75,23 @@ func parseSPARQL(_ filename: String, printTokens: Bool, pretty: Bool, simplify: 
             try parseQuery(data, simplify: simplify, silent: silent)
         }
         //print("ok")
+    } catch SPARQLSyntaxError.parsingError(let message) {
+        //        print("not ok \(message)")
+        //        let s = String(data: data, encoding: .utf8)!
+        //        print(s)
+                throw SerializationError.parsingError(message)
+        //        return 255
     } catch SerializationError.parsingError(let message) {
-        print("not ok \(message)")
-        let s = String(data: data, encoding: .utf8)!
-        print(s)
-        return 255
+//        print("not ok \(message)")
+//        let s = String(data: data, encoding: .utf8)!
+//        print(s)
+        throw SerializationError.parsingError(message)
+//        return 255
     } catch let e {
         print("not ok \(e)")
         let s = String(data: data, encoding: .utf8)!
         print(s)
+//        throw e
         return 255
     }
     return 0
@@ -105,17 +113,18 @@ func parseSRX(_ filename: String, silent: Bool) throws -> Int32 {
 }
 
 func parseRDF(_ filename: String, silent: Bool) throws -> Int32 {
+    let defaultGraph = Term(iri: "tag:kasei.us,2018:default-graph")
     let syntax = RDFParserCombined.guessSyntax(filename: filename)
     let parser = RDFParserCombined()
     let url = URL(fileURLWithPath: filename)
     let path = url.absoluteString
     let manager = FileManager.default
-    guard manager.fileExists(atPath: path) else {
+    guard manager.fileExists(atPath: filename) else {
         throw KineoParseError.fileDoesNotExist
     }
-    _ = try parser.parse(file: filename, syntax: syntax, base: url.absoluteString) { (s, p, o) in
-        let t = Triple(subject: s, predicate: p, object: o)
-        print("\(t)")
+    _ = try parser.parse(file: filename, syntax: syntax, defaultGraph: defaultGraph, base: url.absoluteString) { (s, p, o, g) in
+        let q = Quad(subject: s, predicate: p, object: o, graph: g)
+        print("\(q)")
     }
     return 0
 }
@@ -254,6 +263,7 @@ do {
         exit(0)
     } else {
         let sr = try parseSPARQL(qfile, printTokens: printTokens, pretty: pretty, simplify: simplify, silent: silent)
+        
         exit(sr)
     }
 } catch {}

@@ -12,17 +12,20 @@ import SPARQLSyntax
 private class ParserContext {
     var count: Int
     var errors: [Error]
-    var handler: TripleHandler
+    var handler: QuadHandler
     var env: OpaquePointer!
+    var defaultGraph: Term
     
-    init(env: OpaquePointer, handler: @escaping TripleHandler, produceUniqueBlankIdentifiers: Bool = true) {
+    init(env: OpaquePointer, handler: @escaping QuadHandler, defaultGraph: Term, produceUniqueBlankIdentifiers: Bool = true) {
         var blankNodes = [String:Term]()
+        self.defaultGraph = defaultGraph
         self.count = 0
         self.env = env
-        self.handler = { (s,p,o) in
+        self.handler = { (s,p,o,g) in
             var subj = s
             let pred = p
             var obj = o
+            let graph = g
             
             if case .blank = subj.type {
                 if let t = blankNodes[subj.value] {
@@ -49,7 +52,7 @@ private class ParserContext {
                 }
             }
             
-            handler(subj, pred, obj)
+            handler(subj, pred, obj, graph)
         }
         self.errors = []
     }
@@ -93,9 +96,15 @@ let serd_statement_sink : @convention(c) (UnsafeMutableRawPointer?, SerdStatemen
         let s = try serd_node_as_term(env: env, node: subject.pointee, datatype: nil, language: nil)
         let p = try serd_node_as_term(env: env, node: predicate.pointee, datatype: nil, language: nil)
         let o = try serd_node_as_term(env: env, node: object.pointee, datatype: dt, language: language?.pointee.value)
-        
+        let g: Term
+        if let graph = graph {
+            g = try serd_node_as_term(env: env, node: graph.pointee, datatype: nil, language: nil)
+        } else {
+            g = Term(iri: "tag:kasei.us,2018:default-graph")
+        }
+
         ctx.count += 1
-        handler(s, p, o)
+        handler(s, p, o, g)
     } catch let e {
         print("*** \(e)")
         return SERD_FAILURE
@@ -180,7 +189,40 @@ public struct SerdParser {
         guard let env = serd_env_new(&base) else { throw RDFParserCombined.RDFParserError.internalError("Failed to construct parser context") }
         base = serd_node_new_uri_from_string(defaultBase, nil, &baseUri)
         
-        var context = ParserContext(env: env, handler: handleTriple, produceUniqueBlankIdentifiers: produceUniqueBlankIdentifiers)
+        let handleQuad : QuadHandler = { (s,p,o,_) in handleTriple(s,p,o) }
+        let defaultGraph = Term(iri: "tag:kasei.us,2018:default-graph")
+        var context = ParserContext(env: env, handler: handleQuad, defaultGraph: defaultGraph, produceUniqueBlankIdentifiers: produceUniqueBlankIdentifiers)
+        let status = try withUnsafePointer(to: &context) { (ctx) -> SerdStatus in
+            guard let reader = serd_reader_new(inputSyntax.serdSyntax!, UnsafeMutableRawPointer(mutating: ctx), serd_free_handle, serd_base_sink, serd_prefix_sink, serd_statement_sink, serd_end_sink) else {
+                throw RDFParserCombined.RDFParserError.parseError("Failed to construct Serd reader")
+            }
+            
+            serd_reader_set_strict(reader, true)
+            serd_reader_set_error_sink(reader, serd_error_sink, nil)
+            
+            let status = serd_reader_read_string(reader, string)
+            serd_reader_free(reader)
+            return status
+        }
+        
+        serd_env_free(env)
+        serd_node_free(&base)
+        
+        if status != SERD_SUCCESS {
+            throw RDFParserCombined.RDFParserError.parseError("Failed to parse string using serd")
+        }
+        
+        return context.count
+    }
+    
+    public func serd_parse(string: String, defaultGraph: Term, handleQuad: @escaping (Term, Term, Term, Term) -> Void) throws -> Int {
+        var baseUri = SERD_URI_NULL
+        var base = SERD_NODE_NULL
+        
+        guard let env = serd_env_new(&base) else { throw RDFParserCombined.RDFParserError.internalError("Failed to construct parser context") }
+        base = serd_node_new_uri_from_string(defaultBase, nil, &baseUri)
+        
+        var context = ParserContext(env: env, handler: handleQuad, defaultGraph: defaultGraph, produceUniqueBlankIdentifiers: produceUniqueBlankIdentifiers)
         let status = try withUnsafePointer(to: &context) { (ctx) -> SerdStatus in
             guard let reader = serd_reader_new(inputSyntax.serdSyntax!, UnsafeMutableRawPointer(mutating: ctx), serd_free_handle, serd_base_sink, serd_prefix_sink, serd_statement_sink, serd_end_sink) else {
                 throw RDFParserCombined.RDFParserError.parseError("Failed to construct Serd reader")
@@ -217,7 +259,57 @@ public struct SerdParser {
         
         guard let env = serd_env_new(&base) else { throw RDFParserCombined.RDFParserError.internalError("Failed to construct parser context") }
         
-        var context = ParserContext(env: env, handler: handleTriple, produceUniqueBlankIdentifiers: produceUniqueBlankIdentifiers)
+        let handleQuad : QuadHandler = { (s,p,o,_) in handleTriple(s,p,o) }
+        let defaultGraph = Term(iri: "tag:kasei.us,2018:default-graph")
+        var context = ParserContext(env: env, handler: handleQuad, defaultGraph: defaultGraph, produceUniqueBlankIdentifiers: produceUniqueBlankIdentifiers)
+        _ = try withUnsafePointer(to: &context) { (ctx) throws -> SerdStatus in
+            guard let reader = serd_reader_new(inputSyntax.serdSyntax!, UnsafeMutableRawPointer(mutating: ctx), serd_free_handle, serd_base_sink, serd_prefix_sink, serd_statement_sink, serd_end_sink) else {
+                throw RDFParserCombined.RDFParserError.parseError("Failed to construct Serd reader")
+            }
+            
+            serd_reader_set_strict(reader, true)
+            serd_reader_set_error_sink(reader, serd_error_sink, UnsafeMutableRawPointer(mutating: ctx))
+            
+            guard let in_fd = fopen(filename, "r") else {
+                let errptr = strerror(errno)
+                let error = errptr == .none ? "(internal error)" : String(cString: errptr!)
+                throw RDFParserCombined.RDFParserError.parseError("Failed to open \(filename): \(error)")
+            }
+            
+            var status = serd_reader_start_stream(reader, in_fd, filename, false)
+            while status == SERD_SUCCESS {
+                status = serd_reader_read_chunk(reader)
+            }
+            serd_reader_end_stream(reader)
+            serd_reader_free(reader)
+            return status
+        }
+        
+        serd_env_free(env)
+        serd_node_free(&base)
+        
+        if let e = context.errors.first {
+            throw e
+        }
+        
+        return context.count
+    }
+    
+    public func serd_parse(file filename: String, defaultGraph: Term, base _base: String? = nil , handleQuad: @escaping QuadHandler) throws -> Int {
+        guard let input = serd_uri_to_path(filename) else { throw RDFParserCombined.RDFParserError.parseError("no such file") }
+        
+        var baseUri = SERD_URI_NULL
+        var base = SERD_NODE_NULL
+        if let b = _base {
+            base = serd_node_new_uri_from_string(b, &baseUri, nil)
+        } else {
+            base = serd_node_new_file_uri(input, nil, &baseUri, false)
+        }
+        
+        guard let env = serd_env_new(&base) else { throw RDFParserCombined.RDFParserError.internalError("Failed to construct parser context") }
+        
+        let defaultGraph = Term(iri: "tag:kasei.us,2018:default-graph")
+        var context = ParserContext(env: env, handler: handleQuad, defaultGraph: defaultGraph, produceUniqueBlankIdentifiers: produceUniqueBlankIdentifiers)
         _ = try withUnsafePointer(to: &context) { (ctx) throws -> SerdStatus in
             guard let reader = serd_reader_new(inputSyntax.serdSyntax!, UnsafeMutableRawPointer(mutating: ctx), serd_free_handle, serd_base_sink, serd_prefix_sink, serd_statement_sink, serd_end_sink) else {
                 throw RDFParserCombined.RDFParserError.parseError("Failed to construct Serd reader")

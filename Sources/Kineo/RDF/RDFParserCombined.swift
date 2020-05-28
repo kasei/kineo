@@ -29,6 +29,8 @@ public class RDFParserCombined : RDFPushParser {
         
         var serdSyntax : SerdSyntax? {
             switch self {
+            case .nquads:
+                return SERD_NQUADS
             case .ntriples:
                 return SERD_NTRIPLES
             case .turtle:
@@ -205,8 +207,8 @@ public class RDFParserCombined : RDFPushParser {
         case .ntriples, .turtle:
             let p = SerdParser(syntax: inputSyntax, base: base, produceUniqueBlankIdentifiers: produceUniqueBlankIdentifiers)
             var count = 0
-            return try p.serd_parse(file: filename, base: base) { (s,p,o) in
-                handleQuad(s,p,o,defaultGraph)
+            return try p.serd_parse(file: filename, defaultGraph: defaultGraph, base: base) { (s,p,o,g) in
+                handleQuad(s,p,o,g)
                 count += 1
             }
             return count
