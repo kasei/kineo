@@ -397,14 +397,17 @@ open class NQuadsParser<T: LineReadable> : NTuplesParser<T>, Sequence {
         if chars.peek() == "#" { return nil }
         var terms: [Term] = []
         repeat {
-            guard let t = parseTerm(&chars) else { return nil }
+            guard let t = parseTerm(&chars) else { break }
             terms.append(t)
         } while true
         if terms.count == 3 {
             return Quad(subject: terms[0], predicate: terms[1], object: terms[2], graph: graph)
         } else if terms.count == 4 {
             return Quad(subject: terms[0], predicate: terms[1], object: terms[2], graph: terms[3])
+        } else if terms.isEmpty {
+            return nil
         } else {
+            print("Unexpectedly got \(terms.count) terms in N-Quads line: \(terms)")
             return nil
         }
     }

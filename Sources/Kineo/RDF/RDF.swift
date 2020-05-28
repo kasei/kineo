@@ -51,6 +51,14 @@ public class RDFSerializationConfiguration {
         public func parseFile(_ filename: String, base: String? = nil, handleTriple: @escaping TripleHandler) throws -> Int {
             return try parser.parseFile(filename, mediaType: mediaType, base: base, handleTriple: handleTriple)
         }
+        
+        public func parse(string: String, mediaType: String, defaultGraph: Term, base: String?, handleQuad: @escaping QuadHandler) throws -> Int {
+            return try parser.parse(string: string, mediaType: mediaType, defaultGraph: defaultGraph, base: base, handleQuad: handleQuad)
+        }
+
+        public func parseFile(_ filename: String, mediaType: String, defaultGraph: Term, base: String?, handleQuad: @escaping QuadHandler) throws -> Int {
+            return try parser.parseFile(filename, mediaType: mediaType, defaultGraph: defaultGraph, base: base, handleQuad: handleQuad)
+        }
     }
     
     public static let shared = { () -> RDFSerializationConfiguration in
@@ -59,7 +67,8 @@ public class RDFSerializationConfiguration {
         c.registerSerializer(TurtleSerializer.self, withType: "text/turtle", extensions: [".ttl"], mediaTypes: [])
         
         c.registerParser(RDFParserCombined.self, withType: "text/turtle", extensions: [".ttl"], mediaTypes: [])
-        c.registerParser(RDFParserCombined.self, withType: "text/n-triples", extensions: [".nt"], mediaTypes: [])
+        c.registerParser(RDFParserCombined.self, withType: "application/n-quads", extensions: [".nq"], mediaTypes: [])
+        c.registerParser(RDFParserCombined.self, withType: "application/n-triples", extensions: [".nt"], mediaTypes: [])
         c.registerParser(RDFParserCombined.self, withType: "application/rdf+xml", extensions: [".rdf"], mediaTypes: [])
         return c
     }()
