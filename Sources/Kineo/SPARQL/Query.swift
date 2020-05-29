@@ -73,3 +73,15 @@ public extension Query {
         return result
     }
 }
+
+extension Algebra {
+    func unionBranches() -> [Algebra] {
+        switch self {
+        case let .union(lhs, rhs):
+            return lhs.unionBranches() + rhs.unionBranches()
+        default:
+            return [self]
+        }
+    }
+}
+

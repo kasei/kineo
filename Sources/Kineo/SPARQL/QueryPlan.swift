@@ -25,6 +25,8 @@ public protocol QueryPlan: PlanSerializable {
     var children : [QueryPlan] { get }
     var properties: [PlanSerializable] { get }
     func evaluate() throws -> AnyIterator<TermResult>
+    var isJoinIdentity: Bool { get }
+    var isUnionIdentity: Bool { get }
 }
 
 public protocol UnaryQueryPlan: QueryPlan {
@@ -33,6 +35,8 @@ public protocol UnaryQueryPlan: QueryPlan {
 
 public extension UnaryQueryPlan {
     var children : [QueryPlan] { return [child] }
+    var isJoinIdentity: Bool { return false }
+    var isUnionIdentity: Bool { return false }
 }
 
 public protocol BinaryQueryPlan: QueryPlan {
@@ -42,6 +46,8 @@ public protocol BinaryQueryPlan: QueryPlan {
 
 public extension BinaryQueryPlan {
     var children : [QueryPlan] { return [lhs, rhs] }
+    var isJoinIdentity: Bool { return false }
+    var isUnionIdentity: Bool { return false }
 }
 
 public protocol NullaryQueryPlan: QueryPlan {}
@@ -75,7 +81,15 @@ public extension QueryPlan {
 public struct TablePlan: NullaryQueryPlan {
     var columns: [Node]
     var rows: [[Term?]]
-    public var selfDescription: String { return "Table { \(columns) }" }
+    public var isJoinIdentity: Bool {
+        guard rows.count == 1 else { return false }
+        guard columns.count == 0 else { return false }
+        return true
+    }
+    public var isUnionIdentity: Bool {
+        return rows.count == 0
+    }
+    public var selfDescription: String { return "Table { \(columns) ; \(rows.count) rows }" }
     public static var joinIdentity = TablePlan(columns: [], rows: [[]])
     public static var unionIdentity = TablePlan(columns: [], rows: [])
     public func evaluate() throws -> AnyIterator<TermResult> {
@@ -105,6 +119,8 @@ public struct QuadPlan: NullaryQueryPlan {
     public func evaluate() throws -> AnyIterator<TermResult> {
         return try store.results(matching: quad)
     }
+    public var isJoinIdentity: Bool { return false }
+    public var isUnionIdentity: Bool { return false }
 }
 
 public struct NestedLoopJoinPlan: BinaryQueryPlan {
@@ -412,7 +428,9 @@ public struct ServicePlan: NullaryQueryPlan {
     var query: String
     var silent: Bool
     var client: SPARQLClient
-    
+    public var isJoinIdentity: Bool { return false }
+    public var isUnionIdentity: Bool { return false }
+
     public init(endpoint: URL, query: String, silent: Bool, client: SPARQLClient) {
         self.endpoint = endpoint
         self.query = query
@@ -1396,6 +1414,9 @@ public struct PathQueryPlan: NullaryQueryPlan {
     var graph: Term
     public var selfDescription: String { return "Path { \(subject) ---> \(object) in graph \(graph) }" }
     public var properties: [PlanSerializable] { return [path] }
+    public var isJoinIdentity: Bool { return false }
+    public var isUnionIdentity: Bool { return false }
+
     public func evaluate() throws -> AnyIterator<TermResult> {
         return try path.evaluate(from: subject, to: object, in: graph)
     }

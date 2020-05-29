@@ -1463,7 +1463,9 @@ public struct SQLitePlan: NullaryQueryPlan {
     var projected: [String: SQLite.Expression<Int64>]
     var store: SQLiteQuadStore
     public var selfDescription: String { return "SQLite Plan { \(query.expression.template) : \(query.expression.bindings) }" }
-    
+    public var isJoinIdentity: Bool { return false }
+    public var isUnionIdentity: Bool { return false }
+
     private func wrapQuery() -> (SQLite.Table, ColumnMapping) {
         // add joins to the terms table for all projected variables, executing everything in a single query
         
@@ -1546,6 +1548,9 @@ public struct SQLitePreparedPlan: NullaryQueryPlan {
     var projected: [String: String]
     var store: SQLiteQuadStore
     public var selfDescription: String { return "SQLite Prepared Plan { \(dbh) }" }
+    public var isJoinIdentity: Bool { return false }
+    public var isUnionIdentity: Bool { return false }
+
     public func evaluate() throws -> AnyIterator<TermResult> {
         let projected = self.projected
         let map = Dictionary(uniqueKeysWithValues: dbh.columnNames.enumerated().map { ($1, $0) })
@@ -1575,6 +1580,9 @@ public struct SQLiteSingleIntegerAggregationPlan<D: Value>: NullaryQueryPlan {
     var projected: [String: SQLite.Expression<Int64>]
     var store: SQLiteQuadStore
     public var selfDescription: String { return "SQLite Aggregation Plan { \(aggregateColumn) AS \(aggregateName) : \(query.expression.template) : \(query.expression.bindings) }" }
+    public var isJoinIdentity: Bool { return false }
+    public var isUnionIdentity: Bool { return false }
+
     public func evaluate() throws -> AnyIterator<TermResult> {
         let store = self.store
         guard let dbh = try? store.db.prepare(query) else {
