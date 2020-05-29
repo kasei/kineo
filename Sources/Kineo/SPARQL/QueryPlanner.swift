@@ -400,6 +400,12 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
             return try plan(algebra: child, activeGraph: g, estimator: estimator)
         case let .namedGraph(child, .variable(graph, binding: _)):
             // TODO: handle multiple query plans from child
+            if case .joinIdentity = child {
+                let rows = dataset.namedGraphs.map { [$0] }
+                let table = TablePlan(columns: [.variable(graph, binding: true)], rows: rows)
+                return [table]
+            }
+            
             let branches = try dataset.namedGraphs.map { (g) throws -> QueryPlan in
                 let pplans = try plan(algebra: child, activeGraph: g, estimator: estimator)
                 guard let p = pplans.first else {
