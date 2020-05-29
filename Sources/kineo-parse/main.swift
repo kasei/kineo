@@ -156,8 +156,8 @@ func sortParse(files: [String]) throws -> (Int, [Int:Term]) {
         iris.insert(graph)
         
         let parser = RDFParserCombined()
-        count = try parser.parse(file: filename, base: graph.value) { (s, p, o) in
-            for term in [s, p, o] {
+        count = try parser.parse(file: filename, defaultGraph: graph, base: graph.value) { (s, p, o, g) in
+            for term in [s, p, o, g] {
                 switch term.type {
                 case .iri:
                     iris.insert(term)

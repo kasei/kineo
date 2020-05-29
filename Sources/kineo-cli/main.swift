@@ -32,8 +32,8 @@ func parse(into store: MutableQuadStoreProtocol, files: [String], version: Versi
         if verbose {
             warn("Parsing RDF...")
         }
-        count = try parser.parse(file: filename, base: graph.value) { (s, p, o) in
-            let q = Quad(subject: s, predicate: p, object: o, graph: graph)
+        count = try parser.parse(file: filename, defaultGraph: graph, base: graph.value) { (s, p, o, g) in
+            let q = Quad(subject: s, predicate: p, object: o, graph: g)
             quads.append(q)
         }
         

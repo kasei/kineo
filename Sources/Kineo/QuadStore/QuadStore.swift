@@ -97,8 +97,8 @@ extension MutableQuadStoreProtocol {
             let parser = RDFParserCombined()
             var quads = [Quad]()
             //                    print("Parsing RDF...")
-            _ = try parser.parse(file: filename, syntax: syntax, base: graph.value) { (s, p, o) in
-                let q = Quad(subject: s, predicate: p, object: o, graph: graph)
+            _ = try parser.parse(file: filename, syntax: syntax, defaultGraph: graph, base: graph.value) { (s, p, o, g) in
+                let q = Quad(subject: s, predicate: p, object: o, graph: g)
                 quads.append(q)
             }
             
