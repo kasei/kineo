@@ -285,8 +285,9 @@ extension SimpleQueryEvaluatorProtocol {
             return try self.evaluateJoin(lhs: lhs, rhs: rhs, left: false, activeGraph: activeGraph)
         case let .leftOuterJoin(lhs, rhs, expr):
             return try self.evaluateLeftJoin(lhs: lhs, rhs: rhs, expression: expr, activeGraph: activeGraph)
-        case let .union(lhs, rhs):
-            return try self.evaluateUnion([lhs, rhs], activeGraph: activeGraph)
+        case .union:
+            let branches = algebra.unionBranches()
+            return try self.evaluateUnion(branches, activeGraph: activeGraph)
         case let .project(child, vars):
             let i = try self.evaluate(algebra: child, activeGraph: activeGraph)
             return AnyIterator {

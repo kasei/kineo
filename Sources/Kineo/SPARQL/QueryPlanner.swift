@@ -229,14 +229,18 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
             }
             return candidatePlans(plans, estimator: estimator)
         case let .union(lhs, rhs):
-            let lplans = try plan(algebra: lhs, activeGraph: activeGraph, estimator: estimator)
-            let rplans = try plan(algebra: rhs, activeGraph: activeGraph, estimator: estimator)
-            var plans = [QueryPlan]()
-            for l in lplans {
-                for r in rplans {
-                    plans.append(UnionPlan(lhs: l, rhs: r))
-                }
-            }
+            let branches = algebra.unionBranches()
+            let branchPlans = try branches.map { try plan(algebra: $0, activeGraph: activeGraph, estimator: estimator) }
+            let plans = try self.planBushyUnionProduct(branches: branchPlans, estimator: estimator)
+            
+//            let lplans = try plan(algebra: lhs, activeGraph: activeGraph, estimator: estimator)
+//            let rplans = try plan(algebra: rhs, activeGraph: activeGraph, estimator: estimator)
+//            var plans = [QueryPlan]()
+//            for l in lplans {
+//                for r in rplans {
+//                    plans.append(UnionPlan(lhs: l, rhs: r))
+//                }
+//            }
             return candidatePlans(plans, estimator: estimator)
         case let .project(child, vars):
             let p = try plan(algebra: child, activeGraph: activeGraph, estimator: estimator)
@@ -401,18 +405,27 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
                 guard let p = pplans.first else {
                     throw QueryPlannerError.noPlanAvailable
                 }
-                let table = TablePlan(columns: [.variable(graph, binding: true)], rows: [[g]])
-                if child.inscope.contains(graph) {
-                    return HashJoinPlan(lhs: p, rhs: table, joinVariables: [graph])
+                if p.isJoinIdentity {
+                    return p
                 } else {
-                    return NestedLoopJoinPlan(lhs: p, rhs: table)
+                    let table = TablePlan(columns: [.variable(graph, binding: true)], rows: [[g]])
+                    if child.inscope.contains(graph) {
+                        return HashJoinPlan(lhs: p, rhs: table, joinVariables: [graph])
+                    } else {
+                        return NestedLoopJoinPlan(lhs: p, rhs: table)
+                    }
                 }
             }
-            guard let first = branches.first else {
-                return [TablePlan(columns: [], rows: [])]
-            }
-            let p = branches.dropFirst().reduce(first) { UnionPlan(lhs: $0, rhs: $1) }
-            return [p]
+            let branchPlans = branches.map { [$0] }
+            let plans = try self.planBushyUnionProduct(branches: branchPlans, estimator: estimator)
+            return candidatePlans(plans, estimator: estimator)
+
+
+//            guard let first = branches.first else {
+//                return [TablePlan(columns: [], rows: [])]
+//            }
+//            let p = branches.dropFirst().reduce(first) { UnionPlan(lhs: $0, rhs: $1) }
+//            return [p]
         case let .triple(t):
             let quad = QuadPattern(subject: t.subject, predicate: t.predicate, object: t.object, graph: .bound(activeGraph))
             let plans = try plan(algebra: .quad(quad), activeGraph: activeGraph, estimator: estimator)
@@ -425,6 +438,47 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
         }
     }
 
+    func planBushyUnionProduct<E: QueryPlanCostEstimator>(branches: [[QueryPlan]], estimator: E) throws -> [QueryPlan] {
+        guard !branches.isEmpty else {
+            throw QueryPlannerError.noPlanAvailable
+        }
+        guard branches.count > 1 else {
+            return branches[0]
+        }
+        
+        var branches = branches
+        if !branches.count.isMultiple(of: 2) {
+            branches.append([TablePlan.unionIdentity])
+        }
+        let pairs = stride(from: 0, to: branches.endIndex, by: 2).map {
+            (branches[$0], branches[$0.advanced(by: 1)])
+        }
+        
+        var reduced = [[QueryPlan]]()
+        for (lplans, rplans) in pairs {
+            var plans = [QueryPlan]()
+            for l in lplans {
+                for r in rplans {
+                    if l.isUnionIdentity {
+                        plans.append(r)
+                    } else if r.isUnionIdentity {
+                        plans.append(l)
+                    } else {
+                        let plan = UnionPlan(lhs: l, rhs: r)
+    //                    print(plan.serialize())
+                        plans.append(plan)
+                    }
+                }
+            }
+            if plans.isEmpty {
+                plans.append(TablePlan.unionIdentity)
+            }
+            reduced.append(plans)
+        }
+        
+        return try self.planBushyUnionProduct(branches: reduced, estimator: estimator)
+    }
+    
     public func plan<E: QueryPlanCostEstimator>(subject s: Node, path: PropertyPath, object o: Node, activeGraph: Term, estimator: E) throws -> PathPlan {
         switch path {
         case .link(let predicate):
