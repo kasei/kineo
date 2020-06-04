@@ -57,14 +57,14 @@ public extension WindowFrame {
         case .current:
             return 0
         case .preceding(let expr):
-            let term = try ee.evaluate(expression: expr, result: TermResult(bindings: [:]))
+            let term = try ee.evaluate(expression: expr, result: SPARQLResult<Term>(bindings: [:]))
             guard let n = term.numeric else {
                 throw QueryError.typeError("Window PRECEDING range bound value is not a numeric value")
             }
             let offset = Int(n.value)
             return -offset
         case .following(let expr):
-            let term = try ee.evaluate(expression: expr, result: TermResult(bindings: [:]))
+            let term = try ee.evaluate(expression: expr, result: SPARQLResult<Term>(bindings: [:]))
             guard let n = term.numeric else {
                 throw QueryError.typeError("Window FOLLOWING range bound value is not a numeric value")
             }

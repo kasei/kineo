@@ -86,7 +86,7 @@ func datasetForStore(_ store: QuadStoreProtocol, graph: Term?, verbose: Bool = f
     return dataset
 }
 
-func runQuery<Q: QuadStoreProtocol>(_ query: Query, in store: Q, graph: Term?, verbose: Bool) throws -> QueryResult<AnySequence<TermResult>, [Triple]> {
+func runQuery<Q: QuadStoreProtocol>(_ query: Query, in store: Q, graph: Term?, verbose: Bool) throws -> QueryResult<AnySequence<SPARQLResult<Term>>, [Triple]> {
     let dataset = datasetForStore(store, graph: graph, verbose: verbose)
     let simpleEvaluator       = SimpleQueryEvaluator(store: store, dataset: dataset, verbose: verbose)
     if let mtime = try simpleEvaluator.effectiveVersion(matching: query) {

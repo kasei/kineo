@@ -275,7 +275,7 @@ public struct SPARQLTestRunner {
         return results
     }
 
-    private func runQueryEvaluation<QE: QueryEvaluatorProtocol>(test: Term, query: Query, in store: TestedQuadStore, dataset: Dataset, defaultGraph: Term, using queryEvaluator: QE, expectedResult: QueryResult<[TermResult], [Triple]>) throws -> TestResult {
+    private func runQueryEvaluation<QE: QueryEvaluatorProtocol>(test: Term, query: Query, in store: TestedQuadStore, dataset: Dataset, defaultGraph: Term, using queryEvaluator: QE, expectedResult: QueryResult<[SPARQLResult<Term>], [Triple]>) throws -> TestResult {
         let result = try evaluate(query: query, in: store, dataset: dataset, defaultGraph: defaultGraph, evaluator: queryEvaluator)
         if result == expectedResult {
             return .success(iri: test.value)
@@ -291,7 +291,7 @@ public struct SPARQLTestRunner {
         }
     }
     
-    func evaluate<QE: QueryEvaluatorProtocol>(query: Query, in store: TestedQuadStore, dataset: Dataset, defaultGraph: Term, evaluator e: QE) throws -> QueryResult<[TermResult], [Triple]> {
+    func evaluate<QE: QueryEvaluatorProtocol>(query: Query, in store: TestedQuadStore, dataset: Dataset, defaultGraph: Term, evaluator e: QE) throws -> QueryResult<[SPARQLResult<Term>], [Triple]> {
         do {
             let result = try e.evaluate(query: query, activeGraph: defaultGraph)
 //            print("Successful query plan evaluation")
@@ -325,7 +325,7 @@ public struct SPARQLTestRunner {
         return d
     }
     
-    func booleanResults<Q: QuadStoreProtocol>(from quadstore: Q, defaultGraph: Term) throws -> QueryResult<[TermResult], [Triple]> {
+    func booleanResults<Q: QuadStoreProtocol>(from quadstore: Q, defaultGraph: Term) throws -> QueryResult<[SPARQLResult<Term>], [Triple]> {
         let pattern = QuadPattern(
             subject: .variable("rs", binding: true),
             predicate: .bound(Term(iri: "http://www.w3.org/2001/sw/DataAccess/tests/result-set#boolean")),
@@ -336,7 +336,7 @@ public struct SPARQLTestRunner {
         return QueryResult.boolean(result.booleanValue!)
     }
     
-    func bindingResults<Q: QuadStoreProtocol>(from quadstore: Q, defaultGraph: Term) throws -> QueryResult<[TermResult], [Triple]> {
+    func bindingResults<Q: QuadStoreProtocol>(from quadstore: Q, defaultGraph: Term) throws -> QueryResult<[SPARQLResult<Term>], [Triple]> {
         let varsPattern = QuadPattern(
             subject: .variable("rs", binding: true),
             predicate: .bound(Term(iri: "http://www.w3.org/2001/sw/DataAccess/tests/result-set#resultVariable")),
@@ -352,7 +352,7 @@ public struct SPARQLTestRunner {
             graph: .bound(defaultGraph)
         )
         let solutions = try quadstore.quads(matching: solutionsPattern).map { $0.object }
-        var results = [TermResult]()
+        var results = [SPARQLResult<Term>]()
         for solution in solutions {
             let bindingsPattern = QuadPattern(
                 subject: .bound(solution),
@@ -381,13 +381,13 @@ public struct SPARQLTestRunner {
                     d[variable.value] = value
                 }
             }
-            let result = TermResult(bindings: d)
+            let result = SPARQLResult<Term>(bindings: d)
             results.append(result)
         }
-        return QueryResult<[TermResult], [Triple]>.bindings(vars, results)
+        return QueryResult<[SPARQLResult<Term>], [Triple]>.bindings(vars, results)
     }
     
-    func expectedResults(for query: Query, from url: URL) throws -> QueryResult<[TermResult], [Triple]> {
+    func expectedResults(for query: Query, from url: URL) throws -> QueryResult<[SPARQLResult<Term>], [Triple]> {
         if url.absoluteString.hasSuffix("srx") {
             let srxParser = SPARQLXMLParser()
             return try srxParser.parse(Data(contentsOf: url))
@@ -400,7 +400,7 @@ public struct SPARQLTestRunner {
             }
             switch query.form {
             case .construct(_), .describe(_):
-                return QueryResult<[TermResult], [Triple]>.triples(triples)
+                return QueryResult<[SPARQLResult<Term>], [Triple]>.triples(triples)
             default:
                 let quadstore = MemoryQuadStore(version: Version(0))
                 let graph = Term(iri: "http://example.org/")
@@ -417,7 +417,7 @@ public struct SPARQLTestRunner {
         }
     }
     
-    public func manifestEvaluationItems<Q: QuadStoreProtocol>(quadstore: Q, manifest: Term, type: Term? = nil) throws -> AnyIterator<TermResult> {
+    public func manifestEvaluationItems<Q: QuadStoreProtocol>(quadstore: Q, manifest: Term, type: Term? = nil) throws -> AnyIterator<SPARQLResult<Term>> {
         if verbose {
             print("Retrieving evaluation tests from manifest file...")
         }
@@ -447,7 +447,7 @@ public struct SPARQLTestRunner {
             bind["test_type"] = tt
         }
         let result = try q.execute(quadstore: quadstore, defaultGraph: manifest, bind: bind)
-        var results = [TermResult]()
+        var results = [SPARQLResult<Term>]()
         guard case let .bindings(_, iter) = result else { fatalError() }
         for result in iter {
             results.append(result)
@@ -455,7 +455,7 @@ public struct SPARQLTestRunner {
         return AnyIterator(results.makeIterator())
     }
 
-    func manifestSyntaxItems<Q: QuadStoreProtocol>(quadstore: Q, manifest: Term, type: Term? = nil) throws -> AnyIterator<TermResult> {
+    func manifestSyntaxItems<Q: QuadStoreProtocol>(quadstore: Q, manifest: Term, type: Term? = nil) throws -> AnyIterator<SPARQLResult<Term>> {
         if verbose {
             print("Retrieving syntax tests from manifest file...")
         }
@@ -478,7 +478,7 @@ public struct SPARQLTestRunner {
             bind["test_type"] = tt
         }
         let result = try q.execute(quadstore: quadstore, defaultGraph: manifest, bind: bind)
-        var results = [TermResult]()
+        var results = [SPARQLResult<Term>]()
         guard case let .bindings(_, iter) = result else { fatalError() }
         for result in iter {
             results.append(result)

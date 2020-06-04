@@ -14,9 +14,9 @@ extension SPARQLJSONSyntaxTest {
 #endif
 
 class SPARQLJSONSyntaxTest: XCTestCase {
-    var uniformResults: [TermResult]!
-    var uniformLanguageResults: [TermResult]!
-    var nonUniformResults: [TermResult]!
+    var uniformResults: [SPARQLResult<Term>]!
+    var uniformLanguageResults: [SPARQLResult<Term>]!
+    var nonUniformResults: [SPARQLResult<Term>]!
     override func setUp() {
         super.setUp()
         let iri = Term(iri: "http://example.org/Berlin")
@@ -27,20 +27,20 @@ class SPARQLJSONSyntaxTest: XCTestCase {
         let v1 = Term(double: 1.2)
         let v2 = Term(integer: 7)
 
-        let r0 = TermResult(bindings: ["name": lit0, "value": v1])
-        let r1 = TermResult(bindings: ["name": lit1, "value": v1])
-        let r2 = TermResult(bindings: ["name": lit0, "value": v2])
-        let r3 = TermResult(bindings: ["boolean": bool, "blank": blank, "iri": iri])
+        let r0 = SPARQLResult<Term>(bindings: ["name": lit0, "value": v1])
+        let r1 = SPARQLResult<Term>(bindings: ["name": lit1, "value": v1])
+        let r2 = SPARQLResult<Term>(bindings: ["name": lit0, "value": v2])
+        let r3 = SPARQLResult<Term>(bindings: ["boolean": bool, "blank": blank, "iri": iri])
         self.uniformResults = [r0, r2]
         self.uniformLanguageResults = [r1, r2]
         self.nonUniformResults = [r0, r3, r2]
     }
     
     func testJSON1() throws {
-        let serializer = SPARQLJSONSerializer<TermResult>()
+        let serializer = SPARQLJSONSerializer<SPARQLResult<Term>>()
         
-        let seq : [TermResult] = self.uniformResults
-        let results = QueryResult<[TermResult], [Triple]>.bindings(["name", "value"], seq)
+        let seq : [SPARQLResult<Term>] = self.uniformResults
+        let results = QueryResult<[SPARQLResult<Term>], [Triple]>.bindings(["name", "value"], seq)
         let j = try serializer.serialize(results)
         let s = String(data: j, encoding: .utf8)!
         let expected = """
@@ -50,10 +50,10 @@ class SPARQLJSONSyntaxTest: XCTestCase {
     }
     
     func testJSON2() throws {
-        let serializer = SPARQLJSONSerializer<TermResult>()
+        let serializer = SPARQLJSONSerializer<SPARQLResult<Term>>()
         
-        let seq : [TermResult] = self.nonUniformResults
-        let results = QueryResult<[TermResult], [Triple]>.bindings(["name", "value", "boolean", "blank", "iri"], seq)
+        let seq : [SPARQLResult<Term>] = self.nonUniformResults
+        let results = QueryResult<[SPARQLResult<Term>], [Triple]>.bindings(["name", "value", "boolean", "blank", "iri"], seq)
         let j = try serializer.serialize(results)
         let s = String(data: j, encoding: .utf8)!
         let expected = """
@@ -63,9 +63,9 @@ class SPARQLJSONSyntaxTest: XCTestCase {
     }
     
     func testJSON_boolean() throws {
-        let serializer = SPARQLJSONSerializer<TermResult>()
+        let serializer = SPARQLJSONSerializer<SPARQLResult<Term>>()
         
-        let results = QueryResult<[TermResult], [Triple]>.boolean(true)
+        let results = QueryResult<[SPARQLResult<Term>], [Triple]>.boolean(true)
         let j = try serializer.serialize(results)
         let s = String(data: j, encoding: .utf8)!
         let expected = """
@@ -75,11 +75,11 @@ class SPARQLJSONSyntaxTest: XCTestCase {
     }
     
     func testJSONPretty() throws {
-        let serializer = SPARQLJSONSerializer<TermResult>()
+        let serializer = SPARQLJSONSerializer<SPARQLResult<Term>>()
         serializer.encoder.outputFormatting.insert(.prettyPrinted)
 
-        let seq : [TermResult] = self.uniformLanguageResults
-        let results = QueryResult<[TermResult], [Triple]>.bindings(["name", "value"], seq)
+        let seq : [SPARQLResult<Term>] = self.uniformLanguageResults
+        let results = QueryResult<[SPARQLResult<Term>], [Triple]>.bindings(["name", "value"], seq)
         let j = try serializer.serialize(results)
         let s = String(data: j, encoding: .utf8)!
         let expected = """

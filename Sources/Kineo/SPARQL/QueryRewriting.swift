@@ -224,7 +224,7 @@ private func pushdownFilter(_ algebra: Algebra) throws -> RewriteStatus<Algebra>
                 ee.nextResult()
                 let pairs = zip(names, row).compactMap { (p) -> (String,Term)? in if case let .some(v) = p.1 { return (p.0,v) } else { return nil } }
                 let bindings = Dictionary(uniqueKeysWithValues: pairs)
-                let result = TermResult(bindings: bindings)
+                let result = SPARQLResult<Term>(bindings: bindings)
                 if let term = try? ee.evaluate(expression: expr, result: result) {
                     return try term.ebv()
                 } else {
@@ -374,7 +374,7 @@ private func simplifyExpression(_ expr: Expression) throws -> RewriteStatus<Expr
 
     let ee = ExpressionEvaluator()
     do {
-        let term = try ee.evaluate(expression: expr, result: TermResult(bindings: [:]))
+        let term = try ee.evaluate(expression: expr, result: SPARQLResult<Term>(bindings: [:]))
         return .rewrite(.node(.bound(term)))
     } catch {
         return .rewriteChildren(expr)

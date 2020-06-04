@@ -15,9 +15,9 @@ extension SPARQLContentNegotiatorTest {
 #endif
 
 class SPARQLContentNegotiatorTest: XCTestCase {
-    var boolResult : QueryResult<[TermResult], [Triple]>!
-    var triplesResult : QueryResult<[TermResult], [Triple]>!
-    var bindingsResult : QueryResult<[TermResult], [Triple]>!
+    var boolResult : QueryResult<[SPARQLResult<Term>], [Triple]>!
+    var triplesResult : QueryResult<[SPARQLResult<Term>], [Triple]>!
+    var bindingsResult : QueryResult<[SPARQLResult<Term>], [Triple]>!
 
     override func setUp() {
         boolResult = QueryResult.boolean(true)
@@ -34,9 +34,9 @@ class SPARQLContentNegotiatorTest: XCTestCase {
     
     func testSharedConneg() {
         let c = SPARQLContentNegotiator.shared
-        let boolResult : QueryResult<[TermResult], [Triple]> = QueryResult.boolean(true)
-        let triplesResult : QueryResult<[TermResult], [Triple]> = QueryResult.triples([])
-        let bindingsResult : QueryResult<[TermResult], [Triple]> = QueryResult.bindings(["a"], [])
+        let boolResult : QueryResult<[SPARQLResult<Term>], [Triple]> = QueryResult.boolean(true)
+        let triplesResult : QueryResult<[SPARQLResult<Term>], [Triple]> = QueryResult.triples([])
+        let bindingsResult : QueryResult<[SPARQLResult<Term>], [Triple]> = QueryResult.bindings(["a"], [])
         
         // default serializer for */*
         XCTAssertEqual(c.negotiateSerializer(for: boolResult, accept: ["*/*"])!.canonicalMediaType, "application/sparql-results+json")
@@ -84,7 +84,7 @@ struct TestSerializer: SPARQLSerializable {
     var canonicalMediaType = "x-text/html"
     var acceptableMediaTypes = ["text/html", "x-text/html"]
     
-    func serialize<R, T>(_ results: QueryResult<R, T>) throws -> Data where R : Sequence, T : Sequence, R.Element == TermResult, T.Element == Triple {
+    func serialize<R, T>(_ results: QueryResult<R, T>) throws -> Data where R : Sequence, T : Sequence, R.Element == SPARQLResult<Term>, T.Element == Triple {
         return "<html><h1>Hello!</h1></html>".data(using: .utf8)!
     }
 }

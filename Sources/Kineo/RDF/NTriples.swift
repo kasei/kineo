@@ -538,7 +538,7 @@ extension NTriplesSerializer : SPARQLSerializable {
     public var serializesBoolean: Bool { return false }
     public var acceptableMediaTypes: [String] { return [canonicalMediaType] }
 
-    public func serialize<R: Sequence, T: Sequence>(_ results: QueryResult<R, T>) throws -> Data where R.Element == TermResult, T.Element == Triple {
+    public func serialize<R: Sequence, T: Sequence>(_ results: QueryResult<R, T>) throws -> Data where R.Element == SPARQLResult<Term>, T.Element == Triple {
         switch results {
         case .triples(let triples):
             return try serialize(triples)

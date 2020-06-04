@@ -10,10 +10,10 @@ import SPARQLSyntax
 import DiomedeQuadStore
 
 extension DiomedeQuadStore: MutableQuadStoreProtocol {
-    public func results(matching pattern: QuadPattern) throws -> AnyIterator<TermResult> {
+    public func results(matching pattern: QuadPattern) throws -> AnyIterator<SPARQLResult<Term>> {
         let bindings = try self.bindings(matching: pattern)
         let results = bindings.lazy.map {
-            TermResult(bindings: $0)
+            SPARQLResult<Term>(bindings: $0)
         }
         return AnyIterator(results.makeIterator())
     }

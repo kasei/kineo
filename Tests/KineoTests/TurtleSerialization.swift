@@ -70,7 +70,7 @@ class TurtleSerializationTest: XCTestCase {
         let d = Term(integer: 7)
         let triple1 = Triple(subject: b, predicate: i, object: l)
         let triple2 = Triple(subject: b, predicate: i, object: d)
-        let result : QueryResult<[TermResult], [Triple]> = .triples([triple1, triple2])
+        let result : QueryResult<[SPARQLResult<Term>], [Triple]> = .triples([triple1, triple2])
         guard let data = try? serializer.serialize(result) else { XCTFail(); return }
         let string = String(data: data, encoding: .utf8)!
         XCTAssertEqual(string, "_:b1 <http://example.org/食べる> \"foo\"@en-US, 7 .\n")

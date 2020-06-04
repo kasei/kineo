@@ -66,7 +66,7 @@ public struct SPARQLJSONSerializer<T: ResultProtocol> : SPARQLSerializable where
         }
     }
     
-    public func serialize<R: Sequence, T: Sequence>(_ results: QueryResult<R, T>) throws -> Data where R.Element == TermResult, T.Element == Triple {
+    public func serialize<R: Sequence, T: Sequence>(_ results: QueryResult<R, T>) throws -> Data where R.Element == SPARQLResult<Term>, T.Element == Triple {
         var r : ResultValue
         switch results {
         case .boolean(let value):
@@ -96,13 +96,13 @@ public struct SPARQLJSONParser : SPARQLParsable {
         decoder = JSONDecoder()
     }
 
-    public func parse(_ data: Data) throws -> QueryResult<[TermResult], [Triple]> {
+    public func parse(_ data: Data) throws -> QueryResult<[SPARQLResult<Term>], [Triple]> {
         let resultValue = try decoder.decode(ResultValue.self, from: data)
         switch resultValue {
         case .boolean(let v):
             return QueryResult.boolean(v)
         case let .bindings(vars, rows):
-            let bindings = rows.map { TermResult(bindings: $0) }
+            let bindings = rows.map { SPARQLResult<Term>(bindings: $0) }
             return QueryResult.bindings(vars, bindings)
         }
     }
