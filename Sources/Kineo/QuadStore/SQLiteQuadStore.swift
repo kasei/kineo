@@ -327,7 +327,7 @@ open class SQLiteQuadStore: Sequence, MutableQuadStoreProtocol {
         return AnyIterator(quads.makeIterator())
     }
     
-    public func results(matching pattern: QuadPattern) throws -> AnyIterator<TermResult> {
+    public func results(matching pattern: QuadPattern) throws -> AnyIterator<SPARQLResultSolution<Term>> {
         var query = quadsTable.select(quadsTable[*])
         
         let quadPatternKeyPaths : [KeyPath<QuadPattern, Node>] = [\.subject, \.predicate, \.object, \.graph]
@@ -350,7 +350,7 @@ open class SQLiteQuadStore: Sequence, MutableQuadStoreProtocol {
         guard let dbh = try? db.prepare(query) else {
             return AnyIterator { return nil }
         }
-        let results = dbh.lazy.compactMap { (row) -> TermResult? in
+        let results = dbh.lazy.compactMap { (row) -> SPARQLResultSolution<Term>? in
             var bindings = [String: Term]()
             for (name, cols) in mapping {
                 if cols.count == 1 {
@@ -372,7 +372,7 @@ open class SQLiteQuadStore: Sequence, MutableQuadStoreProtocol {
                     }
                 }
             }
-            return TermResult(bindings: bindings)
+            return SPARQLResultSolution(bindings: bindings)
         }
         return AnyIterator(results.makeIterator())
     }
@@ -776,7 +776,7 @@ open class SQLiteLanguageQuadStore: Sequence, LanguageAwareQuadStore, MutableQua
         return try quadstore.effectiveVersion(matching: pattern)
     }
     
-    public func results(matching pattern: QuadPattern) throws -> AnyIterator<TermResult> {
+    public func results(matching pattern: QuadPattern) throws -> AnyIterator<SPARQLResultSolution<Term>> {
         var map = [String: KeyPath<Quad, Term>]()
         for (node, path) in zip(pattern, QuadPattern.groundKeyPaths) {
             switch node {
@@ -787,12 +787,12 @@ open class SQLiteLanguageQuadStore: Sequence, LanguageAwareQuadStore, MutableQua
             }
         }
         let matching = try quads(matching: pattern)
-        let bindings = matching.map { (quad) -> TermResult in
+        let bindings = matching.map { (quad) -> SPARQLResultSolution<Term> in
             var dict = [String:Term]()
             for (name, path) in map {
                 dict[name] = quad[keyPath: path]
             }
-            return TermResult(bindings: dict)
+            return SPARQLResultSolution<Term>(bindings: dict)
         }
         return AnyIterator(bindings.makeIterator())
     }
@@ -920,7 +920,7 @@ extension SQLiteLanguageQuadStore: PlanningQuadStore {
 
 extension SQLiteQuadStore: PackedIdentityMap {
     public typealias Item = Term
-    public typealias Result = Int64
+    public typealias ResultType = Int64
     
     static func loadMaxIDs(from db: Connection) throws -> (Int64, Int64, Int64, Int64) {
         let mask        = UInt64(0x00ffffffffffffff)
@@ -942,7 +942,7 @@ extension SQLiteQuadStore: PackedIdentityMap {
         return (iri: i+1, blank: b+1, datatype: d+1, langauge: l+1)
     }
     
-    public func term(for id: Result) -> Term? {
+    public func term(for id: ResultType) -> Term? {
         if let term = self.i2tcache[id] {
             return term
         } else if let term = self.unpack(id: id) {
@@ -962,7 +962,7 @@ extension SQLiteQuadStore: PackedIdentityMap {
         return nil
     }
     
-    public func id(for term: Item) -> Result? {
+    public func id(for term: Item) -> ResultType? {
         if let id = self.t2icache[term] {
             return id
         } else if let id = self.pack(value: term) {
@@ -1100,27 +1100,27 @@ extension SQLiteQuadStore: PackedIdentityMap {
      
      **/
     
-    internal static func isIRI(id: Result) -> Bool {
+    internal static func isIRI(id: ResultType) -> Bool {
         guard let type = PackedTermType(from: UInt64(bitPattern: id)) else { return false }
         return type == .iri
     }
     
-    internal static func isBlank(id: Result) -> Bool {
+    internal static func isBlank(id: ResultType) -> Bool {
         guard let type = PackedTermType(from: UInt64(bitPattern: id)) else { return false }
         return type == .blank
     }
     
-    internal static func isLanguageLiteral(id: Result) -> Bool {
+    internal static func isLanguageLiteral(id: ResultType) -> Bool {
         guard let type = PackedTermType(from: UInt64(bitPattern: id)) else { return false }
         return type == .language
     }
     
-    internal static func isDatatypeLiteral(id: Result) -> Bool {
+    internal static func isDatatypeLiteral(id: ResultType) -> Bool {
         guard let type = PackedTermType(from: UInt64(bitPattern: id)) else { return false }
         return type == .datatype
     }
     
-    func unpack(id: Result) -> Item? {
+    func unpack(id: ResultType) -> Item? {
         let byte = id >> 56
         let value = id & 0x00ffffffffffffff
         guard let type = PackedTermType(rawValue: UInt8(byte)) else { return nil }
@@ -1146,7 +1146,7 @@ extension SQLiteQuadStore: PackedIdentityMap {
         }
     }
     
-    func pack(value: Item) -> Result? {
+    func pack(value: Item) -> ResultType? {
         switch (value.type, value.value) {
         case (.iri, let v):
             return pack(iri: v)
@@ -1171,7 +1171,7 @@ extension SQLiteQuadStore: PackedIdentityMap {
         }
     }
     
-    private func pack(string: String) -> Result? {
+    private func pack(string: String) -> ResultType? {
         guard string.utf8.count <= 7 else { return nil }
         var id: UInt64 = PackedTermType.inlinedString.typedEmptyValue
         for (i, u) in string.utf8.enumerated() {
@@ -1183,7 +1183,7 @@ extension SQLiteQuadStore: PackedIdentityMap {
         return Int64(bitPattern: id)
     }
     
-    private func unpack(string: Result) -> Item? {
+    private func unpack(string: ResultType) -> Item? {
         let value = UInt64(bitPattern: string)
         var buffer = value.bigEndian
         var string: String? = nil
@@ -1209,20 +1209,20 @@ extension SQLiteQuadStore: PackedIdentityMap {
         return nil
     }
     
-    private func unpack(boolean packedBooleanValue: Result) -> Item? {
+    private func unpack(boolean packedBooleanValue: ResultType) -> Item? {
         let value = (packedBooleanValue > 0) ? "true" : "false"
         return Term(value: value, type: .datatype(.boolean))
     }
     
-    private func unpack(integer value: Result) -> Item? {
+    private func unpack(integer value: ResultType) -> Item? {
         return Term(value: "\(value)", type: .datatype(.integer))
     }
     
-    private func unpack(int value: Result) -> Item? {
+    private func unpack(int value: ResultType) -> Item? {
         return Term(value: "\(value)", type: .datatype("http://www.w3.org/2001/XMLSchema#int"))
     }
     
-    private func unpack(decimal d: Result) -> Item? {
+    private func unpack(decimal d: ResultType) -> Item? {
         let decimal = UInt64(bitPattern: d)
         let scale = Int((decimal & 0x00ff000000000000) >> 48)
         let value = decimal & 0x00007fffffffffff
@@ -1252,7 +1252,7 @@ extension SQLiteQuadStore: PackedIdentityMap {
         return Term(value: string, type: .datatype(.decimal))
     }
     
-    private func unpack(date: Result) -> Item? {
+    private func unpack(date: ResultType) -> Item? {
         let value   = UInt64(bitPattern: date)
         let day     = value & 0x000000000000001f
         let months  = (value & 0x00000000001fffe0) >> 5
@@ -1262,7 +1262,7 @@ extension SQLiteQuadStore: PackedIdentityMap {
         return Term(value: date, type: .datatype(.date))
     }
     
-    private func unpack(dateTime: Result) -> Item? {
+    private func unpack(dateTime: ResultType) -> Item? {
         let value   = UInt64(bitPattern: dateTime)
         // ZZZZ ZZZY YYYY YYYY YYYY MMMM DDDD Dhhh hhmm mmmm ssss ssss ssss ssss
         let tzSign  = (value & 0x0080000000000000) >> 55
@@ -1289,7 +1289,7 @@ extension SQLiteQuadStore: PackedIdentityMap {
         return Term(value: dateTime, type: .datatype(.dateTime))
     }
     
-    private func pack(decimal stringValue: String) -> Result? {
+    private func pack(decimal stringValue: String) -> ResultType? {
         var c = stringValue.components(separatedBy: ".")
         guard c.count == 2 else { return nil }
         let integralValue = c[0]
@@ -1306,27 +1306,27 @@ extension SQLiteQuadStore: PackedIdentityMap {
         return Int64(bitPattern: id)
     }
     
-    private func pack(boolean booleanValue: Bool) -> Result? {
+    private func pack(boolean booleanValue: Bool) -> ResultType? {
         let i : UInt64 = booleanValue ? 1 : 0
         let value: UInt64 = PackedTermType.boolean.typedEmptyValue
         return Int64(bitPattern: value + i)
     }
     
-    private func pack(integer stringValue: String) -> Result? {
+    private func pack(integer stringValue: String) -> ResultType? {
         guard let i = UInt64(stringValue) else { return nil }
         guard i < 0x00ffffffffffffff else { return nil }
         let value: UInt64 = PackedTermType.integer.typedEmptyValue
         return Int64(bitPattern: value + i)
     }
     
-    private func pack(int stringValue: String) -> Result? {
+    private func pack(int stringValue: String) -> ResultType? {
         guard let i = UInt64(stringValue) else { return nil }
         guard i <= 2147483647 else { return nil }
         let value: UInt64 = PackedTermType.int.typedEmptyValue
         return Int64(bitPattern: value + i)
     }
     
-    private func pack(date stringValue: String) -> Result? {
+    private func pack(date stringValue: String) -> ResultType? {
         let values = stringValue.components(separatedBy: "-").map { Int($0) }
         guard values.count == 3 else { return nil }
         if let y = values[0], let m = values[1], let d = values[2] {
@@ -1341,7 +1341,7 @@ extension SQLiteQuadStore: PackedIdentityMap {
         }
     }
     
-    private func pack(dateTime term: Term) -> Result? {
+    private func pack(dateTime term: Term) -> ResultType? {
         // ZZZZ ZZZY YYYY YYYY YYYY MMMM DDDD Dhhh hhmm mmmm ssss ssss ssss ssss
         guard let date = term.dateValue else {
             return nil
@@ -1393,7 +1393,7 @@ extension SQLiteQuadStore: PackedIdentityMap {
         return Int64(bitPattern: value)
     }
     
-    private func unpack(iri value: Result) -> Item? {
+    private func unpack(iri value: ResultType) -> Item? {
         switch value {
         case 1:
             return Term(value: Namespace.rdf.type, type: .iri)
@@ -1420,7 +1420,7 @@ extension SQLiteQuadStore: PackedIdentityMap {
         }
     }
     
-    private func pack(iri: String) -> Result? {
+    private func pack(iri: String) -> ResultType? {
         let mask    = PackedTermType.commonIRI.typedEmptyValue
         switch iri {
         case Namespace.rdf.type:
@@ -1493,7 +1493,7 @@ public struct SQLitePlan: NullaryQueryPlan {
         return (q, columnMapping)
     }
     
-    public func evaluate() throws -> AnyIterator<TermResult> {
+    public func evaluate() throws -> AnyIterator<SPARQLResultSolution<Term>> {
         let store = self.store
         
         if true {
@@ -1501,7 +1501,7 @@ public struct SQLitePlan: NullaryQueryPlan {
             guard let dbh = try? store.db.prepare(q) else {
                 return AnyIterator { return nil }
             }
-            let results = dbh.lazy.compactMap { (row) -> TermResult? in
+            let results = dbh.lazy.compactMap { (row) -> SPARQLResultSolution<Term>? in
                 do {
                     let d = try columnMapping.map { (pair) throws -> (String, Term) in
                         let name = pair.key
@@ -1511,7 +1511,7 @@ public struct SQLitePlan: NullaryQueryPlan {
                         }
                         return (name, t)
                     }
-                    let r = TermResult(bindings: Dictionary(uniqueKeysWithValues: d))
+                    let r = SPARQLResultSolution<Term>(bindings: Dictionary(uniqueKeysWithValues: d))
                     return r
                 } catch {
                     return nil
@@ -1524,7 +1524,7 @@ public struct SQLitePlan: NullaryQueryPlan {
                 return AnyIterator { return nil }
             }
             let projected = self.projected
-            let results = dbh.lazy.compactMap { (row) -> TermResult? in
+            let results = dbh.lazy.compactMap { (row) -> SPARQLResultSolution<Term>? in
                 do {
                     let d = try projected.map({ (name, id) throws -> (String, Term) in
                         guard let t = store.term(for: row[id]) else {
@@ -1532,7 +1532,7 @@ public struct SQLitePlan: NullaryQueryPlan {
                         }
                         return (name, t)
                     })
-                    let r = TermResult(bindings: Dictionary(uniqueKeysWithValues: d))
+                    let r = SPARQLResultSolution<Term>(bindings: Dictionary(uniqueKeysWithValues: d))
                     return r
                 } catch {
                     return nil
@@ -1551,11 +1551,11 @@ public struct SQLitePreparedPlan: NullaryQueryPlan {
     public var isJoinIdentity: Bool { return false }
     public var isUnionIdentity: Bool { return false }
 
-    public func evaluate() throws -> AnyIterator<TermResult> {
+    public func evaluate() throws -> AnyIterator<SPARQLResultSolution<Term>> {
         let projected = self.projected
         let map = Dictionary(uniqueKeysWithValues: dbh.columnNames.enumerated().map { ($1, $0) })
         let store = self.store
-        let results = dbh.lazy.compactMap { (row) -> TermResult? in
+        let results = dbh.lazy.compactMap { (row) -> SPARQLResultSolution<Term>? in
             do {
                 let d = try projected.map({ (name, colName) throws -> (String, Term) in
                     guard let i = map[colName], let id : Int64 = row[i] as? Int64, let t = store.term(for: id) else {
@@ -1563,7 +1563,7 @@ public struct SQLitePreparedPlan: NullaryQueryPlan {
                     }
                     return (name, t)
                 })
-                let r = TermResult(bindings: Dictionary(uniqueKeysWithValues: d))
+                let r = SPARQLResultSolution<Term>(bindings: Dictionary(uniqueKeysWithValues: d))
                 return r
             } catch {
                 return nil
@@ -1583,7 +1583,7 @@ public struct SQLiteSingleIntegerAggregationPlan<D: Value>: NullaryQueryPlan {
     public var isJoinIdentity: Bool { return false }
     public var isUnionIdentity: Bool { return false }
 
-    public func evaluate() throws -> AnyIterator<TermResult> {
+    public func evaluate() throws -> AnyIterator<SPARQLResultSolution<Term>> {
         let store = self.store
         guard let dbh = try? store.db.prepare(query) else {
             return AnyIterator { return nil }
@@ -1591,7 +1591,7 @@ public struct SQLiteSingleIntegerAggregationPlan<D: Value>: NullaryQueryPlan {
         let projected = self.projected
         let aggregateColumn = self.aggregateColumn
         let aggregateName = self.aggregateName
-        let results = dbh.lazy.compactMap { (row : Row) -> TermResult? in
+        let results = dbh.lazy.compactMap { (row : Row) -> SPARQLResultSolution<Term>? in
             do {
                 let aggValue: D? = try row.get(aggregateColumn)
                 var d = try projected.map({ (name, id) throws -> (String, Term) in
@@ -1603,7 +1603,7 @@ public struct SQLiteSingleIntegerAggregationPlan<D: Value>: NullaryQueryPlan {
                 if let value = aggValue as? Int {
                     d.append((aggregateName, Term(integer: value)))
                 }
-                let r = TermResult(bindings: Dictionary(uniqueKeysWithValues: d))
+                let r = SPARQLResultSolution<Term>(bindings: Dictionary(uniqueKeysWithValues: d))
                 return r
             } catch {
                 return nil

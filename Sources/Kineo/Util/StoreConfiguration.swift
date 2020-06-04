@@ -241,7 +241,7 @@ public struct AnyQuadStore: QuadStoreProtocol {
     private let _graphs: () -> AnyIterator<Term>
     private let _graphTerms: (Term) -> AnyIterator<Term>
     private let _makeIterator: () -> AnyIterator<Quad>
-    private let _results: (QuadPattern) throws -> AnyIterator<TermResult>
+    private let _results: (QuadPattern) throws -> AnyIterator<SPARQLResultSolution<Term>>
     private let _quads: (QuadPattern) throws -> AnyIterator<Quad>
     private let _effectiveVersion: (QuadPattern) throws -> Version?
     private let _graphDescriptions: () -> [Term:GraphDescription]
@@ -307,7 +307,7 @@ public struct AnyQuadStore: QuadStoreProtocol {
         return _makeIterator()
     }
     
-    public func results(matching pattern: QuadPattern) throws -> AnyIterator<TermResult> {
+    public func results(matching pattern: QuadPattern) throws -> AnyIterator<SPARQLResultSolution<Term>> {
         return try _results(pattern)
     }
     
@@ -338,7 +338,7 @@ public struct AnyMutableQuadStore: MutableQuadStoreProtocol, PlanningQuadStore {
     private let _graphs: () -> AnyIterator<Term>
     private let _graphTerms: (Term) -> AnyIterator<Term>
     private let _makeIterator: () -> AnyIterator<Quad>
-    private let _results: (QuadPattern) throws -> AnyIterator<TermResult>
+    private let _results: (QuadPattern) throws -> AnyIterator<SPARQLResultSolution<Term>>
     private let _quads: (QuadPattern) throws -> AnyIterator<Quad>
     private let _effectiveVersion: (QuadPattern) throws -> Version?
     private let _graphDescriptions: () -> [Term:GraphDescription]
@@ -408,7 +408,7 @@ public struct AnyMutableQuadStore: MutableQuadStoreProtocol, PlanningQuadStore {
         return _makeIterator()
     }
     
-    public func results(matching pattern: QuadPattern) throws -> AnyIterator<TermResult> {
+    public func results(matching pattern: QuadPattern) throws -> AnyIterator<SPARQLResultSolution<Term>> {
         return try _results(pattern)
     }
     

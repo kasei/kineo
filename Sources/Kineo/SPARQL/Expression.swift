@@ -83,7 +83,7 @@ public class ExpressionEvaluator {
         case floor = "FLOOR"
     }
   
-    public typealias AlgebraEvaluator = (Algebra, Term) throws -> AnyIterator<TermResult>
+    public typealias AlgebraEvaluator = (Algebra, Term) throws -> AnyIterator<SPARQLResultSolution<Term>>
 
     var bnodes: [String: String]
     var now: Date
@@ -632,7 +632,7 @@ public class ExpressionEvaluator {
     }
 
     // NOTE: this isn't really an escaping closure, but swift can't tell that
-    public func evaluate(expression: Expression, result: TermResult, activeGraph: Term, existsHandler: @escaping AlgebraEvaluator) throws -> Term {
+    public func evaluate(expression: Expression, result: SPARQLResultSolution<Term>, activeGraph: Term, existsHandler: @escaping AlgebraEvaluator) throws -> Term {
         let previousGraph = activeGraph
         self.activeGraph = activeGraph
         self.algebraEvaluator = existsHandler
@@ -644,7 +644,7 @@ public class ExpressionEvaluator {
         return term
     }
     
-    public func evaluate(expression: Expression, result: TermResult) throws -> Term {
+    public func evaluate(expression: Expression, result: SPARQLResultSolution<Term>) throws -> Term {
         switch expression {
         case .aggregate(_):
             throw QueryError.evaluationError("Cannot evaluate an aggregate expression without a query context: \(expression)")
@@ -1039,7 +1039,7 @@ public class ExpressionEvaluator {
         throw QueryError.evaluationError("Failed to evaluate \(expression) with result \(result)")
     }
     
-    public func numericEvaluate(expression: Expression, result: TermResult) throws -> NumericValue {
+    public func numericEvaluate(expression: Expression, result: SPARQLResultSolution<Term>) throws -> NumericValue {
         switch expression {
         case .aggregate(_):
             throw QueryError.evaluationError("Cannot evaluate an aggregate expression without a query context")

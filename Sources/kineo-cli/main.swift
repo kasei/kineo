@@ -9,6 +9,7 @@
 import Foundation
 import SPARQLSyntax
 import Kineo
+import Diomede
 
 /// Parse the supplied RDF files and load the resulting RDF triples into the database's
 /// QuadStore in the supplied named graph (or into a graph named with the corresponding
@@ -27,20 +28,30 @@ func parse(into store: MutableQuadStoreProtocol, files: [String], version: Versi
         #endif
         let graph   = defaultGraphTerm ?? Term(value: path, type: .iri)
         
-        let parser = RDFParserCombined()
-        var quads = [Quad]()
-        if verbose {
-            warn("Parsing RDF...")
+        if path.hasSuffix(".nt") {
+            let reader = FileReader(filename: filename)
+            let parser = NTriplesParser(reader: reader)
+            
+            let i = parser.makeIterator()
+            let quads = AnySequence(i.lazy.map { Quad(triple: $0, graph: graph) })
+            try store.load(version: version, quads: quads)
+        } else {
+            let parser = RDFParserCombined()
+            var quads = [Quad]()
+            if verbose {
+                warn("Parsing RDF...")
+            }
+            
+            count = try parser.parse(file: filename, defaultGraph: graph, base: graph.value) { (s, p, o, g) in
+                let q = Quad(subject: s, predicate: p, object: o, graph: g)
+                quads.append(q)
+            }
+            
+            if verbose {
+                print("Loading RDF...")
+            }
+            try store.load(version: version, quads: quads)
         }
-        count = try parser.parse(file: filename, defaultGraph: graph, base: graph.value) { (s, p, o, g) in
-            let q = Quad(subject: s, predicate: p, object: o, graph: g)
-            quads.append(q)
-        }
-        
-        if verbose {
-            print("Loading RDF...")
-        }
-        try store.load(version: version, quads: quads)
     }
     return count
 }
@@ -75,7 +86,7 @@ func datasetForStore(_ store: QuadStoreProtocol, graph: Term?, verbose: Bool = f
     return dataset
 }
 
-func runQuery<Q: QuadStoreProtocol>(_ query: Query, in store: Q, graph: Term?, verbose: Bool) throws -> QueryResult<AnySequence<TermResult>, [Triple]> {
+func runQuery<Q: QuadStoreProtocol>(_ query: Query, in store: Q, graph: Term?, verbose: Bool) throws -> QueryResult<AnySequence<SPARQLResultSolution<Term>>, [Triple]> {
     let dataset = datasetForStore(store, graph: graph, verbose: verbose)
     let simpleEvaluator       = SimpleQueryEvaluator(store: store, dataset: dataset, verbose: verbose)
     if let mtime = try simpleEvaluator.effectiveVersion(matching: query) {
@@ -264,6 +275,8 @@ func usage(_ pname: String) {
     print("")
 }
 
+DiomedeConfiguration.default.mapSize = 24_567_000_000
+
 var verbose = false
 let config = try QuadStoreConfiguration(arguments: &CommandLine.arguments)
 
@@ -290,10 +303,11 @@ func readLine(prompt: String) -> String? {
 }
 
 func quadStore(_ config: QuadStoreConfiguration) throws -> AnyMutableQuadStore {
-    print("Using AnyQuadStore")
+//    print("Using AnyQuadStore")
     let mqs = try config.anymutablestore()
     if case let .loadFiles(defaultFiles, namedFiles) = config.initialize {
-        _ = try parse(into: mqs, files: defaultFiles, version: startSecond, graph: nil, verbose: verbose)
+        let graph = Term(iri: "tag:kasei.us,2018:default-graph")
+        _ = try parse(into: mqs, files: defaultFiles, version: startSecond, graph: graph, verbose: verbose)
         try namedFiles.forEach { (graph, file) throws in
             _ = try parse(into: mqs, files: [file], version: startSecond, graph: graph, verbose: verbose)
         }
@@ -306,7 +320,7 @@ func quadStore(_ config: QuadStoreConfiguration) throws -> AnyMutableQuadStore {
 do {
     let qs  = try quadStore(config)
     if let op = args.next() {
-        if op == "load" {
+        if op == "load" || op == "create" {
         } else if op == "dataset" {
             var graph: Term? = nil
             if let next = args.peek(), next == "-g" {
@@ -384,6 +398,7 @@ do {
     }
 } catch let error {
     print("*** \(error)")
+    exit(1)
 }
 
 

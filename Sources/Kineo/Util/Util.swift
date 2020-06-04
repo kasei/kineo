@@ -50,60 +50,52 @@ public struct FileReader: LineReadable {
         self.filename = filename
     }
 
-    public func makeIterator() -> AnyIterator<CChar> {
-        let fd = open(filename, O_RDONLY)
-        let blockSize = 256
-        var buffer: [CChar] = [CChar](repeating: 0, count: 1+blockSize)
+    static func fill(buffer: inout [CChar], from fd: Int32, blockSize: Int) -> Int? {
         var bufferBytes = 0
-        var currentIndex = 0
-        return AnyIterator { () -> CChar? in
-            if currentIndex >= bufferBytes {
-                bufferBytes = 0
-                buffer.withUnsafeMutableBufferPointer { (b) -> () in
-                    if let base = b.baseAddress {
-                        memset(base, 0, blockSize+1)
-                        bufferBytes = read(fd, base, blockSize)
-                    }
-                }
-                //                print("read \(bufferBytes) bytes")
-                if bufferBytes <= 0 {
-                    return nil
-                }
-                currentIndex = 0
+        var _buffer: [CChar] = [CChar](repeating: 0, count: 1+blockSize)
+        _buffer.withUnsafeMutableBufferPointer { (b) -> () in
+            if let base = b.baseAddress {
+                memset(base, 0, blockSize+1)
+                bufferBytes = read(fd, base, blockSize)
             }
-            let i = currentIndex
-            currentIndex += 1
-            return buffer[i]
         }
+        //                print("read \(bufferBytes) bytes")
+        if bufferBytes <= 0 {
+            return nil
+        }
+        buffer.append(contentsOf: _buffer.prefix(upTo: bufferBytes))
+        return bufferBytes
     }
-
+    
     public func lines() -> AnyIterator<String> {
-        let chargen = makeIterator()
-        var chars = [CChar]()
+        let fd = open(filename, O_RDONLY)
+        let blockSize = 4096
+        var buffer = [CChar]()
+        
+        var end = false
         return AnyIterator { () -> String? in
-            repeat {
-                if let char = chargen.next() {
-                    if char == 10 {
-                        chars.append(0)
-                        if let line = chars.withUnsafeMutableBufferPointer({ (b) -> String? in if case .some(let ptr) = b.baseAddress { return String(validatingUTF8: ptr) } else { return nil } }) {
-                            chars = []
-                            return line
-                        } else {
-                            chars = []
-                        }
-                    } else {
-                        chars.append(char)
-                    }
-                } else {
-                    if chars.count > 0 {
-                        chars.append(0)
-                        if let line = chars.withUnsafeMutableBufferPointer({ (b) -> String? in if case .some(let ptr) = b.baseAddress { return String(validatingUTF8: ptr) } else { return nil } }) {
-                            chars = []
-                            return line
-                        }
-                    }
+            LOOP: repeat {
+                if end {
                     return nil
                 }
+                if let index = buffer.firstIndex(of: 10) {
+                    let d = Data(bytes: buffer, count: index)
+                    guard let s = String(data: d, encoding: .utf8) else {
+                        return nil
+                    }
+                    buffer.removeFirst(index+1)
+                    return s
+                }
+//                print("- no newline yet")
+
+                guard let readBytes = Self.fill(buffer: &buffer, from: fd, blockSize: blockSize) else {
+                    // return last line
+                    let d = Data(bytes: buffer, count: buffer.count)
+                    end = true
+                    buffer = []
+                    return String(data: d, encoding: .utf8)
+                }
+//                print("read \(readBytes) bytes")
             } while true
         }
     }
