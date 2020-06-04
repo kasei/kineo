@@ -14,9 +14,9 @@ extension SPARQLXMLSyntaxTest {
 #endif
 
 class SPARQLXMLSyntaxTest: XCTestCase {
-    var uniformResults: [SPARQLResult<Term>]!
-    var uniformLanguageResults: [SPARQLResult<Term>]!
-    var nonUniformResults: [SPARQLResult<Term>]!
+    var uniformResults: [SPARQLResultSolution<Term>]!
+    var uniformLanguageResults: [SPARQLResultSolution<Term>]!
+    var nonUniformResults: [SPARQLResultSolution<Term>]!
     override func setUp() {
         super.setUp()
         let iri = Term(iri: "http://example.org/Berlin")
@@ -27,20 +27,20 @@ class SPARQLXMLSyntaxTest: XCTestCase {
         let v1 = Term(double: 1.2)
         let v2 = Term(integer: 7)
         
-        let r0 = SPARQLResult<Term>(bindings: ["name": lit0, "value": v1])
-        let r1 = SPARQLResult<Term>(bindings: ["name": lit1, "value": v1])
-        let r2 = SPARQLResult<Term>(bindings: ["name": lit0, "value": v2])
-        let r3 = SPARQLResult<Term>(bindings: ["boolean": bool, "blank": blank, "iri": iri])
+        let r0 = SPARQLResultSolution<Term>(bindings: ["name": lit0, "value": v1])
+        let r1 = SPARQLResultSolution<Term>(bindings: ["name": lit1, "value": v1])
+        let r2 = SPARQLResultSolution<Term>(bindings: ["name": lit0, "value": v2])
+        let r3 = SPARQLResultSolution<Term>(bindings: ["boolean": bool, "blank": blank, "iri": iri])
         self.uniformResults = [r0, r2]
         self.uniformLanguageResults = [r1, r2]
         self.nonUniformResults = [r0, r3, r2]
     }
     
     func testXML1() throws {
-        let serializer = SPARQLXMLSerializer<SPARQLResult<Term>>()
+        let serializer = SPARQLXMLSerializer<SPARQLResultSolution<Term>>()
         
-        let seq : [SPARQLResult<Term>] = self.uniformResults
-        let results = QueryResult<[SPARQLResult<Term>], [Triple]>.bindings(["name", "value"], seq)
+        let seq : [SPARQLResultSolution<Term>] = self.uniformResults
+        let results = QueryResult<[SPARQLResultSolution<Term>], [Triple]>.bindings(["name", "value"], seq)
         let j = try serializer.serialize(results)
         let s = String(data: j, encoding: .utf8)!
         let expected = """
@@ -50,10 +50,10 @@ class SPARQLXMLSyntaxTest: XCTestCase {
     }
     
     func testXML2() throws {
-        let serializer = SPARQLXMLSerializer<SPARQLResult<Term>>()
+        let serializer = SPARQLXMLSerializer<SPARQLResultSolution<Term>>()
         
-        let seq : [SPARQLResult<Term>] = self.nonUniformResults
-        let results = QueryResult<[SPARQLResult<Term>], [Triple]>.bindings(["name", "value", "boolean", "blank", "iri"], seq)
+        let seq : [SPARQLResultSolution<Term>] = self.nonUniformResults
+        let results = QueryResult<[SPARQLResultSolution<Term>], [Triple]>.bindings(["name", "value", "boolean", "blank", "iri"], seq)
         let j = try serializer.serialize(results)
         let s = String(data: j, encoding: .utf8)!
         let expected = """
@@ -63,9 +63,9 @@ class SPARQLXMLSyntaxTest: XCTestCase {
     }
     
     func testXML_boolean() throws {
-        let serializer = SPARQLXMLSerializer<SPARQLResult<Term>>()
+        let serializer = SPARQLXMLSerializer<SPARQLResultSolution<Term>>()
         
-        let results = QueryResult<[SPARQLResult<Term>], [Triple]>.boolean(true)
+        let results = QueryResult<[SPARQLResultSolution<Term>], [Triple]>.boolean(true)
         let j = try serializer.serialize(results)
         let s = String(data: j, encoding: .utf8)!
         let expected = """

@@ -10,7 +10,7 @@ import Foundation
 import SPARQLSyntax
 
 public protocol QueryEvaluatorProtocol {
-    associatedtype ResultSequence: Sequence where ResultSequence.Element == SPARQLResult<Term>
+    associatedtype ResultSequence: Sequence where ResultSequence.Element == SPARQLResultSolution<Term>
     associatedtype TripleSequence: Sequence where TripleSequence.Element == Triple
     func evaluate(query: Query) throws -> QueryResult<ResultSequence, TripleSequence>
     func evaluate(query: Query, activeGraph: Term?) throws -> QueryResult<ResultSequence, TripleSequence>
@@ -39,7 +39,7 @@ public enum QueryError: Error {
 }
 
 extension QuadPattern {
-    public func matches(quad: Quad) -> SPARQLResult<Term>? {
+    public func matches(quad: Quad) -> SPARQLResultSolution<Term>? {
         let terms = [quad.subject, quad.predicate, quad.object, quad.graph]
         let nodes = [subject, predicate, object, graph]
         var bindings = [String:Term]()
@@ -57,12 +57,12 @@ extension QuadPattern {
                 }
             }
         }
-        return SPARQLResult<Term>(bindings: bindings)
+        return SPARQLResultSolution<Term>(bindings: bindings)
     }
 }
 
 public extension Query {
-    func execute<Q: QuadStoreProtocol>(quadstore: Q, defaultGraph: Term, bind: [String:Term]? = nil) throws -> QueryResult<[SPARQLResult<Term>], [Triple]> {
+    func execute<Q: QuadStoreProtocol>(quadstore: Q, defaultGraph: Term, bind: [String:Term]? = nil) throws -> QueryResult<[SPARQLResultSolution<Term>], [Triple]> {
         let dataset = quadstore.dataset(withDefault: defaultGraph)
         let e       = SimpleQueryEvaluator(store: quadstore, dataset: dataset, verbose: false)
         var q = self

@@ -51,8 +51,8 @@ open class PageQuadStore<D: PageDatabase>: Sequence, QuadStoreProtocol, MutableQ
         return i
     }
     
-    public func results(matching pattern: QuadPattern) throws -> AnyIterator<SPARQLResult<Term>> {
-        var i : AnyIterator<SPARQLResult<Term>> = AnyIterator([].makeIterator())
+    public func results(matching pattern: QuadPattern) throws -> AnyIterator<SPARQLResultSolution<Term>> {
+        var i : AnyIterator<SPARQLResultSolution<Term>> = AnyIterator([].makeIterator())
         try database.read { (m) in
             let store       = try MediatedPageQuadStore(mediator: m)
             i = try store.results(matching: pattern)
@@ -148,8 +148,8 @@ open class LanguagePageQuadStore<D: PageDatabase>: Sequence, LanguageAwareQuadSt
         return i
     }
     
-    public func results(matching pattern: QuadPattern) throws -> AnyIterator<SPARQLResult<Term>> {
-        var i : AnyIterator<SPARQLResult<Term>> = AnyIterator([].makeIterator())
+    public func results(matching pattern: QuadPattern) throws -> AnyIterator<SPARQLResultSolution<Term>> {
+        var i : AnyIterator<SPARQLResultSolution<Term>> = AnyIterator([].makeIterator())
         try database.read { (m) in
             let store       = try MediatedLanguagePageQuadStore(mediator: m, acceptLanguages: acceptLanguages)
             i = try store.results(matching: pattern)
@@ -599,7 +599,7 @@ open class MediatedPageQuadStore: Sequence, QuadStoreProtocol {
         }
     }
     
-    public func results(matching pattern: QuadPattern) throws -> AnyIterator<SPARQLResult<Term>> {
+    public func results(matching pattern: QuadPattern) throws -> AnyIterator<SPARQLResultSolution<Term>> {
         let idmap = self.id
         var variables   = [Int:String]()
         var verify      = [Int:IDType]()
@@ -640,7 +640,7 @@ open class MediatedPageQuadStore: Sequence, QuadStoreProtocol {
                         }
                     }
                 }
-                return SPARQLResult<Term>(bindings: bindings)
+                return SPARQLResultSolution<Term>(bindings: bindings)
             } while true
         }
     }

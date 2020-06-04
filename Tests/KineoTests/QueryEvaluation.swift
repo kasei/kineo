@@ -136,8 +136,8 @@ struct TestStore: QuadStoreProtocol, Sequence {
         return AnyIterator(quads.makeIterator())
     }
 
-    func results(matching pattern: QuadPattern) throws -> AnyIterator<SPARQLResult<Term>> {
-        var results = [SPARQLResult<Term>]()
+    func results(matching pattern: QuadPattern) throws -> AnyIterator<SPARQLResultSolution<Term>> {
+        var results = [SPARQLResultSolution<Term>]()
         for q in self {
             if let r = pattern.matches(quad: q) {
                 results.append(r)
@@ -194,7 +194,7 @@ extension QueryEvaluationTests {
         }
     }
     
-    func eval(query: Query) throws -> AnyIterator<SPARQLResult<Term>> {
+    func eval(query: Query) throws -> AnyIterator<SPARQLResultSolution<Term>> {
         let dataset = store.dataset(withDefault: self.graph)
         let e = evaluator(dataset: dataset)
         let results = try e.evaluate(query: query)
@@ -202,12 +202,12 @@ extension QueryEvaluationTests {
         return AnyIterator(seq.makeIterator())
     }
     
-    func eval(algebra: Algebra) throws -> AnyIterator<SPARQLResult<Term>> {
+    func eval(algebra: Algebra) throws -> AnyIterator<SPARQLResultSolution<Term>> {
         let e = SimpleQueryEvaluator(store: store, defaultGraph: self.graph)
         return try e.evaluate(algebra: algebra, activeGraph: self.graph)
     }
     
-    func eval(query: String) throws -> AnyIterator<SPARQLResult<Term>> {
+    func eval(query: String) throws -> AnyIterator<SPARQLResultSolution<Term>> {
         guard let algebra = parse(query: query) else { XCTFail(); fatalError() }
         return try eval(algebra: algebra)
     }

@@ -86,7 +86,7 @@ open class TriplePatternFragmentQuadStore: Sequence, QuadStoreProtocol {
         }
     }
     
-    public func results(matching pattern: QuadPattern) throws -> AnyIterator<SPARQLResult<Term>> {
+    public func results(matching pattern: QuadPattern) throws -> AnyIterator<SPARQLResultSolution<Term>> {
         var map = [String: KeyPath<Quad, Term>]()
         for (node, path) in zip(pattern, QuadPattern.groundKeyPaths) {
             switch node {
@@ -97,12 +97,12 @@ open class TriplePatternFragmentQuadStore: Sequence, QuadStoreProtocol {
             }
         }
         let matching = try quads(matching: pattern)
-        let bindings = matching.lazy.map { (quad) -> SPARQLResult<Term> in
+        let bindings = matching.lazy.map { (quad) -> SPARQLResultSolution<Term> in
             var dict = [String:Term]()
             for (name, path) in map {
                 dict[name] = quad[keyPath: path]
             }
-            return SPARQLResult<Term>(bindings: dict)
+            return SPARQLResultSolution<Term>(bindings: dict)
         }
         return AnyIterator(bindings.makeIterator())
     }
@@ -331,12 +331,12 @@ extension Term {
 }
 
 public extension TriplePatternFragmentQuadStore {
-    private func extend<C : Collection>(result: SPARQLResult<Term>, with patterns: C) throws -> AnyIterator<SPARQLResult<Term>> where C.Element == TriplePattern {
+    private func extend<C : Collection>(result: SPARQLResultSolution<Term>, with patterns: C) throws -> AnyIterator<SPARQLResultSolution<Term>> where C.Element == TriplePattern {
         if let tp = patterns.first {
             let qp = QuadPattern(triplePattern: tp, graph: .bound(defaultGraph)).expand(result.bindings)
             let r = try results(matching: qp)
 
-            let bindings = r.lazy.compactMap { (r) -> SPARQLResult<Term>? in
+            let bindings = r.lazy.compactMap { (r) -> SPARQLResultSolution<Term>? in
                 return r.join(result)
             }
             
@@ -344,9 +344,9 @@ public extension TriplePatternFragmentQuadStore {
             if rest.count == 0 {
                 return AnyIterator(bindings.makeIterator())
             } else {
-                var buffer = [SPARQLResult<Term>]()
+                var buffer = [SPARQLResultSolution<Term>]()
                 var source = bindings.makeIterator()
-                return AnyIterator { () -> SPARQLResult<Term>? in
+                return AnyIterator { () -> SPARQLResultSolution<Term>? in
                     while true {
                         if buffer.count > 0 {
                             return buffer.remove(at: 0)
@@ -369,12 +369,12 @@ public extension TriplePatternFragmentQuadStore {
         }
     }
     
-    func evaluate(bgp: [TriplePattern], activeGraph: Term) throws -> AnyIterator<SPARQLResult<Term>> {
+    func evaluate(bgp: [TriplePattern], activeGraph: Term) throws -> AnyIterator<SPARQLResultSolution<Term>> {
         // TODO: re-order triple patterns based on selectivity (obtained from metadata on first page of each fragment)
         guard activeGraph == defaultGraph else {
             return AnyIterator([].makeIterator())
         }
         
-        return try extend(result: SPARQLResult<Term>(bindings: [:]), with: bgp)
+        return try extend(result: SPARQLResultSolution<Term>(bindings: [:]), with: bgp)
     }
 }

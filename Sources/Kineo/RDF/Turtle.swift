@@ -298,7 +298,7 @@ extension TurtleSerializer : SPARQLSerializable {
     public var serializesBoolean: Bool { return false }
     public var acceptableMediaTypes: [String] { return [canonicalMediaType, "text/turtle"] }
 
-    public func serialize<R: Sequence, T: Sequence>(_ results: QueryResult<R, T>) throws -> Data where R.Element == SPARQLResult<Term>, T.Element == Triple {
+    public func serialize<R: Sequence, T: Sequence>(_ results: QueryResult<R, T>) throws -> Data where R.Element == SPARQLResultSolution<Term>, T.Element == Triple {
         switch results {
         case .triples(let triples):
             return try serialize(triples)

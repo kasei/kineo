@@ -15,7 +15,7 @@ public enum SerializationError: Error {
 
 public protocol SPARQLParsable {
     var mediaTypes: Set<String> { get }
-    func parse(_ data: Data) throws -> QueryResult<[SPARQLResult<Term>], [Triple]>
+    func parse(_ data: Data) throws -> QueryResult<[SPARQLResultSolution<Term>], [Triple]>
 }
 
 public protocol SPARQLSerializable {
@@ -24,5 +24,5 @@ public protocol SPARQLSerializable {
     var serializesBoolean: Bool { get }
     var canonicalMediaType: String { get }
     var acceptableMediaTypes: [String] { get }
-    func serialize<R: Sequence, T: Sequence>(_ results: QueryResult<R, T>) throws -> Data where R.Element == SPARQLResult<Term>, T.Element == Triple
+    func serialize<R: Sequence, T: Sequence>(_ results: QueryResult<R, T>) throws -> Data where R.Element == SPARQLResultSolution<Term>, T.Element == Triple
 }

@@ -327,7 +327,7 @@ open class SQLiteQuadStore: Sequence, MutableQuadStoreProtocol {
         return AnyIterator(quads.makeIterator())
     }
     
-    public func results(matching pattern: QuadPattern) throws -> AnyIterator<SPARQLResult<Term>> {
+    public func results(matching pattern: QuadPattern) throws -> AnyIterator<SPARQLResultSolution<Term>> {
         var query = quadsTable.select(quadsTable[*])
         
         let quadPatternKeyPaths : [KeyPath<QuadPattern, Node>] = [\.subject, \.predicate, \.object, \.graph]
@@ -350,7 +350,7 @@ open class SQLiteQuadStore: Sequence, MutableQuadStoreProtocol {
         guard let dbh = try? db.prepare(query) else {
             return AnyIterator { return nil }
         }
-        let results = dbh.lazy.compactMap { (row) -> SPARQLResult<Term>? in
+        let results = dbh.lazy.compactMap { (row) -> SPARQLResultSolution<Term>? in
             var bindings = [String: Term]()
             for (name, cols) in mapping {
                 if cols.count == 1 {
@@ -372,7 +372,7 @@ open class SQLiteQuadStore: Sequence, MutableQuadStoreProtocol {
                     }
                 }
             }
-            return SPARQLResult(bindings: bindings)
+            return SPARQLResultSolution(bindings: bindings)
         }
         return AnyIterator(results.makeIterator())
     }
@@ -769,7 +769,7 @@ open class SQLiteLanguageQuadStore: Sequence, LanguageAwareQuadStore, MutableQua
         return try quadstore.effectiveVersion(matching: pattern)
     }
     
-    public func results(matching pattern: QuadPattern) throws -> AnyIterator<SPARQLResult<Term>> {
+    public func results(matching pattern: QuadPattern) throws -> AnyIterator<SPARQLResultSolution<Term>> {
         var map = [String: KeyPath<Quad, Term>]()
         for (node, path) in zip(pattern, QuadPattern.groundKeyPaths) {
             switch node {
@@ -780,12 +780,12 @@ open class SQLiteLanguageQuadStore: Sequence, LanguageAwareQuadStore, MutableQua
             }
         }
         let matching = try quads(matching: pattern)
-        let bindings = matching.map { (quad) -> SPARQLResult<Term> in
+        let bindings = matching.map { (quad) -> SPARQLResultSolution<Term> in
             var dict = [String:Term]()
             for (name, path) in map {
                 dict[name] = quad[keyPath: path]
             }
-            return SPARQLResult<Term>(bindings: dict)
+            return SPARQLResultSolution<Term>(bindings: dict)
         }
         return AnyIterator(bindings.makeIterator())
     }
@@ -1486,7 +1486,7 @@ public struct SQLitePlan: NullaryQueryPlan {
         return (q, columnMapping)
     }
     
-    public func evaluate() throws -> AnyIterator<SPARQLResult<Term>> {
+    public func evaluate() throws -> AnyIterator<SPARQLResultSolution<Term>> {
         let store = self.store
         
         if true {
@@ -1494,7 +1494,7 @@ public struct SQLitePlan: NullaryQueryPlan {
             guard let dbh = try? store.db.prepare(q) else {
                 return AnyIterator { return nil }
             }
-            let results = dbh.lazy.compactMap { (row) -> SPARQLResult<Term>? in
+            let results = dbh.lazy.compactMap { (row) -> SPARQLResultSolution<Term>? in
                 do {
                     let d = try columnMapping.map { (pair) throws -> (String, Term) in
                         let name = pair.key
@@ -1504,7 +1504,7 @@ public struct SQLitePlan: NullaryQueryPlan {
                         }
                         return (name, t)
                     }
-                    let r = SPARQLResult<Term>(bindings: Dictionary(uniqueKeysWithValues: d))
+                    let r = SPARQLResultSolution<Term>(bindings: Dictionary(uniqueKeysWithValues: d))
                     return r
                 } catch {
                     return nil
@@ -1517,7 +1517,7 @@ public struct SQLitePlan: NullaryQueryPlan {
                 return AnyIterator { return nil }
             }
             let projected = self.projected
-            let results = dbh.lazy.compactMap { (row) -> SPARQLResult<Term>? in
+            let results = dbh.lazy.compactMap { (row) -> SPARQLResultSolution<Term>? in
                 do {
                     let d = try projected.map({ (name, id) throws -> (String, Term) in
                         guard let t = store.term(for: row[id]) else {
@@ -1525,7 +1525,7 @@ public struct SQLitePlan: NullaryQueryPlan {
                         }
                         return (name, t)
                     })
-                    let r = SPARQLResult<Term>(bindings: Dictionary(uniqueKeysWithValues: d))
+                    let r = SPARQLResultSolution<Term>(bindings: Dictionary(uniqueKeysWithValues: d))
                     return r
                 } catch {
                     return nil
@@ -1544,11 +1544,11 @@ public struct SQLitePreparedPlan: NullaryQueryPlan {
     public var isJoinIdentity: Bool { return false }
     public var isUnionIdentity: Bool { return false }
 
-    public func evaluate() throws -> AnyIterator<SPARQLResult<Term>> {
+    public func evaluate() throws -> AnyIterator<SPARQLResultSolution<Term>> {
         let projected = self.projected
         let map = Dictionary(uniqueKeysWithValues: dbh.columnNames.enumerated().map { ($1, $0) })
         let store = self.store
-        let results = dbh.lazy.compactMap { (row) -> SPARQLResult<Term>? in
+        let results = dbh.lazy.compactMap { (row) -> SPARQLResultSolution<Term>? in
             do {
                 let d = try projected.map({ (name, colName) throws -> (String, Term) in
                     guard let i = map[colName], let id : Int64 = row[i] as? Int64, let t = store.term(for: id) else {
@@ -1556,7 +1556,7 @@ public struct SQLitePreparedPlan: NullaryQueryPlan {
                     }
                     return (name, t)
                 })
-                let r = SPARQLResult<Term>(bindings: Dictionary(uniqueKeysWithValues: d))
+                let r = SPARQLResultSolution<Term>(bindings: Dictionary(uniqueKeysWithValues: d))
                 return r
             } catch {
                 return nil
@@ -1576,7 +1576,7 @@ public struct SQLiteSingleIntegerAggregationPlan<D: Value>: NullaryQueryPlan {
     public var isJoinIdentity: Bool { return false }
     public var isUnionIdentity: Bool { return false }
 
-    public func evaluate() throws -> AnyIterator<SPARQLResult<Term>> {
+    public func evaluate() throws -> AnyIterator<SPARQLResultSolution<Term>> {
         let store = self.store
         guard let dbh = try? store.db.prepare(query) else {
             return AnyIterator { return nil }
@@ -1584,7 +1584,7 @@ public struct SQLiteSingleIntegerAggregationPlan<D: Value>: NullaryQueryPlan {
         let projected = self.projected
         let aggregateColumn = self.aggregateColumn
         let aggregateName = self.aggregateName
-        let results = dbh.lazy.compactMap { (row : Row) -> SPARQLResult<Term>? in
+        let results = dbh.lazy.compactMap { (row : Row) -> SPARQLResultSolution<Term>? in
             do {
                 let aggValue: D? = try row.get(aggregateColumn)
                 var d = try projected.map({ (name, id) throws -> (String, Term) in
@@ -1596,7 +1596,7 @@ public struct SQLiteSingleIntegerAggregationPlan<D: Value>: NullaryQueryPlan {
                 if let value = aggValue as? Int {
                     d.append((aggregateName, Term(integer: value)))
                 }
-                let r = SPARQLResult<Term>(bindings: Dictionary(uniqueKeysWithValues: d))
+                let r = SPARQLResultSolution<Term>(bindings: Dictionary(uniqueKeysWithValues: d))
                 return r
             } catch {
                 return nil

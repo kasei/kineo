@@ -20,7 +20,7 @@ public struct SPARQLTSVSerializer<T: ResultProtocol> : SPARQLSerializable where 
     public init() {
     }
     
-    public func serialize<R: Sequence, T: Sequence>(_ results: QueryResult<R, T>) throws -> Data where R.Element == SPARQLResult<Term>, T.Element == Triple {
+    public func serialize<R: Sequence, T: Sequence>(_ results: QueryResult<R, T>) throws -> Data where R.Element == SPARQLResultSolution<Term>, T.Element == Triple {
         var d = Data()
         switch results {
         case .boolean(_):
@@ -110,7 +110,7 @@ public struct SPARQLTSVParser : SPARQLParsable {
         self.parser = RDFParserCombined(base: "http://example.org/", produceUniqueBlankIdentifiers: produceUniqueBlankIdentifiers)
     }
 
-    public func parse(_ data: Data) throws -> QueryResult<[SPARQLResult<Term>], [Triple]> {
+    public func parse(_ data: Data) throws -> QueryResult<[SPARQLResultSolution<Term>], [Triple]> {
         guard let s = String(data: data, encoding: encoding) else {
             throw SerializationError.encodingError("Failed to decode SPARQL/TSV data as utf-8")
         }
@@ -121,7 +121,7 @@ public struct SPARQLTSVParser : SPARQLParsable {
         }
         
         let names = header.split(separator: "\t").map { String($0.dropFirst()) }
-        var results = [SPARQLResult<Term>]()
+        var results = [SPARQLResultSolution<Term>]()
         for line in lines.dropFirst() {
             let values = line.split(separator: "\t", omittingEmptySubsequences: false)
             let terms = try values.map { try parseTerm(String($0)) }
@@ -132,7 +132,7 @@ public struct SPARQLTSVParser : SPARQLParsable {
                 return (name, term)
             }
             let d = Dictionary(uniqueKeysWithValues: pairs)
-            let r = SPARQLResult<Term>(bindings: d)
+            let r = SPARQLResultSolution<Term>(bindings: d)
             results.append(r)
         }
         

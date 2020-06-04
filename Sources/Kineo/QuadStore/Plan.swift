@@ -12,7 +12,7 @@ import SPARQLSyntax
 public typealias IDType = UInt64
 public typealias IDListResult = [IDType]
 
-public typealias ResultComparator = (SPARQLResult<Term>, SPARQLResult<Term>) -> Bool
+public typealias ResultComparator = (SPARQLResultSolution<Term>, SPARQLResultSolution<Term>) -> Bool
 public typealias IDListResultComparator = (IDListResult, IDListResult) -> Bool
 
 public indirect enum TermGroupPlan {
@@ -35,7 +35,7 @@ public indirect enum ResultPlan {
     case idListPlan(IDListPlan, [String])
     case nestedLoopJoin(ResultPlan, ResultPlan)
     case merge(ResultPlan, ResultPlan, ResultComparator)
-    case table([SPARQLResult<Term>])
+    case table([SPARQLResultSolution<Term>])
     case hashJoin(ResultPlan, ResultPlan)
     case leftOuterJoin(ResultPlan, ResultPlan, Expression)
     case filter(ResultPlan, Expression)
@@ -103,7 +103,7 @@ public class ResultPlanEvaluator {
         self.store = store
     }
 
-    public func evaluate(_ plan: ResultPlan) throws -> AnyIterator<SPARQLResult<Term>> {
+    public func evaluate(_ plan: ResultPlan) throws -> AnyIterator<SPARQLResultSolution<Term>> {
         switch plan {
         case .idListPlan(let idplan, let variables):
             let i = try ide.evaluate(idplan, width: variables.count)
@@ -117,7 +117,7 @@ public class ResultPlanEvaluator {
                         b[v] = term
                     }
                 }
-                return SPARQLResult<Term>(bindings: b)
+                return SPARQLResultSolution<Term>(bindings: b)
             }
         default:
             throw QueryPlanError.unexpectedError("Cannot evaluate ResultPlan \(plan)")

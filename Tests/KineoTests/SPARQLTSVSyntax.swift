@@ -21,9 +21,9 @@ extension SPARQLTSVSyntaxSerializerTest {
 #endif
 
 class SPARQLTSVSyntaxParserTest: XCTestCase {
-    var uniformResults: [SPARQLResult<Term>]!
-    var uniformLanguageResults: [SPARQLResult<Term>]!
-    var nonUniformResults: [SPARQLResult<Term>]!
+    var uniformResults: [SPARQLResultSolution<Term>]!
+    var uniformLanguageResults: [SPARQLResultSolution<Term>]!
+    var nonUniformResults: [SPARQLResultSolution<Term>]!
     override func setUp() {
         super.setUp()
         let iri = Term(iri: "http://example.org/Berlin")
@@ -34,10 +34,10 @@ class SPARQLTSVSyntaxParserTest: XCTestCase {
         let v1 = Term(double: 1.2)
         let v2 = Term(integer: 7)
         
-        let r0 = SPARQLResult<Term>(bindings: ["name": lit0, "value": v1])
-        let r1 = SPARQLResult<Term>(bindings: ["name": lit1, "value": v1])
-        let r2 = SPARQLResult<Term>(bindings: ["name": lit0, "value": v2])
-        let r3 = SPARQLResult<Term>(bindings: ["boolean": bool, "blank": blank, "iri": iri])
+        let r0 = SPARQLResultSolution<Term>(bindings: ["name": lit0, "value": v1])
+        let r1 = SPARQLResultSolution<Term>(bindings: ["name": lit1, "value": v1])
+        let r2 = SPARQLResultSolution<Term>(bindings: ["name": lit0, "value": v2])
+        let r3 = SPARQLResultSolution<Term>(bindings: ["boolean": bool, "blank": blank, "iri": iri])
         self.uniformResults = [r0, r2]
         self.uniformLanguageResults = [r1, r2]
         self.nonUniformResults = [r0, r3, r2]
@@ -64,15 +64,15 @@ class SPARQLTSVSyntaxParserTest: XCTestCase {
         }
         XCTAssertEqual(names, ["x", "literal"])
         XCTAssertEqual(rows.count, 8)
-        let expected : [SPARQLResult<Term>] = [
-            SPARQLResult<Term>(bindings: ["x": Term(iri: "http://example/x"), "literal": Term(string: "String")]),
-            SPARQLResult<Term>(bindings: ["x": Term(iri: "http://example/x"), "literal": Term(string: "String-with-dquote\"")]),
-            SPARQLResult<Term>(bindings: ["x": Term(value: "blank0", type: .blank), "literal": Term(string: "Blank node")]),
-            SPARQLResult<Term>(bindings: ["literal": Term(string: "Missing 'x'")]),
-            SPARQLResult<Term>(bindings: [:]),
-            SPARQLResult<Term>(bindings: ["x": Term(iri: "http://example/x")]),
-            SPARQLResult<Term>(bindings: ["x": Term(value: "blank1", type: .blank), "literal": Term(value: "String-with-lang", type: .language("en"))]),
-            SPARQLResult<Term>(bindings: ["x": Term(value: "blank1", type: .blank), "literal": Term(integer: 123)]),
+        let expected : [SPARQLResultSolution<Term>] = [
+            SPARQLResultSolution<Term>(bindings: ["x": Term(iri: "http://example/x"), "literal": Term(string: "String")]),
+            SPARQLResultSolution<Term>(bindings: ["x": Term(iri: "http://example/x"), "literal": Term(string: "String-with-dquote\"")]),
+            SPARQLResultSolution<Term>(bindings: ["x": Term(value: "blank0", type: .blank), "literal": Term(string: "Blank node")]),
+            SPARQLResultSolution<Term>(bindings: ["literal": Term(string: "Missing 'x'")]),
+            SPARQLResultSolution<Term>(bindings: [:]),
+            SPARQLResultSolution<Term>(bindings: ["x": Term(iri: "http://example/x")]),
+            SPARQLResultSolution<Term>(bindings: ["x": Term(value: "blank1", type: .blank), "literal": Term(value: "String-with-lang", type: .language("en"))]),
+            SPARQLResultSolution<Term>(bindings: ["x": Term(value: "blank1", type: .blank), "literal": Term(integer: 123)]),
         ]
         
         if rows.elementsEqual(expected) {
@@ -91,9 +91,9 @@ class SPARQLTSVSyntaxParserTest: XCTestCase {
 }
 
 class SPARQLTSVSyntaxSerializerTest: XCTestCase {
-    var uniformResults: [SPARQLResult<Term>]!
-    var uniformLanguageResults: [SPARQLResult<Term>]!
-    var nonUniformResults: [SPARQLResult<Term>]!
+    var uniformResults: [SPARQLResultSolution<Term>]!
+    var uniformLanguageResults: [SPARQLResultSolution<Term>]!
+    var nonUniformResults: [SPARQLResultSolution<Term>]!
     override func setUp() {
         super.setUp()
         let iri = Term(iri: "http://example.org/Berlin")
@@ -104,20 +104,20 @@ class SPARQLTSVSyntaxSerializerTest: XCTestCase {
         let v1 = Term(double: 1.2)
         let v2 = Term(integer: 7)
         
-        let r0 = SPARQLResult<Term>(bindings: ["name": lit0, "value": v1])
-        let r1 = SPARQLResult<Term>(bindings: ["name": lit1, "value": v1])
-        let r2 = SPARQLResult<Term>(bindings: ["name": lit0, "value": v2])
-        let r3 = SPARQLResult<Term>(bindings: ["boolean": bool, "blank": blank, "iri": iri])
+        let r0 = SPARQLResultSolution<Term>(bindings: ["name": lit0, "value": v1])
+        let r1 = SPARQLResultSolution<Term>(bindings: ["name": lit1, "value": v1])
+        let r2 = SPARQLResultSolution<Term>(bindings: ["name": lit0, "value": v2])
+        let r3 = SPARQLResultSolution<Term>(bindings: ["boolean": bool, "blank": blank, "iri": iri])
         self.uniformResults = [r0, r2]
         self.uniformLanguageResults = [r1, r2]
         self.nonUniformResults = [r0, r3, r2]
     }
     
     func testTSV1() throws {
-        let serializer = SPARQLTSVSerializer<SPARQLResult<Term>>()
+        let serializer = SPARQLTSVSerializer<SPARQLResultSolution<Term>>()
         
-        let seq : [SPARQLResult<Term>] = self.uniformResults
-        let results = QueryResult<[SPARQLResult<Term>], [Triple]>.bindings(["name", "value"], seq)
+        let seq : [SPARQLResultSolution<Term>] = self.uniformResults
+        let results = QueryResult<[SPARQLResultSolution<Term>], [Triple]>.bindings(["name", "value"], seq)
         let j = try serializer.serialize(results)
         let s = String(data: j, encoding: .utf8)!
         let expected = """
@@ -130,10 +130,10 @@ class SPARQLTSVSyntaxSerializerTest: XCTestCase {
     }
     
     func testTSV2() throws {
-        let serializer = SPARQLTSVSerializer<SPARQLResult<Term>>()
+        let serializer = SPARQLTSVSerializer<SPARQLResultSolution<Term>>()
         
-        let seq : [SPARQLResult<Term>] = self.nonUniformResults
-        let results = QueryResult<[SPARQLResult<Term>], [Triple]>.bindings(["name", "value", "boolean", "blank", "iri"], seq)
+        let seq : [SPARQLResultSolution<Term>] = self.nonUniformResults
+        let results = QueryResult<[SPARQLResultSolution<Term>], [Triple]>.bindings(["name", "value", "boolean", "blank", "iri"], seq)
         let j = try serializer.serialize(results)
         let s = String(data: j, encoding: .utf8)!
         let expected = """
