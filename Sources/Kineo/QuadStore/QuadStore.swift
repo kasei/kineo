@@ -498,7 +498,7 @@ public protocol ResultProtocol: Hashable, Sequence {
     mutating func extend(variable: String, value: TermType) throws
     func extended(variable: String, value: TermType) -> Self?
     func projected(variables: Set<String>) -> Self
-    var hashValue: Int { get }
+    func removing(variables: Set<String>) -> Self
 }
 
 public struct SPARQLResult<T: Hashable>: ResultProtocol, Hashable, CustomStringConvertible {
@@ -610,6 +610,7 @@ public struct SPARQLResult<T: Hashable>: ResultProtocol, Hashable, CustomStringC
 extension ResultProtocol {
     public func hash(into hasher: inout Hasher) {
         for k in keys.sorted() {
+            hasher.combine(k)
             hasher.combine(self[k])
         }
     }
