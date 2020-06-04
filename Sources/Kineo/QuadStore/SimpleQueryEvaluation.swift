@@ -10,7 +10,7 @@ import Foundation
 import SPARQLSyntax
 
 fileprivate struct SortElem {
-    var result: TermResult
+    var result: SPARQLResultSolution<Term>
     var terms: [Term?]
 }
 
@@ -23,43 +23,43 @@ public protocol SimpleQueryEvaluatorProtocol: QueryEvaluatorProtocol {
     var verbose: Bool { get }
     
     func freshVariable() -> Node
-    func evaluate(query: Query) throws -> QueryResult<[TermResult], [Triple]>
-    func evaluate(query: Query, activeGraph: Term?) throws -> QueryResult<[TermResult], [Triple]>
-    func evaluate(algebra: Algebra, activeGraph: Term?) throws -> AnyIterator<TermResult>
-    func evaluateTable(columns names: [Node], rows: [[Term?]]) throws -> AnyIterator<TermResult>
-    func evaluateSlice(_ i: AnyIterator<TermResult>, offset: Int?, limit: Int?) throws -> AnyIterator<TermResult>
-    func evaluateExtend(_ i: AnyIterator<TermResult>, expression expr: Expression, name: String) throws -> AnyIterator<TermResult>
-    func evaluateFilter(_ i: AnyIterator<TermResult>, expression expr: Expression, activeGraph: Term) throws -> AnyIterator<TermResult>
-    func evaluateMinus(_ l: AnyIterator<TermResult>, _ r: [TermResult]) throws -> AnyIterator<TermResult>
-    func evaluate(algebra: Algebra, activeGraph: Term) throws -> AnyIterator<TermResult>
+    func evaluate(query: Query) throws -> QueryResult<[SPARQLResultSolution<Term>], [Triple]>
+    func evaluate(query: Query, activeGraph: Term?) throws -> QueryResult<[SPARQLResultSolution<Term>], [Triple]>
+    func evaluate(algebra: Algebra, activeGraph: Term?) throws -> AnyIterator<SPARQLResultSolution<Term>>
+    func evaluateTable(columns names: [Node], rows: [[Term?]]) throws -> AnyIterator<SPARQLResultSolution<Term>>
+    func evaluateSlice(_ i: AnyIterator<SPARQLResultSolution<Term>>, offset: Int?, limit: Int?) throws -> AnyIterator<SPARQLResultSolution<Term>>
+    func evaluateExtend(_ i: AnyIterator<SPARQLResultSolution<Term>>, expression expr: Expression, name: String) throws -> AnyIterator<SPARQLResultSolution<Term>>
+    func evaluateFilter(_ i: AnyIterator<SPARQLResultSolution<Term>>, expression expr: Expression, activeGraph: Term) throws -> AnyIterator<SPARQLResultSolution<Term>>
+    func evaluateMinus(_ l: AnyIterator<SPARQLResultSolution<Term>>, _ r: [SPARQLResultSolution<Term>]) throws -> AnyIterator<SPARQLResultSolution<Term>>
+    func evaluate(algebra: Algebra, activeGraph: Term) throws -> AnyIterator<SPARQLResultSolution<Term>>
     func effectiveVersion(matching query: Query) throws -> Version?
     func effectiveVersion(matching algebra: Algebra, activeGraph: Term) throws -> Version?
-    func evaluateUnion(_ patterns: [Algebra], activeGraph: Term) throws -> AnyIterator<TermResult>
-    func evaluateJoin(lhs lhsAlgebra: Algebra, rhs rhsAlgebra: Algebra, left: Bool, activeGraph: Term) throws -> AnyIterator<TermResult>
-    func evaluate(diff lhs: Algebra, _ rhs: Algebra, expression expr: Expression, activeGraph: Term) throws -> AnyIterator<TermResult>
-    func evaluateLeftJoin(lhs: Algebra, rhs: Algebra, expression expr: Expression, activeGraph: Term) throws -> AnyIterator<TermResult>
-    func evaluate(algebra: Algebra, endpoint: URL, silent: Bool, activeGraph: Term) throws -> AnyIterator<TermResult>
-    func evaluateCount<S: Sequence>(results: S, expression keyExpr: Expression, distinct: Bool) -> Term? where S.Iterator.Element == TermResult
-    func evaluateCountAll<S: Sequence>(results: S) -> Term? where S.Iterator.Element == TermResult
-    func evaluateAvg<S: Sequence>(results: S, expression keyExpr: Expression, distinct: Bool) -> Term? where S.Iterator.Element == TermResult
-    func evaluateSum<S: Sequence>(results: S, expression keyExpr: Expression, distinct: Bool) -> Term? where S.Iterator.Element == TermResult
-    func evaluateGroupConcat<S: Sequence>(results: S, expression keyExpr: Expression, separator: String, distinct: Bool) -> Term? where S.Iterator.Element == TermResult
-    func evaluateWindow(algebra child: Algebra, function: Algebra.WindowFunctionMapping, activeGraph: Term) throws -> AnyIterator<TermResult>
-    func evaluatePath(subject: Node, object: Node, graph: Term, path: PropertyPath) throws -> AnyIterator<TermResult>
-    func evaluateAggregation(algebra child: Algebra, groups: [Expression], aggregations aggs: Set<Algebra.AggregationMapping>, activeGraph: Term) throws -> AnyIterator<TermResult>
-    func evaluateSort<S: Sequence>(_ results: S, comparators: [Algebra.SortComparator]) -> [TermResult] where S.Element == TermResult
-    func resultsAreEqual(_ a : TermResult, _ b : TermResult, usingComparators: [Algebra.SortComparator]) -> Bool
+    func evaluateUnion(_ patterns: [Algebra], activeGraph: Term) throws -> AnyIterator<SPARQLResultSolution<Term>>
+    func evaluateJoin(lhs lhsAlgebra: Algebra, rhs rhsAlgebra: Algebra, left: Bool, activeGraph: Term) throws -> AnyIterator<SPARQLResultSolution<Term>>
+    func evaluate(diff lhs: Algebra, _ rhs: Algebra, expression expr: Expression, activeGraph: Term) throws -> AnyIterator<SPARQLResultSolution<Term>>
+    func evaluateLeftJoin(lhs: Algebra, rhs: Algebra, expression expr: Expression, activeGraph: Term) throws -> AnyIterator<SPARQLResultSolution<Term>>
+    func evaluate(algebra: Algebra, endpoint: URL, silent: Bool, activeGraph: Term) throws -> AnyIterator<SPARQLResultSolution<Term>>
+    func evaluateCount<S: Sequence>(results: S, expression keyExpr: Expression, distinct: Bool) -> Term? where S.Iterator.Element == SPARQLResultSolution<Term>
+    func evaluateCountAll<S: Sequence>(results: S) -> Term? where S.Iterator.Element == SPARQLResultSolution<Term>
+    func evaluateAvg<S: Sequence>(results: S, expression keyExpr: Expression, distinct: Bool) -> Term? where S.Iterator.Element == SPARQLResultSolution<Term>
+    func evaluateSum<S: Sequence>(results: S, expression keyExpr: Expression, distinct: Bool) -> Term? where S.Iterator.Element == SPARQLResultSolution<Term>
+    func evaluateGroupConcat<S: Sequence>(results: S, expression keyExpr: Expression, separator: String, distinct: Bool) -> Term? where S.Iterator.Element == SPARQLResultSolution<Term>
+    func evaluateWindow(algebra child: Algebra, function: Algebra.WindowFunctionMapping, activeGraph: Term) throws -> AnyIterator<SPARQLResultSolution<Term>>
+    func evaluatePath(subject: Node, object: Node, graph: Term, path: PropertyPath) throws -> AnyIterator<SPARQLResultSolution<Term>>
+    func evaluateAggregation(algebra child: Algebra, groups: [Expression], aggregations aggs: Set<Algebra.AggregationMapping>, activeGraph: Term) throws -> AnyIterator<SPARQLResultSolution<Term>>
+    func evaluateSort<S: Sequence>(_ results: S, comparators: [Algebra.SortComparator]) -> [SPARQLResultSolution<Term>] where S.Element == SPARQLResultSolution<Term>
+    func resultsAreEqual(_ a : SPARQLResultSolution<Term>, _ b : SPARQLResultSolution<Term>, usingComparators: [Algebra.SortComparator]) -> Bool
     
-    func evaluate(bgp: [TriplePattern], activeGraph: Term) throws -> AnyIterator<TermResult>
+    func evaluate(bgp: [TriplePattern], activeGraph: Term) throws -> AnyIterator<SPARQLResultSolution<Term>>
     
-    func evaluate(quad: QuadPattern) throws -> AnyIterator<TermResult>
-    func evaluate(algebra: Algebra, inGraph: Node) throws -> AnyIterator<TermResult>
+    func evaluate(quad: QuadPattern) throws -> AnyIterator<SPARQLResultSolution<Term>>
+    func evaluate(algebra: Algebra, inGraph: Node) throws -> AnyIterator<SPARQLResultSolution<Term>>
     func evaluateGraphTerms(in: Term) -> AnyIterator<Term>
     func triples(describing term: Term) throws -> AnyIterator<Triple>
 }
 
 extension SimpleQueryEvaluatorProtocol {
-    public func evaluate(query original: Query) throws -> QueryResult<[TermResult], [Triple]> {
+    public func evaluate(query original: Query) throws -> QueryResult<[SPARQLResultSolution<Term>], [Triple]> {
         let rewriter = SPARQLQueryRewriter()
         let query = try rewriter.simplify(query: original)
 //        if verbose {
@@ -74,7 +74,7 @@ extension SimpleQueryEvaluatorProtocol {
         return try evaluate(query: query, activeGraph: nil)
     }
     
-    public func evaluate(query: Query, activeGraph: Term?) throws -> QueryResult<[TermResult], [Triple]> {
+    public func evaluate(query: Query, activeGraph: Term?) throws -> QueryResult<[SPARQLResultSolution<Term>], [Triple]> {
         let algebra = query.algebra
         self.ee.base = query.base
         let iter = try self.evaluate(algebra: algebra, activeGraph: activeGraph)
@@ -88,7 +88,7 @@ extension SimpleQueryEvaluatorProtocol {
             }
         case .select(_):
             let variables = query.projectedVariables
-            let r : QueryResult<[TermResult], [Triple]> = QueryResult.bindings(variables, results)
+            let r : QueryResult<[SPARQLResultSolution<Term>], [Triple]> = QueryResult.bindings(variables, results)
             return r
         case .construct(let template):
             let t = triples(from: results, with: template)
@@ -132,8 +132,8 @@ extension SimpleQueryEvaluatorProtocol {
         }
     }
     
-    public func evaluate(algebra: Algebra, activeGraph: Term? = nil) throws -> AnyIterator<TermResult> {
-        var iterators = [AnyIterator<TermResult>]()
+    public func evaluate(algebra: Algebra, activeGraph: Term? = nil) throws -> AnyIterator<SPARQLResultSolution<Term>> {
+        var iterators = [AnyIterator<SPARQLResultSolution<Term>>]()
         let graphs : [Term]
         if let g = activeGraph {
             graphs = [g]
@@ -152,8 +152,8 @@ extension SimpleQueryEvaluatorProtocol {
         return AnyIterator(j.makeIterator())
     }
     
-    public func evaluateTable(columns names: [Node], rows: [[Term?]]) throws -> AnyIterator<TermResult> {
-        var results = [TermResult]()
+    public func evaluateTable(columns names: [Node], rows: [[Term?]]) throws -> AnyIterator<SPARQLResultSolution<Term>> {
+        var results = [SPARQLResultSolution<Term>]()
         for row in rows {
             var bindings = [String:Term]()
             for (node, term) in zip(names, row) {
@@ -165,13 +165,13 @@ extension SimpleQueryEvaluatorProtocol {
                     bindings[name] = term
                 }
             }
-            let result = TermResult(bindings: bindings)
+            let result = SPARQLResultSolution<Term>(bindings: bindings)
             results.append(result)
         }
         return AnyIterator(results.makeIterator())
     }
     
-    public func evaluateSlice(_ i: AnyIterator<TermResult>, offset: Int?, limit: Int?) throws -> AnyIterator<TermResult> {
+    public func evaluateSlice(_ i: AnyIterator<SPARQLResultSolution<Term>>, offset: Int?, limit: Int?) throws -> AnyIterator<SPARQLResultSolution<Term>> {
         if let offset = offset {
             for _ in 0..<offset {
                 _ = i.next()
@@ -191,7 +191,7 @@ extension SimpleQueryEvaluatorProtocol {
         }
     }
     
-    public func evaluateExtend(_ i: AnyIterator<TermResult>, expression expr: Expression, name: String) throws -> AnyIterator<TermResult> {
+    public func evaluateExtend(_ i: AnyIterator<SPARQLResultSolution<Term>>, expression expr: Expression, name: String) throws -> AnyIterator<SPARQLResultSolution<Term>> {
         if expr.isNumeric {
             return AnyIterator {
                 guard var result = i.next() else { return nil }
@@ -221,7 +221,7 @@ extension SimpleQueryEvaluatorProtocol {
         }
     }
     
-    public func evaluateFilter(_ i: AnyIterator<TermResult>, expression expr: Expression, activeGraph: Term) throws -> AnyIterator<TermResult> {
+    public func evaluateFilter(_ i: AnyIterator<SPARQLResultSolution<Term>>, expression expr: Expression, activeGraph: Term) throws -> AnyIterator<SPARQLResultSolution<Term>> {
         return AnyIterator {
             repeat {
                 guard let result = i.next() else { return nil }
@@ -245,7 +245,7 @@ extension SimpleQueryEvaluatorProtocol {
         }
     }
     
-    public func evaluateMinus(_ l: AnyIterator<TermResult>, _ r: [TermResult]) throws -> AnyIterator<TermResult> {
+    public func evaluateMinus(_ l: AnyIterator<SPARQLResultSolution<Term>>, _ r: [SPARQLResultSolution<Term>]) throws -> AnyIterator<SPARQLResultSolution<Term>> {
         return AnyIterator {
             while true {
                 var candidateOK = true
@@ -266,7 +266,7 @@ extension SimpleQueryEvaluatorProtocol {
         }
     }
     
-    public func evaluate(algebra: Algebra, activeGraph: Term) throws -> AnyIterator<TermResult> {
+    public func evaluate(algebra: Algebra, activeGraph: Term) throws -> AnyIterator<SPARQLResultSolution<Term>> {
         switch algebra {
         // don't require access to the underlying store:
         case let .subquery(q):
@@ -274,10 +274,10 @@ extension SimpleQueryEvaluatorProtocol {
             guard case let .bindings(_, seq) = result else { throw QueryError.evaluationError("Unexpected results type from subquery: \(result)") }
             return AnyIterator(seq.makeIterator())
         case .unionIdentity:
-            let results = [TermResult]()
+            let results = [SPARQLResultSolution<Term>]()
             return AnyIterator(results.makeIterator())
         case .joinIdentity:
-            let results = [TermResult(bindings: [:])]
+            let results = [SPARQLResultSolution<Term>(bindings: [:])]
             return AnyIterator(results.makeIterator())
         case let .table(names, rows):
             return try evaluateTable(columns: names, rows: rows)
@@ -329,7 +329,7 @@ extension SimpleQueryEvaluatorProtocol {
             return try evaluateFilter(i, expression: expr, activeGraph: activeGraph)
         case let .reduced(child):
             let i = try self.evaluate(algebra: child, activeGraph: activeGraph)
-            var last: TermResult? = nil
+            var last: SPARQLResultSolution<Term>? = nil
             return AnyIterator {
                 repeat {
                     guard let result = i.next() else { return nil }
@@ -343,7 +343,7 @@ extension SimpleQueryEvaluatorProtocol {
             }
         case let .distinct(child):
             let i = try self.evaluate(algebra: child, activeGraph: activeGraph)
-            var seen = Set<TermResult>()
+            var seen = Set<SPARQLResultSolution<Term>>()
             return AnyIterator {
                 repeat {
                     guard let result = i.next() else { return nil }
@@ -379,10 +379,10 @@ extension SimpleQueryEvaluatorProtocol {
     
     // NOTE: this is a lazy version of union that hides thrown exceptions in order to delay evaluation
     //       the non-lazy version is commented below
-    public func evaluateUnion(_ _patterns: [Algebra], activeGraph: Term) throws -> AnyIterator<TermResult> {
+    public func evaluateUnion(_ _patterns: [Algebra], activeGraph: Term) throws -> AnyIterator<SPARQLResultSolution<Term>> {
         var patterns = _patterns
-        var currentIterator: AnyIterator<TermResult>? = nil
-        return AnyIterator { () -> TermResult? in
+        var currentIterator: AnyIterator<SPARQLResultSolution<Term>>? = nil
+        return AnyIterator { () -> SPARQLResultSolution<Term>? in
             do {
                 repeat {
                     if let _ = currentIterator {
@@ -402,7 +402,7 @@ extension SimpleQueryEvaluatorProtocol {
             }
         }
     }
-//    public func evaluateUnion(_ patterns: [Algebra], activeGraph: Term) throws -> AnyIterator<TermResult> {
+//    public func evaluateUnion(_ patterns: [Algebra], activeGraph: Term) throws -> AnyIterator<SPARQLResultSolution<Term>> {
 //        var iters = try patterns.lazy.map { try self.evaluate(algebra: $0, activeGraph: activeGraph) }
 //        return AnyIterator {
 //            repeat {
@@ -416,7 +416,7 @@ extension SimpleQueryEvaluatorProtocol {
 //        }
 //    }
     
-    public func evaluateJoin(lhs lhsAlgebra: Algebra, rhs rhsAlgebra: Algebra, left: Bool, activeGraph: Term) throws -> AnyIterator<TermResult> {
+    public func evaluateJoin(lhs lhsAlgebra: Algebra, rhs rhsAlgebra: Algebra, left: Bool, activeGraph: Term) throws -> AnyIterator<SPARQLResultSolution<Term>> {
         var seen = [Set<String>]()
         for pattern in [lhsAlgebra, rhsAlgebra] {
             seen.append(pattern.inscope)
@@ -455,20 +455,20 @@ extension SimpleQueryEvaluatorProtocol {
             }
         }
         
-        var patternResults = [[TermResult]]()
+        var patternResults = [[SPARQLResultSolution<Term>]]()
         for pattern in [lhsAlgebra, rhsAlgebra] {
             let results     = try self.evaluate(algebra: pattern, activeGraph: activeGraph)
             patternResults.append(Array(results))
         }
         
-        var results = [TermResult]()
+        var results = [SPARQLResultSolution<Term>]()
         nestedLoopJoin(patternResults, left: left) { (result) in
             results.append(result)
         }
         return AnyIterator(results.makeIterator())
     }
     
-    public func evaluate(diff lhs: Algebra, _ rhs: Algebra, expression expr: Expression, activeGraph: Term) throws -> AnyIterator<TermResult> {
+    public func evaluate(diff lhs: Algebra, _ rhs: Algebra, expression expr: Expression, activeGraph: Term) throws -> AnyIterator<SPARQLResultSolution<Term>> {
         let i = try evaluate(algebra: lhs, activeGraph: activeGraph)
         let r = try Array(evaluate(algebra: rhs, activeGraph: activeGraph))
         return AnyIterator {
@@ -494,14 +494,14 @@ extension SimpleQueryEvaluatorProtocol {
         }
     }
     
-    public func evaluateLeftJoin(lhs: Algebra, rhs: Algebra, expression expr: Expression, activeGraph: Term) throws -> AnyIterator<TermResult> {
+    public func evaluateLeftJoin(lhs: Algebra, rhs: Algebra, expression expr: Expression, activeGraph: Term) throws -> AnyIterator<SPARQLResultSolution<Term>> {
         let i = try evaluate(algebra: .filter(.innerJoin(lhs, rhs), expr), activeGraph: activeGraph)
         let d = try evaluate(diff: lhs, rhs, expression: expr, activeGraph: activeGraph)
         let results = Array(i) + Array(d)
         return AnyIterator(results.makeIterator())
     }
     
-    public func evaluate(algebra: Algebra, endpoint: URL, silent: Bool, activeGraph: Term) throws -> AnyIterator<TermResult> {
+    public func evaluate(algebra: Algebra, endpoint: URL, silent: Bool, activeGraph: Term) throws -> AnyIterator<SPARQLResultSolution<Term>> {
         let client = SPARQLClient(endpoint: endpoint, silent: silent)
         do {
             let s = SPARQLSerializer(prettyPrint: true)
@@ -522,7 +522,7 @@ extension SimpleQueryEvaluatorProtocol {
         }
     }
     
-    public func evaluateCount<S: Sequence>(results: S, expression keyExpr: Expression, distinct: Bool) -> Term? where S.Iterator.Element == TermResult {
+    public func evaluateCount<S: Sequence>(results: S, expression keyExpr: Expression, distinct: Bool) -> Term? where S.Iterator.Element == SPARQLResultSolution<Term> {
         if distinct {
             let terms = results.map { try? self.ee.evaluate(expression: keyExpr, result: $0) }.compactMap { $0 }
             let unique = Set(terms)
@@ -543,7 +543,7 @@ extension SimpleQueryEvaluatorProtocol {
         }
     }
 
-    public func evaluateAggregation<S: Sequence>(_ agg: Aggregation, group results: S) -> Term? where S.Iterator.Element == TermResult {
+    public func evaluateAggregation<S: Sequence>(_ agg: Aggregation, group results: S) -> Term? where S.Iterator.Element == SPARQLResultSolution<Term> {
         switch agg {
         case .countAll:
             if let n = self.evaluateCountAll(results: results) {
@@ -586,7 +586,7 @@ extension SimpleQueryEvaluatorProtocol {
         return nil
     }
     
-    public func evaluateCountAll<S: Sequence>(results: S) -> Term? where S.Iterator.Element == TermResult {
+    public func evaluateCountAll<S: Sequence>(results: S) -> Term? where S.Iterator.Element == SPARQLResultSolution<Term> {
         var count = 0
         for _ in results {
             count += 1
@@ -594,7 +594,7 @@ extension SimpleQueryEvaluatorProtocol {
         return Term(integer: count)
     }
     
-    public func evaluateAvg<S: Sequence>(results: S, expression keyExpr: Expression, distinct: Bool) -> Term? where S.Iterator.Element == TermResult {
+    public func evaluateAvg<S: Sequence>(results: S, expression keyExpr: Expression, distinct: Bool) -> Term? where S.Iterator.Element == SPARQLResultSolution<Term> {
         var doubleSum: Double = 0.0
         let integer = TermType.datatype(.integer)
         var resultingType: TermType? = integer
@@ -629,7 +629,7 @@ extension SimpleQueryEvaluatorProtocol {
         return nil
     }
     
-    public func evaluateSum<S: Sequence>(results: S, expression keyExpr: Expression, distinct: Bool) -> Term? where S.Iterator.Element == TermResult {
+    public func evaluateSum<S: Sequence>(results: S, expression keyExpr: Expression, distinct: Bool) -> Term? where S.Iterator.Element == SPARQLResultSolution<Term> {
         var runningSum = NumericValue.integer(0)
         if distinct {
             let terms = results.map { try? self.ee.evaluate(expression: keyExpr, result: $0) }.compactMap { $0 }.sorted()
@@ -664,7 +664,7 @@ extension SimpleQueryEvaluatorProtocol {
         }
     }
     
-    public func evaluateGroupConcat<S: Sequence>(results: S, expression keyExpr: Expression, separator: String, distinct: Bool) -> Term? where S.Iterator.Element == TermResult {
+    public func evaluateGroupConcat<S: Sequence>(results: S, expression keyExpr: Expression, separator: String, distinct: Bool) -> Term? where S.Iterator.Element == SPARQLResultSolution<Term> {
         var terms = results.map { try? self.ee.evaluate(expression: keyExpr, result: $0) }.compactMap { $0 }
         if distinct {
             terms = Set(terms).sorted()
@@ -680,7 +680,7 @@ extension SimpleQueryEvaluatorProtocol {
         return Term(value: c, type: type)
     }
     
-    internal func evaluateSinglePipelinedAggregation(algebra child: Algebra, groups: [Expression], aggregation agg: Aggregation, variable name: String, activeGraph: Term) throws -> AnyIterator<TermResult> {
+    internal func evaluateSinglePipelinedAggregation(algebra child: Algebra, groups: [Expression], aggregation agg: Aggregation, variable name: String, activeGraph: Term) throws -> AnyIterator<SPARQLResultSolution<Term>> {
         let i = try self.evaluate(algebra: child, activeGraph: activeGraph)
         var numericGroups = [String:NumericValue]()
         var termGroups = [String:Term]()
@@ -808,16 +808,16 @@ extension SimpleQueryEvaluatorProtocol {
                 // special case where there are no groups (no input rows led to no groups being created);
                 // in this case, counts should return a single result with { $name=0 }
                 // TODO: make sure this works the same as the more general code in evaluateAggregation(algebra:groups:aggregations:activeGraph:)
-                let result = TermResult(bindings: [name: Term(integer: 0)])
+                let result = SPARQLResultSolution<Term>(bindings: [name: Term(integer: 0)])
                 return AnyIterator([result].makeIterator())
             default:
-                let result = TermResult(bindings: [:])
+                let result = SPARQLResultSolution<Term>(bindings: [:])
                 return AnyIterator([result].makeIterator())
             }
         }
         
         var a = numericGroups.makeIterator()
-        let numericIterator : AnyIterator<TermResult> = AnyIterator {
+        let numericIterator : AnyIterator<SPARQLResultSolution<Term>> = AnyIterator {
             guard let pair = a.next() else { return nil }
             let (groupKey, v) = pair
             var value = v
@@ -838,10 +838,10 @@ extension SimpleQueryEvaluatorProtocol {
             } else {
                 bindings[name] = value.term
             }
-            return TermResult(bindings: bindings)
+            return SPARQLResultSolution<Term>(bindings: bindings)
         }
         var b = termGroups.makeIterator()
-        let termIterator : AnyIterator<TermResult> = AnyIterator {
+        let termIterator : AnyIterator<SPARQLResultSolution<Term>> = AnyIterator {
             guard let pair = b.next() else { return nil }
             let (groupKey, term) = pair
             guard var bindings = groupBindings[groupKey] else {
@@ -853,7 +853,7 @@ extension SimpleQueryEvaluatorProtocol {
             } else {
                 bindings[name] = term
             }
-            return TermResult(bindings: bindings)
+            return SPARQLResultSolution<Term>(bindings: bindings)
         }
         
         return AnyIterator {
@@ -865,9 +865,9 @@ extension SimpleQueryEvaluatorProtocol {
         }
     }
     
-    public func evaluateWindow(algebra child: Algebra, function windowMap: Algebra.WindowFunctionMapping, activeGraph: Term) throws -> AnyIterator<TermResult> {
+    public func evaluateWindow(algebra child: Algebra, function windowMap: Algebra.WindowFunctionMapping, activeGraph: Term) throws -> AnyIterator<SPARQLResultSolution<Term>> {
         let i = try self.evaluate(algebra: child, activeGraph: activeGraph)
-        var groupBuckets = [String:[TermResult]]()
+        var groupBuckets = [String:[SPARQLResultSolution<Term>]]()
         let application = windowMap.windowApplication
         let partitions = application.partition
         for result in i {
@@ -897,8 +897,8 @@ extension SimpleQueryEvaluatorProtocol {
         }
         
         let name = windowMap.variableName
-        let results = try groups.map { (results) -> [TermResult] in
-            var newResults = [TermResult]()
+        let results = try groups.map { (results) -> [SPARQLResultSolution<Term>] in
+            var newResults = [SPARQLResultSolution<Term>]()
             let sorted = comparators.isEmpty ? results : evaluateSort(results, comparators: comparators)
 
             switch f {
@@ -1007,7 +1007,7 @@ extension SimpleQueryEvaluatorProtocol {
         }
     }
     
-    public func evaluatePath(subject: Node, object: Node, graph: Term, path: PropertyPath) throws -> AnyIterator<TermResult> {
+    public func evaluatePath(subject: Node, object: Node, graph: Term, path: PropertyPath) throws -> AnyIterator<SPARQLResultSolution<Term>> {
         switch path {
         case .link(let predicate):
             let quad = QuadPattern(subject: subject, predicate: .bound(predicate), object: object, graph: .bound(graph))
@@ -1056,7 +1056,7 @@ extension SimpleQueryEvaluatorProtocol {
                 var i = v.makeIterator()
                 return AnyIterator {
                     guard let t = i.next() else { return nil }
-                    let r = TermResult(bindings: [oname: t])
+                    let r = SPARQLResultSolution<Term>(bindings: [oname: t])
                     return r
                 }
             case (.variable(_), .bound(_)):
@@ -1071,13 +1071,13 @@ extension SimpleQueryEvaluatorProtocol {
                     }
                 }
                 
-                var results = [TermResult]()
+                var results = [SPARQLResultSolution<Term>]()
                 if v.contains(oterm) {
-                    results.append(TermResult(bindings: [:]))
+                    results.append(SPARQLResultSolution<Term>(bindings: [:]))
                 }
                 return AnyIterator(results.makeIterator())
             case (.variable(let sname, binding: _), .variable(_)):
-                var results = [TermResult]()
+                var results = [SPARQLResultSolution<Term>]()
                 for t in evaluateGraphTerms(in: graph) {
                     let i = try evaluatePath(subject: .bound(t), object: object, graph: graph, path: pp)
                     let j = i.map {
@@ -1093,7 +1093,7 @@ extension SimpleQueryEvaluatorProtocol {
                 let i = try alp(term: t, path: pp, graph: graph)
                 return AnyIterator {
                     guard let o = i.next() else { return nil }
-                    let r = TermResult(bindings: [oname: o])
+                    let r = SPARQLResultSolution<Term>(bindings: [oname: o])
                     return r
                 }
             case (.variable(_), .bound(_)):
@@ -1103,13 +1103,13 @@ extension SimpleQueryEvaluatorProtocol {
                 var v = Set<Term>()
                 try alp(term: t, path: path, seen: &v, graph: graph)
                 
-                var results = [TermResult]()
+                var results = [SPARQLResultSolution<Term>]()
                 if v.contains(oterm) {
-                    results.append(TermResult(bindings: [:]))
+                    results.append(SPARQLResultSolution<Term>(bindings: [:]))
                 }
                 return AnyIterator(results.makeIterator())
             case let (.variable(sname, binding: _), .variable(_)):
-                var results = [TermResult]()
+                var results = [SPARQLResultSolution<Term>]()
                 for t in evaluateGraphTerms(in: graph) {
                     let i = try evaluatePath(subject: .bound(t), object: object, graph: graph, path: path)
                     let j = i.map {
@@ -1123,36 +1123,36 @@ extension SimpleQueryEvaluatorProtocol {
             switch (subject, object) {
             case (.bound(let x), .variable(let oname, binding: _)):
                 // eval(Path(X:term, ZeroOrOnePath(P), Y:var)) = { (Y, yn) | yn = X or {(Y, yn)} in eval(Path(X,P,Y)) }
-                var results = Set<TermResult>()
-                results.insert(TermResult(bindings: [oname: x]))
+                var results = Set<SPARQLResultSolution<Term>>()
+                results.insert(SPARQLResultSolution<Term>(bindings: [oname: x]))
                 let i = try evaluatePath(subject: subject, object: object, graph: graph, path: pp)
                 results.formUnion(i)
                 return AnyIterator(results.makeIterator())
             case (.variable(let sname, binding: _), .bound(let y)):
                 // eval(Path(X:var, ZeroOrOnePath(P), Y:term)) = { (X, xn) | xn = Y or {(X, xn)} in eval(Path(X,P,Y)) }
-                var results = Set<TermResult>()
-                results.insert(TermResult(bindings: [sname: y]))
+                var results = Set<SPARQLResultSolution<Term>>()
+                results.insert(SPARQLResultSolution<Term>(bindings: [sname: y]))
                 let i = try evaluatePath(subject: subject, object: object, graph: graph, path: pp)
                 results.formUnion(i)
                 return AnyIterator(results.makeIterator())
             case (.bound(let s), .bound(let o)) where s == o:
-                let results = [TermResult(bindings: [:])]
+                let results = [SPARQLResultSolution<Term>(bindings: [:])]
                 return AnyIterator(results.makeIterator())
             case (.bound(_), .bound(_)):
                 // eval(Path(X:term, ZeroOrOnePath(P), Y:term)) =
                 //     { {} } if X = Y or eval(Path(X,P,Y)) is not empty
                 //     { } othewise
-                var results = [TermResult]()
+                var results = [SPARQLResultSolution<Term>]()
                 let i = try evaluatePath(subject: subject, object: object, graph: graph, path: pp)
                 if let _ = i.next() {
-                    results.append(TermResult(bindings: [:]))
+                    results.append(SPARQLResultSolution<Term>(bindings: [:]))
                 }
                 return AnyIterator(results.makeIterator())
             case (.variable(let sname, binding: _), .variable(let oname, binding: _)):
                 // eval(Path(X:var, ZeroOrOnePath(P), Y:var)) = { (X, xn) (Y, yn) | either (yn in nodes(G) and xn = yn) or {(X,xn), (Y,yn)} in eval(Path(X,P,Y)) }
-                var results = [TermResult]()
+                var results = [SPARQLResultSolution<Term>]()
                 for t in evaluateGraphTerms(in: graph) {
-                    results.append(TermResult(bindings: [sname: t, oname: t]))
+                    results.append(SPARQLResultSolution<Term>(bindings: [sname: t, oname: t]))
                 }
                 let i = try evaluatePath(subject: subject, object: object, graph: graph, path: pp)
                 results.append(contentsOf: i)
@@ -1161,12 +1161,12 @@ extension SimpleQueryEvaluatorProtocol {
         }
     }
     
-    internal func evaluateNPS(subject: Node, object: Node, graph: Term, not iris: [Term]) throws -> AnyIterator<TermResult> {
+    internal func evaluateNPS(subject: Node, object: Node, graph: Term, not iris: [Term]) throws -> AnyIterator<SPARQLResultSolution<Term>> {
         let predicate = self.freshVariable()
         let quad = QuadPattern(subject: subject, predicate: predicate, object: object, graph: .bound(graph))
         let i = try evaluate(quad: quad)
         // OPTIMIZE: this can be made more efficient by adding an NPS function to the store,
-        //           and allowing it to do the filtering based on a IDResult objects before
+        //           and allowing it to do the filtering based on a SPARQLResultSolution<UInt64> objects before
         //           materializing the terms
         let set = Set(iris)
         var keys = Set<String>()
@@ -1185,9 +1185,9 @@ extension SimpleQueryEvaluatorProtocol {
         }
     }
     
-    public func evaluateAggregation(algebra child: Algebra, groups: [Expression], aggregations aggs: Set<Algebra.AggregationMapping>, activeGraph: Term) throws -> AnyIterator<TermResult> {
+    public func evaluateAggregation(algebra child: Algebra, groups: [Expression], aggregations aggs: Set<Algebra.AggregationMapping>, activeGraph: Term) throws -> AnyIterator<SPARQLResultSolution<Term>> {
         let i = try self.evaluate(algebra: child, activeGraph: activeGraph)
-        var groupBuckets = [String:[TermResult]]()
+        var groupBuckets = [String:[SPARQLResultSolution<Term>]]()
         var groupBindings = [String:[String:Term]]()
         
         for result in i {
@@ -1213,7 +1213,7 @@ extension SimpleQueryEvaluatorProtocol {
             groupBindings[""] = [:]
         }
         var a = groupBuckets.makeIterator()
-        return AnyIterator { () -> TermResult? in
+        return AnyIterator { () -> SPARQLResultSolution<Term>? in
             guard let pair = a.next() else { return nil }
             let (groupKey, results) = pair
             guard var bindings = groupBindings[groupKey] else {
@@ -1227,18 +1227,18 @@ extension SimpleQueryEvaluatorProtocol {
                     bindings[name] = term
                 }
             }
-            return TermResult(bindings: bindings)
+            return SPARQLResultSolution<Term>(bindings: bindings)
         }
     }
     
-    private func comparisonTerms(from term: TermResult, using comparators: [Algebra.SortComparator]) -> [Term?] {
+    private func comparisonTerms(from term: SPARQLResultSolution<Term>, using comparators: [Algebra.SortComparator]) -> [Term?] {
         let terms = comparators.map { (cmp) -> Term? in
             return try? self.ee.evaluate(expression: cmp.expression, result: term)
         }
         return terms
     }
     
-    public func resultsAreEqual(_ a : TermResult, _ b : TermResult, usingComparators comparators: [Algebra.SortComparator]) -> Bool {
+    public func resultsAreEqual(_ a : SPARQLResultSolution<Term>, _ b : SPARQLResultSolution<Term>, usingComparators comparators: [Algebra.SortComparator]) -> Bool {
         if comparators.isEmpty {
             return a == b
         }
@@ -1257,7 +1257,7 @@ extension SimpleQueryEvaluatorProtocol {
         return true
     }
     
-    public func evaluateSort<S: Sequence>(_ results: S, comparators: [Algebra.SortComparator]) -> [TermResult] where S.Element == TermResult {
+    public func evaluateSort<S: Sequence>(_ results: S, comparators: [Algebra.SortComparator]) -> [SPARQLResultSolution<Term>] where S.Element == SPARQLResultSolution<Term> {
         let elements = results.map { (r) -> SortElem in
             let terms = comparators.map { (cmp) in
                 try? self.ee.evaluate(expression: cmp.expression, result: r)
@@ -1286,7 +1286,7 @@ extension SimpleQueryEvaluatorProtocol {
         return sorted.map { $0.result }
     }
     
-    public func evaluate(bgp patterns: [TriplePattern], activeGraph: Term) throws -> AnyIterator<TermResult> {
+    public func evaluate(bgp patterns: [TriplePattern], activeGraph: Term) throws -> AnyIterator<SPARQLResultSolution<Term>> {
         let bgp: Algebra = .bgp(patterns)
         let projection = bgp.inscope
         let triples : [Algebra] = patterns.map { $0.bindingAllVariables }.map { .triple($0) }
@@ -1295,7 +1295,7 @@ extension SimpleQueryEvaluatorProtocol {
         return try evaluate(algebra: algebra, activeGraph: activeGraph)
     }
     
-    public func triples<S : Sequence>(describing node: Node, from results: S) throws -> AnyIterator<Triple> where S.Element == TermResult {
+    public func triples<S : Sequence>(describing node: Node, from results: S) throws -> AnyIterator<Triple> where S.Element == SPARQLResultSolution<Term> {
         switch node {
         case .bound(let term):
             return try triples(describing: term)
@@ -1311,7 +1311,7 @@ extension SimpleQueryEvaluatorProtocol {
         }
     }
     
-    public func triples<S : Sequence>(from results: S, with template: [TriplePattern]) -> [Triple] where S.Element == TermResult {
+    public func triples<S : Sequence>(from results: S, with template: [TriplePattern]) -> [Triple] where S.Element == SPARQLResultSolution<Term> {
         var triples = Set<Triple>()
         for r in results {
             for tp in template {
@@ -1374,7 +1374,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol>: SimpleQueryEvaluatorProto
     }
     
     
-    public func evaluate(bgp patterns: [TriplePattern], activeGraph: Term) throws -> AnyIterator<TermResult> {
+    public func evaluate(bgp patterns: [TriplePattern], activeGraph: Term) throws -> AnyIterator<SPARQLResultSolution<Term>> {
         if let s = store as? BGPQuadStoreProtocol {
             return try s.results(matching: patterns, in: activeGraph)
         } else {
@@ -1389,7 +1389,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol>: SimpleQueryEvaluatorProto
         }
     }
     
-    public func evaluate(quad: QuadPattern) throws -> AnyIterator<TermResult> {
+    public func evaluate(quad: QuadPattern) throws -> AnyIterator<SPARQLResultSolution<Term>> {
         return try store.results(matching: quad)
     }
 
@@ -1484,7 +1484,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol>: SimpleQueryEvaluatorProto
         }
     }
 
-    public func evaluate(algebra child: Algebra, inGraph graph: Node) throws -> AnyIterator<TermResult> {
+    public func evaluate(algebra child: Algebra, inGraph graph: Node) throws -> AnyIterator<SPARQLResultSolution<Term>> {
         guard case .variable(let gv, let bind) = graph else {
             Logger.shared.error("Unexpected variable found during named graph evaluation")
             throw QueryError.evaluationError("Unexpected variable found during named graph evaluation")

@@ -34,7 +34,7 @@ public protocol QuadStoreProtocol {
     func graphs() -> AnyIterator<Term>
     func graphTerms(in: Term) -> AnyIterator<Term>
     func makeIterator() -> AnyIterator<Quad>
-    func results(matching pattern: QuadPattern) throws -> AnyIterator<TermResult>
+    func results(matching pattern: QuadPattern) throws -> AnyIterator<SPARQLResultSolution<Term>>
     func quads(matching pattern: QuadPattern) throws -> AnyIterator<Quad>
     func countQuads(matching pattern: QuadPattern) throws -> Int
     func effectiveVersion(matching pattern: QuadPattern) throws -> Version?
@@ -47,7 +47,7 @@ public protocol LanguageAwareQuadStore: QuadStoreProtocol {
 }
 
 public protocol BGPQuadStoreProtocol: QuadStoreProtocol {
-    func results(matching bgp: [TriplePattern], in graph: Term) throws -> AnyIterator<TermResult>
+    func results(matching bgp: [TriplePattern], in graph: Term) throws -> AnyIterator<SPARQLResultSolution<Term>>
 }
 
 public enum MutableQuadStoreProtocolError: Error {
@@ -279,11 +279,11 @@ public struct IDQuad<T: DefinedTestable & Equatable & Comparable & BufferSeriali
 public enum PushQueryResult {
     case boolean(Bool)
     case triple(Triple)
-    case binding([String], TermResult)
+    case binding([String], SPARQLResultSolution<Term>)
 }
 
 
-public enum QueryResult<S, T> where S: Sequence, S.Element == TermResult, T: Sequence, T.Element == Triple {
+public enum QueryResult<S, T> where S: Sequence, S.Element == SPARQLResultSolution<Term>, T: Sequence, T.Element == Triple {
     case boolean(Bool)
     case triples(T)
     case bindings([String], S)
@@ -336,9 +336,9 @@ extension QueryResult: Equatable {
         return (withBlanks, withoutBlanks, Array(blanks))
     }
     
-    private static func splitBindingsWithBlanks(_ bindings: S) -> ([TermResult], [TermResult], [String]) {
-        var withBlanks = [TermResult]()
-        var withoutBlanks = [TermResult]()
+    private static func splitBindingsWithBlanks(_ bindings: S) -> ([SPARQLResultSolution<Term>], [SPARQLResultSolution<Term>], [String]) {
+        var withBlanks = [SPARQLResultSolution<Term>]()
+        var withoutBlanks = [SPARQLResultSolution<Term>]()
         var blanks = Set<String>()
         for r in bindings {
             var hasBlanks = false
@@ -455,14 +455,14 @@ extension QueryResult: Equatable {
                     (lblanks[i], rblanks[j])
                 })
                 
-                let lbMapped = lb.map { (r) -> TermResult in
+                let lbMapped = lb.map { (r) -> SPARQLResultSolution<Term> in
                     let bindings = r.bindings.mapValues { (t) -> Term in
                         guard t.type == .blank else { return t }
                         let name = t.value
                         let ident = map[name] ?? name
                         return Term(value: ident, type: .blank)
                     }
-                    return TermResult(bindings: bindings)
+                    return SPARQLResultSolution<Term>(bindings: bindings)
                 }
                 if Set(lbMapped) == Set(rb) {
                     return true
@@ -488,6 +488,7 @@ extension QueryResult: Equatable {
         }
     }
 }
+
 public protocol ResultProtocol: Hashable, Sequence {
     associatedtype TermType: Hashable
     init(bindings: [String:TermType])
@@ -497,208 +498,7 @@ public protocol ResultProtocol: Hashable, Sequence {
     mutating func extend(variable: String, value: TermType) throws
     func extended(variable: String, value: TermType) -> Self?
     func projected(variables: Set<String>) -> Self
-    var hashValue: Int { get }
+    func removing(variables: Set<String>) -> Self
 }
 
-extension ResultProtocol {
-    public func hash(into hasher: inout Hasher) {
-        for k in keys.sorted() {
-            hasher.combine(self[k])
-        }
-    }
-}
-
-public struct TermResult: CustomStringConvertible, ResultProtocol {
-    public typealias TermType = Term
-    internal var bindings: [String:TermType]
-    public var keys: [String] { return Array(bindings.keys) }
-
-    public init(bindings: [String:TermType]) {
-        self.bindings = bindings
-    }
-
-    public func makeIterator() -> DictionaryIterator<String, TermType> {
-        let i = bindings.makeIterator()
-        return i
-    }
-    
-    public func join(_ rhs: TermResult) -> TermResult? {
-        let lvars = Set(bindings.keys)
-        let rvars = Set(rhs.bindings.keys)
-        let shared = lvars.intersection(rvars)
-        for key in shared {
-            guard bindings[key] == rhs.bindings[key] else { return nil }
-        }
-        var b = bindings
-        for (k, v) in rhs.bindings {
-            b[k] = v
-        }
-
-        let result = TermResult(bindings: b)
-//        print("]]]] \(self) |><| \(rhs) ==> \(result)")
-        return result
-    }
-
-    public func projected(variables: Set<String>) -> TermResult {
-        var bindings = [String:TermType]()
-        for name in variables {
-            if let term = self[name] {
-                bindings[name] = term
-            }
-        }
-        return TermResult(bindings: bindings)
-    }
-    
-    public func removing(variables: Set<String>) -> TermResult {
-        var bindings = [String:TermType]()
-        for (k, v) in self.bindings {
-            if !variables.contains(k) {
-                bindings[k] = v
-            }
-        }
-        return TermResult(bindings: bindings)
-    }
-    
-    public subscript(key: Node) -> TermType? {
-        get {
-            switch key {
-            case .variable(let name, _):
-                return bindings[name]
-            default:
-                return nil
-            }
-        }
-
-        set(value) {
-            if case .variable(let name, _) = key {
-                bindings[name] = value
-            }
-        }
-    }
-
-    public subscript(key: String) -> TermType? {
-        get {
-            return bindings[key]
-        }
-
-        set(value) {
-            bindings[key] = value
-        }
-    }
-
-    public var description: String {
-        let pairs = bindings.sorted { $0.0 < $1.0 }.map { "\($0): \($1)" }.joined(separator: ", ")
-        return "Result[\(pairs)]"
-    }
-
-    public mutating func extend(variable: String, value: TermType) throws {
-        if let existing = self.bindings[variable] {
-            if existing != value {
-                throw QueryError.compatabilityError("Cannot extend solution mapping due to existing incompatible term value")
-            }
-        }
-        self.bindings[variable] = value
-    }
-
-    public func extended(variable: String, value: TermType) -> TermResult? {
-        var b = bindings
-        if let existing = b[variable] {
-            if existing != value {
-                print("*** cannot extend result with new term: (\(variable) <- \(value); \(self)")
-                return nil
-            }
-        }
-        b[variable] = value
-        return TermResult(bindings: b)
-    }
-
-    public static func == (lhs: TermResult, rhs: TermResult) -> Bool {
-        let lkeys = Array(lhs.keys).sorted()
-        let rkeys = Array(rhs.keys).sorted()
-        guard lkeys == rkeys else { return false }
-        for key in lkeys {
-            let lvalue = lhs[key]
-            let rvalue = rhs[key]
-            guard lvalue == rvalue else { return false }
-        }
-        //    print("EQUAL-TO ==> \(lhs) === \(rhs)")
-        return true
-    }
-}
-
-public struct IDResult: CustomStringConvertible, ResultProtocol {
-    public typealias TermType = UInt64
-    var bindings: [String:TermType]
-    public var keys: [String] { return Array(bindings.keys) }
-    public init(bindings: [String:TermType]) {
-        self.bindings = bindings
-    }
-    public func join(_ rhs: IDResult) -> IDResult? {
-        let lvars = Set(bindings.keys)
-        let rvars = Set(rhs.bindings.keys)
-        let shared = lvars.intersection(rvars)
-        for key in shared {
-            guard bindings[key] == rhs.bindings[key] else { return nil }
-        }
-        var b = bindings
-        for (k, v) in rhs.bindings {
-            b[k] = v
-        }
-        return IDResult(bindings: b)
-    }
-
-    public func makeIterator() -> DictionaryIterator<String, TermType> {
-        let i = bindings.makeIterator()
-        return i
-    }
-
-    public func projected(variables: Set<String>) -> IDResult {
-        var bindings = [String:TermType]()
-        for name in variables {
-            if let term = self[name] {
-                bindings[name] = term
-            }
-        }
-        return IDResult(bindings: bindings)
-    }
-
-    public subscript(key: String) -> TermType? {
-        return bindings[key]
-    }
-
-    public var description: String {
-        return "Result\(bindings.description)"
-    }
-
-    public mutating func extend(variable: String, value: TermType) throws {
-        if let existing = self.bindings[variable] {
-            if existing != value {
-                throw QueryError.compatabilityError("Cannot extend solution mapping due to existing incompatible term value")
-            }
-        }
-        self.bindings[variable] = value
-    }
-
-    public func extended(variable: String, value: TermType) -> IDResult? {
-        var b = bindings
-        if let existing = b[variable] {
-            if existing != value {
-                return nil
-            }
-        }
-        b[variable] = value
-        return IDResult(bindings: b)
-    }
-
-    public static func == (lhs: IDResult, rhs: IDResult) -> Bool {
-        let lkeys = Array(lhs.keys).sorted()
-        let rkeys = Array(rhs.keys).sorted()
-        guard lkeys == rkeys else { return false }
-        for key in lkeys {
-            let lvalue = lhs[key]
-            let rvalue = rhs[key]
-            guard lvalue == rvalue else { return false }
-        }
-        return true
-    }
-}
+extension SPARQLResultSolution: ResultProtocol {}

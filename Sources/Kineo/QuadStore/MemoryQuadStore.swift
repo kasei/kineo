@@ -101,7 +101,7 @@ open class MemoryQuadStore: Sequence, MutableQuadStoreProtocol {
         return AnyIterator(quads.makeIterator())
     }
     
-    public func results(matching pattern: QuadPattern) throws -> AnyIterator<TermResult> {
+    public func results(matching pattern: QuadPattern) throws -> AnyIterator<SPARQLResultSolution<Term>> {
         var map = [String: KeyPath<Quad, Term>]()
         for (node, path) in zip(pattern, QuadPattern.groundKeyPaths) {
             switch node {
@@ -112,12 +112,12 @@ open class MemoryQuadStore: Sequence, MutableQuadStoreProtocol {
             }
         }
         let matching = try quads(matching: pattern)
-        let bindings = matching.map { (quad) -> TermResult in
+        let bindings = matching.map { (quad) -> SPARQLResultSolution<Term> in
             var dict = [String:Term]()
             for (name, path) in map {
                 dict[name] = quad[keyPath: path]
             }
-            return TermResult(bindings: dict)
+            return SPARQLResultSolution<Term>(bindings: dict)
         }
         return AnyIterator(bindings.makeIterator())
     }
@@ -311,7 +311,7 @@ open class LanguageMemoryQuadStore: Sequence, LanguageAwareQuadStore, MutableQua
         return try quadstore.effectiveVersion(matching: pattern)
     }
     
-    public func results(matching pattern: QuadPattern) throws -> AnyIterator<TermResult> {
+    public func results(matching pattern: QuadPattern) throws -> AnyIterator<SPARQLResultSolution<Term>> {
         var map = [String: KeyPath<Quad, Term>]()
         for (node, path) in zip(pattern, QuadPattern.groundKeyPaths) {
             switch node {
@@ -322,12 +322,12 @@ open class LanguageMemoryQuadStore: Sequence, LanguageAwareQuadStore, MutableQua
             }
         }
         let matching = try quads(matching: pattern)
-        let bindings = matching.map { (quad) -> TermResult in
+        let bindings = matching.map { (quad) -> SPARQLResultSolution<Term> in
             var dict = [String:Term]()
             for (name, path) in map {
                 dict[name] = quad[keyPath: path]
             }
-            return TermResult(bindings: dict)
+            return SPARQLResultSolution<Term>(bindings: dict)
         }
         return AnyIterator(bindings.makeIterator())
     }

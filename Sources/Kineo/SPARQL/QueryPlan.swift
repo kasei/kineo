@@ -24,7 +24,7 @@ public protocol QueryPlan: PlanSerializable {
     var selfDescription: String { get }
     var children : [QueryPlan] { get }
     var properties: [PlanSerializable] { get }
-    func evaluate() throws -> AnyIterator<TermResult>
+    func evaluate() throws -> AnyIterator<SPARQLResultSolution<Term>>
     var isJoinIdentity: Bool { get }
     var isUnionIdentity: Bool { get }
 }
@@ -92,8 +92,8 @@ public struct TablePlan: NullaryQueryPlan {
     public var selfDescription: String { return "Table { \(columns) ; \(rows.count) rows }" }
     public static var joinIdentity = TablePlan(columns: [], rows: [[]])
     public static var unionIdentity = TablePlan(columns: [], rows: [])
-    public func evaluate() throws -> AnyIterator<TermResult> {
-        var results = [TermResult]()
+    public func evaluate() throws -> AnyIterator<SPARQLResultSolution<Term>> {
+        var results = [SPARQLResultSolution<Term>]()
         for row in rows {
             var bindings = [String:Term]()
             for (node, term) in zip(columns, row) {
@@ -105,7 +105,7 @@ public struct TablePlan: NullaryQueryPlan {
                     bindings[name] = term
                 }
             }
-            let result = TermResult(bindings: bindings)
+            let result = SPARQLResultSolution<Term>(bindings: bindings)
             results.append(result)
         }
         return AnyIterator(results.makeIterator())
@@ -116,7 +116,7 @@ public struct QuadPlan: NullaryQueryPlan {
     var quad: QuadPattern
     var store: QuadStoreProtocol
     public var selfDescription: String { return "Quad(\(quad))" }
-    public func evaluate() throws -> AnyIterator<TermResult> {
+    public func evaluate() throws -> AnyIterator<SPARQLResultSolution<Term>> {
         return try store.results(matching: quad)
     }
     public var isJoinIdentity: Bool { return false }
@@ -127,10 +127,10 @@ public struct NestedLoopJoinPlan: BinaryQueryPlan {
     public var lhs: QueryPlan
     public var rhs: QueryPlan
     public var selfDescription: String { return "Nested Loop Join" }
-    public func evaluate() throws -> AnyIterator<TermResult> {
+    public func evaluate() throws -> AnyIterator<SPARQLResultSolution<Term>> {
         let l = try Array(lhs.evaluate())
         let r = try rhs.evaluate()
-        var results = [TermResult]()
+        var results = [SPARQLResultSolution<Term>]()
         for rresult in r {
             for lresult in l {
                 if let j = lresult.join(rresult) {
@@ -147,12 +147,12 @@ public struct HashJoinPlan: BinaryQueryPlan {
     public var rhs: QueryPlan
     var joinVariables: Set<String>
     public var selfDescription: String { return "Hash Join { \(joinVariables) }" }
-    public func evaluate() throws -> AnyIterator<TermResult> {
+    public func evaluate() throws -> AnyIterator<SPARQLResultSolution<Term>> {
         let joinVariables = self.joinVariables
         let l = try lhs.evaluate()
         let r = try rhs.evaluate()
-        var table = [TermResult:[TermResult]]()
-        var unboundTable = [TermResult]()
+        var table = [SPARQLResultSolution<Term>:[SPARQLResultSolution<Term>]]()
+        var unboundTable = [SPARQLResultSolution<Term>]()
         //    warn(">>> filling hash table")
         var count = 0
         for result in r {
@@ -166,7 +166,7 @@ public struct HashJoinPlan: BinaryQueryPlan {
         }
         //    warn(">>> done (\(count) results in \(Array(table.keys).count) buckets)")
         
-        var buffer = [TermResult]()
+        var buffer = [SPARQLResultSolution<Term>]()
         return AnyIterator {
             repeat {
                 if buffer.count > 0 {
@@ -175,7 +175,7 @@ public struct HashJoinPlan: BinaryQueryPlan {
                 }
                 guard let result = l.next() else { return nil }
                 let key = result.projected(variables: joinVariables)
-                var buckets = [TermResult]()
+                var buckets = [SPARQLResultSolution<Term>]()
                 if key.keys.count != joinVariables.count {
                     for bucket in table.keys {
                         if let _ = bucket.join(result) {
@@ -212,11 +212,11 @@ public struct UnionPlan: BinaryQueryPlan {
         self.lhs = lhs
         self.rhs = rhs
     }
-    public func evaluate() throws -> AnyIterator<TermResult> {
+    public func evaluate() throws -> AnyIterator<SPARQLResultSolution<Term>> {
         let l = try lhs.evaluate()
         let r = try rhs.evaluate()
         var lok = true
-        let i = AnyIterator { () -> TermResult? in
+        let i = AnyIterator { () -> SPARQLResultSolution<Term>? in
             if lok, let ll = l.next() {
                 return ll
             } else {
@@ -235,7 +235,7 @@ public struct FilterPlan: UnaryQueryPlan {
     var expression: Expression
     var evaluator: ExpressionEvaluator
     public var selfDescription: String { return "Filter \(expression)" }
-    public func evaluate() throws -> AnyIterator<TermResult> {
+    public func evaluate() throws -> AnyIterator<SPARQLResultSolution<Term>> {
         let i = try child.evaluate()
         let expression = self.expression
         let evaluator = self.evaluator
@@ -259,7 +259,7 @@ public struct DiffPlan: BinaryQueryPlan {
     var expression: Expression
     var evaluator: ExpressionEvaluator
     public var selfDescription: String { return "Diff \(expression)" }
-    public func evaluate() throws -> AnyIterator<TermResult> {
+    public func evaluate() throws -> AnyIterator<SPARQLResultSolution<Term>> {
         let i = try lhs.evaluate()
         let r = try Array(rhs.evaluate())
         let evaluator = self.evaluator
@@ -294,12 +294,12 @@ public struct ExtendPlan: UnaryQueryPlan {
     var variable: String
     var evaluator: ExpressionEvaluator
     public var selfDescription: String { return "Extend ?\(variable) ← \(expression)" }
-    public func evaluate() throws -> AnyIterator<TermResult> {
+    public func evaluate() throws -> AnyIterator<SPARQLResultSolution<Term>> {
         let i = try child.evaluate()
         let expression = self.expression
         let evaluator = self.evaluator
         let variable = self.variable
-        let s = i.lazy.map { (r) -> TermResult in
+        let s = i.lazy.map { (r) -> SPARQLResultSolution<Term> in
 //            evaluator.nextResult()
             do {
                 let term = try evaluator.evaluate(expression: expression, result: r)
@@ -316,10 +316,10 @@ public struct NextRowPlan: UnaryQueryPlan {
     public var child: QueryPlan
     var evaluator: ExpressionEvaluator
     public var selfDescription: String { return "Next Row" }
-    public func evaluate() throws -> AnyIterator<TermResult> {
+    public func evaluate() throws -> AnyIterator<SPARQLResultSolution<Term>> {
         let i = try child.evaluate()
         let evaluator = self.evaluator
-        let s = i.lazy.map { (r) -> TermResult in
+        let s = i.lazy.map { (r) -> SPARQLResultSolution<Term> in
             evaluator.nextResult()
             return r
         }
@@ -331,7 +331,7 @@ public struct MinusPlan: BinaryQueryPlan {
     public var lhs: QueryPlan
     public var rhs: QueryPlan
     public var selfDescription: String { return "Minus" }
-    public func evaluate() throws -> AnyIterator<TermResult> {
+    public func evaluate() throws -> AnyIterator<SPARQLResultSolution<Term>> {
         let l = try lhs.evaluate()
         let r = try Array(rhs.evaluate())
         return AnyIterator {
@@ -363,7 +363,7 @@ public struct ProjectPlan: UnaryQueryPlan {
         self.variables = variables
     }
     public var selfDescription: String { return "Project { \(variables) }" }
-    public func evaluate() throws -> AnyIterator<TermResult> {
+    public func evaluate() throws -> AnyIterator<SPARQLResultSolution<Term>> {
         let vars = self.variables
         let s = try child.evaluate().lazy.map { $0.projected(variables: vars) }
         return AnyIterator(s.makeIterator())
@@ -374,7 +374,7 @@ public struct LimitPlan: UnaryQueryPlan {
     public var child: QueryPlan
     var limit: Int
     public var selfDescription: String { return "Limit { \(limit) }" }
-    public func evaluate() throws -> AnyIterator<TermResult> {
+    public func evaluate() throws -> AnyIterator<SPARQLResultSolution<Term>> {
         let s = try child.evaluate().prefix(limit)
         return AnyIterator(s.makeIterator())
     }
@@ -384,7 +384,7 @@ public struct OffsetPlan: UnaryQueryPlan {
     public var child: QueryPlan
     var offset: Int
     public var selfDescription: String { return "Offset { \(offset) }" }
-    public func evaluate() throws -> AnyIterator<TermResult> {
+    public func evaluate() throws -> AnyIterator<SPARQLResultSolution<Term>> {
         let s = try child.evaluate().lazy.dropFirst(offset)
         return AnyIterator(s.makeIterator())
     }
@@ -393,8 +393,8 @@ public struct OffsetPlan: UnaryQueryPlan {
 public struct DistinctPlan: UnaryQueryPlan {
     public var child: QueryPlan
     public var selfDescription: String { return "Distinct" }
-    public func evaluate() throws -> AnyIterator<TermResult> {
-        var seen = Set<TermResult>()
+    public func evaluate() throws -> AnyIterator<SPARQLResultSolution<Term>> {
+        var seen = Set<SPARQLResultSolution<Term>>()
         let s = try child.evaluate().lazy.filter { (r) -> Bool in
             if seen.contains(r) {
                 return false
@@ -410,9 +410,9 @@ public struct DistinctPlan: UnaryQueryPlan {
 public struct ReducedPlan: UnaryQueryPlan {
     public var child: QueryPlan
     public var selfDescription: String { return "Distinct" }
-    public func evaluate() throws -> AnyIterator<TermResult> {
-        var last: TermResult? = nil
-        let s = try child.evaluate().lazy.compactMap { (r) -> TermResult? in
+    public func evaluate() throws -> AnyIterator<SPARQLResultSolution<Term>> {
+        var last: SPARQLResultSolution<Term>? = nil
+        let s = try child.evaluate().lazy.compactMap { (r) -> SPARQLResultSolution<Term>? in
             if let l = last, l == r {
                 return nil
             }
@@ -439,7 +439,7 @@ public struct ServicePlan: NullaryQueryPlan {
     }
     
     public var selfDescription: String { return "Service \(silent ? "Silent " : "")<\(endpoint)>: \(query)" }
-    public func evaluate() throws -> AnyIterator<TermResult> {
+    public func evaluate() throws -> AnyIterator<SPARQLResultSolution<Term>> {
         do {
             let r = try client.execute(query)
             switch r {
@@ -456,7 +456,7 @@ public struct ServicePlan: NullaryQueryPlan {
 
 public struct OrderPlan: UnaryQueryPlan {
     fileprivate struct SortElem {
-        var result: TermResult
+        var result: SPARQLResultSolution<Term>
         var terms: [Term?]
     }
     
@@ -464,7 +464,7 @@ public struct OrderPlan: UnaryQueryPlan {
     var comparators: [Algebra.SortComparator]
     var evaluator: ExpressionEvaluator
     public var selfDescription: String { return "Order { \(comparators) }" }
-    public func evaluate() throws -> AnyIterator<TermResult> {
+    public func evaluate() throws -> AnyIterator<SPARQLResultSolution<Term>> {
         let evaluator = self.evaluator
         let results = try Array(child.evaluate())
         let elements = results.map { (r) -> SortElem in
@@ -520,17 +520,17 @@ public struct WindowPlan: UnaryQueryPlan {
         return "Window \(function.description))"
     }
     
-    private func partition<I: IteratorProtocol>(_ results: I, by partition: [Expression]) -> AnyIterator<AnyIterator<TermResult>> where I.Element == TermResult {
+    private func partition<I: IteratorProtocol>(_ results: I, by partition: [Expression]) -> AnyIterator<AnyIterator<SPARQLResultSolution<Term>>> where I.Element == SPARQLResultSolution<Term> {
         let ee = evaluator
         let seq = AnySequence { return results }
-        let withGroups = seq.lazy.map { (r) -> (TermResult, [Term?]) in
+        let withGroups = seq.lazy.map { (r) -> (SPARQLResultSolution<Term>, [Term?]) in
             let group = partition.map { try? ee.evaluate(expression: $0, result: r) }
             return (r, group)
         }
-        var buffer = [TermResult]()
+        var buffer = [SPARQLResultSolution<Term>]()
         var currentGroup = [Term?]()
         var i = withGroups.makeIterator()
-        let grouped = AnyIterator { () -> AnyIterator<TermResult>? in
+        let grouped = AnyIterator { () -> AnyIterator<SPARQLResultSolution<Term>>? in
             while true {
                 guard let pair = i.next() else {
                     if buffer.isEmpty {
@@ -558,14 +558,14 @@ public struct WindowPlan: UnaryQueryPlan {
         return grouped
     }
     
-    private func comparisonTerms(from term: TermResult, using comparators: [Algebra.SortComparator]) -> [Term?] {
+    private func comparisonTerms(from term: SPARQLResultSolution<Term>, using comparators: [Algebra.SortComparator]) -> [Term?] {
         let terms = comparators.map { (cmp) -> Term? in
             return try? evaluator.evaluate(expression: cmp.expression, result: term)
         }
         return terms
     }
     
-    private func resultsAreEqual(_ a : TermResult, _ b : TermResult, usingComparators comparators: [Algebra.SortComparator]) -> Bool {
+    private func resultsAreEqual(_ a : SPARQLResultSolution<Term>, _ b : SPARQLResultSolution<Term>, usingComparators comparators: [Algebra.SortComparator]) -> Bool {
         if comparators.isEmpty {
             return a == b
         }
@@ -584,7 +584,7 @@ public struct WindowPlan: UnaryQueryPlan {
         return true
     }
     
-    public func evaluate() throws -> AnyIterator<TermResult> {
+    public func evaluate() throws -> AnyIterator<SPARQLResultSolution<Term>> {
         let app = function.windowApplication
         let group = app.partition
         let results = try child.evaluate()
@@ -599,11 +599,11 @@ public struct WindowPlan: UnaryQueryPlan {
         case .rank, .denseRank:
             // RANK ignores any specified window frame
             let order = app.comparators
-            let groups = AnySequence(partitionGroups).lazy.map { (g) -> [TermResult] in
+            let groups = AnySequence(partitionGroups).lazy.map { (g) -> [SPARQLResultSolution<Term>] in
                 var rank = 0
                 var increment = 1
-                var last: TermResult? = nil
-                let groupResults = g.map { (r) -> TermResult in
+                var last: SPARQLResultSolution<Term>? = nil
+                let groupResults = g.map { (r) -> SPARQLResultSolution<Term> in
                     if let last = last {
                         if !self.resultsAreEqual(last, r, usingComparators: order) {
                             rank += increment
@@ -624,8 +624,8 @@ public struct WindowPlan: UnaryQueryPlan {
             return AnyIterator(groupsResults.makeIterator())
         case .rowNumber:
             // ROW_NUMBER ignores any specified window frame
-            let groups = AnySequence(partitionGroups).lazy.map { (g) -> [TermResult] in
-                let groupResults = g.lazy.enumerated().map { (i, r) -> TermResult in
+            let groups = AnySequence(partitionGroups).lazy.map { (g) -> [SPARQLResultSolution<Term>] in
+                let groupResults = g.lazy.enumerated().map { (i, r) -> SPARQLResultSolution<Term> in
                     let rr = r.extended(variable: v, value: Term(integer: i+1)) ?? r
                     return rr
                 }
@@ -636,14 +636,14 @@ public struct WindowPlan: UnaryQueryPlan {
         case .ntile(let n):
             // NTILE ignores any specified window frame
             let order = app.comparators
-            let groups = AnySequence(partitionGroups).lazy.map { (g) -> [TermResult] in
+            let groups = AnySequence(partitionGroups).lazy.map { (g) -> [SPARQLResultSolution<Term>] in
                 let sorted = Array(g)
                 let peerGroupsCount = Set(sorted.map { self.comparisonTerms(from: $0, using: order) }).count
                 let nSize = peerGroupsCount / n
                 let nLarge = peerGroupsCount - n*nSize
                 let iSmall = nLarge * (nSize+1)
-                var last: TermResult? = nil
-                var groupResults = [TermResult]()
+                var last: SPARQLResultSolution<Term>? = nil
+                var groupResults = [SPARQLResultSolution<Term>]()
                 var iRow = -1
                 for r in sorted {
                     if let last = last {
@@ -671,7 +671,7 @@ public struct WindowPlan: UnaryQueryPlan {
         case .aggregation(let agg):
             let frame = app.frame
             let seq = AnySequence(partitionGroups)
-            let groups = try seq.lazy.map { (g) -> [TermResult] in
+            let groups = try seq.lazy.map { (g) -> [SPARQLResultSolution<Term>] in
                 let impl = windowAggregation(agg)
                 let groupResults = try impl.evaluate(
                     g,
@@ -690,8 +690,8 @@ public struct WindowPlan: UnaryQueryPlan {
         /**
          
          For each group:
-            * Buffer each TermResult in the group
-            * create a sequence that will emit a Sequence<TermResult> with the window value
+            * Buffer each SPARQLResultSolution<Term> in the group
+            * create a sequence that will emit a Sequence<SPARQLResultSolution<Term>> with the window value
             * zip the group buffer and the window sequence, produing a joined result sequence
          Return the concatenation of each group's zipped result sequence
          
@@ -699,11 +699,11 @@ public struct WindowPlan: UnaryQueryPlan {
     }
     
     struct SlidingWindowImplementation {
-        var add: (TermResult) -> ()
-        var remove: (TermResult) -> ()
+        var add: (SPARQLResultSolution<Term>) -> ()
+        var remove: (SPARQLResultSolution<Term>) -> ()
         var value: () -> Term?
 
-        func evaluate<I: IteratorProtocol>(_ group: I, frame: WindowFrame, variableName: String, evaluator: ExpressionEvaluator) throws -> AnyIterator<TermResult> where I.Element == TermResult {
+        func evaluate<I: IteratorProtocol>(_ group: I, frame: WindowFrame, variableName: String, evaluator: ExpressionEvaluator) throws -> AnyIterator<SPARQLResultSolution<Term>> where I.Element == SPARQLResultSolution<Term> {
             // This is broken down into several different methods that each implement
             // a different frame bound type (e.g. anything to current row, anything
             // from current row, unbounded/preceding(n) to preceding(m), etc.)
@@ -730,13 +730,13 @@ public struct WindowPlan: UnaryQueryPlan {
             }
         }
         
-        func evaluateComplete<I: IteratorProtocol>(_ group: I, frame: WindowFrame, variableName: String, evaluator: ExpressionEvaluator) throws -> AnyIterator<TermResult> where I.Element == TermResult {
+        func evaluateComplete<I: IteratorProtocol>(_ group: I, frame: WindowFrame, variableName: String, evaluator: ExpressionEvaluator) throws -> AnyIterator<SPARQLResultSolution<Term>> where I.Element == SPARQLResultSolution<Term> {
             var group = group
             var buffer = Array(consuming: &group)
             buffer.forEach { self.add($0) }
             let value = self.value()
             
-            let i = AnyIterator { () -> TermResult? in
+            let i = AnyIterator { () -> SPARQLResultSolution<Term>? in
                 guard !buffer.isEmpty else { return nil }
                 let r = buffer.removeFirst()
                 var result = r
@@ -748,8 +748,8 @@ public struct WindowPlan: UnaryQueryPlan {
             return i
         }
         
-        func evaluateFromFollowing<I: IteratorProtocol>(_ group: I, frame: WindowFrame, variableName: String, evaluator: ExpressionEvaluator, bound toPrecedingExpression: Expression) throws -> AnyIterator<TermResult> where I.Element == TermResult {
-            let fflt = try evaluator.evaluate(expression: toPrecedingExpression, result: TermResult(bindings: [:]))
+        func evaluateFromFollowing<I: IteratorProtocol>(_ group: I, frame: WindowFrame, variableName: String, evaluator: ExpressionEvaluator, bound toPrecedingExpression: Expression) throws -> AnyIterator<SPARQLResultSolution<Term>> where I.Element == SPARQLResultSolution<Term> {
+            let fflt = try evaluator.evaluate(expression: toPrecedingExpression, result: SPARQLResultSolution<Term>(bindings: [:]))
             guard let ffln = fflt.numeric else {
                 throw QueryPlanError.nonConstantExpression
             }
@@ -758,7 +758,7 @@ public struct WindowPlan: UnaryQueryPlan {
             var toFollowingLimit: Int? = nil
             switch frame.to {
             case .following(let expr):
-                let t = try evaluator.evaluate(expression: expr, result: TermResult(bindings: [:]))
+                let t = try evaluator.evaluate(expression: expr, result: SPARQLResultSolution<Term>(bindings: [:]))
                 guard let n = t.numeric else {
                     throw QueryPlanError.nonConstantExpression
                 }
@@ -782,7 +782,7 @@ public struct WindowPlan: UnaryQueryPlan {
                     self.remove(rr)
                 }
 
-                let seq = buffer.map { (r) ->TermResult in
+                let seq = buffer.map { (r) ->SPARQLResultSolution<Term> in
                     var result = r
                     if let v = self.value() {
                         result = result.extended(variable: variableName, value: v) ?? result
@@ -817,7 +817,7 @@ public struct WindowPlan: UnaryQueryPlan {
                     self.remove(rr)
                 }
                 
-                let seq = buffer.map { (r) ->TermResult in
+                let seq = buffer.map { (r) ->SPARQLResultSolution<Term> in
                     var result = r
                     if let v = self.value() {
                         result = result.extended(variable: variableName, value: v) ?? result
@@ -833,8 +833,8 @@ public struct WindowPlan: UnaryQueryPlan {
             }
         }
         
-        func evaluateToPreceding<I: IteratorProtocol>(_ group: I, frame: WindowFrame, variableName: String, evaluator: ExpressionEvaluator, bound toPrecedingExpression: Expression) throws -> AnyIterator<TermResult> where I.Element == TermResult {
-            let tplt = try evaluator.evaluate(expression: toPrecedingExpression, result: TermResult(bindings: [:]))
+        func evaluateToPreceding<I: IteratorProtocol>(_ group: I, frame: WindowFrame, variableName: String, evaluator: ExpressionEvaluator, bound toPrecedingExpression: Expression) throws -> AnyIterator<SPARQLResultSolution<Term>> where I.Element == SPARQLResultSolution<Term> {
+            let tplt = try evaluator.evaluate(expression: toPrecedingExpression, result: SPARQLResultSolution<Term>(bindings: [:]))
             guard let tpln = tplt.numeric else {
                 throw QueryPlanError.nonConstantExpression
             }
@@ -843,7 +843,7 @@ public struct WindowPlan: UnaryQueryPlan {
             var fromPrecedingLimit: Int? = nil
             switch frame.from {
             case .preceding(let expr):
-                let t = try evaluator.evaluate(expression: expr, result: TermResult(bindings: [:]))
+                let t = try evaluator.evaluate(expression: expr, result: SPARQLResultSolution<Term>(bindings: [:]))
                 guard let n = t.numeric else {
                     throw QueryPlanError.nonConstantExpression
                 }
@@ -853,10 +853,10 @@ public struct WindowPlan: UnaryQueryPlan {
             }
             
             var group = group
-            var buffer = [TermResult]()
-            var window = [TermResult]()
+            var buffer = [SPARQLResultSolution<Term>]()
+            var window = [SPARQLResultSolution<Term>]()
             var count = 0
-            let i = AnyIterator { () -> TermResult? in
+            let i = AnyIterator { () -> SPARQLResultSolution<Term>? in
                 guard let r = group.next() else { return nil }
                 buffer.append(r)
                 
@@ -885,8 +885,8 @@ public struct WindowPlan: UnaryQueryPlan {
             return i
         }
         
-        func evaluateFromPrecedingToUnbounded<I: IteratorProtocol>(_ group: I, frame: WindowFrame, variableName: String, evaluator: ExpressionEvaluator, bound fromPrecedingExpression: Expression) throws -> AnyIterator<TermResult> where I.Element == TermResult {
-            let fplt = try evaluator.evaluate(expression: fromPrecedingExpression, result: TermResult(bindings: [:]))
+        func evaluateFromPrecedingToUnbounded<I: IteratorProtocol>(_ group: I, frame: WindowFrame, variableName: String, evaluator: ExpressionEvaluator, bound fromPrecedingExpression: Expression) throws -> AnyIterator<SPARQLResultSolution<Term>> where I.Element == SPARQLResultSolution<Term> {
+            let fplt = try evaluator.evaluate(expression: fromPrecedingExpression, result: SPARQLResultSolution<Term>(bindings: [:]))
             guard let fpln = fplt.numeric else {
                 throw QueryPlanError.nonConstantExpression
             }
@@ -898,7 +898,7 @@ public struct WindowPlan: UnaryQueryPlan {
             buffer.forEach { self.add($0) }
 
             var count = 0
-            let i = AnyIterator { () -> TermResult? in
+            let i = AnyIterator { () -> SPARQLResultSolution<Term>? in
                 guard !buffer.isEmpty else { return nil }
                 let r = buffer.removeFirst()
                 if count > fromPrecedingLimit {
@@ -916,8 +916,8 @@ public struct WindowPlan: UnaryQueryPlan {
             return i
         }
         
-        func evaluateToFollowing<I: IteratorProtocol>(_ group: I, frame: WindowFrame, variableName: String, evaluator: ExpressionEvaluator, bound toPrecedingExpression: Expression) throws -> AnyIterator<TermResult> where I.Element == TermResult {
-            let tflt = try evaluator.evaluate(expression: toPrecedingExpression, result: TermResult(bindings: [:]))
+        func evaluateToFollowing<I: IteratorProtocol>(_ group: I, frame: WindowFrame, variableName: String, evaluator: ExpressionEvaluator, bound toPrecedingExpression: Expression) throws -> AnyIterator<SPARQLResultSolution<Term>> where I.Element == SPARQLResultSolution<Term> {
+            let tflt = try evaluator.evaluate(expression: toPrecedingExpression, result: SPARQLResultSolution<Term>(bindings: [:]))
             guard let tfln = tflt.numeric else {
                 throw QueryPlanError.nonConstantExpression
             }
@@ -926,7 +926,7 @@ public struct WindowPlan: UnaryQueryPlan {
             var fromPrecedingLimit: Int? = nil
             switch frame.from {
             case .preceding(let expr):
-                let t = try evaluator.evaluate(expression: expr, result: TermResult(bindings: [:]))
+                let t = try evaluator.evaluate(expression: expr, result: SPARQLResultSolution<Term>(bindings: [:]))
                 guard let n = t.numeric else {
                     throw QueryPlanError.nonConstantExpression
                 }
@@ -940,7 +940,7 @@ public struct WindowPlan: UnaryQueryPlan {
             var window = buffer.prefix(1+toFollowingLimit)
             buffer.forEach { self.add($0) }
             var count = 0
-            let i = AnyIterator { () -> TermResult? in
+            let i = AnyIterator { () -> SPARQLResultSolution<Term>? in
                 guard !buffer.isEmpty else { return nil }
                 let r = buffer.removeFirst()
                 if let fromPrecedingLimit = fromPrecedingLimit {
@@ -969,11 +969,11 @@ public struct WindowPlan: UnaryQueryPlan {
             return i
         }
         
-        func evaluateToCurrent<I: IteratorProtocol>(_ group: I, frame: WindowFrame, variableName: String, evaluator: ExpressionEvaluator) throws -> AnyIterator<TermResult> where I.Element == TermResult {
+        func evaluateToCurrent<I: IteratorProtocol>(_ group: I, frame: WindowFrame, variableName: String, evaluator: ExpressionEvaluator) throws -> AnyIterator<SPARQLResultSolution<Term>> where I.Element == SPARQLResultSolution<Term> {
             var precedingLimit: Int? = nil
             switch frame.from {
             case .preceding(let expr):
-                let t = try evaluator.evaluate(expression: expr, result: TermResult(bindings: [:]))
+                let t = try evaluator.evaluate(expression: expr, result: SPARQLResultSolution<Term>(bindings: [:]))
                 guard let n = t.numeric else {
                     throw QueryPlanError.nonConstantExpression
                 }
@@ -984,7 +984,7 @@ public struct WindowPlan: UnaryQueryPlan {
             
             var group = group
             if case .unbound = frame.from {
-                let i = AnyIterator { () -> TermResult? in
+                let i = AnyIterator { () -> SPARQLResultSolution<Term>? in
                     guard let r = group.next() else { return nil }
                     self.add(r)
                     var result = r
@@ -995,7 +995,7 @@ public struct WindowPlan: UnaryQueryPlan {
                 }
                 return i
             } else if case .current = frame.from {
-                let i = AnyIterator { () -> TermResult? in
+                let i = AnyIterator { () -> SPARQLResultSolution<Term>? in
                     guard let r = group.next() else { return nil }
                     self.add(r)
                     var result = r
@@ -1007,8 +1007,8 @@ public struct WindowPlan: UnaryQueryPlan {
                 }
                 return i
             } else {
-                var buffer = [TermResult]()
-                let i = AnyIterator { () -> TermResult? in
+                var buffer = [SPARQLResultSolution<Term>]()
+                let i = AnyIterator { () -> SPARQLResultSolution<Term>? in
                     guard let r = group.next() else { return nil }
                     if let l = precedingLimit, !buffer.isEmpty, buffer.count > l {
                         let r = buffer.first!
@@ -1027,11 +1027,11 @@ public struct WindowPlan: UnaryQueryPlan {
             }
         }
         
-        func evaluateFromCurrent<I: IteratorProtocol>(_ group: I, frame: WindowFrame, variableName: String, evaluator: ExpressionEvaluator) throws -> AnyIterator<TermResult> where I.Element == TermResult {
+        func evaluateFromCurrent<I: IteratorProtocol>(_ group: I, frame: WindowFrame, variableName: String, evaluator: ExpressionEvaluator) throws -> AnyIterator<SPARQLResultSolution<Term>> where I.Element == SPARQLResultSolution<Term> {
             var followingLimit: Int? = nil
             switch frame.to {
             case .following(let expr):
-                let t = try evaluator.evaluate(expression: expr, result: TermResult(bindings: [:]))
+                let t = try evaluator.evaluate(expression: expr, result: SPARQLResultSolution<Term>(bindings: [:]))
                 guard let n = t.numeric else {
                     throw QueryPlanError.nonConstantExpression
                 }
@@ -1045,7 +1045,7 @@ public struct WindowPlan: UnaryQueryPlan {
                 var buffer = Array(consuming: &group)
                 buffer.forEach { self.add($0) }
                 
-                let i = AnyIterator { () -> TermResult? in
+                let i = AnyIterator { () -> SPARQLResultSolution<Term>? in
                     guard !buffer.isEmpty else { return nil }
                     let r = buffer.removeFirst()
                     var result = r
@@ -1057,7 +1057,7 @@ public struct WindowPlan: UnaryQueryPlan {
                 }
                 return i
             } else if case .current = frame.to {
-                let i = AnyIterator { () -> TermResult? in
+                let i = AnyIterator { () -> SPARQLResultSolution<Term>? in
                     guard let r = group.next() else { return nil }
                     self.add(r)
                     var result = r
@@ -1069,7 +1069,7 @@ public struct WindowPlan: UnaryQueryPlan {
                 }
                 return i
             } else {
-                var buffer : [TermResult]
+                var buffer : [SPARQLResultSolution<Term>]
                 if let limit = followingLimit {
                     buffer = Array(consuming: &group, limit: limit+1)
                 } else {
@@ -1077,7 +1077,7 @@ public struct WindowPlan: UnaryQueryPlan {
                 }
                 buffer.forEach { self.add($0) }
 
-                let i = AnyIterator { () -> TermResult? in
+                let i = AnyIterator { () -> SPARQLResultSolution<Term>? in
                     guard !buffer.isEmpty else { return nil }
                     let r = buffer.removeFirst()
                     var result = r
@@ -1311,7 +1311,7 @@ public struct HeapSortLimitPlan: UnaryQueryPlan {
     public var selfDescription: String { return "Heap Sort with Limit \(limit) { \(comparators) }" }
 
     fileprivate struct SortElem {
-        var result: TermResult
+        var result: SPARQLResultSolution<Term>
         var terms: [Term?]
     }
 
@@ -1335,7 +1335,7 @@ public struct HeapSortLimitPlan: UnaryQueryPlan {
         }
     }
     
-    public func evaluate() throws -> AnyIterator<TermResult> {
+    public func evaluate() throws -> AnyIterator<SPARQLResultSolution<Term>> {
         let i = try child.evaluate()
         var heap = Heap(sort: sortFunction)
         for r in i {
@@ -1370,11 +1370,11 @@ public struct ExistsPlan: UnaryQueryPlan {
             return "*** Failed to serialize EXISTS algebra into SPARQL string ***"
         }
     }
-    public func evaluate() throws -> AnyIterator<TermResult> {
+    public func evaluate() throws -> AnyIterator<SPARQLResultSolution<Term>> {
         let i = try child.evaluate()
         let pattern = self.pattern
         let variable = self.variable
-        let s = i.lazy.compactMap { (r) -> TermResult? in
+        let s = i.lazy.compactMap { (r) -> SPARQLResultSolution<Term>? in
             let columns = r.keys.map { Node.variable($0, binding: true) }
             let row = r.keys.map { r[$0] }
             let table = TablePlan(columns: columns, rows: [row])
@@ -1399,7 +1399,7 @@ public struct ExistsPlan: UnaryQueryPlan {
 public protocol PathPlan: PlanSerializable {
     var selfDescription: String { get }
     var children : [PathPlan] { get }
-    func evaluate(from: Node, to: Node, in: Term) throws -> AnyIterator<TermResult>
+    func evaluate(from: Node, to: Node, in: Term) throws -> AnyIterator<SPARQLResultSolution<Term>>
 }
 
 public struct PathQueryPlan: NullaryQueryPlan {
@@ -1412,7 +1412,7 @@ public struct PathQueryPlan: NullaryQueryPlan {
     public var isJoinIdentity: Bool { return false }
     public var isUnionIdentity: Bool { return false }
 
-    public func evaluate() throws -> AnyIterator<TermResult> {
+    public func evaluate() throws -> AnyIterator<SPARQLResultSolution<Term>> {
         return try path.evaluate(from: subject, to: object, in: graph)
     }
 }
@@ -1459,26 +1459,26 @@ public struct NPSPathPlan: PathPlan {
     var store: QuadStoreProtocol
     public var children: [PathPlan] { return [] }
     public var selfDescription: String { return "NPS { \(iris) }" }
-    public func evaluate(from subject: Node, to object: Node, in graph: Term) throws -> AnyIterator<TermResult> {
+    public func evaluate(from subject: Node, to object: Node, in graph: Term) throws -> AnyIterator<SPARQLResultSolution<Term>> {
         switch (subject, object) {
         case let (.bound(_), .variable(oname, binding: bind)):
             let objects = try evaluate(from: subject, in: graph)
             if bind {
                 let i = objects.lazy.map {
-                    return TermResult(bindings: [oname: $0])
+                    return SPARQLResultSolution<Term>(bindings: [oname: $0])
                 }
                 return AnyIterator(i.makeIterator())
             } else {
-                let i = objects.lazy.map { (_) -> TermResult in
-                    return TermResult(bindings: [:])
+                let i = objects.lazy.map { (_) -> SPARQLResultSolution<Term> in
+                    return SPARQLResultSolution<Term>(bindings: [:])
                 }
                 return AnyIterator(i.makeIterator())
             }
         case (.bound(_), .bound(let o)):
             let objects = try evaluate(from: subject, in: graph)
-            let i = objects.lazy.compactMap { (term) -> TermResult? in
+            let i = objects.lazy.compactMap { (term) -> SPARQLResultSolution<Term>? in
                 guard term == o else { return nil }
-                return TermResult(bindings: [:])
+                return SPARQLResultSolution<Term>(bindings: [:])
             }
             return AnyIterator(i.makeIterator())
         case (.variable(let s, _), .bound(_)):
@@ -1491,7 +1491,7 @@ public struct NPSPathPlan: PathPlan {
                     guard let q = i.next() else { return nil }
                     let p = q.predicate
                     guard !set.contains(p) else { continue }
-                    return TermResult(bindings: [s: q.subject])
+                    return SPARQLResultSolution<Term>(bindings: [s: q.subject])
                 } while true
             }
         case let (.variable(s, _), .variable(o, _)):
@@ -1504,7 +1504,7 @@ public struct NPSPathPlan: PathPlan {
                     guard let q = i.next() else { return nil }
                     let p = q.predicate
                     guard !set.contains(p) else { continue }
-                    return TermResult(bindings: [s: q.subject, o: q.object])
+                    return SPARQLResultSolution<Term>(bindings: [s: q.subject, o: q.object])
                 } while true
             }
         }
@@ -1516,7 +1516,7 @@ public struct NPSPathPlan: PathPlan {
         let quad = QuadPattern(subject: subject, predicate: predicate, object: object, graph: .bound(graph))
         let i = try store.quads(matching: quad)
         // OPTIMIZE: this can be made more efficient by adding an NPS function to the store,
-        //           and allowing it to do the filtering based on a IDResult objects before
+        //           and allowing it to do the filtering based on a SPARQLResultSolution<UInt64> objects before
         //           materializing the terms
         let set = Set(iris)
         return AnyIterator {
@@ -1535,7 +1535,7 @@ public struct LinkPathPlan : PathPlan {
     var store: QuadStoreProtocol
     public var children: [PathPlan] { return [] }
     public var selfDescription: String { return "Link { \(predicate) }" }
-    public func evaluate(from subject: Node, to object: Node, in graph: Term) throws -> AnyIterator<TermResult> {
+    public func evaluate(from subject: Node, to object: Node, in graph: Term) throws -> AnyIterator<SPARQLResultSolution<Term>> {
 //        print("eval(linkPath[\(subject) \(predicate) \(object) \(graph)])")
         let qp = QuadPattern(subject: subject, predicate: .bound(predicate), object: object, graph: .bound(graph))
         let r = try store.results(matching: qp)
@@ -1564,7 +1564,7 @@ public struct UnionPathPlan: PathPlan {
     public var rhs: PathPlan
     public var children: [PathPlan] { return [lhs, rhs] }
     public var selfDescription: String { return "Alt" }
-    public func evaluate(from subject: Node, to object: Node, in graph: Term) throws -> AnyIterator<TermResult> {
+    public func evaluate(from subject: Node, to object: Node, in graph: Term) throws -> AnyIterator<SPARQLResultSolution<Term>> {
         let l = try lhs.evaluate(from: subject, to: object, in: graph)
         let r = try rhs.evaluate(from: subject, to: object, in: graph)
         return AnyIterator(ConcatenatingIterator(l, r))
@@ -1578,14 +1578,14 @@ public struct SequencePathPlan: PathPlan {
     public var children: [PathPlan] { return [lhs, rhs] }
     public var selfDescription: String { return "Seq { \(joinNode) }" }
     
-    public func evaluate(from subject: Node, to object: Node, in graph: Term) throws -> AnyIterator<TermResult> {
+    public func evaluate(from subject: Node, to object: Node, in graph: Term) throws -> AnyIterator<SPARQLResultSolution<Term>> {
 //        print("eval(sequencePath[\(subject) --> \(object)])")
         guard case .variable(_, _) = joinNode else {
             print("*** invalid child in query plan evaluation")
             throw QueryPlanError.invalidChild
         }
         let l = try lhs.evaluate(from: subject, to: joinNode, in: graph)
-        var results = [TermResult]()
+        var results = [SPARQLResultSolution<Term>]()
         for lr in l {
             if let j = lr[joinNode] {
                 let r = try rhs.evaluate(from: .bound(j), to: object, in: graph)
@@ -1606,7 +1606,7 @@ public struct InversePathPlan: PathPlan {
     public var child: PathPlan
     public var children: [PathPlan] { return [child] }
     public var selfDescription: String { return "Inv" }
-    public func evaluate(from subject: Node, to object: Node, in graph: Term) throws -> AnyIterator<TermResult> {
+    public func evaluate(from subject: Node, to object: Node, in graph: Term) throws -> AnyIterator<SPARQLResultSolution<Term>> {
         return try child.evaluate(from: object, to: subject, in: graph)
     }
 }
@@ -1616,7 +1616,7 @@ public struct PlusPathPlan : PathPlan {
     var store: QuadStoreProtocol
     public var children: [PathPlan] { return [child] }
     public var selfDescription: String { return "Plus" }
-    public func evaluate(from subject: Node, to object: Node, in graph: Term) throws -> AnyIterator<TermResult> {
+    public func evaluate(from subject: Node, to object: Node, in graph: Term) throws -> AnyIterator<SPARQLResultSolution<Term>> {
         switch subject {
         case .bound(_):
             var v = Set<Term>()
@@ -1629,11 +1629,11 @@ public struct PlusPathPlan : PathPlan {
             }
 //            print("ALP resulted in: \(v)")
             
-            let i = v.lazy.map { (term) -> TermResult in
+            let i = v.lazy.map { (term) -> SPARQLResultSolution<Term> in
                 if case .variable(let name, true) = object {
-                    return TermResult(bindings: [name: term])
+                    return SPARQLResultSolution<Term>(bindings: [name: term])
                 } else {
-                    return TermResult(bindings: [:])
+                    return SPARQLResultSolution<Term>(bindings: [:])
                 }
             }
             
@@ -1649,7 +1649,7 @@ public struct StarPathPlan : PathPlan {
     var store: QuadStoreProtocol
     public var children: [PathPlan] { return [child] }
     public var selfDescription: String { return "Plus" }
-    public func evaluate(from subject: Node, to object: Node, in graph: Term) throws -> AnyIterator<TermResult> {
+    public func evaluate(from subject: Node, to object: Node, in graph: Term) throws -> AnyIterator<SPARQLResultSolution<Term>> {
         switch subject {
         case .bound(let term):
             var v = Set<Term>()
@@ -1658,29 +1658,29 @@ public struct StarPathPlan : PathPlan {
             
             switch object {
             case let .variable(name, binding: true):
-                let i = v.lazy.map { TermResult(bindings: [name: $0]) }
+                let i = v.lazy.map { SPARQLResultSolution<Term>(bindings: [name: $0]) }
                 return AnyIterator(i.makeIterator())
             case .variable(_, binding: false):
-                let i = v.lazy.map { (_) in TermResult(bindings: [:]) }.prefix(1)
+                let i = v.lazy.map { (_) in SPARQLResultSolution<Term>(bindings: [:]) }.prefix(1)
                 return AnyIterator(i.makeIterator())
             case .bound(let o):
-                let i = v.lazy.compactMap { (term) -> TermResult? in
+                let i = v.lazy.compactMap { (term) -> SPARQLResultSolution<Term>? in
                     guard term == o else { return nil }
-                    return TermResult(bindings: [:])
+                    return SPARQLResultSolution<Term>(bindings: [:])
                 }
                 return AnyIterator(i.prefix(1).makeIterator())
             }
         case .variable(let s, binding: _):
             switch object {
             case .variable(_):
-                var iterators = [AnyIterator<TermResult>]()
+                var iterators = [AnyIterator<SPARQLResultSolution<Term>>]()
                 for gn in store.graphTerms(in: graph) {
-                    let results = try evaluate(from: .bound(gn), to: object, in: graph).lazy.compactMap { (r) -> TermResult? in
+                    let results = try evaluate(from: .bound(gn), to: object, in: graph).lazy.compactMap { (r) -> SPARQLResultSolution<Term>? in
                         r.extended(variable: s, value: gn)
                     }
                     iterators.append(AnyIterator(results.makeIterator()))
                 }
-                return AnyIterator { () -> TermResult? in
+                return AnyIterator { () -> SPARQLResultSolution<Term>? in
                     repeat {
                         guard let i = iterators.first else { return nil }
                         if let r = i.next() {
@@ -1701,14 +1701,14 @@ public struct ZeroOrOnePathPlan : PathPlan {
     var store: QuadStoreProtocol
     public var children: [PathPlan] { return [child] }
     public var selfDescription: String { return "ZeroOrOne" }
-    public func evaluate(from subject: Node, to object: Node, in graph: Term) throws -> AnyIterator<TermResult> {
+    public func evaluate(from subject: Node, to object: Node, in graph: Term) throws -> AnyIterator<SPARQLResultSolution<Term>> {
         let i = try child.evaluate(from: subject, to: object, in: graph)
         switch (subject, object) {
         case (.variable(let s, _), .variable(_)):
             let gn = store.graphTerms(in: graph)
-            let results = try gn.lazy.map { (term) -> AnyIterator<TermResult> in
+            let results = try gn.lazy.map { (term) -> AnyIterator<SPARQLResultSolution<Term>> in
                 let i = try child.evaluate(from: .bound(term), to: object, in: graph)
-                let j = i.lazy.map { (r) -> TermResult in
+                let j = i.lazy.map { (r) -> SPARQLResultSolution<Term> in
                     r.extended(variable: s, value: term) ?? r
                 }
                 return AnyIterator(j.makeIterator())
@@ -1716,15 +1716,15 @@ public struct ZeroOrOnePathPlan : PathPlan {
             return AnyIterator(results.joined().makeIterator())
         case (.bound(_), .bound(_)):
             if subject == object {
-                let r = [TermResult(bindings: [:])]
+                let r = [SPARQLResultSolution<Term>(bindings: [:])]
                 return AnyIterator(r.makeIterator())
             } else {
                 return i
             }
         case let (.bound(term), .variable(name, _)), let (.variable(name, _), .bound(term)):
-            let r = [TermResult(bindings: [name: term])]
+            let r = [SPARQLResultSolution<Term>(bindings: [name: term])]
             var seen = Set<Term>()
-            let j = i.lazy.compactMap { (r) -> TermResult? in
+            let j = i.lazy.compactMap { (r) -> SPARQLResultSolution<Term>? in
                 guard let t = r[name] else { return nil }
                 guard t != term else { return nil }
                 guard !seen.contains(t) else { return nil }
@@ -1739,7 +1739,7 @@ public struct ZeroOrOnePathPlan : PathPlan {
 /********************************************************************************************************/
 
 protocol Aggregate {
-    func handle(_ row: TermResult)
+    func handle(_ row: SPARQLResultSolution<Term>)
     func result() -> Term?
 }
 
@@ -1749,7 +1749,7 @@ public struct AggregationPlan: UnaryQueryPlan {
         init() {
             self.count = 0
         }
-        func handle(_ row: TermResult) {
+        func handle(_ row: SPARQLResultSolution<Term>) {
             count += 1
         }
         func result() -> Term? {
@@ -1766,7 +1766,7 @@ public struct AggregationPlan: UnaryQueryPlan {
             self.value = nil
             self.ee = evaluator
         }
-        func handle(_ row: TermResult) {
+        func handle(_ row: SPARQLResultSolution<Term>) {
             let term = try? ee.evaluate(expression: expression, result: row)
             if let t = value {
                 if let term = term, term < t {
@@ -1790,7 +1790,7 @@ public struct AggregationPlan: UnaryQueryPlan {
             self.value = nil
             self.ee = evaluator
         }
-        func handle(_ row: TermResult) {
+        func handle(_ row: SPARQLResultSolution<Term>) {
             let term = try? ee.evaluate(expression: expression, result: row)
             if let t = value {
                 if let term = term, term > t {
@@ -1818,7 +1818,7 @@ public struct AggregationPlan: UnaryQueryPlan {
             self.count = 0
             self.ee = evaluator
         }
-        func handle(_ row: TermResult) {
+        func handle(_ row: SPARQLResultSolution<Term>) {
             if let term = try? ee.evaluate(expression: expression, result: row) {
                 if let n = term.numeric {
                     value = value + n
@@ -1846,7 +1846,7 @@ public struct AggregationPlan: UnaryQueryPlan {
             self.values = Set()
             self.ee = evaluator
         }
-        func handle(_ row: TermResult) {
+        func handle(_ row: SPARQLResultSolution<Term>) {
             if let term = try? ee.evaluate(expression: expression, result: row) {
                 if let n = term.numeric {
                     values.insert(n)
@@ -1874,7 +1874,7 @@ public struct AggregationPlan: UnaryQueryPlan {
             self.value = .integer(0)
             self.ee = evaluator
         }
-        func handle(_ row: TermResult) {
+        func handle(_ row: SPARQLResultSolution<Term>) {
             if let term = try? ee.evaluate(expression: expression, result: row) {
                 if let n = term.numeric {
                     value = value + n
@@ -1900,7 +1900,7 @@ public struct AggregationPlan: UnaryQueryPlan {
             self.values = Set()
             self.ee = evaluator
         }
-        func handle(_ row: TermResult) {
+        func handle(_ row: SPARQLResultSolution<Term>) {
             if let term = try? ee.evaluate(expression: expression, result: row) {
                 if let n = term.numeric {
                     values.insert(n)
@@ -1925,7 +1925,7 @@ public struct AggregationPlan: UnaryQueryPlan {
             self.count = 0
             self.ee = evaluator
         }
-        func handle(_ row: TermResult) {
+        func handle(_ row: SPARQLResultSolution<Term>) {
             if let _ = try? ee.evaluate(expression: expression, result: row) {
                 count += 1
             }
@@ -1944,7 +1944,7 @@ public struct AggregationPlan: UnaryQueryPlan {
             self.values = Set()
             self.ee = evaluator
         }
-        func handle(_ row: TermResult) {
+        func handle(_ row: SPARQLResultSolution<Term>) {
             if let term = try? ee.evaluate(expression: expression, result: row) {
                 values.insert(term)
             }
@@ -1963,7 +1963,7 @@ public struct AggregationPlan: UnaryQueryPlan {
             self.value = nil
             self.ee = evaluator
         }
-        func handle(_ row: TermResult) {
+        func handle(_ row: SPARQLResultSolution<Term>) {
             if let term = try? ee.evaluate(expression: expression, result: row) {
                 value = term
             }
@@ -1984,7 +1984,7 @@ public struct AggregationPlan: UnaryQueryPlan {
             self.values = Set()
             self.ee = evaluator
         }
-        func handle(_ row: TermResult) {
+        func handle(_ row: SPARQLResultSolution<Term>) {
             if let term = try? ee.evaluate(expression: expression, result: row) {
                 values.insert(term)
             }
@@ -2006,7 +2006,7 @@ public struct AggregationPlan: UnaryQueryPlan {
             self.value = ""
             self.ee = evaluator
         }
-        func handle(_ row: TermResult) {
+        func handle(_ row: SPARQLResultSolution<Term>) {
             if let term = try? ee.evaluate(expression: expression, result: row) {
                 if !value.isEmpty {
                     value += separator
@@ -2061,7 +2061,7 @@ public struct AggregationPlan: UnaryQueryPlan {
     }
     
     public var selfDescription: String { return "Aggregate \(aggregates) over groups \(groups)" }
-    public func evaluate() throws -> AnyIterator<TermResult> {
+    public func evaluate() throws -> AnyIterator<SPARQLResultSolution<Term>> {
         var aggData = [[Term?]:[String:Aggregate]]()
         for r in try child.evaluate() {
             let group = groups.map { try? ee.evaluate(expression: $0, result: r) }
@@ -2082,11 +2082,11 @@ public struct AggregationPlan: UnaryQueryPlan {
                 guard let term = agg.result() else { return nil }
                 return (name, term)
             }
-            let r = TermResult(bindings: Dictionary(uniqueKeysWithValues: d))
+            let r = SPARQLResultSolution<Term>(bindings: Dictionary(uniqueKeysWithValues: d))
             return AnyIterator([r].makeIterator())
         }
         
-        let rows = aggData.map { (group, aggs) -> TermResult in
+        let rows = aggData.map { (group, aggs) -> SPARQLResultSolution<Term> in
             var groupTerms = [String:Term]()
             for (e, t) in zip(groups, group) {
                 if case .node(.variable(let name, _)) = e {
@@ -2102,7 +2102,7 @@ public struct AggregationPlan: UnaryQueryPlan {
                 return (a.key, term)
             })
             let result = groupTerms.merging(d) { (l, r) in l }
-            return TermResult(bindings: result)
+            return SPARQLResultSolution<Term>(bindings: result)
         }
         return AnyIterator(rows.makeIterator())
     }

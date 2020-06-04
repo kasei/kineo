@@ -46,8 +46,8 @@ struct PerformanceTestStore: QuadStoreProtocol, Sequence {
         return AnyIterator(quads.makeIterator())
     }
     
-    func results(matching pattern: QuadPattern) throws -> AnyIterator<TermResult> {
-        var results = [TermResult]()
+    func results(matching pattern: QuadPattern) throws -> AnyIterator<SPARQLResultSolution<Term>> {
+        var results = [SPARQLResultSolution<Term>]()
         for q in self {
             if let r = pattern.matches(quad: q) {
                 results.append(r)
@@ -114,7 +114,7 @@ class QueryEvaluationPerformanceTest: XCTestCase {
         store = PerformanceTestStore(quads: quads_dataset_numeric_1)
     }
     
-    private func eval(query: Query) throws -> AnyIterator<TermResult> {
+    private func eval(query: Query) throws -> AnyIterator<SPARQLResultSolution<Term>> {
         let dataset = store.dataset(withDefault: self.graph)
         let e = QueryPlanEvaluator(store: store, dataset: dataset)
 //        let e = SimpleQueryEvaluator(store: store, dataset: dataset)

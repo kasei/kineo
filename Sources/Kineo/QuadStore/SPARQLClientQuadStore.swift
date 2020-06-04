@@ -66,7 +66,7 @@ open class SPARQLClientQuadStore: Sequence, QuadStoreProtocol {
         return AnyIterator([].makeIterator())
     }
     
-    public func results(matching pattern: QuadPattern) throws -> AnyIterator<TermResult> {
+    public func results(matching pattern: QuadPattern) throws -> AnyIterator<SPARQLResultSolution<Term>> {
         let query : String
         if pattern.graph == .bound(defaultGraph) {
             query = "SELECT * WHERE { \(pattern.subject) \(pattern.predicate) \(pattern.object) }"
@@ -191,7 +191,7 @@ open class SPARQLClientQuadStore: Sequence, QuadStoreProtocol {
 }
 
 extension SPARQLClientQuadStore : BGPQuadStoreProtocol {
-    public func results(matching triples: [TriplePattern], in graph: Term) throws -> AnyIterator<TermResult> {
+    public func results(matching triples: [TriplePattern], in graph: Term) throws -> AnyIterator<SPARQLResultSolution<Term>> {
         let ser = SPARQLSerializer(prettyPrint: true)
         let bgp = try ser.serialize(.bgp(triples))
         let query = "SELECT * WHERE { \(bgp) }"

@@ -535,7 +535,7 @@ extension Expression {
 }
 
 public struct QueryPlanEvaluator<Q: QuadStoreProtocol>: QueryEvaluatorProtocol {
-    public typealias ResultSequence = AnySequence<TermResult>
+    public typealias ResultSequence = AnySequence<SPARQLResultSolution<Term>>
     public typealias TripleSequence = [Triple]
 
     public let supportedLanguages: [QueryLanguage] = [.sparqlQuery10, .sparqlQuery11]
@@ -554,18 +554,18 @@ public struct QueryPlanEvaluator<Q: QuadStoreProtocol>: QueryEvaluatorProtocol {
         self.planner = QueryPlanner(store: store, dataset: dataset, base: base)
     }
     
-    public func evaluate(query: Query) throws -> QueryResult<AnySequence<TermResult>, [Triple]> {
+    public func evaluate(query: Query) throws -> QueryResult<AnySequence<SPARQLResultSolution<Term>>, [Triple]> {
         return try evaluate(query: query, activeGraph: nil)
     }
     
-    public func evaluate(query: Query, activeGraph graph: Term? = nil) throws -> QueryResult<AnySequence<TermResult>, [Triple]> {
+    public func evaluate(query: Query, activeGraph graph: Term? = nil) throws -> QueryResult<AnySequence<SPARQLResultSolution<Term>>, [Triple]> {
         let rewriter = SPARQLQueryRewriter()
         let q = try rewriter.simplify(query: query)
         let plan = try planner.plan(query: q, activeGraph: graph)
 //        print("Query Plan:")
 //        print(plan.serialize())
         
-        let seq = AnySequence { () -> AnyIterator<TermResult> in
+        let seq = AnySequence { () -> AnyIterator<SPARQLResultSolution<Term>> in
             do {
                 let i = try plan.evaluate()
                 return i

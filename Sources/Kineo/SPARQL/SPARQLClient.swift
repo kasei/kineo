@@ -19,7 +19,7 @@ public struct SPARQLClient {
         self.silent = silent
     }
     
-    public func execute(_ query: String) throws -> QueryResult<[TermResult], [Triple]> {
+    public func execute(_ query: String) throws -> QueryResult<[SPARQLResultSolution<Term>], [Triple]> {
         let n = SPARQLContentNegotiator.shared
         var args : (Data?, URLResponse?, Error?) = (nil, nil, nil)
         do {
@@ -85,7 +85,7 @@ public struct SPARQLClient {
             }
         } catch let e {
             if silent {
-                let results = [TermResult(bindings: [:])]
+                let results = [SPARQLResultSolution<Term>(bindings: [:])]
                 return QueryResult.bindings([], results)
             } else {
                 throw QueryError.evaluationError("SERVICE error: \(e)")
@@ -110,9 +110,9 @@ public struct SPARQLContentNegotiator {
         #endif
         
         serializers = [
-            SPARQLJSONSerializer<TermResult>(),
-            SPARQLXMLSerializer<TermResult>(),
-            SPARQLTSVSerializer<TermResult>(),
+            SPARQLJSONSerializer<SPARQLResultSolution<Term>>(),
+            SPARQLXMLSerializer<SPARQLResultSolution<Term>>(),
+            SPARQLTSVSerializer<SPARQLResultSolution<Term>>(),
             TurtleSerializer(),
             NTriplesSerializer()
         ]
@@ -134,7 +134,7 @@ public struct SPARQLContentNegotiator {
     }
     
     public func negotiateSerializer<S : Sequence, B, T>(for result: QueryResult<B, T>, accept: S) -> SPARQLSerializable? where S.Element == String {
-        let json = SPARQLJSONSerializer<TermResult>()
+        let json = SPARQLJSONSerializer<SPARQLResultSolution<Term>>()
         let valid : [SPARQLSerializable]
         switch result {
         case .boolean(_):

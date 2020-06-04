@@ -25,7 +25,7 @@ public struct SPARQLXMLSerializer<T: ResultProtocol> : SPARQLSerializable where 
         root.addChild(b)
     }
 
-    func write<S: Sequence>(variables: [String], rows: S, into root: XMLElement) where S.Element == TermResult {
+    func write<S: Sequence>(variables: [String], rows: S, into root: XMLElement) where S.Element == SPARQLResultSolution<Term> {
         write(head: variables, into: root)
         write(rows: rows, into: root)
     }
@@ -51,7 +51,7 @@ public struct SPARQLXMLSerializer<T: ResultProtocol> : SPARQLSerializable where 
         }
     }
     
-    func write(result row: TermResult, into root: XMLElement) {
+    func write(result row: SPARQLResultSolution<Term>, into root: XMLElement) {
         let result = XMLElement(name: "result")
         for (name, t) in row.sorted(by: { $0 < $1 }) {
             let binding = XMLElement(name: "binding")
@@ -63,7 +63,7 @@ public struct SPARQLXMLSerializer<T: ResultProtocol> : SPARQLSerializable where 
         root.addChild(result)
     }
     
-    func write<S: Sequence>(rows: S, into root: XMLElement) where S.Element == TermResult {
+    func write<S: Sequence>(rows: S, into root: XMLElement) where S.Element == SPARQLResultSolution<Term> {
         let results = XMLElement(name: "results")
         for r in rows {
             write(result: r, into: results)
@@ -82,7 +82,7 @@ public struct SPARQLXMLSerializer<T: ResultProtocol> : SPARQLSerializable where 
         root.addChild(head)
     }
     
-    public func serialize<R: Sequence, T: Sequence>(_ results: QueryResult<R, T>) throws -> Data where R.Element == TermResult, T.Element == Triple {
+    public func serialize<R: Sequence, T: Sequence>(_ results: QueryResult<R, T>) throws -> Data where R.Element == SPARQLResultSolution<Term>, T.Element == Triple {
         let root = XMLElement(name: "sparql")
         let ns = XMLNode.namespace(withName: "", stringValue: "http://www.w3.org/2005/sparql-results#") as! XMLNode
         root.addNamespace(ns)
@@ -116,7 +116,7 @@ public struct SPARQLXMLParser : SPARQLParsable {
         }
         var traceParsing: Bool
         var depth: Int
-        var results: [TermResult]
+        var results: [SPARQLResultSolution<Term>]
         var type: QueryType?
         var projection: [String]
         var allowCharacterData: Bool
@@ -145,13 +145,13 @@ public struct SPARQLXMLParser : SPARQLParsable {
             return String(repeating: " ", count: depth*4)
         }
         
-        var queryResult: QueryResult<[TermResult], [Triple]>? {
+        var queryResult: QueryResult<[SPARQLResultSolution<Term>], [Triple]>? {
             guard let t = type else { return nil }
             switch t {
             case .bindings:
-                return QueryResult<[TermResult], [Triple]>.bindings(projection, results)
+                return QueryResult<[SPARQLResultSolution<Term>], [Triple]>.bindings(projection, results)
             case .boolean(let b):
-                return QueryResult<[TermResult], [Triple]>.boolean(b)
+                return QueryResult<[SPARQLResultSolution<Term>], [Triple]>.boolean(b)
             }
         }
         
@@ -219,7 +219,7 @@ public struct SPARQLXMLParser : SPARQLParsable {
             depth -= 1
             switch elementName {
             case "result":
-                let r = TermResult(bindings: bindings)
+                let r = SPARQLResultSolution<Term>(bindings: bindings)
                 results.append(r)
             case "boolean":
                 allowCharacterData = false
@@ -249,7 +249,7 @@ public struct SPARQLXMLParser : SPARQLParsable {
         }
     }
     
-    public func parse(_ data: Data) throws -> QueryResult<[TermResult], [Triple]> {
+    public func parse(_ data: Data) throws -> QueryResult<[SPARQLResultSolution<Term>], [Triple]> {
         let parser = XMLParser(data: data)
         let delegate = Delegate()
         parser.delegate = delegate
