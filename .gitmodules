@@ -1,3 +1,6 @@
 [submodule "rdf-tests"]
 	path = rdf-tests
 	url = https://github.com/w3c/rdf-tests.git
+[submodule "rdf-tests-12"]
+	path = rdf-tests-12
+	url = https://github.com/kasei/sparql-12.git
