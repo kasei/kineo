@@ -22,48 +22,7 @@ extension LanguageSQLiteQuadStoreTest {
     }
 }
 
-extension LanguagePageDatabaseQuadStoreTest {
-    static var allTests : [(String, (LanguagePageDatabaseQuadStoreTest) -> () throws -> Void)] {
-        return [
-            ("testAcceptValues", testAcceptValues),
-            ("testMultipleLanguageLiterals", testMultipleLanguageLiterals)
-        ]
-    }
-}
 #endif
-
-class LanguagePageDatabaseQuadStoreTest: XCTestCase, LanguageQuadStoreTest {
-    override func setUp() {
-        super.setUp()
-    }
-    
-    override func tearDown() {
-        super.tearDown()
-    }
-    
-    func withStore(_ turtle: String, _ acceptLanguages: [(String, Double)], runTests handler: (LanguageAwareQuadStore) throws -> ()) throws {
-        let filename = "/tmp/kineo-\(UUID().uuidString).db"
-        let pageSize = 2048
-        let database: FilePageDatabase! = FilePageDatabase(filename, size: pageSize)
-        let pqstore = try PageQuadStore(database: database)
-        try database.update(version: 1) { (m) in
-            _ = try MediatedPageQuadStore.create(mediator: m)
-        }
-        try load(turtle: turtle, into: pqstore, version: 1)
-        let lfstore = try LanguagePageQuadStore(database: database, acceptLanguages: acceptLanguages)
-        try handler(lfstore)
-        let fileManager = FileManager.default
-        try? fileManager.removeItem(atPath: filename)
-    }
-    
-    func testAcceptValues() throws {
-        try _testAcceptValues()
-    }
-    
-    func testMultipleLanguageLiterals() throws {
-        try _testMultipleLanguageLiterals()
-    }
-}
 
 class LanguageMemoryQuadStoreTest: XCTestCase, LanguageQuadStoreTest {
     override func setUp() {
@@ -79,19 +38,6 @@ class LanguageMemoryQuadStoreTest: XCTestCase, LanguageQuadStoreTest {
         try load(turtle: turtle, into: store, version: 1)
         let lmstore = LanguageMemoryQuadStore(quadstore: store, acceptLanguages: acceptLanguages)
         try handler(lmstore)
-        
-        let filename = "/tmp/kineo-\(UUID().uuidString).db"
-        let pageSize = 2048
-        let database: FilePageDatabase! = FilePageDatabase(filename, size: pageSize)
-        let pqstore = try PageQuadStore(database: database)
-        try database.update(version: 1) { (m) in
-            _ = try MediatedPageQuadStore.create(mediator: m)
-        }
-        try load(turtle: turtle, into: pqstore, version: 1)
-        let lfstore = try LanguagePageQuadStore(database: database, acceptLanguages: acceptLanguages)
-        try handler(lfstore)
-        let fileManager = FileManager.default
-        try? fileManager.removeItem(atPath: filename)
     }
     
     func testAcceptValues() throws {

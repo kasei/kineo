@@ -9,6 +9,14 @@
 import Foundation
 import SPARQLSyntax
 
+public enum DatabaseError: Error {
+    case DataError(String)
+    case PermissionError(String)
+}
+
+public typealias Version = UInt64
+public typealias IDType = UInt64
+
 public enum QuadStoreFeature : String {
     case emptyGraphs = "http://www.w3.org/ns/sparql-service-description#EmptyGraphs"
 }
@@ -196,83 +204,6 @@ extension QuadStoreProtocol {
             } catch {}
         }
         return descriptions
-    }
-}
-
-public struct IDQuad<T: DefinedTestable & Equatable & Comparable & BufferSerializable> : BufferSerializable, Equatable, Comparable, Sequence, Collection {
-    public let startIndex = 0
-    public let endIndex = 4
-    public func index(after: Int) -> Int {
-        return after+1
-    }
-
-    public var values: [T]
-    public init(_ value0: T, _ value1: T, _ value2: T, _ value3: T) {
-        self.values = [value0, value1, value2, value3]
-    }
-
-    public subscript(index: Int) -> T {
-        get {
-            return self.values[index]
-        }
-
-        set(newValue) {
-            self.values[index] = newValue
-        }
-    }
-
-    public func matches(_ rhs: IDQuad) -> Bool {
-        for (l, r) in zip(values, rhs.values) {
-            if l.isDefined && r.isDefined && l != r {
-                return false
-            }
-        }
-        return true
-    }
-
-    public var serializedSize: Int { return 4 * _sizeof(T.self) }
-    public func serialize(to buffer: inout UnsafeMutableRawPointer, mediator: PageRWMediator?, maximumSize: Int) throws {
-        if serializedSize > maximumSize { throw DatabaseError.OverflowError("Cannot serialize IDQuad in available space") }
-        //        print("serializing quad \(subject) \(predicate) \(object) \(graph)")
-        try self[0].serialize(to: &buffer)
-        try self[1].serialize(to: &buffer)
-        try self[2].serialize(to: &buffer)
-        try self[3].serialize(to: &buffer)
-    }
-
-    public static func deserialize(from buffer: inout UnsafeRawPointer, mediator: PageRMediator?=nil) throws -> IDQuad {
-        let v0      = try T.deserialize(from: &buffer, mediator: mediator)
-        let v1      = try T.deserialize(from: &buffer, mediator: mediator)
-        let v2      = try T.deserialize(from: &buffer, mediator: mediator)
-        let v3      = try T.deserialize(from: &buffer, mediator: mediator)
-        //        print("deserializing quad \(v0) \(v1) \(v2) \(v3)")
-        let q = IDQuad(v0, v1, v2, v3)
-        return q
-    }
-
-    public static func == <T>(lhs: IDQuad<T>, rhs: IDQuad<T>) -> Bool {
-        if lhs[0] == rhs[0] && lhs[1] == rhs[1] && lhs[2] == rhs[2] && lhs[3] == rhs[3] {
-            return true
-        } else {
-            return false
-        }
-    }
-
-    public static func < <T>(lhs: IDQuad<T>, rhs: IDQuad<T>) -> Bool {
-        for i in 0..<4 {
-            let l = lhs.values[i]
-            let r = rhs.values[i]
-            if l < r {
-                return true
-            } else if l > r {
-                return false
-            }
-        }
-        return false
-    }
-
-    public func makeIterator() -> IndexingIterator<Array<T>> {
-        return values.makeIterator()
     }
 }
 

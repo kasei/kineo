@@ -222,22 +222,6 @@ func printDataset(in store: QuadStoreProtocol, graph: Term? = nil) throws -> Int
     return 0
 }
 
-func printPageInfo(mediator: FilePageRMediator, name: String, page: PageId) {
-    if let (type, date, previous) = mediator._pageInfo(page: page) {
-        var prev: String
-        switch previous {
-        case .none, .some(0):
-            prev = ""
-        case .some(let value):
-            prev = "Previous page: \(value)"
-        }
-        
-        let name_padded = name.padding(toLength: 16, withPad: " ", startingAt: 0)
-        let type_padded = type.padding(toLength: 24, withPad: " ", startingAt: 0)
-        print("  \(page)\t\(date)\t\(name_padded)\t\(type_padded)\t\t\(prev)")
-    }
-}
-
 func printSPARQL(_ qfile: String, pretty: Bool = false, silent: Bool = false, includeComments: Bool = false) throws {
     let url = URL(fileURLWithPath: qfile)
     let sparql = try Data(contentsOf: url)
