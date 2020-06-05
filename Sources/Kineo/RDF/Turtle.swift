@@ -110,7 +110,7 @@ extension Term {
                             if lexer.hasRemainingContent {
                                 continue
                             }
-                            if case .prefixname(_) = token {
+                            if case .prefixname = token {
                                 return prefixname
                             }
                         }

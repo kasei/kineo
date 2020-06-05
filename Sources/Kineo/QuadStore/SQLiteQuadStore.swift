@@ -546,7 +546,7 @@ extension SQLiteQuadStore: PlanningQuadStore {
         case .bgp(let triples):
             return try plan(bgp: triples, activeGraph: activeGraph)
         case let .aggregate(a, groups, aggs) where aggs.count == 1:
-            guard groups.allSatisfy({ if case .node(.variable(_)) = $0 { return true } else { return false } }) else {
+            guard groups.allSatisfy({ if case .node(.variable) = $0 { return true } else { return false } }) else {
                 return nil
             }
             let agg = aggs.first!

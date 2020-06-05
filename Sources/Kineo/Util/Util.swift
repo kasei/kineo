@@ -25,7 +25,7 @@ public func callStackCallers(_ maxLength: Int, _ skip: Int = 0) -> String {
     let symbols = Thread.callStackSymbols.map { (v) -> String in
         let i = v.index(v.startIndex, offsetBy: 59)
         let f = String(v[i...])
-        let j = f.index(of: " ") ?? f.endIndex
+        let j = f.firstIndex(of: " ") ?? f.endIndex
         let name = String(f[..<j])
         return name
     }
@@ -86,16 +86,14 @@ public struct FileReader: LineReadable {
                     buffer.removeFirst(index+1)
                     return s
                 }
-//                print("- no newline yet")
 
-                guard let readBytes = Self.fill(buffer: &buffer, from: fd, blockSize: blockSize) else {
+                guard let _ = Self.fill(buffer: &buffer, from: fd, blockSize: blockSize) else {
                     // return last line
                     let d = Data(bytes: buffer, count: buffer.count)
                     end = true
                     buffer = []
                     return String(data: d, encoding: .utf8)
                 }
-//                print("read \(readBytes) bytes")
             } while true
         }
     }

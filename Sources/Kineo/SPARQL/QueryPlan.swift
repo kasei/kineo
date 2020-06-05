@@ -1137,13 +1137,13 @@ public struct WindowPlan: UnaryQueryPlan {
                         case .integer(_):
                             intCount += 1
                             int += n
-                        case .float(_):
+                        case .float:
                             fltCount += 1
                             flt += n
-                        case .decimal(_):
+                        case .decimal:
                             decCount += 1
                             dec += n
-                        case .double(_):
+                        case .double:
                             dblCount += 1
                             dbl += n
                         }
@@ -1152,16 +1152,16 @@ public struct WindowPlan: UnaryQueryPlan {
                 remove: { (r) in
                     if let t = try? ee.evaluate(expression: expr, result: r), let n = t.numeric {
                         switch n {
-                        case .integer(_):
+                        case .integer:
                             intCount -= 1
                             int -= n
-                        case .float(_):
+                        case .float:
                             fltCount -= 1
                             flt -= n
-                        case .decimal(_):
+                        case .decimal:
                             decCount -= 1
                             dec -= n
-                        case .double(_):
+                        case .double:
                             dblCount -= 1
                             dbl -= n
                         }
@@ -1189,16 +1189,16 @@ public struct WindowPlan: UnaryQueryPlan {
                 add: { (r) in
                     if let t = try? ee.evaluate(expression: expr, result: r), let n = t.numeric {
                         switch n {
-                        case .integer(_):
+                        case .integer:
                             intCount += 1
                             int += n
-                        case .float(_):
+                        case .float:
                             fltCount += 1
                             flt += n
-                        case .decimal(_):
+                        case .decimal:
                             decCount += 1
                             dec += n
-                        case .double(_):
+                        case .double:
                             dblCount += 1
                             dbl += n
                         }
@@ -1207,16 +1207,16 @@ public struct WindowPlan: UnaryQueryPlan {
                 remove: { (r) in
                     if let t = try? ee.evaluate(expression: expr, result: r), let n = t.numeric {
                         switch n {
-                        case .integer(_):
+                        case .integer:
                             intCount -= 1
                             int -= n
-                        case .float(_):
+                        case .float:
                             fltCount -= 1
                             flt -= n
-                        case .decimal(_):
+                        case .decimal:
                             decCount -= 1
                             dec -= n
-                        case .double(_):
+                        case .double:
                             dblCount -= 1
                             dbl -= n
                         }
@@ -1672,7 +1672,7 @@ public struct StarPathPlan : PathPlan {
             }
         case .variable(let s, binding: _):
             switch object {
-            case .variable(_):
+            case .variable:
                 var iterators = [AnyIterator<SPARQLResultSolution<Term>>]()
                 for gn in store.graphTerms(in: graph) {
                     let results = try evaluate(from: .bound(gn), to: object, in: graph).lazy.compactMap { (r) -> SPARQLResultSolution<Term>? in
@@ -1690,7 +1690,7 @@ public struct StarPathPlan : PathPlan {
                         }
                     } while true
                 }
-            case .bound(_):
+            case .bound:
                 throw QueryPlanError.unimplemented("unimplemented: ?var :starpath* <bound>") // TODO: implement
             }
         }
@@ -1704,7 +1704,7 @@ public struct ZeroOrOnePathPlan : PathPlan {
     public func evaluate(from subject: Node, to object: Node, in graph: Term) throws -> AnyIterator<SPARQLResultSolution<Term>> {
         let i = try child.evaluate(from: subject, to: object, in: graph)
         switch (subject, object) {
-        case (.variable(let s, _), .variable(_)):
+        case (.variable(let s, _), .variable):
             let gn = store.graphTerms(in: graph)
             let results = try gn.lazy.map { (term) -> AnyIterator<SPARQLResultSolution<Term>> in
                 let i = try child.evaluate(from: .bound(term), to: object, in: graph)
@@ -1714,7 +1714,7 @@ public struct ZeroOrOnePathPlan : PathPlan {
                 return AnyIterator(j.makeIterator())
             }
             return AnyIterator(results.joined().makeIterator())
-        case (.bound(_), .bound(_)):
+        case (.bound, .bound):
             if subject == object {
                 let r = [SPARQLResultSolution<Term>(bindings: [:])]
                 return AnyIterator(r.makeIterator())

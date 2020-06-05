@@ -8,6 +8,7 @@ extension SPARQLXMLSyntaxTest {
         return [
             ("testXML1", testXML1),
             ("testXML2", testXML2),
+            ("testXML_boolean", testXML_boolean)
         ]
     }
 }
@@ -44,9 +45,9 @@ class SPARQLXMLSyntaxTest: XCTestCase {
         let j = try serializer.serialize(results)
         let s = String(data: j, encoding: .utf8)!
         let expected = """
-        <?xml version="1.0" standalone="yes"?><sparql xmlns="http://www.w3.org/2005/sparql-results#"><head><variable name="name"></variable><variable name="value"></variable></head><results><result><binding name="name"><literal datatype="http://www.w3.org/2001/XMLSchema#string">Berlin</literal></binding><binding name="value"><literal datatype="http://www.w3.org/2001/XMLSchema#double">1.2E0</literal></binding></result><result><binding name="name"><literal datatype="http://www.w3.org/2001/XMLSchema#string">Berlin</literal></binding><binding name="value"><literal datatype="http://www.w3.org/2001/XMLSchema#integer">7</literal></binding></result></results></sparql>
+        <sparql xmlns="http://www.w3.org/2005/sparql-results#"><head><variable name="name"></variable><variable name="value"></variable></head><results><result><binding name="name"><literal datatype="http://www.w3.org/2001/XMLSchema#string">Berlin</literal></binding><binding name="value"><literal datatype="http://www.w3.org/2001/XMLSchema#double">1.2E0</literal></binding></result><result><binding name="name"><literal datatype="http://www.w3.org/2001/XMLSchema#string">Berlin</literal></binding><binding name="value"><literal datatype="http://www.w3.org/2001/XMLSchema#integer">7</literal></binding></result></results></sparql>
         """
-        XCTAssertEqual(s, expected)
+        XCTAssert(s.contains(expected))
     }
     
     func testXML2() throws {
@@ -57,9 +58,9 @@ class SPARQLXMLSyntaxTest: XCTestCase {
         let j = try serializer.serialize(results)
         let s = String(data: j, encoding: .utf8)!
         let expected = """
-        <?xml version="1.0" standalone="yes"?><sparql xmlns="http://www.w3.org/2005/sparql-results#"><head><variable name="name"></variable><variable name="value"></variable><variable name="boolean"></variable><variable name="blank"></variable><variable name="iri"></variable></head><results><result><binding name="name"><literal datatype="http://www.w3.org/2001/XMLSchema#string">Berlin</literal></binding><binding name="value"><literal datatype="http://www.w3.org/2001/XMLSchema#double">1.2E0</literal></binding></result><result><binding name="blank"><bnode>b1</bnode></binding><binding name="boolean"><literal datatype="http://www.w3.org/2001/XMLSchema#boolean">true</literal></binding><binding name="iri"><uri>http://example.org/Berlin</uri></binding></result><result><binding name="name"><literal datatype="http://www.w3.org/2001/XMLSchema#string">Berlin</literal></binding><binding name="value"><literal datatype="http://www.w3.org/2001/XMLSchema#integer">7</literal></binding></result></results></sparql>
+        <sparql xmlns="http://www.w3.org/2005/sparql-results#"><head><variable name="name"></variable><variable name="value"></variable><variable name="boolean"></variable><variable name="blank"></variable><variable name="iri"></variable></head><results><result><binding name="name"><literal datatype="http://www.w3.org/2001/XMLSchema#string">Berlin</literal></binding><binding name="value"><literal datatype="http://www.w3.org/2001/XMLSchema#double">1.2E0</literal></binding></result><result><binding name="blank"><bnode>b1</bnode></binding><binding name="boolean"><literal datatype="http://www.w3.org/2001/XMLSchema#boolean">true</literal></binding><binding name="iri"><uri>http://example.org/Berlin</uri></binding></result><result><binding name="name"><literal datatype="http://www.w3.org/2001/XMLSchema#string">Berlin</literal></binding><binding name="value"><literal datatype="http://www.w3.org/2001/XMLSchema#integer">7</literal></binding></result></results></sparql>
         """
-        XCTAssertEqual(s, expected)
+        XCTAssert(s.contains(expected))
     }
     
     func testXML_boolean() throws {
@@ -69,8 +70,8 @@ class SPARQLXMLSyntaxTest: XCTestCase {
         let j = try serializer.serialize(results)
         let s = String(data: j, encoding: .utf8)!
         let expected = """
-        <?xml version="1.0" standalone="yes"?><sparql xmlns="http://www.w3.org/2005/sparql-results#"><boolean>true</boolean></sparql>
+        <sparql xmlns="http://www.w3.org/2005/sparql-results#"><boolean>true</boolean></sparql>
         """
-        XCTAssertEqual(s, expected)
+        XCTAssert(s.contains(expected))
     }
 }

@@ -140,11 +140,11 @@ public struct SPARQLContentNegotiator {
         let json = SPARQLJSONSerializer<SPARQLResultSolution<Term>>()
         let valid : [SPARQLSerializable]
         switch result {
-        case .boolean(_):
+        case .boolean:
             valid = serializers.filter { $0.serializesBoolean }
-        case .bindings(_):
+        case .bindings:
             valid = serializers.filter { $0.serializesBindings }
-        case .triples(_):
+        case .triples:
             valid = serializers.filter { $0.serializesTriples }
         }
         
