@@ -86,7 +86,7 @@ extension SimpleQueryEvaluatorProtocol {
             } else {
                 return QueryResult.boolean(true)
             }
-        case .select(_):
+        case .select:
             let variables = query.projectedVariables
             let r : QueryResult<[SPARQLResultSolution<Term>], [Triple]> = QueryResult.bindings(variables, results)
             return r
@@ -108,7 +108,7 @@ extension SimpleQueryEvaluatorProtocol {
         case .ask:
             let results = Array(iter)
             resultHandler(.boolean(results.isEmpty ? false : true))
-        case .select(_):
+        case .select:
             let variables = query.projectedVariables
             iter.forEach { (r) in
                 resultHandler(.binding(variables, r))
@@ -822,7 +822,7 @@ public func evaluateGroupConcat<S: Sequence>(results: S, expression keyExpr: Exp
             guard let pair = a.next() else { return nil }
             let (groupKey, v) = pair
             var value = v
-            if case .avg(_) = agg {
+            if case .avg = agg {
                 guard let count = groupCount[groupKey] else {
                     Logger.shared.error("Failed to find expected group data during aggregation")
                     fatalError("Failed to find expected group data during aggregation")
@@ -1045,7 +1045,7 @@ public func evaluateGroupConcat<S: Sequence>(results: S, expression keyExpr: Exp
             return AnyIterator(i.makeIterator())
         case .plus(let pp):
             switch (subject, object) {
-            case (.bound(_), .variable(let oname, binding: _)):
+            case (.bound, .variable(let oname, binding: _)):
                 let pvar = freshVariable()
                 var v = Set<Term>()
                 for result in try evaluatePath(subject: subject, object: pvar, graph: graph, path: pp) {
@@ -1060,10 +1060,10 @@ public func evaluateGroupConcat<S: Sequence>(results: S, expression keyExpr: Exp
                     let r = SPARQLResultSolution<Term>(bindings: [oname: t])
                     return r
                 }
-            case (.variable(_), .bound(_)):
+            case (.variable, .bound):
                 let ipath: PropertyPath = .plus(.inv(pp))
                 return try evaluatePath(subject: object, object: subject, graph: graph, path: ipath)
-            case (.bound(_), .bound(let oterm)):
+            case (.bound, .bound(let oterm)):
                 let pvar = freshVariable()
                 var v = Set<Term>()
                 for result in try evaluatePath(subject: subject, object: pvar, graph: graph, path: pp) {
@@ -1077,7 +1077,7 @@ public func evaluateGroupConcat<S: Sequence>(results: S, expression keyExpr: Exp
                     results.append(SPARQLResultSolution<Term>(bindings: [:]))
                 }
                 return AnyIterator(results.makeIterator())
-            case (.variable(let sname, binding: _), .variable(_)):
+            case (.variable(let sname, binding: _), .variable):
                 var results = [SPARQLResultSolution<Term>]()
                 for t in evaluateGraphTerms(in: graph) {
                     let i = try evaluatePath(subject: .bound(t), object: object, graph: graph, path: pp)
@@ -1097,7 +1097,7 @@ public func evaluateGroupConcat<S: Sequence>(results: S, expression keyExpr: Exp
                     let r = SPARQLResultSolution<Term>(bindings: [oname: o])
                     return r
                 }
-            case (.variable(_), .bound(_)):
+            case (.variable, .bound):
                 let ipath: PropertyPath = .star(.inv(pp))
                 return try evaluatePath(subject: object, object: subject, graph: graph, path: ipath)
             case (.bound(let t), .bound(let oterm)):
@@ -1109,7 +1109,7 @@ public func evaluateGroupConcat<S: Sequence>(results: S, expression keyExpr: Exp
                     results.append(SPARQLResultSolution<Term>(bindings: [:]))
                 }
                 return AnyIterator(results.makeIterator())
-            case let (.variable(sname, binding: _), .variable(_)):
+            case let (.variable(sname, binding: _), .variable):
                 var results = [SPARQLResultSolution<Term>]()
                 for t in evaluateGraphTerms(in: graph) {
                     let i = try evaluatePath(subject: .bound(t), object: object, graph: graph, path: path)
@@ -1139,7 +1139,7 @@ public func evaluateGroupConcat<S: Sequence>(results: S, expression keyExpr: Exp
             case (.bound(let s), .bound(let o)) where s == o:
                 let results = [SPARQLResultSolution<Term>(bindings: [:])]
                 return AnyIterator(results.makeIterator())
-            case (.bound(_), .bound(_)):
+            case (.bound, .bound):
                 // eval(Path(X:term, ZeroOrOnePath(P), Y:term)) =
                 //     { {} } if X = Y or eval(Path(X,P,Y)) is not empty
                 //     { } othewise
@@ -1425,7 +1425,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol>: SimpleQueryEvaluatorProto
     }
     
     public func effectiveVersion(algebra child: Algebra, inGraph graph: Node) throws -> Version? {
-        guard case .variable(_) = graph else {
+        guard case .variable = graph else {
             Logger.shared.error("Unexpected variable found during named graph evaluation")
             throw QueryError.evaluationError("Unexpected variable found during named graph evaluation")
         }
@@ -1459,7 +1459,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol>: SimpleQueryEvaluatorProto
             return try effectiveVersion(matching: child, activeGraph: activeGraph)
         case .window(let child, _):
             return try effectiveVersion(matching: child, activeGraph: activeGraph)
-        case .service(_):
+        case .service:
             return nil
         case .triple(let t):
             let quad = QuadPattern(subject: t.subject, predicate: t.predicate, object: t.object, graph: .bound(activeGraph))

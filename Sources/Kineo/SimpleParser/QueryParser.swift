@@ -19,7 +19,7 @@ open class QueryParser<T: LineReadable> {
     
     // swiftlint:disable:next cyclomatic_complexity
     func parse(line: String) throws -> Algebra? {
-        var parts = line.components(separatedBy: " ").filter { $0 != "" && !$0.hasPrefix("\t") }
+        let parts = line.components(separatedBy: " ").filter { $0 != "" && !$0.hasPrefix("\t") }
         guard parts.count > 0 else { return nil }
         if parts[0].hasPrefix("#") { return nil }
         let rest = parts.suffix(from: 1).joined(separator: " ")

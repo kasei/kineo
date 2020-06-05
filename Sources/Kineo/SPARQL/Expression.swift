@@ -1018,7 +1018,7 @@ public class ExpressionEvaluator {
         case .valuein(let expr, let exprs):
             let term = try evaluate(expression: expr, result: result)
             let terms = try exprs.map { try evaluate(expression: $0, result: result) }
-            if let _ = terms.index(of: term) {
+            if let _ = terms.firstIndex(of: term) {
                 return Term.trueValue
             } else {
                 return Term.falseValue

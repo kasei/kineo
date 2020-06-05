@@ -9,6 +9,9 @@
 import serd
 import Foundation
 import SPARQLSyntax
+#if canImport(FoundationXML)
+import FoundationXML
+#endif
 
 public class RDFParserCombined : RDFPushParser {
     public var mediaTypes: Set<String> = [
@@ -195,7 +198,6 @@ public class RDFParserCombined : RDFPushParser {
         let base = base ?? defaultBase
         switch inputSyntax {
         case .nquads:
-            let fileURI = URL(fileURLWithPath: filename)
             let reader = FileReader(filename: filename)
             let p = NQuadsParser(reader: reader, defaultGraph: defaultGraph)
             var count = 0
@@ -207,7 +209,7 @@ public class RDFParserCombined : RDFPushParser {
         case .ntriples, .turtle:
             let p = SerdParser(syntax: inputSyntax, base: base, produceUniqueBlankIdentifiers: produceUniqueBlankIdentifiers)
             var count = 0
-            return try p.serd_parse(file: filename, defaultGraph: defaultGraph, base: base) { (s,p,o,g) in
+            _ = try p.serd_parse(file: filename, defaultGraph: defaultGraph, base: base) { (s,p,o,g) in
                 handleQuad(s,p,o,g)
                 count += 1
             }

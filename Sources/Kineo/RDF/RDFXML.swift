@@ -7,6 +7,9 @@
 
 import Foundation
 import SPARQLSyntax
+#if canImport(FoundationXML)
+import FoundationXML
+#endif
 
 public struct RDFXMLParser {
     enum ParserError: Error {

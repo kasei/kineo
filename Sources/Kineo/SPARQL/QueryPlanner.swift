@@ -217,7 +217,7 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
             let rplans = try plan(algebra: rhs, activeGraph: activeGraph, estimator: estimator)
             var plans = [QueryPlan]()
             let (e, mapping) = try expr.removingExistsExpressions(namingVariables: &freshCounter)
-            print("*** TODO: handle query planning of EXISTS expressions in OPTIONAL: \(e)")
+            print("*** TODO: handle query planning of EXISTS expressions in OPTIONAL: \(e) with mapping \(mapping)")
             for fij in fijplans {
                 for l in lplans {
                     for r in rplans {
@@ -228,7 +228,7 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
                 }
             }
             return candidatePlans(plans, estimator: estimator)
-        case let .union(lhs, rhs):
+        case .union:
             let branches = algebra.unionBranches()
             let branchPlans = try branches.map { try plan(algebra: $0, activeGraph: activeGraph, estimator: estimator) }
             let plans = try self.planBushyUnionProduct(branches: branchPlans, estimator: estimator)
@@ -273,7 +273,7 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
             //NextRowPlan
         case let .extend(child, .exists(algebra), name):
             var pplans = try plan(algebra: child, activeGraph: activeGraph, estimator: estimator)
-            if case .extend(_) = child {
+            if case .extend = child {
             } else {
                 // at the bottom of a chain of one or more extend()s, add a NextRow plan
                 pplans = pplans.map { NextRowPlan(child: $0, evaluator: evaluator) }

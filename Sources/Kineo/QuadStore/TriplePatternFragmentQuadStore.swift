@@ -8,6 +8,9 @@
 import Foundation
 import SPARQLSyntax
 import URITemplate
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 enum TPFError : Error {
     case blankNodeUse(String)
