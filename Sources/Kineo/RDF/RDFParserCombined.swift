@@ -9,6 +9,9 @@
 import serd
 import Foundation
 import SPARQLSyntax
+#if canImport(FoundationXML)
+import FoundationXML
+#endif
 
 public class RDFParserCombined : RDFPushParser {
     public var mediaTypes: Set<String> = [

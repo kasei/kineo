@@ -37,6 +37,7 @@ public indirect enum ResultPlan {
     case merge(ResultPlan, ResultPlan, ResultComparator)
     case table([SPARQLResultSolution<Term>])
     case hashJoin(ResultPlan, ResultPlan)
+    case mergeJoin(ResultPlan, ResultPlan, [String])
     case leftOuterJoin(ResultPlan, ResultPlan, Expression)
     case filter(ResultPlan, Expression)
     case union(ResultPlan, ResultPlan)

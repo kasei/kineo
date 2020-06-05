@@ -501,4 +501,21 @@ public protocol ResultProtocol: Hashable, Sequence {
     func removing(variables: Set<String>) -> Self
 }
 
-extension SPARQLResultSolution: ResultProtocol {}
+extension SPARQLResultSolution: ResultProtocol, Comparable {
+    public static func < (lhs: SPARQLResultSolution<T>, rhs: SPARQLResultSolution<T>) -> Bool {
+        let keys = Set(lhs.keys + rhs.keys).sorted()
+        for key in keys {
+            if let l = lhs[key], let r = rhs[key] {
+                if l == r {
+                    continue
+                }
+                return l < r
+            } else if let _ = lhs[key] {
+                return false
+            } else {
+                return true
+            }
+        }
+        return false
+    }
+}

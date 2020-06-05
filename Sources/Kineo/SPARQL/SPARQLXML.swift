@@ -7,6 +7,9 @@
 
 import Foundation
 import SPARQLSyntax
+#if canImport(FoundationXML)
+import FoundationXML
+#endif
 
 public struct SPARQLXMLSerializer<T: ResultProtocol> : SPARQLSerializable where T.TermType == Term {
     typealias ResultType = T

@@ -7,6 +7,9 @@
 
 import Foundation
 import SPARQLSyntax
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 public struct SPARQLClient {
     var endpoint: URL
