@@ -55,12 +55,7 @@ class SPARQLContentNegotiatorTest: XCTestCase {
 
         
         // serializer for application/n-triples, text/tab-separated-values, application/sparql-results+xml
-        #if os(Linux)
-        // TODO: XML serialization is broken on linux, so suppressed in conneg
-        XCTAssertNil(c.negotiateSerializer(for: boolResult, accept: ["application/n-triples", "text/tab-separated-values", "application/sparql-results+xml"]))
-        #else
         XCTAssertEqual(c.negotiateSerializer(for: boolResult, accept: ["application/n-triples", "text/tab-separated-values", "application/sparql-results+xml"])!.canonicalMediaType, "application/sparql-results+xml")
-        #endif
         
         XCTAssertEqual(c.negotiateSerializer(for: triplesResult, accept: ["application/n-triples", "text/tab-separated-values", "application/sparql-results+xml"])!.canonicalMediaType, "application/n-triples")
         XCTAssertEqual(c.negotiateSerializer(for: bindingsResult, accept: ["application/n-triples", "text/tab-separated-values", "application/sparql-results+xml"])!.canonicalMediaType, "text/tab-separated-values")
