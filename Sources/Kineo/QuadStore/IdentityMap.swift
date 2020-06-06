@@ -11,7 +11,7 @@ import SPARQLSyntax
 
 public protocol IdentityMap {
     associatedtype Item: Hashable
-    associatedtype Result: Comparable, DefinedTestable
+    associatedtype Result: Comparable
     func id(for value: Item) -> Result?
     func getOrSetID(for value: Item) throws -> Result
 }
