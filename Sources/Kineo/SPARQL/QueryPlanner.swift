@@ -507,14 +507,24 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
             let plans = try plan(bgp: patterns, activeGraph: .bound(activeGraph), estimator: estimator)
             return candidatePlans(plans, estimator: estimator)
         case let .minus(lhs, rhs):
+            var plans = [QueryPlan]()
             let lplans = try plan(algebra: lhs, activeGraph: activeGraph, estimator: estimator)
             let rplans = try plan(algebra: rhs, activeGraph: activeGraph, estimator: estimator)
-            var plans = [QueryPlan]()
+
+            let i = lhs.inscope.intersection(rhs.inscope)
+            let ni = lhs.necessarilyBound.intersection(rhs.necessarilyBound)
             for l in lplans {
                 for r in rplans {
                     if let store = _lazyStore(), let lhs = l as? MaterializePlan, let rhs = r as? MaterializePlan {
-                        let mplan = IDMinusPlan(lhs: lhs.idPlan, rhs: rhs.idPlan)
-                        plans.append(MaterializePlan(idPlan: mplan, store: store))
+                        if !ni.isEmpty {
+                            // there is an intersection of necessarily-bound variables in the two branches,
+                            // so we can use an anti-join to produce the results
+                            let hplan = IDHashAntiJoinPlan(lhs: lhs.idPlan, rhs: rhs.idPlan, joinVariables: i)
+                            plans.append(MaterializePlan(idPlan: hplan, store: store))
+                        } else {
+                            let mplan = IDMinusPlan(lhs: lhs.idPlan, rhs: rhs.idPlan)
+                            plans.append(MaterializePlan(idPlan: mplan, store: store))
+                        }
                     } else {
                         plans.append(MinusPlan(lhs: l, rhs: r))
                     }

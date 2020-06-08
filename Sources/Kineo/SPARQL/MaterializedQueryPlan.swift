@@ -110,6 +110,7 @@ public struct NestedLoopJoinPlan: BinaryQueryPlan, QueryPlanSerialization {
 enum HashJoinType {
     case inner
     case outer
+    case anti
 }
 
 func hashJoin<I: IteratorProtocol, J: IteratorProtocol, T>(_ lhs: I, _ rhs: J, joinVariables: Set<String>, type: HashJoinType = .inner) -> AnyIterator<I.Element> where I.Element == SPARQLResultSolution<T>, I.Element == J.Element {
@@ -156,7 +157,9 @@ func hashJoin<I: IteratorProtocol, J: IteratorProtocol, T>(_ lhs: I, _ rhs: J, j
                     for lhs in results {
                         if let j = lhs.join(result) {
                             seen = true
-                            buffer.append(j)
+                            if type != .anti {
+                                buffer.append(j)
+                            }
                         }
                     }
                 }
@@ -164,10 +167,14 @@ func hashJoin<I: IteratorProtocol, J: IteratorProtocol, T>(_ lhs: I, _ rhs: J, j
             for lhs in unboundTable {
                 if let j = lhs.join(result) {
                     seen = true
-                    buffer.append(j)
+                    if type != .anti {
+                        buffer.append(j)
+                    }
                 }
             }
             if type == .outer && !seen {
+                buffer.append(result)
+            } else if type == .anti && !seen {
                 buffer.append(result)
             }
         } while true

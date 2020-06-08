@@ -119,6 +119,13 @@ public struct QueryPlanSimpleCostEstimator: QueryPlanCostEstimator {
                     penalty = 1000.0
                 }
                 return QueryPlanSimpleCost(cost: penalty * (lc.cost + 2.0 * rc.cost)) // value rhs more, since that is the one that is materialized
+            } else if let p = plan as? IDHashAntiJoinPlan {
+                var penalty = 1.0
+                let jv = p.joinVariables
+                if jv.isEmpty {
+                    penalty = 1000.0
+                }
+                return QueryPlanSimpleCost(cost: penalty * (lc.cost + 2.0 * rc.cost)) // value rhs more, since that is the one that is materialized
             } else if let _ = plan as? IDNestedLoopJoinPlan {
                 return QueryPlanSimpleCost(cost: lc.cost * rc.cost)
             } else if let _ = plan as? IDNestedLoopLeftJoinPlan {

@@ -72,7 +72,7 @@ public struct IDHashJoinPlan: BinaryIDQueryPlan {
     public var lhs: IDQueryPlan
     public var rhs: IDQueryPlan
     var joinVariables: Set<String>
-    public var selfDescription: String { return "ID Hash Join { \(joinVariables) }" }
+    public var selfDescription: String { return "ID Hash-Join { \(joinVariables) }" }
     public func evaluate() throws -> AnyIterator<SPARQLResultSolution<UInt64>> {
         let joinVariables = self.joinVariables
         let l = try lhs.evaluate()
@@ -85,12 +85,25 @@ public struct IDHashLeftJoinPlan: BinaryIDQueryPlan {
     public var lhs: IDQueryPlan
     public var rhs: IDQueryPlan
     var joinVariables: Set<String>
-    public var selfDescription: String { return "ID Hash Left Join { \(joinVariables) }" }
+    public var selfDescription: String { return "ID Hash Left-Join { \(joinVariables) }" }
     public func evaluate() throws -> AnyIterator<SPARQLResultSolution<UInt64>> {
         let joinVariables = self.joinVariables
         let l = try lhs.evaluate()
         let r = try rhs.evaluate()
         return hashJoin(l, r, joinVariables: joinVariables, type: .outer)
+    }
+}
+
+public struct IDHashAntiJoinPlan: BinaryIDQueryPlan {
+    public var lhs: IDQueryPlan
+    public var rhs: IDQueryPlan
+    var joinVariables: Set<String>
+    public var selfDescription: String { return "ID Hash Anti-Join { \(joinVariables) }" }
+    public func evaluate() throws -> AnyIterator<SPARQLResultSolution<UInt64>> {
+        let joinVariables = self.joinVariables
+        let l = try lhs.evaluate()
+        let r = try rhs.evaluate()
+        return hashJoin(l, r, joinVariables: joinVariables, type: .anti)
     }
 }
 
