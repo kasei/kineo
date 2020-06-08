@@ -59,7 +59,7 @@ extension LazyMaterializingQuadStore {
     public func idresults(matching pattern: QuadPattern) throws -> AnyIterator<SPARQLResultSolution<UInt64>> {
         var bindings : [String: Int] = [:]
         for (node, index) in zip(pattern, 0..<4) {
-            if case .variable(let name, binding: _) = node {
+            if case .variable(let name, binding: true) = node {
                 bindings[name] = index
             }
         }
