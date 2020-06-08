@@ -50,6 +50,31 @@ public protocol QuadStoreProtocol {
     var features: [QuadStoreFeature] { get }
 }
 
+public protocol LazyMaterializingQuadStore: QuadStoreProtocol {
+    func quadIds(matching pattern: QuadPattern) throws -> [[IDType]]
+    func quadsIterator(fromIds ids: [[IDType]]) -> AnyIterator<Quad>
+    func term(from: IDType) throws -> Term?
+}
+extension LazyMaterializingQuadStore {
+    public func idresults(matching pattern: QuadPattern) throws -> AnyIterator<SPARQLResultSolution<UInt64>> {
+        var bindings : [String: Int] = [:]
+        for (node, index) in zip(pattern, 0..<4) {
+            if case .variable(let name, binding: _) = node {
+                bindings[name] = index
+            }
+        }
+        let quads = try self.quadIds(matching: pattern)
+        let results = quads.lazy.map { (q) -> SPARQLResultSolution<UInt64> in
+            var b = [String: UInt64]()
+            for (name, idx) in bindings {
+                b[name] = q[idx]
+            }
+            return SPARQLResultSolution(bindings: b)
+        }
+        return AnyIterator(results.makeIterator())
+    }
+}
+
 public protocol LanguageAwareQuadStore: QuadStoreProtocol {
     var acceptLanguages: [(String, Double)] { get set }
 }

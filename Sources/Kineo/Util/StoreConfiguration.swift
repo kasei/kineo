@@ -237,6 +237,7 @@ public struct QuadStoreConfiguration {
 public struct AnyQuadStore: QuadStoreProtocol {
     typealias A = Any
     
+    public let _store: Any
     private let _count: () -> Int
     private let _graphs: () -> AnyIterator<Term>
     private let _graphTerms: (Term) -> AnyIterator<Term>
@@ -250,6 +251,7 @@ public struct AnyQuadStore: QuadStoreProtocol {
     private let _countQuads: (QuadPattern) throws -> Int
     
     init<Q: QuadStoreProtocol>(_ value: Q) {
+        self._store = value
         self._count = { value.count }
         self._graphs = value.graphs
         self._graphTerms = value.graphTerms

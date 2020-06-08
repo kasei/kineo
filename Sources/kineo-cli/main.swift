@@ -68,7 +68,7 @@ func explain<Q: QuadStoreProtocol>(in store: Q, query: Query, graph: Term? = nil
     let ce = QueryPlanSimpleCostEstimator()
     let cost = try ce.cost(for: plan)
     print("Query plan [\(cost)]")
-    print(plan.serialize())
+    print(plan.serialize(depth: 0))
 }
 
 func datasetForStore(_ store: QuadStoreProtocol, graph: Term?, verbose: Bool = false) -> Dataset {

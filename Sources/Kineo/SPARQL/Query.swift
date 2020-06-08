@@ -83,5 +83,56 @@ extension Algebra {
             return [self]
         }
     }
+    
+    var canEvaluateWithoutMaterialization: Bool {
+        switch self {
+        case .unionIdentity, .joinIdentity:
+            return true
+        case .quad(_):
+            return true
+        case .triple(_):
+            return true
+        case .bgp(_):
+            return true
+        case .path(_, _, _):
+            return true
+        case let .innerJoin(l, r):
+            return l.canEvaluateWithoutMaterialization && r.canEvaluateWithoutMaterialization
+        case let .union(l, r):
+            return l.canEvaluateWithoutMaterialization && r.canEvaluateWithoutMaterialization
+        case let .namedGraph(l, _):
+            return l.canEvaluateWithoutMaterialization
+        case let .minus(l, r):
+            return l.canEvaluateWithoutMaterialization && r.canEvaluateWithoutMaterialization
+        case let .project(l, _):
+            return l.canEvaluateWithoutMaterialization
+        case .reduced(let l):
+            return l.canEvaluateWithoutMaterialization
+        case .slice(let l, _, _):
+            return l.canEvaluateWithoutMaterialization
+
+
+        case .leftOuterJoin(_, _, _): // TODO: can special-case OPTIONAL without a filter clause
+            return false
+        case .filter:
+            return false
+        case .extend(_, _, _):
+            return false
+        case .distinct(_):
+            return false
+        case .service(_, _, _):
+            return false
+        case .order(_, _):
+            return false
+        case .aggregate(_, _, _):
+            return false
+        case .window(_, _):
+            return false
+        case .subquery(_):
+            return false
+        case .table(_, _):
+            return false
+        }
+    }
 }
 

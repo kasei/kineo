@@ -26,6 +26,11 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
     private var maxInFlightPlans: Int
     var serviceClients: [URL:SPARQLClient]
 
+    enum PlanResult {
+        case termPlan(QueryPlan)
+        case idPlan(QueryPlan)
+    }
+    
     public init(store: Q, dataset: Dataset, base: String? = nil) {
         self.store = store
         self.dataset = dataset
@@ -129,6 +134,59 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
         return candidatePlans(plans, estimator: estimator)
     }
     
+    private func reduceIDQuadJoins<E: QueryPlanCostEstimator>(_ plan: IDQueryPlan, rest tail: [QuadPattern], currentVariables: Set<String>, estimator: E) throws -> [MaterializePlan] {
+        guard let store = _lazyStore() else {
+            throw QueryPlannerError.noPlanAvailable
+        }
+        
+        // TODO: this is currently doing all possible permutations of [rest]; that's going to be prohibitive on large BGPs; use heuristics or something like IDP
+        guard !tail.isEmpty else {
+            let matplan = MaterializePlan(idPlan: plan, store: store)
+            return [matplan]
+        }
+        
+        var plans = [QueryPlan]()
+        for i in tail.indices {
+            var intermediate = [IDQueryPlan]()
+            let q = tail[i]
+            var rest = tail
+            rest.remove(at: i)
+            let qp = IDQuadPlan(quad: q, store: store)
+            let tv = q.variables
+            let i = currentVariables.intersection(tv)
+            intermediate.append(IDNestedLoopJoinPlan(lhs: plan, rhs: qp))
+            if !i.isEmpty {
+                intermediate.append(IDHashJoinPlan(lhs: plan, rhs: qp, joinVariables: i))
+            }
+            
+            let u = currentVariables.union(tv)
+            for p in intermediate {
+                let matplans = try reduceIDQuadJoins(p, rest: rest, currentVariables: u, estimator: estimator)
+                plans.append(contentsOf: matplans)
+            }
+        }
+        
+        let candidates = candidatePlans(plans, estimator: estimator)
+        return candidates as! [MaterializePlan]
+    }
+    
+    private func _lazyStore() -> LazyMaterializingQuadStore? {
+        // if we can do partial query evaluation using just term IDs, and delay materialization of term values,
+        // return the LazyMaterializingQuadStore store object to be used for such purposes here.
+        if let s = store as? LazyMaterializingQuadStore {
+            return s
+        } else if let aqs = store as? AnyQuadStore {
+            if let s = aqs._store as? LazyMaterializingQuadStore {
+                return s
+            }
+        } else if let ams = store as? AnyMutableQuadStore {
+            if let s = ams._store as? LazyMaterializingQuadStore {
+                return s
+            }
+        }
+        return nil
+    }
+    
     func plan<E: QueryPlanCostEstimator>(bgp: [TriplePattern], activeGraph g: Node, estimator: E) throws -> [QueryPlan] {
         let proj = Algebra.bgp(bgp).inscope
         let quadPatterns = bgp.map { (t) in
@@ -144,8 +202,15 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
             vars.formUnion(qp.variables)
         }
 
-        let qp = QuadPlan(quad: firstQuad, store: store)
-        let plans = try reduceQuadJoins(qp, rest: restQuads, currentVariables: firstQuad.variables, estimator: estimator)
+        let plans: [QueryPlan]
+        if let s = _lazyStore() {
+            let idplan = IDQuadPlan(quad: firstQuad, store: s)
+            plans = try reduceIDQuadJoins(idplan, rest: restQuads, currentVariables: firstQuad.variables, estimator: estimator)
+        } else {
+            let qp = QuadPlan(quad: firstQuad, store: store)
+            plans = try reduceQuadJoins(qp, rest: restQuads, currentVariables: firstQuad.variables, estimator: estimator)
+        }
+        
 //        print("Got \(plans.count) possible BGP join plans...")
         if vars == proj {
             return plans
@@ -174,6 +239,33 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
         return p
     }
     
+    public func allAvailableJoins(lhs l: QueryPlan, rhs r: QueryPlan, intersection i: Set<String>) -> [QueryPlan] {
+        if let store = _lazyStore(), let lhs = l as? MaterializePlan, let rhs = r as? MaterializePlan {
+            let l = lhs.idPlan
+            let r = rhs.idPlan
+
+            var plans = [IDQueryPlan]()
+            plans.append(IDNestedLoopJoinPlan(lhs: l, rhs: r))
+            plans.append(IDNestedLoopJoinPlan(lhs: r, rhs: l))
+            if !i.isEmpty {
+                plans.append(IDHashJoinPlan(lhs: l, rhs: r, joinVariables: i))
+                plans.append(IDHashJoinPlan(lhs: r, rhs: l, joinVariables: i))
+            }
+            return plans.map {
+                MaterializePlan(idPlan: $0, store: store)
+            }
+        } else {
+            var plans = [QueryPlan]()
+            plans.append(NestedLoopJoinPlan(lhs: l, rhs: r))
+            plans.append(NestedLoopJoinPlan(lhs: r, rhs: l))
+            if !i.isEmpty {
+                plans.append(HashJoinPlan(lhs: l, rhs: r, joinVariables: i))
+                plans.append(HashJoinPlan(lhs: r, rhs: l, joinVariables: i))
+            }
+            return plans
+        }
+    }
+
     public func plan<E: QueryPlanCostEstimator>(algebra: Algebra, activeGraph: Term, estimator: E) throws -> [QueryPlan] {
         if allowStoreOptimizedPlans {
             if let ps = store as? PlanningQuadStore {
@@ -202,28 +294,53 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
             var plans = [QueryPlan]()
             for l in lplans {
                 for r in rplans {
-                    plans.append(NestedLoopJoinPlan(lhs: l, rhs: r))
-                    plans.append(NestedLoopJoinPlan(lhs: r, rhs: l))
-                    if !i.isEmpty {
-                        plans.append(HashJoinPlan(lhs: l, rhs: r, joinVariables: i))
-                        plans.append(HashJoinPlan(lhs: r, rhs: l, joinVariables: i))
-                    }
+                    plans.append(contentsOf: self.allAvailableJoins(lhs: l, rhs: r, intersection: i))
                 }
             }
             return candidatePlans(plans, estimator: estimator)
         case let .leftOuterJoin(lhs, rhs, expr):
-            let fijplans = try plan(algebra: .filter(.innerJoin(lhs, rhs), expr), activeGraph: activeGraph, estimator: estimator)
             let lplans = try plan(algebra: lhs, activeGraph: activeGraph, estimator: estimator)
             let rplans = try plan(algebra: rhs, activeGraph: activeGraph, estimator: estimator)
+            let i = lhs.inscope.intersection(rhs.inscope)
             var plans = [QueryPlan]()
-            let (e, mapping) = try expr.removingExistsExpressions(namingVariables: &freshCounter)
-            print("*** TODO: handle query planning of EXISTS expressions in OPTIONAL: \(e) with mapping \(mapping)")
-            for fij in fijplans {
+
+            let fijplans: [QueryPlan]
+            if case .node(.bound(Term.trueValue)) = expr {
+                // there is no top-level filter in the RHS of the OPTIONAL
+                fijplans = try plan(algebra: .innerJoin(lhs, rhs), activeGraph: activeGraph, estimator: estimator)
+            } else {
+                fijplans = try plan(algebra: .filter(.innerJoin(lhs, rhs), expr), activeGraph: activeGraph, estimator: estimator)
+            }
+
+            if let store = self._lazyStore(),
+                case .node(.bound(Term.trueValue)) = expr {
                 for l in lplans {
                     for r in rplans {
-                        // TODO: add mapping to algebra (determine the right semantics for this with diff)
-                        let diff : QueryPlan = DiffPlan(lhs: l, rhs: r, expression: e, evaluator: evaluator)
-                        plans.append(UnionPlan(lhs: fij, rhs: diff))
+                        if let lhs = l as? MaterializePlan, let rhs = r as? MaterializePlan {
+                            if !i.isEmpty {
+                                let lhjoin = IDHashLeftJoinPlan(lhs: lhs.idPlan, rhs: rhs.idPlan, joinVariables: i)
+                                plans.append(MaterializePlan(idPlan: lhjoin, store: store))
+                            }
+                            let lnljoin = IDNestedLoopLeftJoinPlan(lhs: lhs.idPlan, rhs: rhs.idPlan)
+                            plans.append(MaterializePlan(idPlan: lnljoin, store: store))
+                        } else {
+                            for fij in fijplans {
+                                let diff : QueryPlan = DiffPlan(lhs: l, rhs: r, expression: expr, evaluator: evaluator)
+                                plans.append(UnionPlan(lhs: fij, rhs: diff))
+                            }
+                        }
+                    }
+                }
+            } else {
+                let (e, mapping) = try expr.removingExistsExpressions(namingVariables: &freshCounter)
+                print("*** TODO: handle query planning of EXISTS expressions in OPTIONAL: \(e) with mapping \(mapping)")
+                for fij in fijplans {
+                    for l in lplans {
+                        for r in rplans {
+                            // TODO: add mapping to algebra (determine the right semantics for this with diff)
+                            let diff : QueryPlan = DiffPlan(lhs: l, rhs: r, expression: e, evaluator: evaluator)
+                            plans.append(UnionPlan(lhs: fij, rhs: diff))
+                        }
                     }
                 }
             }
@@ -262,11 +379,29 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
             let plans = try plan(algebra: child, activeGraph: activeGraph, estimator: estimator)
             switch (offset, limit) {
             case let (.some(offset), .some(limit)):
-                return plans.map { LimitPlan(child: OffsetPlan(child: $0, offset: offset), limit: limit) }
+                return plans.map { (child) -> QueryPlan in
+                    if let store = self._lazyStore(), let c = child as? MaterializePlan {
+                        return MaterializePlan(idPlan: IDLimitPlan(child: IDOffsetPlan(child: c.idPlan, offset: offset), limit: limit), store: store)
+                    } else {
+                        return LimitPlan(child: OffsetPlan(child: child, offset: offset), limit: limit)
+                    }
+                }
             case (.some(let offset), _):
-                return plans.map { OffsetPlan(child: $0, offset: offset) }
+                return plans.map { (child) -> QueryPlan in
+                    if let store = self._lazyStore(), let c = child as? MaterializePlan {
+                        return MaterializePlan(idPlan: IDOffsetPlan(child: c.idPlan, offset: offset), store: store)
+                    } else {
+                        return OffsetPlan(child: child, offset: offset)
+                    }
+                }
             case (_, .some(let limit)):
-                return plans.map { LimitPlan(child: $0, limit: limit) }
+                return plans.map { (child) -> QueryPlan in
+                    if let store = self._lazyStore(), let c = child as? MaterializePlan {
+                        return MaterializePlan(idPlan: IDLimitPlan(child: c.idPlan, limit: limit), store: store)
+                    } else {
+                        return LimitPlan(child: child, limit: limit)
+                    }
+                }
             default:
                 return plans
             }
@@ -377,7 +512,12 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
             var plans = [QueryPlan]()
             for l in lplans {
                 for r in rplans {
-                    plans.append(MinusPlan(lhs: l, rhs: r))
+                    if let store = _lazyStore(), let lhs = l as? MaterializePlan, let rhs = r as? MaterializePlan {
+                        let mplan = IDMinusPlan(lhs: lhs.idPlan, rhs: rhs.idPlan)
+                        plans.append(MaterializePlan(idPlan: mplan, store: store))
+                    } else {
+                        plans.append(MinusPlan(lhs: l, rhs: r))
+                    }
                 }
             }
             return candidatePlans(plans, estimator: estimator)
@@ -437,7 +577,12 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
             let plans = try plan(algebra: .quad(quad), activeGraph: activeGraph, estimator: estimator)
             return plans
         case let .quad(quad):
-            return [QuadPlan(quad: quad, store: store)]
+            if let store = self._lazyStore() {
+                let idplan = IDQuadPlan(quad: quad, store: store)
+                return [MaterializePlan(idPlan: idplan, store: store)]
+            } else {
+                return [QuadPlan(quad: quad, store: store)]
+            }
         case let .path(s, path, o):
             let pathPlan = try plan(subject: s, path: path, object: o, activeGraph: activeGraph, estimator: estimator)
             return [PathQueryPlan(subject: s, path: pathPlan, object: o, graph: activeGraph)]

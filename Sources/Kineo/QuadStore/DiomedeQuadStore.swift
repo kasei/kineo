@@ -10,3 +10,5 @@ import SPARQLSyntax
 import DiomedeQuadStore
 
 extension DiomedeQuadStore: MutableQuadStoreProtocol {}
+extension DiomedeQuadStore: LazyMaterializingQuadStore {}
+
