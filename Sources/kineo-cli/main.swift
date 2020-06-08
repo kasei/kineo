@@ -86,22 +86,37 @@ func datasetForStore(_ store: QuadStoreProtocol, graph: Term?, verbose: Bool = f
     return dataset
 }
 
-func runQuery<Q: QuadStoreProtocol>(_ query: Query, in store: Q, graph: Term?, verbose: Bool) throws -> QueryResult<AnySequence<SPARQLResultSolution<Term>>, [Triple]> {
-    let dataset = datasetForStore(store, graph: graph, verbose: verbose)
-    let simpleEvaluator       = SimpleQueryEvaluator(store: store, dataset: dataset, verbose: verbose)
-    if let mtime = try simpleEvaluator.effectiveVersion(matching: query) {
-        let date = getDateString(seconds: mtime)
+@discardableResult
+func time<T>(_ name: String, verbose: Bool = true, handler: () throws -> T) rethrows -> T {
+    let startTime = getCurrentTime()
+    defer {
+        let endTime = getCurrentTime()
+        let elapsed = endTime - startTime
         if verbose {
-            print("# Last-Modified: \(date)")
+            warn("\(name): \(elapsed)s")
         }
-    } else if verbose {
-        print("# Last-Modified: (no version available)")
+    }
+    return try handler()
+}
+
+func runQuery<Q: QuadStoreProtocol>(_ query: Query, in store: Q, graph: Term?, verbose: Bool) throws -> QueryResult<AnySequence<SPARQLResultSolution<Term>>, [Triple]> {
+    let dataset = time("comuting dataset", verbose: verbose) { datasetForStore(store, graph: graph, verbose: verbose) }
+    try time("comuting last-modified", verbose: verbose) {
+        let simpleEvaluator       = SimpleQueryEvaluator(store: store, dataset: dataset, verbose: verbose)
+        if let mtime = try simpleEvaluator.effectiveVersion(matching: query) {
+            let date = getDateString(seconds: mtime)
+            if verbose {
+                print("# Last-Modified: \(date)")
+            }
+        } else if verbose {
+            print("# Last-Modified: (no version available)")
+        }
     }
     
     //    let e       = SimpleQueryEvaluator(store: store, dataset: dataset, verbose: verbose)
     let planner     = queryPlanner(store: store, dataset: dataset)
-    let e       = QueryPlanEvaluator(planner: planner)
-    let results = try e.evaluate(query: query)
+    let e           = QueryPlanEvaluator(planner: planner)
+    let results     = try e.evaluate(query: query)
     return results
 }
 
@@ -121,15 +136,10 @@ func queryPlanner<Q : QuadStoreProtocol>(store: Q, dataset: Dataset) -> QueryPla
 /// - parameter graph: The graph name to use as the initial active graph.
 /// - parameter verbose: A flag indicating whether verbose debugging should be emitted during query evaluation.
 func query<Q: QuadStoreProtocol>(in store: Q, query: Query, graph: Term? = nil, verbose: Bool) throws -> Int {
-    let startTime = getCurrentTime()
-    let results = try runQuery(query, in: store, graph: graph, verbose: verbose)
-    let count = printResult(results)
-    if verbose {
-        let endTime = getCurrentTime()
-        let elapsed = endTime - startTime
-        warn("query time: \(elapsed)s")
+    return try time("evaluating query plan", verbose: verbose) {
+        let results = try runQuery(query, in: store, graph: graph, verbose: verbose)
+        return printResult(results)
     }
-    return count
 }
 
 func cliQuery<Q: QuadStoreProtocol>(in store: Q, query: Query, graph: Term? = nil, verbose: Bool = false) throws -> Int {

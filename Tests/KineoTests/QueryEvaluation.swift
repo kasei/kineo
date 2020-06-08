@@ -1,6 +1,7 @@
 import XCTest
 import Kineo
 import SPARQLSyntax
+import DiomedeQuadStore
 
 #if os(Linux)
 extension SimpleQueryEvaluationTest {
@@ -158,8 +159,9 @@ struct TestStore: QuadStoreProtocol, Sequence {
 }
 
 protocol QueryEvaluationTests {
+    associatedtype Store: QuadStoreProtocol
     associatedtype Evaluator: QueryEvaluatorProtocol
-    var store: TestStore! { get }
+    var store: Store! { get }
     var graph: Term! { get }
     func evaluator(dataset: Dataset) -> Evaluator
 }
@@ -203,13 +205,20 @@ extension QueryEvaluationTests {
     }
     
     func eval(algebra: Algebra) throws -> AnyIterator<SPARQLResultSolution<Term>> {
-        let e = SimpleQueryEvaluator(store: store, defaultGraph: self.graph)
-        return try e.evaluate(algebra: algebra, activeGraph: self.graph)
+        let dataset = store.dataset(withDefault: self.graph)
+        let e = evaluator(dataset: dataset)
+        let results = try e.evaluate(algebra: algebra, activeGraph: self.graph)
+        return results
     }
     
     func eval(query: String) throws -> AnyIterator<SPARQLResultSolution<Term>> {
-        guard let algebra = parse(query: query) else { XCTFail(); fatalError() }
-        return try eval(algebra: algebra)
+        do {
+            guard let algebra = parse(query: query) else { XCTFail(); fatalError() }
+            return try eval(algebra: algebra)
+        } catch let e {
+            print("*** \(e)")
+            throw e
+        }
     }
 
     func _testTripleEval() {
@@ -419,6 +428,7 @@ extension QueryEvaluationTests {
         
         XCTAssertEqual(results.count, 3)
         let values = results.compactMap { $0["value"] }.compactMap { $0.numeric }
+        XCTAssertGreaterThanOrEqual(values.count, 2)
         XCTAssertTrue(values[0] === .integer(-117))
         XCTAssertTrue(values[1] === .integer(33))
     }
@@ -1223,7 +1233,7 @@ extension QueryEvaluationTests {
     }
 }
 
-class SimpleQueryEvaluationTest: XCTestCase, QueryEvaluationTests {
+class TestStore_SimpleQueryEvaluationTest: XCTestCase, QueryEvaluationTests {
     typealias Evaluator = SimpleQueryEvaluator<TestStore>
     var store: TestStore!
     var graph: Term!
@@ -1286,7 +1296,85 @@ class SimpleQueryEvaluationTest: XCTestCase, QueryEvaluationTests {
     func testWindowFunctionNtile() throws { try _testWindowFunctionNtile() }
 }
 
-class QueryPlanEvaluationTest: XCTestCase, QueryEvaluationTests {
+class DiomedeStore_QueryPlanEvaluationTest: XCTestCase, QueryEvaluationTests {
+    typealias Evaluator = QueryPlanEvaluator<DiomedeQuadStore>
+    var filename: URL!
+    var store: DiomedeQuadStore!
+    var graph: Term!
+    
+    override func setUp() {
+        super.setUp()
+        let f = FileManager.default
+        let dir = f.temporaryDirectory
+        let filename = "kineo-test-\(UUID().uuidString).db"
+        let path = dir.appendingPathComponent(filename)
+        self.filename = path
+        self.store = DiomedeQuadStore(path: self.filename.path, create: true)
+        self.graph = Term(value: "http://example.org/", type: .iri)
+        try? self.store.load(version: 1, quads: testQuads)
+    }
+    
+    override func tearDown() {
+        super.tearDown()
+        let f = FileManager.default
+        try? f.removeItem(at: self.filename)
+    }
+    
+    func evaluator(dataset: Dataset) -> Evaluator {
+        let e = QueryPlanEvaluator(store: store, dataset: dataset)
+        e.planner.allowStoreOptimizedPlans = false
+        return e
+    }
+    
+    func testTripleEval() { _testTripleEval() }
+    func testQuadEvalNoSuchGraph() { _testQuadEvalNoSuchGraph() }
+    func testQuadEval() { _testQuadEval() }
+    func testTripleEvalWithBoundPredicate() { _testTripleEvalWithBoundPredicate() }
+    func testFilterEval() { _testFilterEval() }
+    func testUnionEval() { _testUnionEval() }
+    func testProjectEval() { _testProjectEval() }
+    func testJoinEval() { _testJoinEval() }
+    func testLeftJoinEval() { _testLeftJoinEval() }
+    func testLimitEval() { _testLimitEval() }
+    func testCountAllEval() { _testCountAllEval() }
+    func testCountAllEvalWithGroup() { _testCountAllEvalWithGroup() }
+    func testCountEval() { _testCountEval() }
+    func testSumEval() { _testSumEval() }
+    func testAvgEval() { _testAvgEval() }
+    func testMultiAggEval() { _testMultiAggEval() }
+    func testSortEval() { _testSortEval() }
+    func testIRINamedGraphEval() { _testIRINamedGraphEval() }
+    func testVarNamedGraphEval() { _testVarNamedGraphEval() }
+    func testExtendEval() { _testExtendEval() }
+    func testHashFunctions() { _testHashFunctions() }
+    func testTermAccessors() { _testTermAccessors() }
+    func testAggregationProjection() { _testAggregationProjection() }
+    func testEmptyAggregation() { _testEmptyAggregation() }
+    func testRankWindowFunction1() throws { try _testRankWindowFunction1() }
+    func testRankWindowFunction2() throws { try _testRankWindowFunction2() }
+    func testRankWindowFunctionWithHaving() throws { try _testRankWindowFunctionWithHaving() }
+    func testWindowFunction1() throws { try _testWindowFunction1() }
+    func testWindowFunction2() throws { try _testWindowFunction2() }
+    func testWindowFunction3() throws { try _testWindowFunction3() }
+    func testWindowFunction4() throws { try _testWindowFunction4() }
+    func testWindowFunction5() throws { try _testWindowFunction5() }
+    func testWindowFunction6() throws { try _testWindowFunction6() }
+    func testWindowFunction7() throws { try _testWindowFunction7() }
+    func testWindowFunction8() throws { try _testWindowFunction8() }
+    func testWindowFunction9() throws { try _testWindowFunction9() }
+    func testWindowFunction10() throws { try _testWindowFunction10() }
+    func testWindowFunction11() throws { try _testWindowFunction11() }
+    func testWindowFunction12() throws { try _testWindowFunction12() }
+    func testWindowFunction_aggregates() throws { try _testWindowFunction_aggregates() }
+    func testWindowFunctionPartition() throws { try _testWindowFunctionPartition() }
+    func testDistinctAggregate() throws { try _testDistinctAggregate() }
+    func testWindowFunctionRank() throws { try _testWindowFunctionRank() }
+    func testWindowFunctionRank2() throws { try _testWindowFunctionRank2() }
+    func testWindowFunctionNtile() throws { try _testWindowFunctionNtile() }
+}
+
+
+class TestStore_QueryPlanEvaluationTest: XCTestCase, QueryEvaluationTests {
     typealias Evaluator = QueryPlanEvaluator<TestStore>
     var store: TestStore!
     var graph: Term!

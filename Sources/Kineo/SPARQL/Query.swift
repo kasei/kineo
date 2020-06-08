@@ -13,6 +13,7 @@ public protocol QueryEvaluatorProtocol {
     associatedtype ResultSequence: Sequence where ResultSequence.Element == SPARQLResultSolution<Term>
     associatedtype TripleSequence: Sequence where TripleSequence.Element == Triple
     func evaluate(query: Query) throws -> QueryResult<ResultSequence, TripleSequence>
+    func evaluate(algebra: Algebra, activeGraph: Term?) throws -> AnyIterator<SPARQLResultSolution<Term>>
     func evaluate(query: Query, activeGraph: Term?) throws -> QueryResult<ResultSequence, TripleSequence>
     var supportedLanguages: [QueryLanguage] { get }
     var supportedFeatures: [QueryEngineFeature] { get }

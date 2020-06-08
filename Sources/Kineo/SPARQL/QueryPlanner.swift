@@ -713,12 +713,37 @@ public struct QueryPlanEvaluator<Q: QuadStoreProtocol>: QueryEvaluatorProtocol {
         return try evaluate(query: query, activeGraph: nil)
     }
     
+    public func evaluate(algebra: Algebra, activeGraph: Term?) throws -> AnyIterator<SPARQLResultSolution<Term>> {
+        let rewriter = SPARQLQueryRewriter()
+        let a = try rewriter.simplify(algebra: algebra)
+        let ce = QueryPlanSimpleCostEstimator()
+        let plans = try planner.plan(algebra: a, activeGraph: activeGraph!, estimator: ce)
+        guard let plan = plans.first else {
+            throw QueryPlannerError.noPlanAvailable
+        }
+//        print("Query Plan:")
+//        print(plan.serialize(depth: 0))
+        
+        let seq = AnySequence { () -> AnyIterator<SPARQLResultSolution<Term>> in
+            do {
+                let i = try plan.evaluate()
+                return i
+            } catch let error {
+                print("*** Failed to evaluate query plan in Sequence construction: \(error)")
+                return AnyIterator([].makeIterator())
+                //                throw error
+            }
+        }
+        
+        return AnyIterator(seq.makeIterator())
+    }
+    
     public func evaluate(query: Query, activeGraph graph: Term? = nil) throws -> QueryResult<AnySequence<SPARQLResultSolution<Term>>, [Triple]> {
         let rewriter = SPARQLQueryRewriter()
         let q = try rewriter.simplify(query: query)
         let plan = try planner.plan(query: q, activeGraph: graph)
 //        print("Query Plan:")
-//        print(plan.serialize())
+//        print(plan.serialize(depth: 0))
         
         let seq = AnySequence { () -> AnyIterator<SPARQLResultSolution<Term>> in
             do {
