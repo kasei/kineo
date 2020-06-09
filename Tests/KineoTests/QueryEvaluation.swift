@@ -1317,7 +1317,7 @@ class DiomedeStore_QueryPlanEvaluationTest: XCTestCase, QueryEvaluationTests {
     override func tearDown() {
         super.tearDown()
         let f = FileManager.default
-        try? f.removeItem(at: self.filename)
+        try? f.trashItem(at: self.filename, resultingItemURL: nil)
     }
     
     func evaluator(dataset: Dataset) -> Evaluator {
