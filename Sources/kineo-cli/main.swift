@@ -101,7 +101,7 @@ func time<T>(_ name: String, verbose: Bool = true, handler: () throws -> T) reth
 
 func runQuery<Q: QuadStoreProtocol>(_ query: Query, in store: Q, graph: Term?, verbose: Bool) throws -> QueryResult<AnySequence<SPARQLResultSolution<Term>>, [Triple]> {
     let dataset = time("comuting dataset", verbose: verbose) { datasetForStore(store, graph: graph, verbose: verbose) }
-    try time("comuting last-modified", verbose: verbose) {
+    try time("computing last-modified", verbose: verbose) {
         let simpleEvaluator       = SimpleQueryEvaluator(store: store, dataset: dataset, verbose: verbose)
         if let mtime = try simpleEvaluator.effectiveVersion(matching: query) {
             let date = getDateString(seconds: mtime)
