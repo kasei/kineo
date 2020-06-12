@@ -4,8 +4,8 @@ import SPARQLSyntax
 import DiomedeQuadStore
 
 #if os(Linux)
-extension SimpleQueryEvaluationTest {
-    static var allTests : [(String, (SimpleQueryEvaluationTest) -> () throws -> Void)] {
+extension TestStore_SimpleQueryEvaluationTest {
+    static var allTests : [(String, (TestStore_SimpleQueryEvaluationTest) -> () throws -> Void)] {
         return [
             ("testTripleEval", testTripleEval),
             ("testQuadEvalNoSuchGraph", testQuadEvalNoSuchGraph),
@@ -53,8 +53,57 @@ extension SimpleQueryEvaluationTest {
         ]
     }
 }
-extension QueryPlanEvaluationTest {
-    static var allTests : [(String, (QueryPlanEvaluationTest) -> () throws -> Void)] {
+extension TestStore_QueryPlanEvaluationTest {
+    static var allTests : [(String, (TestStore_QueryPlanEvaluationTest) -> () throws -> Void)] {
+        return [
+            ("testTripleEval", testTripleEval),
+            ("testQuadEvalNoSuchGraph", testQuadEvalNoSuchGraph),
+            ("testQuadEval", testQuadEval),
+            ("testTripleEvalWithBoundPredicate", testTripleEvalWithBoundPredicate),
+            ("testFilterEval", testFilterEval),
+            ("testUnionEval", testUnionEval),
+            ("testProjectEval", testProjectEval),
+            ("testJoinEval", testJoinEval),
+            ("testLeftJoinEval", testLeftJoinEval),
+            ("testLimitEval", testLimitEval),
+            ("testCountAllEval", testCountAllEval),
+            ("testCountAllEvalWithGroup", testCountAllEvalWithGroup),
+            ("testCountEval", testCountEval),
+            ("testSumEval", testSumEval),
+            ("testAvgEval", testAvgEval),
+            ("testMultiAggEval", testMultiAggEval),
+            ("testSortEval", testSortEval),
+            ("testIRINamedGraphEval", testIRINamedGraphEval),
+            ("testVarNamedGraphEval", testVarNamedGraphEval),
+            ("testExtendEval", testExtendEval),
+            ("testHashFunctions", testHashFunctions),
+            ("testTermAccessors", testTermAccessors),
+            ("testAggregationProjection", testAggregationProjection),
+            ("testEmptyAggregation", testEmptyAggregation),
+            ("testRankWindowFunction1", testRankWindowFunction1),
+            ("testRankWindowFunction2", testRankWindowFunction2),
+            ("testRankWindowFunctionWithHaving", testRankWindowFunctionWithHaving),
+            ("testWindowFunction1", testWindowFunction1),
+            ("testWindowFunction2", testWindowFunction2),
+            ("testWindowFunction3", testWindowFunction3),
+            ("testWindowFunction5", testWindowFunction5),
+            ("testWindowFunction6", testWindowFunction6),
+            ("testWindowFunction7", testWindowFunction7),
+            ("testWindowFunction8", testWindowFunction8),
+            ("testWindowFunction9", testWindowFunction9),
+            ("testWindowFunction10", testWindowFunction10),
+            ("testWindowFunction11", testWindowFunction11),
+            ("testWindowFunction12", testWindowFunction12),
+            ("testWindowFunction_aggregates", testWindowFunction_aggregates),
+            ("testWindowFunctionPartition", testWindowFunctionPartition),
+            ("testWindowFunctionRank", testWindowFunctionRank),
+            ("testWindowFunctionNtile", testWindowFunctionNtile),
+            ("testDistinctAggregate", testDistinctAggregate),
+        ]
+    }
+}
+extension DiomedeStore_QueryPlanEvaluationTest {
+    static var allTests : [(String, (DiomedeStore_QueryPlanEvaluationTest) -> () throws -> Void)] {
         return [
             ("testTripleEval", testTripleEval),
             ("testQuadEvalNoSuchGraph", testQuadEvalNoSuchGraph),
@@ -1322,7 +1371,7 @@ class DiomedeStore_QueryPlanEvaluationTest: XCTestCase, QueryEvaluationTests {
     
     func evaluator(dataset: Dataset) -> Evaluator {
         let e = QueryPlanEvaluator(store: store, dataset: dataset)
-        e.planner.allowStoreOptimizedPlans = false
+        e.planner.allowStoreOptimizedPlans = true
         return e
     }
     
