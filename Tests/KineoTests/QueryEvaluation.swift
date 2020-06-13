@@ -4,8 +4,8 @@ import SPARQLSyntax
 import DiomedeQuadStore
 
 #if os(Linux)
-extension SimpleQueryEvaluationTest {
-    static var allTests : [(String, (SimpleQueryEvaluationTest) -> () throws -> Void)] {
+extension TestStore_SimpleQueryEvaluationTest {
+    static var allTests : [(String, (TestStore_SimpleQueryEvaluationTest) -> () throws -> Void)] {
         return [
             ("testTripleEval", TestStore_SimpleQueryEvaluationTest.testTripleEval),
             ("testQuadEvalNoSuchGraph", TestStore_SimpleQueryEvaluationTest.testQuadEvalNoSuchGraph),
@@ -1275,7 +1275,7 @@ extension QueryEvaluationTests {
     }
 }
 
-class SimpleQueryEvaluationTest: XCTestCase, QueryEvaluationTests {
+class TestStore_SimpleQueryEvaluationTest: XCTestCase, QueryEvaluationTests {
     typealias Evaluator = SimpleQueryEvaluator<TestStore>
     var store: TestStore!
     var graph: Term!
