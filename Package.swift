@@ -6,14 +6,20 @@ let package = Package(
     platforms: [.macOS(.v10_15)],
 	products: [
 		.library(name: "Kineo", targets: ["Kineo"]),
+        .executable(
+        	name: "kineo",
+        	targets: ["kineo-cli"]),
+        .executable(
+        	name: "kineo-parse",
+        	targets: ["kineo-parse"]),
 	],    
     dependencies: [
 		.package(name: "SPARQLSyntax", url: "https://github.com/kasei/swift-sparql-syntax.git", .branch("sparql-12")),
 		.package(name: "serd", url: "https://github.com/kasei/swift-serd.git", .upToNextMinor(from: "0.0.3")),
 		.package(name: "CryptoSwift", url: "https://github.com/krzyzanowskim/CryptoSwift.git", .upToNextMinor(from: "1.0.0")),
 		.package(url: "https://github.com/kasei/URITemplate.git", .upToNextMinor(from: "2.0.10")),
-		.package(name: "SQLite.swift", url: "https://github.com/kasei/SQLite.swift.git", .branch("fix-swift-4")),
-		.package(name: "Diomede", url: "https://github.com/kasei/diomede.git", .upToNextMinor(from: "0.0.18")),
+        .package(name: "SQLite.swift", url: "https://github.com/kasei/SQLite.swift.git", .branch("fix-swift-4")),
+        .package(name: "Diomede", url: "https://github.com/kasei/diomede.git", .upToNextMinor(from: "0.0.28")),
     ],
     targets: [
     	.target(

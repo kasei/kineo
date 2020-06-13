@@ -1,105 +1,156 @@
 import XCTest
 import Kineo
 import SPARQLSyntax
+import DiomedeQuadStore
 
 #if os(Linux)
-extension SimpleQueryEvaluationTest {
-    static var allTests : [(String, (SimpleQueryEvaluationTest) -> () throws -> Void)] {
+extension TestStore_SimpleQueryEvaluationTest {
+    static var allTests : [(String, (TestStore_SimpleQueryEvaluationTest) -> () throws -> Void)] {
         return [
-            ("testTripleEval", testTripleEval),
-            ("testQuadEvalNoSuchGraph", testQuadEvalNoSuchGraph),
-            ("testQuadEval", testQuadEval),
-            ("testTripleEvalWithBoundPredicate", testTripleEvalWithBoundPredicate),
-            ("testFilterEval", testFilterEval),
-            ("testUnionEval", testUnionEval),
-            ("testProjectEval", testProjectEval),
-            ("testJoinEval", testJoinEval),
-            ("testLeftJoinEval", testLeftJoinEval),
-            ("testLimitEval", testLimitEval),
-            ("testCountAllEval", testCountAllEval),
-            ("testCountAllEvalWithGroup", testCountAllEvalWithGroup),
-            ("testCountEval", testCountEval),
-            ("testSumEval", testSumEval),
-            ("testAvgEval", testAvgEval),
-            ("testMultiAggEval", testMultiAggEval),
-            ("testSortEval", testSortEval),
-            ("testIRINamedGraphEval", testIRINamedGraphEval),
-            ("testVarNamedGraphEval", testVarNamedGraphEval),
-            ("testExtendEval", testExtendEval),
-            ("testHashFunctions", testHashFunctions),
-            ("testTermAccessors", testTermAccessors),
-            ("testAggregationProjection", testAggregationProjection),
-            ("testEmptyAggregation", testEmptyAggregation),
-            ("testRankWindowFunction1", testRankWindowFunction1),
-            ("testRankWindowFunction2", testRankWindowFunction2),
-            ("testRankWindowFunctionWithHaving", testRankWindowFunctionWithHaving),
-            ("testWindowFunction1", testWindowFunction1),
-            ("testWindowFunction2", testWindowFunction2),
-            ("testWindowFunction4", testWindowFunction4),
-            ("testWindowFunction5", testWindowFunction5),
-            ("testWindowFunction6", testWindowFunction6),
-            ("testWindowFunction7", testWindowFunction7),
-            ("testWindowFunction8", testWindowFunction8),
-            ("testWindowFunction9", testWindowFunction9),
-            ("testWindowFunction10", testWindowFunction10),
-            ("testWindowFunction11", testWindowFunction11),
-            ("testWindowFunction12", testWindowFunction12),
-            ("testWindowFunction_aggregates", testWindowFunction_aggregates),
-            ("testWindowFunctionPartition", testWindowFunctionPartition),
-            ("testWindowFunctionRank", testWindowFunctionRank),
-            ("testWindowFunctionNtile", testWindowFunctionNtile),
-            ("testDistinctAggregate", testDistinctAggregate),
-            ("testGroupConcatOrdering", testGroupConcatOrdering),
+            ("testTripleEval", TestStore_SimpleQueryEvaluationTest.testTripleEval),
+            ("testQuadEvalNoSuchGraph", TestStore_SimpleQueryEvaluationTest.testQuadEvalNoSuchGraph),
+            ("testQuadEval", TestStore_SimpleQueryEvaluationTest.testQuadEval),
+            ("testTripleEvalWithBoundPredicate", TestStore_SimpleQueryEvaluationTest.testTripleEvalWithBoundPredicate),
+            ("testFilterEval", TestStore_SimpleQueryEvaluationTest.testFilterEval),
+            ("testUnionEval", TestStore_SimpleQueryEvaluationTest.testUnionEval),
+            ("testProjectEval", TestStore_SimpleQueryEvaluationTest.testProjectEval),
+            ("testJoinEval", TestStore_SimpleQueryEvaluationTest.testJoinEval),
+            ("testLeftJoinEval", TestStore_SimpleQueryEvaluationTest.testLeftJoinEval),
+            ("testLimitEval", TestStore_SimpleQueryEvaluationTest.testLimitEval),
+            ("testCountAllEval", TestStore_SimpleQueryEvaluationTest.testCountAllEval),
+            ("testCountAllEvalWithGroup", TestStore_SimpleQueryEvaluationTest.testCountAllEvalWithGroup),
+            ("testCountEval", TestStore_SimpleQueryEvaluationTest.testCountEval),
+            ("testSumEval", TestStore_SimpleQueryEvaluationTest.testSumEval),
+            ("testAvgEval", TestStore_SimpleQueryEvaluationTest.testAvgEval),
+            ("testMultiAggEval", TestStore_SimpleQueryEvaluationTest.testMultiAggEval),
+            ("testSortEval", TestStore_SimpleQueryEvaluationTest.testSortEval),
+            ("testIRINamedGraphEval", TestStore_SimpleQueryEvaluationTest.testIRINamedGraphEval),
+            ("testVarNamedGraphEval", TestStore_SimpleQueryEvaluationTest.testVarNamedGraphEval),
+            ("testExtendEval", TestStore_SimpleQueryEvaluationTest.testExtendEval),
+            ("testHashFunctions", TestStore_SimpleQueryEvaluationTest.testHashFunctions),
+            ("testTermAccessors", TestStore_SimpleQueryEvaluationTest.testTermAccessors),
+            ("testAggregationProjection", TestStore_SimpleQueryEvaluationTest.testAggregationProjection),
+            ("testEmptyAggregation", TestStore_SimpleQueryEvaluationTest.testEmptyAggregation),
+            ("testRankWindowFunction1", TestStore_SimpleQueryEvaluationTest.testRankWindowFunction1),
+            ("testRankWindowFunction2", TestStore_SimpleQueryEvaluationTest.testRankWindowFunction2),
+            ("testRankWindowFunctionWithHaving", TestStore_SimpleQueryEvaluationTest.testRankWindowFunctionWithHaving),
+            ("testWindowFunction1", TestStore_SimpleQueryEvaluationTest.testWindowFunction1),
+            ("testWindowFunction2", TestStore_SimpleQueryEvaluationTest.testWindowFunction2),
+            ("testWindowFunction4", TestStore_SimpleQueryEvaluationTest.testWindowFunction4),
+            ("testWindowFunction5", TestStore_SimpleQueryEvaluationTest.testWindowFunction5),
+            ("testWindowFunction6", TestStore_SimpleQueryEvaluationTest.testWindowFunction6),
+            ("testWindowFunction7", TestStore_SimpleQueryEvaluationTest.testWindowFunction7),
+            ("testWindowFunction8", TestStore_SimpleQueryEvaluationTest.testWindowFunction8),
+            ("testWindowFunction9", TestStore_SimpleQueryEvaluationTest.testWindowFunction9),
+            ("testWindowFunction10", TestStore_SimpleQueryEvaluationTest.testWindowFunction10),
+            ("testWindowFunction11", TestStore_SimpleQueryEvaluationTest.testWindowFunction11),
+            ("testWindowFunction12", TestStore_SimpleQueryEvaluationTest.testWindowFunction12),
+            ("testWindowFunction_aggregates", TestStore_SimpleQueryEvaluationTest.testWindowFunction_aggregates),
+            ("testWindowFunctionPartition", TestStore_SimpleQueryEvaluationTest.testWindowFunctionPartition),
+            ("testWindowFunctionRank", TestStore_SimpleQueryEvaluationTest.testWindowFunctionRank),
+            ("testWindowFunctionNtile", TestStore_SimpleQueryEvaluationTest.testWindowFunctionNtile),
+            ("testDistinctAggregate", TestStore_SimpleQueryEvaluationTest.testDistinctAggregate),
+            ("testGroupConcatOrdering", TestStore_SimpleQueryEvaluationTest.testGroupConcatOrdering),
         ]
     }
 }
-extension QueryPlanEvaluationTest {
-    static var allTests : [(String, (QueryPlanEvaluationTest) -> () throws -> Void)] {
+
+extension TestStore_QueryPlanEvaluationTest {
+    static var allTests : [(String, (TestStore_QueryPlanEvaluationTest) -> () throws -> Void)] {
         return [
-            ("testTripleEval", testTripleEval),
-            ("testQuadEvalNoSuchGraph", testQuadEvalNoSuchGraph),
-            ("testQuadEval", testQuadEval),
-            ("testTripleEvalWithBoundPredicate", testTripleEvalWithBoundPredicate),
-            ("testFilterEval", testFilterEval),
-            ("testUnionEval", testUnionEval),
-            ("testProjectEval", testProjectEval),
-            ("testJoinEval", testJoinEval),
-            ("testLeftJoinEval", testLeftJoinEval),
-            ("testLimitEval", testLimitEval),
-            ("testCountAllEval", testCountAllEval),
-            ("testCountAllEvalWithGroup", testCountAllEvalWithGroup),
-            ("testCountEval", testCountEval),
-            ("testSumEval", testSumEval),
-            ("testAvgEval", testAvgEval),
-            ("testMultiAggEval", testMultiAggEval),
-            ("testSortEval", testSortEval),
-            ("testIRINamedGraphEval", testIRINamedGraphEval),
-            ("testVarNamedGraphEval", testVarNamedGraphEval),
-            ("testExtendEval", testExtendEval),
-            ("testHashFunctions", testHashFunctions),
-            ("testTermAccessors", testTermAccessors),
-            ("testAggregationProjection", testAggregationProjection),
-            ("testEmptyAggregation", testEmptyAggregation),
-            ("testRankWindowFunction1", testRankWindowFunction1),
-            ("testRankWindowFunction2", testRankWindowFunction2),
-            ("testRankWindowFunctionWithHaving", testRankWindowFunctionWithHaving),
-            ("testWindowFunction1", testWindowFunction1),
-            ("testWindowFunction2", testWindowFunction2),
-            ("testWindowFunction3", testWindowFunction3),
-            ("testWindowFunction5", testWindowFunction5),
-            ("testWindowFunction6", testWindowFunction6),
-            ("testWindowFunction7", testWindowFunction7),
-            ("testWindowFunction8", testWindowFunction8),
-            ("testWindowFunction9", testWindowFunction9),
-            ("testWindowFunction10", testWindowFunction10),
-            ("testWindowFunction11", testWindowFunction11),
-            ("testWindowFunction12", testWindowFunction12),
-            ("testWindowFunction_aggregates", testWindowFunction_aggregates),
-            ("testWindowFunctionPartition", testWindowFunctionPartition),
-            ("testWindowFunctionRank", testWindowFunctionRank),
-            ("testWindowFunctionNtile", testWindowFunctionNtile),
-            ("testDistinctAggregate", testDistinctAggregate),
-            ("testGroupConcatOrdering", testGroupConcatOrdering),
+            ("testTripleEval", TestStore_QueryPlanEvaluationTest.testTripleEval),
+            ("testQuadEvalNoSuchGraph", TestStore_QueryPlanEvaluationTest.testQuadEvalNoSuchGraph),
+            ("testQuadEval", TestStore_QueryPlanEvaluationTest.testQuadEval),
+            ("testTripleEvalWithBoundPredicate", TestStore_QueryPlanEvaluationTest.testTripleEvalWithBoundPredicate),
+            ("testFilterEval", TestStore_QueryPlanEvaluationTest.testFilterEval),
+            ("testUnionEval", TestStore_QueryPlanEvaluationTest.testUnionEval),
+            ("testProjectEval", TestStore_QueryPlanEvaluationTest.testProjectEval),
+            ("testJoinEval", TestStore_QueryPlanEvaluationTest.testJoinEval),
+            ("testLeftJoinEval", TestStore_QueryPlanEvaluationTest.testLeftJoinEval),
+            ("testLimitEval", TestStore_QueryPlanEvaluationTest.testLimitEval),
+            ("testCountAllEval", TestStore_QueryPlanEvaluationTest.testCountAllEval),
+            ("testCountAllEvalWithGroup", TestStore_QueryPlanEvaluationTest.testCountAllEvalWithGroup),
+            ("testCountEval", TestStore_QueryPlanEvaluationTest.testCountEval),
+            ("testSumEval", TestStore_QueryPlanEvaluationTest.testSumEval),
+            ("testAvgEval", TestStore_QueryPlanEvaluationTest.testAvgEval),
+            ("testMultiAggEval", TestStore_QueryPlanEvaluationTest.testMultiAggEval),
+            ("testSortEval", TestStore_QueryPlanEvaluationTest.testSortEval),
+            ("testIRINamedGraphEval", TestStore_QueryPlanEvaluationTest.testIRINamedGraphEval),
+            ("testVarNamedGraphEval", TestStore_QueryPlanEvaluationTest.testVarNamedGraphEval),
+            ("testExtendEval", TestStore_QueryPlanEvaluationTest.testExtendEval),
+            ("testHashFunctions", TestStore_QueryPlanEvaluationTest.testHashFunctions),
+            ("testTermAccessors", TestStore_QueryPlanEvaluationTest.testTermAccessors),
+            ("testAggregationProjection", TestStore_QueryPlanEvaluationTest.testAggregationProjection),
+            ("testEmptyAggregation", TestStore_QueryPlanEvaluationTest.testEmptyAggregation),
+            ("testRankWindowFunction1", TestStore_QueryPlanEvaluationTest.testRankWindowFunction1),
+            ("testRankWindowFunction2", TestStore_QueryPlanEvaluationTest.testRankWindowFunction2),
+            ("testRankWindowFunctionWithHaving", TestStore_QueryPlanEvaluationTest.testRankWindowFunctionWithHaving),
+            ("testWindowFunction1", TestStore_QueryPlanEvaluationTest.testWindowFunction1),
+            ("testWindowFunction2", TestStore_QueryPlanEvaluationTest.testWindowFunction2),
+            ("testWindowFunction3", TestStore_QueryPlanEvaluationTest.testWindowFunction3),
+            ("testWindowFunction5", TestStore_QueryPlanEvaluationTest.testWindowFunction5),
+            ("testWindowFunction6", TestStore_QueryPlanEvaluationTest.testWindowFunction6),
+            ("testWindowFunction7", TestStore_QueryPlanEvaluationTest.testWindowFunction7),
+            ("testWindowFunction8", TestStore_QueryPlanEvaluationTest.testWindowFunction8),
+            ("testWindowFunction9", TestStore_QueryPlanEvaluationTest.testWindowFunction9),
+            ("testWindowFunction10", TestStore_QueryPlanEvaluationTest.testWindowFunction10),
+            ("testWindowFunction11", TestStore_QueryPlanEvaluationTest.testWindowFunction11),
+            ("testWindowFunction12", TestStore_QueryPlanEvaluationTest.testWindowFunction12),
+            ("testWindowFunction_aggregates", TestStore_QueryPlanEvaluationTest.testWindowFunction_aggregates),
+            ("testWindowFunctionPartition", TestStore_QueryPlanEvaluationTest.testWindowFunctionPartition),
+            ("testWindowFunctionRank", TestStore_QueryPlanEvaluationTest.testWindowFunctionRank),
+            ("testWindowFunctionNtile", TestStore_QueryPlanEvaluationTest.testWindowFunctionNtile),
+            ("testDistinctAggregate", TestStore_QueryPlanEvaluationTest.testDistinctAggregate),
+        ]
+    }
+}
+extension DiomedeStore_QueryPlanEvaluationTest {
+    static var allTests : [(String, (DiomedeStore_QueryPlanEvaluationTest) -> () throws -> Void)] {
+        return [
+            ("testTripleEval", DiomedeStore_QueryPlanEvaluationTest.testTripleEval),
+            ("testQuadEvalNoSuchGraph", DiomedeStore_QueryPlanEvaluationTest.testQuadEvalNoSuchGraph),
+            ("testQuadEval", DiomedeStore_QueryPlanEvaluationTest.testQuadEval),
+            ("testTripleEvalWithBoundPredicate", DiomedeStore_QueryPlanEvaluationTest.testTripleEvalWithBoundPredicate),
+            ("testFilterEval", DiomedeStore_QueryPlanEvaluationTest.testFilterEval),
+            ("testUnionEval", DiomedeStore_QueryPlanEvaluationTest.testUnionEval),
+            ("testProjectEval", DiomedeStore_QueryPlanEvaluationTest.testProjectEval),
+            ("testJoinEval", DiomedeStore_QueryPlanEvaluationTest.testJoinEval),
+            ("testLeftJoinEval", DiomedeStore_QueryPlanEvaluationTest.testLeftJoinEval),
+            ("testLimitEval", DiomedeStore_QueryPlanEvaluationTest.testLimitEval),
+            ("testCountAllEval", DiomedeStore_QueryPlanEvaluationTest.testCountAllEval),
+            ("testCountAllEvalWithGroup", DiomedeStore_QueryPlanEvaluationTest.testCountAllEvalWithGroup),
+            ("testCountEval", DiomedeStore_QueryPlanEvaluationTest.testCountEval),
+            ("testSumEval", DiomedeStore_QueryPlanEvaluationTest.testSumEval),
+            ("testAvgEval", DiomedeStore_QueryPlanEvaluationTest.testAvgEval),
+            ("testMultiAggEval", DiomedeStore_QueryPlanEvaluationTest.testMultiAggEval),
+            ("testSortEval", DiomedeStore_QueryPlanEvaluationTest.testSortEval),
+            ("testIRINamedGraphEval", DiomedeStore_QueryPlanEvaluationTest.testIRINamedGraphEval),
+            ("testVarNamedGraphEval", DiomedeStore_QueryPlanEvaluationTest.testVarNamedGraphEval),
+            ("testExtendEval", DiomedeStore_QueryPlanEvaluationTest.testExtendEval),
+            ("testHashFunctions", DiomedeStore_QueryPlanEvaluationTest.testHashFunctions),
+            ("testTermAccessors", DiomedeStore_QueryPlanEvaluationTest.testTermAccessors),
+            ("testAggregationProjection", DiomedeStore_QueryPlanEvaluationTest.testAggregationProjection),
+            ("testEmptyAggregation", DiomedeStore_QueryPlanEvaluationTest.testEmptyAggregation),
+            ("testRankWindowFunction1", DiomedeStore_QueryPlanEvaluationTest.testRankWindowFunction1),
+            ("testRankWindowFunction2", DiomedeStore_QueryPlanEvaluationTest.testRankWindowFunction2),
+            ("testRankWindowFunctionWithHaving", DiomedeStore_QueryPlanEvaluationTest.testRankWindowFunctionWithHaving),
+            ("testWindowFunction1", DiomedeStore_QueryPlanEvaluationTest.testWindowFunction1),
+            ("testWindowFunction2", DiomedeStore_QueryPlanEvaluationTest.testWindowFunction2),
+            ("testWindowFunction3", DiomedeStore_QueryPlanEvaluationTest.testWindowFunction3),
+            ("testWindowFunction5", DiomedeStore_QueryPlanEvaluationTest.testWindowFunction5),
+            ("testWindowFunction6", DiomedeStore_QueryPlanEvaluationTest.testWindowFunction6),
+            ("testWindowFunction7", DiomedeStore_QueryPlanEvaluationTest.testWindowFunction7),
+            ("testWindowFunction8", DiomedeStore_QueryPlanEvaluationTest.testWindowFunction8),
+            ("testWindowFunction9", DiomedeStore_QueryPlanEvaluationTest.testWindowFunction9),
+            ("testWindowFunction10", DiomedeStore_QueryPlanEvaluationTest.testWindowFunction10),
+            ("testWindowFunction11", DiomedeStore_QueryPlanEvaluationTest.testWindowFunction11),
+            ("testWindowFunction12", DiomedeStore_QueryPlanEvaluationTest.testWindowFunction12),
+            ("testWindowFunction_aggregates", DiomedeStore_QueryPlanEvaluationTest.testWindowFunction_aggregates),
+            ("testWindowFunctionPartition", DiomedeStore_QueryPlanEvaluationTest.testWindowFunctionPartition),
+            ("testWindowFunctionRank", DiomedeStore_QueryPlanEvaluationTest.testWindowFunctionRank),
+            ("testWindowFunctionNtile", DiomedeStore_QueryPlanEvaluationTest.testWindowFunctionNtile),
+            ("testDistinctAggregate", DiomedeStore_QueryPlanEvaluationTest.testDistinctAggregate),
+            ("testGroupConcatOrdering", DiomedeStore_QueryPlanEvaluationTest.testGroupConcatOrdering),
         ]
     }
 }
@@ -107,14 +158,14 @@ extension QueryPlanEvaluationTest {
 
 struct TestStore: QuadStoreProtocol, Sequence {
     typealias IDType = Term
-
+    
     public func effectiveVersion(matching pattern: QuadPattern) throws -> UInt64? {
         return nil
     }
-
+    
     var quads: [Quad]
     var count: Int { return quads.count }
-
+    
     func graphs() -> AnyIterator<Term> {
         var graphs = Set<Term>()
         for q in self {
@@ -122,7 +173,7 @@ struct TestStore: QuadStoreProtocol, Sequence {
         }
         return AnyIterator(graphs.makeIterator())
     }
-
+    
     func graphTerms(in graph: Term) -> AnyIterator<Term> {
         var terms = Set<Term>()
         for q in self {
@@ -133,11 +184,11 @@ struct TestStore: QuadStoreProtocol, Sequence {
         }
         return AnyIterator(terms.makeIterator())
     }
-
+    
     func makeIterator() -> AnyIterator<Quad> {
         return AnyIterator(quads.makeIterator())
     }
-
+    
     func results(matching pattern: QuadPattern) throws -> AnyIterator<SPARQLResultSolution<Term>> {
         var results = [SPARQLResultSolution<Term>]()
         for q in self {
@@ -147,12 +198,12 @@ struct TestStore: QuadStoreProtocol, Sequence {
         }
         return AnyIterator(results.makeIterator())
     }
-
+    
     func quads(matching pattern: QuadPattern) throws -> AnyIterator<Quad> {
         let s = quads.filter { pattern.matches(quad: $0) != nil }
         return AnyIterator(s.makeIterator())
     }
-
+    
     func countQuads(matching pattern: QuadPattern) throws -> Int {
         let s = quads.filter { pattern.matches(quad: $0) != nil }
         return s.count
@@ -160,8 +211,9 @@ struct TestStore: QuadStoreProtocol, Sequence {
 }
 
 protocol QueryEvaluationTests {
+    associatedtype Store: QuadStoreProtocol
     associatedtype Evaluator: QueryEvaluatorProtocol
-    var store: TestStore! { get }
+    var store: Store! { get }
     var graph: Term! { get }
     func evaluator(dataset: Dataset) -> Evaluator
 }
@@ -185,7 +237,7 @@ extension QueryEvaluationTests {
         let quads = [b1, b2, s, n0, n1, n2, x1]
         return quads
     }
-
+    
     func parse(query: String) -> Algebra? {
         let qp      = QueryParser(reader: query)
         do {
@@ -213,12 +265,12 @@ extension QueryEvaluationTests {
         guard let algebra = parse(query: query) else { XCTFail(); fatalError() }
         return try eval(algebra: algebra)
     }
-
+    
     func _testTripleEval() {
         guard let results = try? Array(eval(query: "triple ?s ?p ?o\n")) else { XCTFail(); return }
         XCTAssertEqual(results.count, 3)
     }
-
+    
     func _testQuadEvalNoSuchGraph() {
         guard let results = try? Array(eval(query: "quad ?s ?p ?o <http://no-such-graph/>\n")) else { XCTFail(); return }
         XCTAssertEqual(results.count, 0)
@@ -355,7 +407,7 @@ extension QueryEvaluationTests {
         let agg: Algebra = .aggregate(numerics, [], [
             Algebra.AggregationMapping(aggregation: .sum(.node(.variable("o", binding: false)), false), variableName: "sum"),
             Algebra.AggregationMapping(aggregation: .avg(.node(.variable("o", binding: false)), false), variableName: "avg"),
-            ])
+        ])
         
         guard let results = try? Array(eval(algebra: agg)) else { XCTFail(); return }
         XCTAssertEqual(results.count, 1)
@@ -452,7 +504,7 @@ extension QueryEvaluationTests {
                 "sha256": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
                 "sha384": "cb00753f45a35e8bb5a03d699ac65007272c32ab0eded1631a8b605a43ff5bed8086072ba1e7cc2358baeca134c825a7",
                 "sha512": "ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a2192992a274fc1a836ba3c23a3feebbd454d4423643ce80e2a9ac94fa54ca49f",
-                ]
+            ]
             
             for (varName, expectedHashValue) in expected {
                 guard let term = result[varName] else {
@@ -493,7 +545,7 @@ extension QueryEvaluationTests {
                 "langmatches2": "false",
                 "langmatches3": "true",
                 "langmatches4": "false",
-                ]
+            ]
             
             for (varName, expectedValue) in expected {
                 guard let term = result[varName] else {
@@ -553,7 +605,7 @@ extension QueryEvaluationTests {
             
             let expected = [
                 "sum": "0",
-                ]
+            ]
             
             for (varName, expectedValue) in expected {
                 guard let term = result[varName] else {
@@ -580,7 +632,7 @@ extension QueryEvaluationTests {
             "Santa Monica",
             "Berlin",
             "http://www.berlin.de/en/"
-            ])
+        ])
     }
     
     func _testRankWindowFunction2() throws {
@@ -596,7 +648,7 @@ extension QueryEvaluationTests {
             "Santa Monica",
             "Berlin",
             "http://www.berlin.de/en/"
-            ])
+        ])
     }
     
     func _testRankWindowFunctionWithHaving() throws {
@@ -616,7 +668,7 @@ extension QueryEvaluationTests {
         XCTAssertEqual(values, [
             "http://www.berlin.de/en/",
             "Berlin",
-            ])
+        ])
     }
     
     func _testWindowFunction1() throws {
@@ -1080,7 +1132,7 @@ extension QueryEvaluationTests {
             XCTAssertEqual(got, expected)
         }
     }
-
+    
     func _testDistinctAggregate() throws {
         let data = """
         PREFIX : <http://example.org/>
@@ -1130,7 +1182,7 @@ extension QueryEvaluationTests {
             XCTAssertEqual(got, expected)
         }
     }
-
+    
     func _testWindowFunctionRank() throws {
         let data = """
         PREFIX : <http://example.org/>
@@ -1159,7 +1211,7 @@ extension QueryEvaluationTests {
         let gotRanks = results.map { $0["rank"] }.compactMap { $0?.numericValue }.map { Int($0) }
         XCTAssertEqual(gotRanks, [1, 2, 2, 4, 1, 1, 3])
     }
-
+    
     func _testWindowFunctionRank2() throws {
         let data = """
         SELECT ?row ?partition ?value (RANK() OVER (PARTITION BY ?partition ORDER BY ?value) AS ?rank) WHERE {
@@ -1254,7 +1306,7 @@ extension QueryEvaluationTests {
     }
 }
 
-class SimpleQueryEvaluationTest: XCTestCase, QueryEvaluationTests {
+class TestStore_SimpleQueryEvaluationTest: XCTestCase, QueryEvaluationTests {
     typealias Evaluator = SimpleQueryEvaluator<TestStore>
     var store: TestStore!
     var graph: Term!
@@ -1318,7 +1370,88 @@ class SimpleQueryEvaluationTest: XCTestCase, QueryEvaluationTests {
     func testGroupConcatOrdering() throws { try _testGroupConcatOrdering() }
 }
 
-class QueryPlanEvaluationTest: XCTestCase, QueryEvaluationTests {
+class DiomedeStore_QueryPlanEvaluationTest: XCTestCase, QueryEvaluationTests {
+    typealias Evaluator = QueryPlanEvaluator<DiomedeQuadStore>
+    var filename: URL!
+    var store: DiomedeQuadStore!
+    var graph: Term!
+    
+    override func setUp() {
+        super.setUp()
+        let f = FileManager.default
+        let dir = f.temporaryDirectory
+        let filename = "kineo-test-\(UUID().uuidString).db"
+        let path = dir.appendingPathComponent(filename)
+        self.filename = path
+        self.store = DiomedeQuadStore(path: self.filename.path, create: true)
+        self.graph = Term(value: "http://example.org/", type: .iri)
+        try? self.store.load(version: 1, quads: testQuads)
+    }
+    
+    override func tearDown() {
+        super.tearDown()
+        #if os(macOS)
+        let f = FileManager.default
+        try? f.trashItem(at: self.filename, resultingItemURL: nil)
+        #endif
+    }
+    
+    func evaluator(dataset: Dataset) -> Evaluator {
+        let e = QueryPlanEvaluator(store: store, dataset: dataset)
+        e.planner.allowStoreOptimizedPlans = true
+        return e
+    }
+    
+    func testTripleEval() { _testTripleEval() }
+    func testQuadEvalNoSuchGraph() { _testQuadEvalNoSuchGraph() }
+    func testQuadEval() { _testQuadEval() }
+    func testTripleEvalWithBoundPredicate() { _testTripleEvalWithBoundPredicate() }
+    func testFilterEval() { _testFilterEval() }
+    func testUnionEval() { _testUnionEval() }
+    func testProjectEval() { _testProjectEval() }
+    func testJoinEval() { _testJoinEval() }
+    func testLeftJoinEval() { _testLeftJoinEval() }
+    func testLimitEval() { _testLimitEval() }
+    func testCountAllEval() { _testCountAllEval() }
+    func testCountAllEvalWithGroup() { _testCountAllEvalWithGroup() }
+    func testCountEval() { _testCountEval() }
+    func testSumEval() { _testSumEval() }
+    func testAvgEval() { _testAvgEval() }
+    func testMultiAggEval() { _testMultiAggEval() }
+    func testSortEval() { _testSortEval() }
+    func testIRINamedGraphEval() { _testIRINamedGraphEval() }
+    func testVarNamedGraphEval() { _testVarNamedGraphEval() }
+    func testExtendEval() { _testExtendEval() }
+    func testHashFunctions() { _testHashFunctions() }
+    func testTermAccessors() { _testTermAccessors() }
+    func testAggregationProjection() { _testAggregationProjection() }
+    func testEmptyAggregation() { _testEmptyAggregation() }
+    func testRankWindowFunction1() throws { try _testRankWindowFunction1() }
+    func testRankWindowFunction2() throws { try _testRankWindowFunction2() }
+    func testRankWindowFunctionWithHaving() throws { try _testRankWindowFunctionWithHaving() }
+    func testWindowFunction1() throws { try _testWindowFunction1() }
+    func testWindowFunction2() throws { try _testWindowFunction2() }
+    func testWindowFunction3() throws { try _testWindowFunction3() }
+    func testWindowFunction4() throws { try _testWindowFunction4() }
+    func testWindowFunction5() throws { try _testWindowFunction5() }
+    func testWindowFunction6() throws { try _testWindowFunction6() }
+    func testWindowFunction7() throws { try _testWindowFunction7() }
+    func testWindowFunction8() throws { try _testWindowFunction8() }
+    func testWindowFunction9() throws { try _testWindowFunction9() }
+    func testWindowFunction10() throws { try _testWindowFunction10() }
+    func testWindowFunction11() throws { try _testWindowFunction11() }
+    func testWindowFunction12() throws { try _testWindowFunction12() }
+    func testWindowFunction_aggregates() throws { try _testWindowFunction_aggregates() }
+    func testWindowFunctionPartition() throws { try _testWindowFunctionPartition() }
+    func testDistinctAggregate() throws { try _testDistinctAggregate() }
+    func testWindowFunctionRank() throws { try _testWindowFunctionRank() }
+    func testWindowFunctionRank2() throws { try _testWindowFunctionRank2() }
+    func testWindowFunctionNtile() throws { try _testWindowFunctionNtile() }
+    func testGroupConcatOrdering() throws { try _testGroupConcatOrdering() }
+}
+
+
+class TestStore_QueryPlanEvaluationTest: XCTestCase, QueryEvaluationTests {
     typealias Evaluator = QueryPlanEvaluator<TestStore>
     var store: TestStore!
     var graph: Term!

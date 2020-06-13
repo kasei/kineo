@@ -199,7 +199,7 @@ func printGraphs(in store: QuadStoreProtocol) throws -> Int {
     var count = 0
     for graph in store.graphs() {
         count += 1
-        print("\(graph)")
+        print("\(graph.value)")
     }
     return count
 }
@@ -251,36 +251,6 @@ func data(fromFileOrString qfile: String) throws -> Data {
     return data
 }
 
-func usage(_ pname: String) {
-    print("Usage: \(pname) [-v] database.db COMMAND [ARGUMENTS]")
-    print("       \(pname) database.db load [-g GRAPH-IRI] rdf.nt ...")
-    print("       \(pname) database.db query query.rq")
-    print("       \(pname) database.db graphs")
-    print("")
-}
-
-DiomedeConfiguration.default.mapSize = 24_567_000_000
-
-var verbose = false
-let config = try QuadStoreConfiguration(arguments: &CommandLine.arguments)
-
-let argscount = CommandLine.arguments.count
-var args = PeekableIterator(generator: CommandLine.arguments.makeIterator())
-guard let pname = args.next() else { fatalError("Missing command name") }
-guard argscount >= 1 else {
-    usage(pname)
-    exit(1)
-}
-
-if let next = args.peek(), next == "-v" {
-    _ = args.next()
-    verbose = true
-}
-
-let startTime = getCurrentTime()
-let startSecond = getCurrentDateSeconds()
-var count = 0
-
 func readLine(prompt: String) -> String? {
     print(prompt, terminator: "")
     return readLine()
@@ -300,6 +270,112 @@ func quadStore(_ config: QuadStoreConfiguration) throws -> AnyMutableQuadStore {
         return mqs
     }
 }
+
+func usage(_ pname: String) {
+    print("""
+        Usage:
+        
+            \(pname) -q DATABASE.db [DATASET ARGUMENTS] COMMAND [ARGUMENTS]
+        
+                Evaluate commands using the named quadstore file.
+        
+            \(pname) [-m] [DATASET ARGUMENTS] COMMAND [ARGUMENTS]
+
+                Evaluate commands using an in-memory (non-persistent) quadstore.
+
+        Dataset Arguments:
+        
+            -d, --default-graph=FILENAME
+        
+                Parse RDF from the named file into the default graph. This
+                option may be used repeatedly to parse multiple files into
+                the default graph.
+            
+            -n, --named-graph=FILENAME
+
+                Parse RDF from the named file into a graph named with the
+                corresponding file: URL.
+
+            -D PATH
+
+                Parse RDF files in subdirectories of the supplied path to construct
+                a complete RDF dataset. Files in the $PATH/default directory will be
+                merged into the default graph. Files in the $PATH/named directory
+                will be loaded into a graph named with their corresponding file: URL.
+        
+
+        Commands:
+        
+            create
+            load
+
+                Load data into a new or existing quadstore as specified in the
+                Dataset Arguments.
+
+            graphs
+
+                Print the names of all the named graphs in the quadstore
+                (including the name of the default graph).
+
+            dataset
+
+                Print the dataset used to evaluate queries. This will indicate
+                which named graph is used as the default graph during query
+                planning.
+
+            query QUERY
+
+                Evaluate the given SPARQL query and print the results.
+
+            explain QUERY
+
+                Print the serialized query plan for the given SPARQL query.
+
+            dump
+
+                Print an N-Quads serialization of the quadstore.
+
+
+        If no command is given, an interactive prompt is provided which
+        will repeatedly: accept SPARQL queries (on a single line),
+        evaluate the query, and print the results.
+
+        """)
+}
+
+DiomedeConfiguration.default.mapSize = 24_567_000_000
+
+var verbose = false
+let config = try QuadStoreConfiguration(arguments: &CommandLine.arguments)
+
+let argscount = CommandLine.arguments.count
+var args = PeekableIterator(generator: CommandLine.arguments.makeIterator())
+guard let pname = args.next() else { fatalError("Missing command name") }
+guard argscount >= 1 else {
+    usage(pname)
+    exit(1)
+}
+
+while true {
+    if let next = args.peek(), next.hasPrefix("-") {
+        if next == "-v" {
+            _ = args.next()
+            verbose = true
+        } else if next == "--help" {
+            usage(pname)
+            exit(0)
+        } else {
+            print("Unrecognized option: \(next)")
+            exit(1)
+        }
+    } else {
+        break
+    }
+}
+
+let startTime = getCurrentTime()
+let startSecond = getCurrentDateSeconds()
+var count = 0
 
 do {
     let qs  = try quadStore(config)
@@ -351,8 +427,15 @@ do {
                 warn("*** - \(e)")
             }
         } else if op == "dump" {
-            for q in try qs.quads(matching: QuadPattern.all) {
-                print("\(q)")
+            QUAD: for q in try qs.quads(matching: QuadPattern.all) {
+                var line = ""
+                for t in q {
+                    guard let d = t.ntriplesData(), let s = String(data: d, encoding: .utf8) else { continue QUAD }
+                    line += s
+                    line += " "
+                }
+                line += " ."
+                print(line)
             }
         } else {
             warn("Unrecognized operation: '\(op)'")
