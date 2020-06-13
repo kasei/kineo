@@ -285,16 +285,25 @@ func usage(_ pname: String) {
 
         Dataset Arguments:
         
-            -d FILE
+            -d, --default-graph=FILENAME
         
-                Load the specified RDF file into the default graph (which uses
-                the name IRI <tag:kasei.us,2018:default-graph>).
-        
-            -n FILE
+                Parse RDF from the named file into the default graph. This
+                option may be used repeatedly to parse multiple files into
+                the default graph.
+            
+            -n, --named-graph=FILENAME
 
-                Load the specified RDF file into a graph named with the
-                corresponding file URL.
+                Parse RDF from the named file into a graph named with the
+                corresponding file: URL.
+
+            -D PATH
+
+                Parse RDF files in subdirectories of the supplied path to construct
+                a complete RDF dataset. Files in the $PATH/default directory will be
+                merged into the default graph. Files in the $PATH/named directory
+                will be loaded into a graph named with their corresponding file: URL.
         
+
         Commands:
         
             create
