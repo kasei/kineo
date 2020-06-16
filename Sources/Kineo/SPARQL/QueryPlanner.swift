@@ -12,6 +12,30 @@ public enum QueryPlannerError: Error {
     case noPlanAvailable
 }
 
+extension Array where Element: Equatable {
+    func sharedPrefix(with other: [Element]) -> [Element] {
+        var result = [Element]()
+        for (l, r) in zip(self, other) {
+            if l == r {
+                result.append(l)
+            } else {
+                break
+            }
+        }
+        return result
+    }
+}
+
+extension RDFQuadPosition {
+    func bindingVariable(in qp: QuadPattern) -> String? {
+        let node = qp[self]
+        if case .variable(let name, _) = node {
+            return name
+        } else {
+            return nil
+        }
+    }
+}
 public protocol PlanningQuadStore: QuadStoreProtocol {
     func plan(algebra: Algebra, activeGraph: Term, dataset: Dataset) throws -> QueryPlan?
 }
@@ -134,40 +158,54 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
         return candidatePlans(plans, estimator: estimator)
     }
     
-    private func reduceIDQuadJoins<E: QueryPlanCostEstimator>(_ plan: IDQueryPlan, rest tail: [QuadPattern], currentVariables: Set<String>, estimator: E) throws -> [MaterializePlan] {
+    private func reduceIDQuadJoins<E: QueryPlanCostEstimator>(_ plan: IDQueryPlan, ordered orderVars: [String], rest tail: [QuadPattern], currentVariables: Set<String>, estimator: E) throws -> [MaterializeTermsPlan] {
         guard let store = _lazyStore() else {
             throw QueryPlannerError.noPlanAvailable
         }
         
         // TODO: this is currently doing all possible permutations of [rest]; that's going to be prohibitive on large BGPs; use heuristics or something like IDP
         guard !tail.isEmpty else {
-            let matplan = MaterializePlan(idPlan: plan, store: store)
+            let matplan = MaterializeTermsPlan(idPlan: plan, store: store)
             return [matplan]
         }
         
         var plans = [QueryPlan]()
         for i in tail.indices {
-            var intermediate = [IDQueryPlan]()
+            var intermediate = [(IDQueryPlan, [String])]()
             let q = tail[i]
             var rest = tail
             rest.remove(at: i)
+
+            // TODO: also consider "interesting" orders (e.g. idplans that have been explicityly sorted to a join variable)
+            for (nextOrder, fullOrder) in try store.availableOrders(matching: q) {
+                let qp = IDOrderedQuadPlan(quad: q, order: fullOrder, store: store)
+                let nextOrderVars = nextOrder.map { $0.bindingVariable(in: q) }.prefix { $0 != nil }.compactMap { $0 }
+                let sharedOrder = nextOrderVars.sharedPrefix(with: orderVars)
+
+                if !sharedOrder.isEmpty {
+                    let plan = IDMergeJoinPlan(lhs: plan, rhs: qp, variables: sharedOrder)
+                    intermediate.append((plan, sharedOrder))
+                }
+            }
+
             let qp = IDQuadPlan(quad: q, store: store)
             let tv = q.variables
             let i = currentVariables.intersection(tv)
-            intermediate.append(IDNestedLoopJoinPlan(lhs: plan, rhs: qp))
+            intermediate.append((IDNestedLoopJoinPlan(lhs: plan, rhs: qp), []))
             if !i.isEmpty {
-                intermediate.append(IDHashJoinPlan(lhs: plan, rhs: qp, joinVariables: i))
+                let plan = IDHashJoinPlan(lhs: plan, rhs: qp, joinVariables: i)
+                intermediate.append((plan, orderVars)) // hashjoin keeps the order of the LHS
             }
             
             let u = currentVariables.union(tv)
-            for p in intermediate {
-                let matplans = try reduceIDQuadJoins(p, rest: rest, currentVariables: u, estimator: estimator)
+            for (p, sharedOrder) in intermediate {
+                let matplans = try reduceIDQuadJoins(p, ordered: sharedOrder, rest: rest, currentVariables: u, estimator: estimator)
                 plans.append(contentsOf: matplans)
             }
         }
         
         let candidates = candidatePlans(plans, estimator: estimator)
-        return candidates as! [MaterializePlan]
+        return candidates as! [MaterializeTermsPlan]
     }
     
     private func _lazyStore() -> LazyMaterializingQuadStore? {
@@ -187,6 +225,33 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
         return nil
     }
     
+    struct OrderedIDQuadPlan {
+        var plan: IDQuadPlan
+        var order: [RDFQuadPosition]
+    }
+    
+    func idPlans<E: QueryPlanCostEstimator>(for patterns: [QuadPattern], in store: LazyMaterializingQuadStore, estimator: E) throws -> [MaterializeTermsPlan] {
+        guard let store = _lazyStore() else {
+            throw QueryPlannerError.noPlanAvailable
+        }
+        guard let firstQuad = patterns.first else {
+            throw QueryPlannerError.noPlanAvailable
+        }
+        let restQuads = Array(patterns.dropFirst())
+        
+        if true {
+            // this will generate many join order permutations
+            var plans = [MaterializeTermsPlan]()
+            // TODO: also consider "interesting" orders (e.g. idplans that have been explicityly sorted to a join variable)
+            for (order, fullOrder) in try store.availableOrders(matching: firstQuad) {
+                let orderVars = order.map { $0.bindingVariable(in: firstQuad) }.prefix { $0 != nil }.compactMap { $0 }
+                let idplan = IDOrderedQuadPlan(quad: firstQuad, order: fullOrder, store: store)
+                try plans.append(contentsOf: reduceIDQuadJoins(idplan, ordered: orderVars, rest: restQuads, currentVariables: firstQuad.variables, estimator: estimator))
+            }
+            return plans
+        }
+    }
+    
     func plan<E: QueryPlanCostEstimator>(bgp: [TriplePattern], activeGraph g: Node, estimator: E) throws -> [QueryPlan] {
         let proj = Algebra.bgp(bgp).inscope
         let quadPatterns = bgp.map { (t) in
@@ -204,8 +269,7 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
 
         let plans: [QueryPlan]
         if let s = _lazyStore() {
-            let idplan = IDQuadPlan(quad: firstQuad, store: s)
-            plans = try reduceIDQuadJoins(idplan, rest: restQuads, currentVariables: firstQuad.variables, estimator: estimator)
+            plans = try idPlans(for: quadPatterns, in: s, estimator: estimator)
         } else {
             let qp = QuadPlan(quad: firstQuad, store: store)
             plans = try reduceQuadJoins(qp, rest: restQuads, currentVariables: firstQuad.variables, estimator: estimator)
@@ -240,7 +304,7 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
     }
     
     public func allAvailableJoins(lhs l: QueryPlan, rhs r: QueryPlan, intersection i: Set<String>) -> [QueryPlan] {
-        if let store = _lazyStore(), let lhs = l as? MaterializePlan, let rhs = r as? MaterializePlan {
+        if let store = _lazyStore(), let lhs = l as? MaterializeTermsPlan, let rhs = r as? MaterializeTermsPlan {
             let l = lhs.idPlan
             let r = rhs.idPlan
 
@@ -252,7 +316,7 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
                 plans.append(IDHashJoinPlan(lhs: r, rhs: l, joinVariables: i))
             }
             return plans.map {
-                MaterializePlan(idPlan: $0, store: store)
+                MaterializeTermsPlan(idPlan: $0, store: store)
             }
         } else {
             var plans = [QueryPlan]()
@@ -316,13 +380,13 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
                 case .node(.bound(Term.trueValue)) = expr {
                 for l in lplans {
                     for r in rplans {
-                        if let lhs = l as? MaterializePlan, let rhs = r as? MaterializePlan {
+                        if let lhs = l as? MaterializeTermsPlan, let rhs = r as? MaterializeTermsPlan {
                             if !i.isEmpty {
                                 let lhjoin = IDHashLeftJoinPlan(lhs: lhs.idPlan, rhs: rhs.idPlan, joinVariables: i)
-                                plans.append(MaterializePlan(idPlan: lhjoin, store: store))
+                                plans.append(MaterializeTermsPlan(idPlan: lhjoin, store: store))
                             }
                             let lnljoin = IDNestedLoopLeftJoinPlan(lhs: lhs.idPlan, rhs: rhs.idPlan)
-                            plans.append(MaterializePlan(idPlan: lnljoin, store: store))
+                            plans.append(MaterializeTermsPlan(idPlan: lnljoin, store: store))
                         } else {
                             for fij in fijplans {
                                 let diff : QueryPlan = DiffPlan(lhs: l, rhs: r, expression: expr, evaluator: evaluator)
@@ -380,24 +444,24 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
             switch (offset, limit) {
             case let (.some(offset), .some(limit)):
                 return plans.map { (child) -> QueryPlan in
-                    if let store = self._lazyStore(), let c = child as? MaterializePlan {
-                        return MaterializePlan(idPlan: IDLimitPlan(child: IDOffsetPlan(child: c.idPlan, offset: offset), limit: limit), store: store)
+                    if let store = self._lazyStore(), let c = child as? MaterializeTermsPlan {
+                        return MaterializeTermsPlan(idPlan: IDLimitPlan(child: IDOffsetPlan(child: c.idPlan, offset: offset), limit: limit), store: store)
                     } else {
                         return LimitPlan(child: OffsetPlan(child: child, offset: offset), limit: limit)
                     }
                 }
             case (.some(let offset), _):
                 return plans.map { (child) -> QueryPlan in
-                    if let store = self._lazyStore(), let c = child as? MaterializePlan {
-                        return MaterializePlan(idPlan: IDOffsetPlan(child: c.idPlan, offset: offset), store: store)
+                    if let store = self._lazyStore(), let c = child as? MaterializeTermsPlan {
+                        return MaterializeTermsPlan(idPlan: IDOffsetPlan(child: c.idPlan, offset: offset), store: store)
                     } else {
                         return OffsetPlan(child: child, offset: offset)
                     }
                 }
             case (_, .some(let limit)):
                 return plans.map { (child) -> QueryPlan in
-                    if let store = self._lazyStore(), let c = child as? MaterializePlan {
-                        return MaterializePlan(idPlan: IDLimitPlan(child: c.idPlan, limit: limit), store: store)
+                    if let store = self._lazyStore(), let c = child as? MaterializeTermsPlan {
+                        return MaterializeTermsPlan(idPlan: IDLimitPlan(child: c.idPlan, limit: limit), store: store)
                     } else {
                         return LimitPlan(child: child, limit: limit)
                     }
@@ -515,15 +579,15 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
             let ni = lhs.necessarilyBound.intersection(rhs.necessarilyBound)
             for l in lplans {
                 for r in rplans {
-                    if let store = _lazyStore(), let lhs = l as? MaterializePlan, let rhs = r as? MaterializePlan {
+                    if let store = _lazyStore(), let lhs = l as? MaterializeTermsPlan, let rhs = r as? MaterializeTermsPlan {
                         if !ni.isEmpty {
                             // there is an intersection of necessarily-bound variables in the two branches,
                             // so we can use an anti-join to produce the results
                             let hplan = IDHashAntiJoinPlan(lhs: lhs.idPlan, rhs: rhs.idPlan, joinVariables: i)
-                            plans.append(MaterializePlan(idPlan: hplan, store: store))
+                            plans.append(MaterializeTermsPlan(idPlan: hplan, store: store))
                         } else {
                             let mplan = IDMinusPlan(lhs: lhs.idPlan, rhs: rhs.idPlan)
-                            plans.append(MaterializePlan(idPlan: mplan, store: store))
+                            plans.append(MaterializeTermsPlan(idPlan: mplan, store: store))
                         }
                     } else {
                         plans.append(MinusPlan(lhs: l, rhs: r))
@@ -589,7 +653,7 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
         case let .quad(quad):
             if let store = self._lazyStore() {
                 let idplan = IDQuadPlan(quad: quad, store: store)
-                return [MaterializePlan(idPlan: idplan, store: store)]
+                return [MaterializeTermsPlan(idPlan: idplan, store: store)]
             } else {
                 return [QuadPlan(quad: quad, store: store)]
             }

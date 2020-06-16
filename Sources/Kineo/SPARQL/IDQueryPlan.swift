@@ -19,6 +19,33 @@ public struct IDQuadPlan: NullaryIDQueryPlan {
     public var isUnionIdentity: Bool { return false }
 }
 
+public struct IDOrderedQuadPlan: NullaryIDQueryPlan {
+    var quad: QuadPattern
+    var order: [RDFQuadPosition]
+    var store: LazyMaterializingQuadStore
+    public var selfDescription: String {
+        let orderNames : [String] = order.map {
+            switch $0 {
+            case .subject:
+                return "s"
+            case .predicate:
+                return "p"
+            case .object:
+                return "o"
+            case .graph:
+                return "g"
+            }
+        }
+        let ordering = orderNames.joined(separator: "")
+        return "OrderedIDQuad(\(quad)) [using index \(ordering)]"
+    }
+    public func evaluate() throws -> AnyIterator<SPARQLResultSolution<UInt64>> {
+        return try store.idresults(matching: quad, orderedBy: order)
+    }
+    public var isJoinIdentity: Bool { return false }
+    public var isUnionIdentity: Bool { return false }
+}
+
 public struct IDNestedLoopJoinPlan: BinaryIDQueryPlan {
     public var lhs: IDQueryPlan
     public var rhs: IDQueryPlan
@@ -78,6 +105,18 @@ public struct IDHashJoinPlan: BinaryIDQueryPlan {
         let l = try lhs.evaluate()
         let r = try rhs.evaluate()
         return hashJoin(l, r, joinVariables: joinVariables)
+    }
+}
+
+public struct IDMergeJoinPlan: BinaryIDQueryPlan {
+    public var lhs: IDQueryPlan
+    public var rhs: IDQueryPlan
+    public var variables: [String]
+    public var selfDescription: String { return "ID Merge-Join { \(variables) }" }
+    public func evaluate() throws -> AnyIterator<SPARQLResultSolution<UInt64>> {
+        let l = try lhs.evaluate()
+        let r = try rhs.evaluate()
+        return mergeJoin(l, r, variables: self.variables)
     }
 }
 

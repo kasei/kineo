@@ -85,6 +85,22 @@ public struct QueryPlanSimpleCostEstimator: QueryPlanCostEstimator {
                     cost *= 10.0
                 }
                 return QueryPlanSimpleCost(cost: cost)
+            } else if let p = plan as? IDOrderedQuadPlan {
+                    let q = p.quad
+                    var cost = boundQuadCost
+                    if q.subject.isVariable {
+                        cost *= 7.5
+                    }
+                    if q.predicate.isVariable {
+                        cost *= 2.5
+                    }
+                    if q.object.isVariable {
+                        cost *= 5.0
+                    }
+                    if q.graph.isVariable {
+                        cost *= 10.0
+                    }
+                    return QueryPlanSimpleCost(cost: cost)
             }
             print("[1] cost for ID plan: \(plan)")
         } else if let p = plan as? UnaryIDQueryPlan {
@@ -126,6 +142,8 @@ public struct QueryPlanSimpleCostEstimator: QueryPlanCostEstimator {
                     penalty = 1000.0
                 }
                 return QueryPlanSimpleCost(cost: penalty * (lc.cost + 2.0 * rc.cost)) // value rhs more, since that is the one that is materialized
+            } else if let _ = plan as? IDMergeJoinPlan {
+                return QueryPlanSimpleCost(cost: lc.cost + rc.cost)
             } else if let _ = plan as? IDNestedLoopJoinPlan {
                 return QueryPlanSimpleCost(cost: lc.cost * rc.cost)
             } else if let _ = plan as? IDNestedLoopLeftJoinPlan {
@@ -168,7 +186,7 @@ public struct QueryPlanSimpleCostEstimator: QueryPlanCostEstimator {
             } else if let _ = plan as? PathQueryPlan {
                 print("TODO: improve cost estimation for path queries")
                 return QueryPlanSimpleCost(cost: 20.0)
-            } else if let matplan = plan as? MaterializePlan {
+            } else if let matplan = plan as? MaterializeTermsPlan {
                 return try cost(for: matplan.idPlan)
             } else {
                 // TODO: store-provided query plans will appear here, but we don't know how to cost them

@@ -132,6 +132,7 @@ public struct PeekableIterator<T: IteratorProtocol> : IteratorProtocol {
         bufferedElement = self.generator.next()
     }
 
+    @discardableResult
     public mutating func next() -> Element? {
         let r = bufferedElement
         bufferedElement = generator.next()

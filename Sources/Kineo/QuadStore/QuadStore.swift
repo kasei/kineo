@@ -51,10 +51,20 @@ public protocol QuadStoreProtocol {
 }
 
 public protocol LazyMaterializingQuadStore: QuadStoreProtocol {
+//    func resultOrder(matching pattern: QuadPattern) throws -> [RDFQuadPosition]
     func quadIds(matching pattern: QuadPattern) throws -> [[IDType]]
     func quadsIterator(fromIds ids: [[IDType]]) -> AnyIterator<Quad>
     func term(from: IDType) throws -> Term?
+    
+    // in the returned tuples,
+    //  order: is the positions in the quad that results will come back ordered by
+    //  fullOrder: is the full set of quad positions of the underlying index,
+    //             of which some prefix will be covered by bound terms in the quad pattern
+    //             (and is used in quadIds(matching:orderedBt:) to pull data from the specific index
+    func availableOrders(matching pattern: QuadPattern) throws -> [(order: [RDFQuadPosition], fullOrder: [RDFQuadPosition])]
+    func quadIds(matching pattern: QuadPattern, orderedBy: [RDFQuadPosition]) throws -> [[IDType]]
 }
+
 extension LazyMaterializingQuadStore {
     public func idresults(matching pattern: QuadPattern) throws -> AnyIterator<SPARQLResultSolution<UInt64>> {
         var bindings : [String: Int] = [:]
@@ -64,6 +74,24 @@ extension LazyMaterializingQuadStore {
             }
         }
         let quads = try self.quadIds(matching: pattern)
+        let results = quads.lazy.map { (q) -> SPARQLResultSolution<UInt64> in
+            var b = [String: UInt64]()
+            for (name, idx) in bindings {
+                b[name] = q[idx]
+            }
+            return SPARQLResultSolution(bindings: b)
+        }
+        return AnyIterator(results.makeIterator())
+    }
+
+    public func idresults(matching pattern: QuadPattern, orderedBy order: [RDFQuadPosition]) throws -> AnyIterator<SPARQLResultSolution<UInt64>> {
+        var bindings : [String: Int] = [:]
+        for (node, index) in zip(pattern, 0..<4) {
+            if case .variable(let name, binding: true) = node {
+                bindings[name] = index
+            }
+        }
+        let quads = try self.quadIds(matching: pattern, orderedBy: order)
         let results = quads.lazy.map { (q) -> SPARQLResultSolution<UInt64> in
             var b = [String: UInt64]()
             for (name, idx) in bindings {

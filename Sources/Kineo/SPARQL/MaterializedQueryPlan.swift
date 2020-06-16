@@ -8,13 +8,13 @@
 import Foundation
 import SPARQLSyntax
 
-public struct MaterializePlan: NullaryQueryPlan {
+public struct MaterializeTermsPlan: NullaryQueryPlan {
     public var idPlan: IDQueryPlan
     var store: LazyMaterializingQuadStore
     public var isJoinIdentity: Bool { return false }
     public var isUnionIdentity: Bool { return false }
     public var selfDescription: String {
-        return "Materialize"
+        return "Materialize Terms"
     }
     public func serialize(depth: Int=0) -> String {
         let indent = String(repeating: " ", count: (depth*2))
@@ -111,6 +111,82 @@ enum HashJoinType {
     case inner
     case outer
     case anti
+}
+
+func _lexicographicallyPrecedes<T: Comparable> (lhs: [T?], rhs: [T?]) -> Bool {
+    for (l, r) in zip(lhs, rhs) {
+        switch (l, r) {
+        case let (a, b) where a == b:
+            break
+        case (nil, _):
+            return true
+        case (_, nil):
+            return false
+        case let (.some(l), .some(r)):
+            return l < r
+        }
+    }
+    return false
+}
+
+// Requires that the iterators be lexicographically sorted by the bindings corresponding to the named (ordered) variables
+func mergeJoin<I: IteratorProtocol, J: IteratorProtocol, T>(_ lhs: I, _ rhs: J, variables: [String]) -> AnyIterator<I.Element> where I.Element == SPARQLResultSolution<T>, I.Element == J.Element {
+    var i = PeekableIterator(generator: lhs)
+    var j = PeekableIterator(generator: rhs)
+    var buffer = [SPARQLResultSolution<T>]()
+    return AnyIterator {
+        repeat {
+            if let i = buffer.popLast() {
+                return i
+            }
+            guard let lr = i.peek() else {
+                return nil
+            }
+            guard let rr = j.peek() else {
+                return nil
+            }
+            let lkey = variables.map { lr[$0] }
+            let rkey = variables.map { rr[$0] }
+
+            if lkey == rkey {
+                // there is some data that joins
+                // pull all the matching rows from both sides, and find the compatible results from the cartesian product
+                var lresults = [i.next()!]
+                while let lr = i.peek() {
+                    let lnextkey = variables.map { lr[$0] }
+                    if lkey == lnextkey {
+                        lresults.append(i.next()!)
+                    } else {
+                        break
+                    }
+                }
+                
+                var rresults = [j.next()!]
+                while let rr = j.peek() {
+                    let rnextkey = variables.map { rr[$0] }
+                    if rkey == rnextkey {
+                        rresults.append(j.next()!)
+                    } else {
+                        break
+                    }
+                }
+                
+                // this is just a nested loop join. if either of the operands is large,
+                // might consider using the hash join implementation to produce these results
+                for lhs in lresults {
+                    for rhs in rresults {
+                        if let j = lhs.join(rhs) {
+                            buffer.append(j)
+                        }
+                    }
+                }
+            } else if _lexicographicallyPrecedes(lhs: lkey, rhs: rkey) {
+                i.next()
+            } else {
+                j.next()
+            }
+        } while true
+    }
 }
 
 func hashJoin<I: IteratorProtocol, J: IteratorProtocol, T>(_ lhs: I, _ rhs: J, joinVariables: Set<String>, type: HashJoinType = .inner) -> AnyIterator<I.Element> where I.Element == SPARQLResultSolution<T>, I.Element == J.Element {
