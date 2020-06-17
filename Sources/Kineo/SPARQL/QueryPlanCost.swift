@@ -152,6 +152,8 @@ public struct QueryPlanSimpleCostEstimator: QueryPlanCostEstimator {
                 return QueryPlanSimpleCost(cost: lc.cost + rc.cost)
             } else if let _ = plan as? IDMinusPlan {
                 return QueryPlanSimpleCost(cost: lc.cost + 2.0 * rc.cost) // value rhs more, since that is the one that is materialized
+            } else if let _ = plan as? IDDiffPlan {
+                return QueryPlanSimpleCost(cost: lc.cost + 2.0 * rc.cost) // value rhs more, since that is the one that is materialized
             } else {
                 print("[3] cost for ID plan: \(plan)")
             }

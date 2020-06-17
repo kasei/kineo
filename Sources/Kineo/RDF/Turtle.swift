@@ -87,7 +87,7 @@ extension String {
 }
 
 extension Term {
-    func turtleString(usingPrefixes prefixes: [String:Term]? = nil, for position: RDFTriplePosition = .object) -> String {
+    func turtleString(usingPrefixes prefixes: [String:Term]? = nil, for position: Triple.Position = .object) -> String {
         switch self.type {
         case .iri:
             if position == .predicate && self.value == Namespace.rdf.type {
@@ -131,12 +131,12 @@ extension Term {
         }
     }
     
-    func printTurtleString<T: TextOutputStream>(to stream: inout T, usingPrefixes prefixes: [String:Term]? = nil, for position: RDFTriplePosition = .object) {
+    func printTurtleString<T: TextOutputStream>(to stream: inout T, usingPrefixes prefixes: [String:Term]? = nil, for position: Triple.Position = .object) {
         let s = turtleString(usingPrefixes: prefixes, for: position)
         stream.write(s)
     }
     
-    func turtleData(usingPrefixes prefixes: [String:Term]? = nil, for position: RDFTriplePosition = .object) -> Data? {
+    func turtleData(usingPrefixes prefixes: [String:Term]? = nil, for position: Triple.Position = .object) -> Data? {
         let s = turtleString(usingPrefixes: prefixes, for: position)
         return s.data(using: .utf8)
     }

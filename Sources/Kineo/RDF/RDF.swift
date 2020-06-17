@@ -9,33 +9,6 @@
 import Foundation
 import SPARQLSyntax
 
-public enum RDFTriplePosition {
-    case subject
-    case predicate
-    case object
-}
-
-public enum RDFQuadPosition: CaseIterable {
-    case subject
-    case predicate
-    case object
-    case graph
-}
-
-public extension QuadPattern {
-    public subscript(_ position: RDFQuadPosition) -> Node {
-        switch position {
-        case .subject:
-            return self.subject
-        case .predicate:
-            return self.predicate
-        case .object:
-            return self.object
-        case .graph:
-            return self.graph
-        }
-    }
-}
 public class RDFSerializationConfiguration {
     public enum SerializationError: Error {
         case unrecognizedFileType(String)

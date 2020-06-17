@@ -28,7 +28,7 @@ public struct GraphDescription {
             public var count: Int
         }
         public var isComplete: Bool
-        public var position: RDFTriplePosition
+        public var position: Triple.Position
         public var buckets: [Bucket]
     }
     public var triplesCount: Int
@@ -51,7 +51,7 @@ public protocol QuadStoreProtocol {
 }
 
 public protocol LazyMaterializingQuadStore: QuadStoreProtocol {
-//    func resultOrder(matching pattern: QuadPattern) throws -> [RDFQuadPosition]
+//    func resultOrder(matching pattern: QuadPattern) throws -> [Quad.Position]
     func quadIds(matching pattern: QuadPattern) throws -> [[IDType]]
     func quadsIterator(fromIds ids: [[IDType]]) -> AnyIterator<Quad>
     func term(from: IDType) throws -> Term?
@@ -61,8 +61,8 @@ public protocol LazyMaterializingQuadStore: QuadStoreProtocol {
     //  fullOrder: is the full set of quad positions of the underlying index,
     //             of which some prefix will be covered by bound terms in the quad pattern
     //             (and is used in quadIds(matching:orderedBt:) to pull data from the specific index
-    func availableOrders(matching pattern: QuadPattern) throws -> [(order: [RDFQuadPosition], fullOrder: [RDFQuadPosition])]
-    func quadIds(matching pattern: QuadPattern, orderedBy: [RDFQuadPosition]) throws -> [[IDType]]
+    func availableOrders(matching pattern: QuadPattern) throws -> [(order: [Quad.Position], fullOrder: [Quad.Position])]
+    func quadIds(matching pattern: QuadPattern, orderedBy: [Quad.Position]) throws -> [[IDType]]
 }
 
 extension LazyMaterializingQuadStore {
@@ -84,7 +84,7 @@ extension LazyMaterializingQuadStore {
         return AnyIterator(results.makeIterator())
     }
 
-    public func idresults(matching pattern: QuadPattern, orderedBy order: [RDFQuadPosition]) throws -> AnyIterator<SPARQLResultSolution<UInt64>> {
+    public func idresults(matching pattern: QuadPattern, orderedBy order: [Quad.Position]) throws -> AnyIterator<SPARQLResultSolution<UInt64>> {
         var bindings : [String: Int] = [:]
         for (node, index) in zip(pattern, 0..<4) {
             if case .variable(let name, binding: true) = node {
@@ -143,7 +143,7 @@ extension MutableQuadStoreProtocol {
         try load(version: version, quads: materialized)
     }
     
-    public func load(version: Version, files: [String], graph defaultGraphTerm: Term? = nil) throws {
+    public func load(version: Version, files: [String], graph defaultGraphTerm: Term? = nil, canonicalize: Bool = true) throws {
         for filename in files {
             #if os (OSX)
             guard let path = NSURL(fileURLWithPath: filename).absoluteString else {

@@ -11,6 +11,7 @@ import SPARQLSyntax
 public struct MaterializeTermsPlan: NullaryQueryPlan {
     public var idPlan: IDQueryPlan
     var store: LazyMaterializingQuadStore
+    var verbose: Bool
     public var isJoinIdentity: Bool { return false }
     public var isUnionIdentity: Bool { return false }
     public var selfDescription: String {
@@ -26,10 +27,19 @@ public struct MaterializeTermsPlan: NullaryQueryPlan {
     
     public func evaluate() throws -> AnyIterator<SPARQLResultSolution<Term>> {
         let i = try idPlan.evaluate()
+        var seen = Set<UInt64>()
+        let verbose = self.verbose
         let s = i.lazy.map { (r) -> SPARQLResultSolution<Term>? in
             do {
                 let d = try r.map { (pair) -> (String, Term)? in
-                    guard let term = try self.store.term(from: pair.value) else { return nil }
+                    let tid = pair.value
+                    guard let term = try self.store.term(from: tid) else { return nil }
+//                    if verbose {
+//                        if !seen.contains(tid) {
+//                            print("materializing [\(tid)] \(term)")
+//                            seen.insert(tid)
+//                        }
+//                    }
                     return (pair.key, term)
                 }
                 let bindings = Dictionary(uniqueKeysWithValues: d.compactMap { $0 })

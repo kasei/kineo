@@ -7,6 +7,7 @@
 
 import Foundation
 import SPARQLSyntax
+import DiomedeQuadStore
 
 public enum QueryPlannerError: Error {
     case noPlanAvailable
@@ -26,7 +27,8 @@ extension Array where Element: Equatable {
     }
 }
 
-extension RDFQuadPosition {
+extension Quad.Position {
+    // TODO: this should be refactored with the new code in SPARQLSyntax
     func bindingVariable(in qp: QuadPattern) -> String? {
         let node = qp[self]
         if case .variable(let name, _) = node {
@@ -42,6 +44,7 @@ public protocol PlanningQuadStore: QuadStoreProtocol {
 
 public class QueryPlanner<Q: QuadStoreProtocol> {
     public var allowStoreOptimizedPlans: Bool
+    public var allowLazyIDPlans: Bool
     public var store: Q
     public var verbose: Bool
     public var dataset: Dataset
@@ -61,6 +64,7 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
         self.evaluator = ExpressionEvaluator(base: base)
         self.freshCounter = sequence(first: 1) { $0 + 1 }
         self.allowStoreOptimizedPlans = true
+        self.allowLazyIDPlans = true
         self.verbose = false
         self.serviceClients = [:]
         self.maxInFlightPlans = 16
@@ -109,9 +113,9 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
         }
         
         let p = plans.dropFirst().reduce(f) { UnionPlan(lhs: $0, rhs: $1) }
-        if verbose {
-            warn("QueryPlanner plan: " + p.serialize(depth: 0))
-        }
+//        if verbose {
+//            warn("QueryPlanner plan: " + p.serialize(depth: 0))
+//        }
 
         switch query.form {
         case .select(.star):
@@ -165,7 +169,7 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
         
         // TODO: this is currently doing all possible permutations of [rest]; that's going to be prohibitive on large BGPs; use heuristics or something like IDP
         guard !tail.isEmpty else {
-            let matplan = MaterializeTermsPlan(idPlan: plan, store: store)
+            let matplan = MaterializeTermsPlan(idPlan: plan, store: store, verbose: verbose)
             return [matplan]
         }
         
@@ -208,7 +212,9 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
         return candidates as! [MaterializeTermsPlan]
     }
     
-    private func _lazyStore() -> LazyMaterializingQuadStore? {
+    internal func _lazyStore() -> LazyMaterializingQuadStore? {
+        guard self.allowLazyIDPlans else { return nil }
+        
         // if we can do partial query evaluation using just term IDs, and delay materialization of term values,
         // return the LazyMaterializingQuadStore store object to be used for such purposes here.
         if let s = store as? LazyMaterializingQuadStore {
@@ -227,7 +233,7 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
     
     struct OrderedIDQuadPlan {
         var plan: IDQuadPlan
-        var order: [RDFQuadPosition]
+        var order: [Quad.Position]
     }
     
     func idPlans<E: QueryPlanCostEstimator>(for patterns: [QuadPattern], in store: LazyMaterializingQuadStore, estimator: E) throws -> [MaterializeTermsPlan] {
@@ -316,7 +322,7 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
                 plans.append(IDHashJoinPlan(lhs: r, rhs: l, joinVariables: i))
             }
             return plans.map {
-                MaterializeTermsPlan(idPlan: $0, store: store)
+                MaterializeTermsPlan(idPlan: $0, store: store, verbose: verbose)
             }
         } else {
             var plans = [QueryPlan]()
@@ -383,10 +389,13 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
                         if let lhs = l as? MaterializeTermsPlan, let rhs = r as? MaterializeTermsPlan {
                             if !i.isEmpty {
                                 let lhjoin = IDHashLeftJoinPlan(lhs: lhs.idPlan, rhs: rhs.idPlan, joinVariables: i)
-                                plans.append(MaterializeTermsPlan(idPlan: lhjoin, store: store))
+                                plans.append(MaterializeTermsPlan(idPlan: lhjoin, store: store, verbose: verbose))
                             }
-                            let lnljoin = IDNestedLoopLeftJoinPlan(lhs: lhs.idPlan, rhs: rhs.idPlan)
-                            plans.append(MaterializeTermsPlan(idPlan: lnljoin, store: store))
+                            
+                            let lnljoin = IDNestedLoopJoinPlan(lhs: lhs.idPlan, rhs: rhs.idPlan)
+                            let diff : IDQueryPlan = IDDiffPlan(lhs: lhs.idPlan, rhs: rhs.idPlan)
+                            let union = IDUnionPlan(lhs: lnljoin, rhs: diff)
+                            plans.append(MaterializeTermsPlan(idPlan: union, store: store, verbose: verbose))
                         } else {
                             for fij in fijplans {
                                 let diff : QueryPlan = DiffPlan(lhs: l, rhs: r, expression: expr, evaluator: evaluator)
@@ -397,7 +406,9 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
                 }
             } else {
                 let (e, mapping) = try expr.removingExistsExpressions(namingVariables: &freshCounter)
-                print("*** TODO: handle query planning of EXISTS expressions in OPTIONAL: \(e) with mapping \(mapping)")
+                if !mapping.isEmpty {
+                    print("*** TODO: handle query planning of EXISTS expressions in OPTIONAL: \(e) with mapping \(mapping)")
+                }
                 for fij in fijplans {
                     for l in lplans {
                         for r in rplans {
@@ -445,7 +456,7 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
             case let (.some(offset), .some(limit)):
                 return plans.map { (child) -> QueryPlan in
                     if let store = self._lazyStore(), let c = child as? MaterializeTermsPlan {
-                        return MaterializeTermsPlan(idPlan: IDLimitPlan(child: IDOffsetPlan(child: c.idPlan, offset: offset), limit: limit), store: store)
+                        return MaterializeTermsPlan(idPlan: IDLimitPlan(child: IDOffsetPlan(child: c.idPlan, offset: offset), limit: limit), store: store, verbose: verbose)
                     } else {
                         return LimitPlan(child: OffsetPlan(child: child, offset: offset), limit: limit)
                     }
@@ -453,7 +464,7 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
             case (.some(let offset), _):
                 return plans.map { (child) -> QueryPlan in
                     if let store = self._lazyStore(), let c = child as? MaterializeTermsPlan {
-                        return MaterializeTermsPlan(idPlan: IDOffsetPlan(child: c.idPlan, offset: offset), store: store)
+                        return MaterializeTermsPlan(idPlan: IDOffsetPlan(child: c.idPlan, offset: offset), store: store, verbose: verbose)
                     } else {
                         return OffsetPlan(child: child, offset: offset)
                     }
@@ -461,7 +472,7 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
             case (_, .some(let limit)):
                 return plans.map { (child) -> QueryPlan in
                     if let store = self._lazyStore(), let c = child as? MaterializeTermsPlan {
-                        return MaterializeTermsPlan(idPlan: IDLimitPlan(child: c.idPlan, limit: limit), store: store)
+                        return MaterializeTermsPlan(idPlan: IDLimitPlan(child: c.idPlan, limit: limit), store: store, verbose: verbose)
                     } else {
                         return LimitPlan(child: child, limit: limit)
                     }
@@ -584,10 +595,10 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
                             // there is an intersection of necessarily-bound variables in the two branches,
                             // so we can use an anti-join to produce the results
                             let hplan = IDHashAntiJoinPlan(lhs: lhs.idPlan, rhs: rhs.idPlan, joinVariables: i)
-                            plans.append(MaterializeTermsPlan(idPlan: hplan, store: store))
+                            plans.append(MaterializeTermsPlan(idPlan: hplan, store: store, verbose: verbose))
                         } else {
                             let mplan = IDMinusPlan(lhs: lhs.idPlan, rhs: rhs.idPlan)
-                            plans.append(MaterializeTermsPlan(idPlan: mplan, store: store))
+                            plans.append(MaterializeTermsPlan(idPlan: mplan, store: store, verbose: verbose))
                         }
                     } else {
                         plans.append(MinusPlan(lhs: l, rhs: r))
@@ -653,7 +664,7 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
         case let .quad(quad):
             if let store = self._lazyStore() {
                 let idplan = IDQuadPlan(quad: quad, store: store)
-                return [MaterializeTermsPlan(idPlan: idplan, store: store)]
+                return [MaterializeTermsPlan(idPlan: idplan, store: store, verbose: verbose)]
             } else {
                 return [QuadPlan(quad: quad, store: store)]
             }
@@ -665,7 +676,7 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
 
     func planBushyUnionProduct<E: QueryPlanCostEstimator>(branches: [[QueryPlan]], estimator: E) throws -> [QueryPlan] {
         guard !branches.isEmpty else {
-            throw QueryPlannerError.noPlanAvailable
+            return [TablePlan.unionIdentity]
         }
         guard branches.count > 1 else {
             return branches[0]
@@ -753,6 +764,12 @@ extension Expression {
     }
 }
 
+extension QueryPlanEvaluator: CustomStringConvertible {
+    public var description: String {
+        return "QueryPlanEvaluator<\(Q.self)>"
+    }
+}
+
 public struct QueryPlanEvaluator<Q: QuadStoreProtocol>: QueryEvaluatorProtocol {
     public typealias ResultSequence = AnySequence<SPARQLResultSolution<Term>>
     public typealias TripleSequence = [Triple]
@@ -760,17 +777,21 @@ public struct QueryPlanEvaluator<Q: QuadStoreProtocol>: QueryEvaluatorProtocol {
     public let supportedLanguages: [QueryLanguage] = [.sparqlQuery10, .sparqlQuery11]
     public let supportedFeatures: [QueryEngineFeature] = [.basicFederatedQuery]
 
+    var verbose: Bool
     var dataset: Dataset
     public var planner: QueryPlanner<Q>
     
     public init(planner: QueryPlanner<Q>) {
+        self.verbose = false
         self.dataset = planner.dataset
         self.planner = planner
     }
     
-    public init(store: Q, dataset: Dataset, base: String? = nil) {
+    public init(store: Q, dataset: Dataset, base: String? = nil, verbose: Bool = false) {
+        self.verbose = verbose
         self.dataset = dataset
         self.planner = QueryPlanner(store: store, dataset: dataset, base: base)
+        planner.verbose = verbose
     }
     
     public func evaluate(query: Query) throws -> QueryResult<AnySequence<SPARQLResultSolution<Term>>, [Triple]> {
@@ -785,8 +806,10 @@ public struct QueryPlanEvaluator<Q: QuadStoreProtocol>: QueryEvaluatorProtocol {
         guard let plan = plans.first else {
             throw QueryPlannerError.noPlanAvailable
         }
-//        print("Query Plan:")
-//        print(plan.serialize(depth: 0))
+        if self.verbose {
+            print("Query Plan:")
+            print(plan.serialize(depth: 0))
+        }
         
         let seq = AnySequence { () -> AnyIterator<SPARQLResultSolution<Term>> in
             do {
@@ -806,9 +829,18 @@ public struct QueryPlanEvaluator<Q: QuadStoreProtocol>: QueryEvaluatorProtocol {
         let rewriter = SPARQLQueryRewriter()
         let q = try rewriter.simplify(query: query)
         let plan = try planner.plan(query: q, activeGraph: graph)
-//        print("Query Plan:")
-//        print(plan.serialize(depth: 0))
-        
+        if self.verbose {
+            print("Query Plan:")
+            print(plan.serialize(depth: 0))
+            
+//            if let store = planner.store as? DiomedeQuadStore {
+//                print("Store Terms:")
+//                try store.iterateTerms { (id, term) in
+//                    print("[\(id)] \(term)")
+//                }
+//            }
+        }
+
         let seq = AnySequence { () -> AnyIterator<SPARQLResultSolution<Term>> in
             do {
                 let i = try plan.evaluate()

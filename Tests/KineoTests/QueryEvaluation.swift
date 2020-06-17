@@ -153,7 +153,7 @@ extension DiomedeStore_QueryPlanEvaluationTest {
 }
 #endif
 
-struct TestStore: QuadStoreProtocol, Sequence {
+class TestStore: MutableQuadStoreProtocol, Sequence {
     typealias IDType = Term
 
     public func effectiveVersion(matching pattern: QuadPattern) throws -> UInt64? {
@@ -161,8 +161,17 @@ struct TestStore: QuadStoreProtocol, Sequence {
     }
 
     var quads: [Quad]
+    
+    init(quads: [Quad]) {
+        self.quads = quads
+    }
+    
     var count: Int { return quads.count }
 
+    func load<S>(version: Version, quads: S) throws where S : Sequence, S.Element == Quad {
+        self.quads.append(contentsOf: quads)
+    }
+    
     func graphs() -> AnyIterator<Term> {
         var graphs = Set<Term>()
         for q in self {
@@ -208,7 +217,7 @@ struct TestStore: QuadStoreProtocol, Sequence {
 }
 
 protocol QueryEvaluationTests {
-    associatedtype Store: QuadStoreProtocol
+    associatedtype Store: MutableQuadStoreProtocol
     associatedtype Evaluator: QueryEvaluatorProtocol
     var store: Store! { get }
     var graph: Term! { get }
@@ -1280,6 +1289,86 @@ extension QueryEvaluationTests {
         let gotN5tie = results.map { $0["n5tie"] }.compactMap { $0?.numericValue }.map { Int($0) }
         XCTAssertEqual(gotN5tie, [1, 1, 3, 4, 2, 1, 5])
     }
+    
+    func _testManifestQuery() throws {
+        let ttl = #"""
+        @prefix rdf:    <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+        @prefix : <http://www.w3.org/2001/sw/DataAccess/tests/data-r2/algebra/manifest#> .
+        @prefix rdfs:    <http://www.w3.org/2000/01/rdf-schema#> .
+        @prefix mf:     <http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#> .
+        @prefix qt:     <http://www.w3.org/2001/sw/DataAccess/tests/test-query#> .
+        @prefix dawgt:   <http://www.w3.org/2001/sw/DataAccess/tests/test-dawg#> .
+
+        <>  rdf:type mf:Manifest ;
+            rdfs:label "Algebra" ;
+            mf:entries
+            (   :nested-opt-1
+                :join-combo-1
+                :join-combo-2
+            ) .
+
+        :join-combo-1 a mf:QueryEvaluationTest ;
+           mf:name    "Join operator with OPTs, BGPs, and UNIONs" ;
+           rdfs:comment """Tests nested combination of Join with a BGP / OPT and a BGP / UNION""" ;
+              dawgt:approvedBy <http://lists.w3.org/Archives/Public/public-rdf-dawg/2007JulSep/att-0096/21-dawg-minutes.html> ;
+            dawgt:approval dawgt:Approved ;
+                 mf:action
+                    [ qt:query  <join-combo-1.rq> ;
+                      qt:data   <join-combo-graph-2.ttl> ] ;
+                 mf:result  <join-combo-1.srx> .
+
+        :join-combo-2 a mf:QueryEvaluationTest ;
+           mf:name    "Join operator with Graph and Union" ;
+           rdfs:comment """Tests combination of Join operator with Graph on LHS and Union on RHS""" ;
+              dawgt:approvedBy <http://lists.w3.org/Archives/Public/public-rdf-dawg/2007JulSep/att-0096/21-dawg-minutes.html> ;
+            dawgt:approval dawgt:Approved ;
+                 mf:action
+                    [ qt:query  <join-combo-2.rq> ;
+                      qt:graphData   <join-combo-graph-1.ttl>;
+                      qt:data        <join-combo-graph-2.ttl> ] ;
+                 mf:result  <join-combo-2.srx> .
+
+        :nested-opt-1 rdf:type mf:QueryEvaluationTest ;
+                 mf:name    "Nested Optionals - 1" ;
+            dawgt:approval dawgt:Approved ;
+            dawgt:approvedBy <http://www.w3.org/2007/06/19-dawg-minutes.html> ;
+            rdfs:comment """Nested-optionals with a shared variable that does not appear in the middle pattern (a not well-formed query pattern as per "Semantics and Complexity" of SPARQL""" ;
+                 mf:action
+                    [ qt:query  <two-nested-opt.rq> ;
+                      qt:data   <two-nested-opt.ttl> ] ;
+                 mf:result  <two-nested-opt.srx> .
+
+        """#
+        let data = """
+        PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+        PREFIX mf: <http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#>
+        PREFIX qt: <http://www.w3.org/2001/sw/DataAccess/tests/test-query#>
+        PREFIX dawgt: <http://www.w3.org/2001/sw/DataAccess/tests/test-dawg#>
+        SELECT * WHERE {
+            ?manifest a mf:Manifest ;
+                mf:entries/rdf:rest*/rdf:first ?test .
+            ?test a ?test_type ;
+                mf:action ?action ;
+                mf:result ?result ;
+                dawgt:approval <http://www.w3.org/2001/sw/DataAccess/tests/test-dawg#Approved> ;
+            .
+            ?action qt:query ?query .
+        }
+        """.data(using: .utf8)!
+        
+        let parser = RDFParserCombined()
+        var quads = [Quad]()
+        try parser.parse(string: ttl, syntax: .turtle) { (s, p, o) in
+            let q = Quad(subject: s, predicate: p, object: o, graph: self.graph)
+            quads.append(q)
+        }
+        try self.store.load(version: 0, quads: quads)
+
+        guard var p = SPARQLParser(data: data) else { fatalError("Failed to construct SPARQL parser") }
+        let results = try Array(eval(query: p.parseQuery()))
+        XCTAssertEqual(results.count, 3)
+//        print(results)
+    }
 }
 
 class TestStore_SimpleQueryEvaluationTest: XCTestCase, QueryEvaluationTests {
@@ -1343,6 +1432,7 @@ class TestStore_SimpleQueryEvaluationTest: XCTestCase, QueryEvaluationTests {
     func testWindowFunctionRank() throws { try _testWindowFunctionRank() }
     func testWindowFunctionRank2() throws { try _testWindowFunctionRank2() }
     func testWindowFunctionNtile() throws { try _testWindowFunctionNtile() }
+    func testManifestQuery() throws { try _testManifestQuery() }
 }
 
 class DiomedeStore_QueryPlanEvaluationTest: XCTestCase, QueryEvaluationTests {
@@ -1420,6 +1510,7 @@ class DiomedeStore_QueryPlanEvaluationTest: XCTestCase, QueryEvaluationTests {
     func testWindowFunctionRank() throws { try _testWindowFunctionRank() }
     func testWindowFunctionRank2() throws { try _testWindowFunctionRank2() }
     func testWindowFunctionNtile() throws { try _testWindowFunctionNtile() }
+    func testManifestQuery() throws { try _testManifestQuery() }
 }
 
 
@@ -1485,4 +1576,5 @@ class TestStore_QueryPlanEvaluationTest: XCTestCase, QueryEvaluationTests {
     func testWindowFunctionRank() throws { try _testWindowFunctionRank() }
     func testWindowFunctionRank2() throws { try _testWindowFunctionRank2() }
     func testWindowFunctionNtile() throws { try _testWindowFunctionNtile() }
+    func testManifestQuery() throws { try _testManifestQuery() }
 }

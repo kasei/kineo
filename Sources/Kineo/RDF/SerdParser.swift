@@ -78,6 +78,7 @@ let serd_prefix_sink : @convention(c) (UnsafeMutableRawPointer?, UnsafePointer<S
 
 let serd_free_handle : @convention(c) (UnsafeMutableRawPointer?) -> Void = { (ptr) -> Void in }
 
+let sentinel_graph = Term(iri: "tag:kasei.us,2018:sentinel-graph")
 let serd_statement_sink : @convention(c) (UnsafeMutableRawPointer?, SerdStatementFlags, UnsafePointer<SerdNode>?, UnsafePointer<SerdNode>?, UnsafePointer<SerdNode>?, UnsafePointer<SerdNode>?, UnsafePointer<SerdNode>?, UnsafePointer<SerdNode>?) -> SerdStatus = { (handle, flags, graph, subject, predicate, object, datatype, language) -> SerdStatus in
     guard let handle = handle, let subject = subject, let predicate = predicate, let object = object else { return SERD_FAILURE }
     let ptr = handle.assumingMemoryBound(to: ParserContext.self)
@@ -100,7 +101,7 @@ let serd_statement_sink : @convention(c) (UnsafeMutableRawPointer?, SerdStatemen
         if let graph = graph {
             g = try serd_node_as_term(env: env, node: graph.pointee, datatype: nil, language: nil)
         } else {
-            g = Term(iri: "tag:kasei.us,2018:default-graph")
+            g = sentinel_graph
         }
 
         ctx.count += 1
@@ -148,7 +149,7 @@ private func serd_node_as_term(env: OpaquePointer?, node: SerdNode, datatype: St
             return Term(value: node.value, type: .language(lang))
         } else {
             let dt = TermDataType(stringLiteral: datatype ?? Namespace.xsd.string)
-            return Term(value:node.value, type: .datatype(dt))
+            return Term(value: node.value, type: .datatype(dt))
         }
     case SERD_CURIE:
         var n = node
@@ -308,7 +309,7 @@ public struct SerdParser {
         
         guard let env = serd_env_new(&base) else { throw RDFParserCombined.RDFParserError.internalError("Failed to construct parser context") }
         
-        let defaultGraph = Term(iri: "tag:kasei.us,2018:default-graph")
+//        let defaultGraph = Term(iri: "tag:kasei.us,2018:default-graph")
         var context = ParserContext(env: env, handler: handleQuad, defaultGraph: defaultGraph, produceUniqueBlankIdentifiers: produceUniqueBlankIdentifiers)
         _ = try withUnsafePointer(to: &context) { (ctx) throws -> SerdStatus in
             guard let reader = serd_reader_new(inputSyntax.serdSyntax!, UnsafeMutableRawPointer(mutating: ctx), serd_free_handle, serd_base_sink, serd_prefix_sink, serd_statement_sink, serd_end_sink) else {

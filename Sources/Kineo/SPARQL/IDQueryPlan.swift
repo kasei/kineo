@@ -21,7 +21,7 @@ public struct IDQuadPlan: NullaryIDQueryPlan {
 
 public struct IDOrderedQuadPlan: NullaryIDQueryPlan {
     var quad: QuadPattern
-    var order: [RDFQuadPosition]
+    var order: [Quad.Position]
     var store: LazyMaterializingQuadStore
     public var selfDescription: String {
         let orderNames : [String] = order.map {
@@ -145,6 +145,32 @@ public struct IDHashAntiJoinPlan: BinaryIDQueryPlan {
         return hashJoin(l, r, joinVariables: joinVariables, type: .anti)
     }
 }
+
+public struct IDDiffPlan: BinaryIDQueryPlan {
+    public var lhs: IDQueryPlan
+    public var rhs: IDQueryPlan
+    public var selfDescription: String { return "ID Diff" }
+    public func evaluate() throws -> AnyIterator<SPARQLResultSolution<UInt64>> {
+        let i = try lhs.evaluate()
+        let r = try Array(rhs.evaluate())
+        return AnyIterator {
+            repeat {
+                guard let result = i.next() else { return nil }
+                var ok = true
+                for candidate in r {
+                    if let _ = result.join(candidate) {
+                        ok = false
+                    }
+                }
+                
+                if ok {
+                    return result
+                }
+            } while true
+        }
+    }
+}
+
 
 public struct IDUnionPlan: BinaryIDQueryPlan {
     public var lhs: IDQueryPlan
