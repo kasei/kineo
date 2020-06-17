@@ -28,7 +28,6 @@ extension Array where Element: Equatable {
 }
 
 extension Quad.Position {
-    // TODO: this should be refactored with the new code in SPARQLSyntax
     func bindingVariable(in qp: QuadPattern) -> String? {
         let node = qp[self]
         if case .variable(let name, _) = node {
