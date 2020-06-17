@@ -138,7 +138,9 @@ case .diomede:
         return store
     }
     
+    #if os(macOS)
     for filename in files {
         try? f.trashItem(at: filename, resultingItemURL: nil)
     }
+    #endif
 }

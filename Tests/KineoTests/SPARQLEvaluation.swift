@@ -410,8 +410,10 @@ class DiomedeStore_SPARQLEvaluationTest: XCTestCase, SPARQLEvaluationTestImpl {
     
     override func tearDown() {
         super.tearDown()
+        #if os(macOS)
         let f = FileManager.default
         try? f.trashItem(at: self.filename, resultingItemURL: nil)
+        #endif
     }
    
     func test10Evaluation_algebra() throws {
