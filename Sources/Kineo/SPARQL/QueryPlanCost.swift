@@ -67,6 +67,102 @@ public struct QueryPlanSimpleCostEstimator: QueryPlanCostEstimator {
         return lhs < rhs
     }
 
+    public func cost(for plan: IDQueryPlan) throws -> QueryPlanSimpleCost {
+        if let _ = plan as? NullaryIDQueryPlan {
+            if let p = plan as? IDQuadPlan {
+                let q = p.quad
+                var cost = boundQuadCost
+                if q.subject.isVariable {
+                    cost *= 7.5
+                }
+                if q.predicate.isVariable {
+                    cost *= 2.5
+                }
+                if q.object.isVariable {
+                    cost *= 5.0
+                }
+                if q.graph.isVariable {
+                    cost *= 10.0
+                }
+                return QueryPlanSimpleCost(cost: cost)
+            } else if let p = plan as? IDOrderedQuadPlan {
+                    let q = p.quad
+                    var cost = boundQuadCost
+                    if q.subject.isVariable {
+                        cost *= 7.5
+                    }
+                    if q.predicate.isVariable {
+                        cost *= 2.5
+                    }
+                    if q.object.isVariable {
+                        cost *= 5.0
+                    }
+                    if q.graph.isVariable {
+                        cost *= 10.0
+                    }
+                    return QueryPlanSimpleCost(cost: cost)
+            }
+            print("[1] cost for ID plan: \(plan)")
+        } else if let p = plan as? UnaryIDQueryPlan {
+            let c = try cost(for: p.child)
+            if let _ = plan as? IDProjectPlan {
+                return c
+            } else if let _ = plan as? IDReducedPlan {
+                return c
+            } else if let _ = plan as? IDLimitPlan {
+                return c
+            } else if let _ = plan as? IDOffsetPlan {
+                return c
+            } else {
+                print("[2] cost for ID plan: \(plan)")
+            }
+        } else if let p = plan as? BinaryIDQueryPlan {
+            let lhs = p.children[0]
+            let rhs = p.children[1]
+            let lc = try cost(for: lhs)
+            let rc = try cost(for: rhs)
+            if let p = plan as? IDHashJoinPlan {
+                var penalty = 1.0
+                let jv = p.joinVariables
+                if jv.isEmpty {
+                    penalty = 1000.0
+                }
+                return QueryPlanSimpleCost(cost: penalty * (lc.cost + 2.0 * rc.cost)) // value rhs more, since that is the one that is materialized
+            } else if let p = plan as? IDHashLeftJoinPlan {
+                var penalty = 1.0
+                let jv = p.joinVariables
+                if jv.isEmpty {
+                    penalty = 1000.0
+                }
+                return QueryPlanSimpleCost(cost: penalty * (lc.cost + 2.0 * rc.cost)) // value rhs more, since that is the one that is materialized
+            } else if let p = plan as? IDHashAntiJoinPlan {
+                var penalty = 1.0
+                let jv = p.joinVariables
+                if jv.isEmpty {
+                    penalty = 1000.0
+                }
+                return QueryPlanSimpleCost(cost: penalty * (lc.cost + 2.0 * rc.cost)) // value rhs more, since that is the one that is materialized
+            } else if let _ = plan as? IDMergeJoinPlan {
+                return QueryPlanSimpleCost(cost: lc.cost + rc.cost)
+            } else if let _ = plan as? IDNestedLoopJoinPlan {
+                return QueryPlanSimpleCost(cost: lc.cost * rc.cost)
+            } else if let _ = plan as? IDNestedLoopLeftJoinPlan {
+                return QueryPlanSimpleCost(cost: lc.cost * rc.cost)
+            } else if let _ = plan as? IDUnionPlan {
+                return QueryPlanSimpleCost(cost: lc.cost + rc.cost)
+            } else if let _ = plan as? IDMinusPlan {
+                return QueryPlanSimpleCost(cost: lc.cost + 2.0 * rc.cost) // value rhs more, since that is the one that is materialized
+            } else if let _ = plan as? IDDiffPlan {
+                return QueryPlanSimpleCost(cost: lc.cost + 2.0 * rc.cost) // value rhs more, since that is the one that is materialized
+            } else {
+                print("[3] cost for ID plan: \(plan)")
+            }
+        } else {
+            print("[4] cost for ID plan: \(plan)")
+        }
+        return QueryPlanSimpleCost(cost: 100.0)
+    }
+    
     public func cost(for plan: QueryPlan) throws -> QueryPlanSimpleCost {
         if let _ = plan as? NullaryQueryPlan {
             if let p = plan as? QuadPlan {
@@ -92,6 +188,8 @@ public struct QueryPlanSimpleCostEstimator: QueryPlanCostEstimator {
             } else if let _ = plan as? PathQueryPlan {
                 print("TODO: improve cost estimation for path queries")
                 return QueryPlanSimpleCost(cost: 20.0)
+            } else if let matplan = plan as? MaterializeTermsPlan {
+                return try cost(for: matplan.idPlan)
             } else {
                 // TODO: store-provided query plans will appear here, but we don't know how to cost them
                 return QueryPlanSimpleCost(cost: 1.0)

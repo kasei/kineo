@@ -210,7 +210,8 @@ public class RDFParserCombined : RDFPushParser {
             let p = SerdParser(syntax: inputSyntax, base: base, produceUniqueBlankIdentifiers: produceUniqueBlankIdentifiers)
             var count = 0
             _ = try p.serd_parse(file: filename, defaultGraph: defaultGraph, base: base) { (s,p,o,g) in
-                handleQuad(s,p,o,g)
+                let graph = (g == sentinel_graph) ? defaultGraph : g
+                handleQuad(s,p,o,graph)
                 count += 1
             }
             return count

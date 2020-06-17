@@ -1449,7 +1449,7 @@ extension SQLiteQuadStore: PackedIdentityMap {
 
 }
 
-public struct SQLitePlan: NullaryQueryPlan {
+public struct SQLitePlan: NullaryQueryPlan, QueryPlanSerialization {
     private typealias ColumnMapping = [String:(SQLite.Expression<Int64>, SQLite.Expression<String>, SQLite.Expression<String?>, SQLite.Expression<Int64?>)]
     var query: SQLite.Table
     var distinct: Bool
@@ -1536,7 +1536,7 @@ public struct SQLitePlan: NullaryQueryPlan {
     }
 }
 
-public struct SQLitePreparedPlan: NullaryQueryPlan {
+public struct SQLitePreparedPlan: NullaryQueryPlan, QueryPlanSerialization {
     var dbh: SQLite.Statement
     var projected: [String: String]
     var store: SQLiteQuadStore
@@ -1566,7 +1566,7 @@ public struct SQLitePreparedPlan: NullaryQueryPlan {
     }
 }
 
-public struct SQLiteSingleIntegerAggregationPlan<D: Value>: NullaryQueryPlan {
+public struct SQLiteSingleIntegerAggregationPlan<D: Value>: NullaryQueryPlan, QueryPlanSerialization {
     var query: SQLite.Table
     var aggregateColumn: SQLite.Expression<D>
     var aggregateName: String

@@ -19,26 +19,27 @@ extension SPARQLSyntaxTest {
 // swiftlint:disable type_body_length
 class SPARQLSyntaxTest: XCTestCase {
     var sparqlBase: URL!
-    var testRunner: SPARQLTestRunner!
+    var testRunner: SPARQLTestRunner<MemoryQuadStore>!
     
     override func setUp() {
         super.setUp()
         guard let rdfTestsBase = ProcessInfo.processInfo.environment["KINEO_W3C_TEST_PATH"] else { fatalError("*** KINEO_W3C_TEST_PATH environment variable must be set") }
         let base = NSURL(fileURLWithPath: rdfTestsBase)
         sparqlBase = base.appendingPathComponent("sparql11")
-        testRunner = SPARQLTestRunner()
+        let newStore = { return MemoryQuadStore() }
+        testRunner = SPARQLTestRunner(newStore: newStore)
     }
     
     override func tearDown() {
         super.tearDown()
     }
 
-    func handle(testResults results: [SPARQLTestRunner.TestResult]) {
+    func handle<M: MutableQuadStoreProtocol>(testResults results: [SPARQLTestRunner<M>.TestResult]) {
         for result in results {
             switch result {
-            case let .success(test):
+            case let .success(test, _):
                 XCTAssertTrue(true, test)
-            case let .failure(test, reason):
+            case let .failure(test, _, reason):
                 XCTFail("failed test <\(test)>: \(reason)")
             }
         }

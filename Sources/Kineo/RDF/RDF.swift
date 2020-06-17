@@ -9,12 +9,6 @@
 import Foundation
 import SPARQLSyntax
 
-public enum RDFTriplePosition {
-    case subject
-    case predicate
-    case object
-}
-
 public class RDFSerializationConfiguration {
     public enum SerializationError: Error {
         case unrecognizedFileType(String)

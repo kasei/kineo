@@ -28,7 +28,7 @@ public struct GraphDescription {
             public var count: Int
         }
         public var isComplete: Bool
-        public var position: RDFTriplePosition
+        public var position: Triple.Position
         public var buckets: [Bucket]
     }
     public var triplesCount: Int
@@ -48,6 +48,59 @@ public protocol QuadStoreProtocol {
     func effectiveVersion(matching pattern: QuadPattern) throws -> Version?
     var graphDescriptions: [Term:GraphDescription] { get }
     var features: [QuadStoreFeature] { get }
+}
+
+public protocol LazyMaterializingQuadStore: QuadStoreProtocol {
+//    func resultOrder(matching pattern: QuadPattern) throws -> [Quad.Position]
+    func quadIds(matching pattern: QuadPattern) throws -> [[IDType]]
+    func quadsIterator(fromIds ids: [[IDType]]) -> AnyIterator<Quad>
+    func term(from: IDType) throws -> Term?
+    
+    // in the returned tuples,
+    //  order: is the positions in the quad that results will come back ordered by
+    //  fullOrder: is the full set of quad positions of the underlying index,
+    //             of which some prefix will be covered by bound terms in the quad pattern
+    //             (and is used in quadIds(matching:orderedBt:) to pull data from the specific index
+    func availableOrders(matching pattern: QuadPattern) throws -> [(order: [Quad.Position], fullOrder: [Quad.Position])]
+    func quadIds(matching pattern: QuadPattern, orderedBy: [Quad.Position]) throws -> [[IDType]]
+}
+
+extension LazyMaterializingQuadStore {
+    public func idresults(matching pattern: QuadPattern) throws -> AnyIterator<SPARQLResultSolution<UInt64>> {
+        var bindings : [String: Int] = [:]
+        for (node, index) in zip(pattern, 0..<4) {
+            if case .variable(let name, binding: true) = node {
+                bindings[name] = index
+            }
+        }
+        let quads = try self.quadIds(matching: pattern)
+        let results = quads.lazy.map { (q) -> SPARQLResultSolution<UInt64> in
+            var b = [String: UInt64]()
+            for (name, idx) in bindings {
+                b[name] = q[idx]
+            }
+            return SPARQLResultSolution(bindings: b)
+        }
+        return AnyIterator(results.makeIterator())
+    }
+
+    public func idresults(matching pattern: QuadPattern, orderedBy order: [Quad.Position]) throws -> AnyIterator<SPARQLResultSolution<UInt64>> {
+        var bindings : [String: Int] = [:]
+        for (node, index) in zip(pattern, 0..<4) {
+            if case .variable(let name, binding: true) = node {
+                bindings[name] = index
+            }
+        }
+        let quads = try self.quadIds(matching: pattern, orderedBy: order)
+        let results = quads.lazy.map { (q) -> SPARQLResultSolution<UInt64> in
+            var b = [String: UInt64]()
+            for (name, idx) in bindings {
+                b[name] = q[idx]
+            }
+            return SPARQLResultSolution(bindings: b)
+        }
+        return AnyIterator(results.makeIterator())
+    }
 }
 
 public protocol LanguageAwareQuadStore: QuadStoreProtocol {
@@ -90,7 +143,7 @@ extension MutableQuadStoreProtocol {
         try load(version: version, quads: materialized)
     }
     
-    public func load(version: Version, files: [String], graph defaultGraphTerm: Term? = nil) throws {
+    public func load(version: Version, files: [String], graph defaultGraphTerm: Term? = nil, canonicalize: Bool = true) throws {
         for filename in files {
             #if os (OSX)
             guard let path = NSURL(fileURLWithPath: filename).absoluteString else {

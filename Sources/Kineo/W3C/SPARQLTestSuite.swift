@@ -8,38 +8,41 @@
 import Foundation
 import SPARQLSyntax
 
-public struct SPARQLTestRunner {
-    typealias TestedQuadStore = SQLiteQuadStore
+public struct SPARQLTestRunner<M: MutableQuadStoreProtocol> {
+    typealias TestedQuadStore = M
+//    typealias TestedQuadStore = SQLiteQuadStore
 //    typealias TestedQuadStore = MemoryQuadStore
 
     public var requireTestApproval: Bool
-    public var quadstore: MemoryQuadStore
+    public var quadstore: M
     public var verbose: Bool
     public var testSimpleQueryEvaluation: Bool
     public var testQueryPlanEvaluation: Bool
+    var _newStore: () -> M
 
     public enum TestError: Error {
         case unsupportedFormat(String)
     }
     
     public enum TestResult: Equatable {
-        case success(iri: String)
-        case failure(iri: String, reason: String)
+        case success(iri: String, configuration: String)
+        case failure(iri: String, configuration: String, reason: String)
     }
     
-    public init() {
+    public init(newStore: @escaping () -> M) {
         self.verbose = false
         self.testSimpleQueryEvaluation = true
         self.testQueryPlanEvaluation = true
-        self.quadstore = MemoryQuadStore()
+        self.quadstore = newStore()
+        self._newStore = newStore
         self.requireTestApproval = true
     }
     
     func quadStore(from dataset: Dataset, defaultGraph: Term) throws -> TestedQuadStore {
-        let q = try TestedQuadStore()
+        let q = self._newStore()
         do {
             let defaultUrls = dataset.defaultGraphs.compactMap { URL(string: $0.value) }
-            try q.load(version: Version(0), files: defaultUrls.map{ $0.path }, graph: defaultGraph)
+            try q.load(version: Version(0), files: defaultUrls.map{ $0.path }, graph: defaultGraph, canonicalize: false)
             
             let namedUrls = dataset.namedGraphs.compactMap { URL(string: $0.value) }
             for url in namedUrls {
@@ -88,38 +91,38 @@ public struct SPARQLTestRunner {
                     print("Running syntax test: \(test.value)")
                 }
                 guard let action = item["action"] else {
-                    results.append(.failure(iri: test.value, reason: "Did not find an mf:action property for this test"))
+                    results.append(.failure(iri: test.value, configuration: "", reason: "Did not find an mf:action property for this test"))
                     continue
                 }
                 //                print("Parsing \(action)...")
                 guard let url = URL(string: action.value) else {
-                    results.append(.failure(iri: test.value, reason: "Failed to construct URL for action: \(action)"))
+                    results.append(.failure(iri: test.value, configuration: "", reason: "Failed to construct URL for action: \(action)"))
                     continue
                 }
                 if expectFailure {
                     let sparql = try Data(contentsOf: url)
                     guard var p = SPARQLParser(data: sparql) else {
-                        results.append(.failure(iri: test.value, reason: "Failed to construct SPARQL parser"))
+                        results.append(.failure(iri: test.value, configuration: "", reason: "Failed to construct SPARQL parser"))
                         continue
                     }
                     
                     do {
                         _ = try p.parseQuery()
-                        results.append(.failure(iri: test.value, reason: "Did not find expected syntax error while parsing \(url)"))
+                        results.append(.failure(iri: test.value, configuration: "", reason: "Did not find expected syntax error while parsing \(url)"))
                     } catch {
-                        results.append(.success(iri: test.value))
+                        results.append(.success(iri: test.value, configuration: ""))
                     }
                 } else {
                     do {
                         let sparql = try Data(contentsOf: url)
                         guard var p = SPARQLParser(data: sparql) else {
-                            results.append(.failure(iri: test.value, reason: "Failed to construct SPARQL parser"))
+                            results.append(.failure(iri: test.value, configuration: "", reason: "Failed to construct SPARQL parser"))
                             continue
                         }
                         _ = try p.parseQuery()
-                        results.append(.success(iri: test.value))
+                        results.append(.success(iri: test.value, configuration: ""))
                     } catch let e {
-                        results.append(.failure(iri: test.value, reason: "failed to parse \(url): \(e)"))
+                        results.append(.failure(iri: test.value, configuration: "", reason: "failed to parse \(url): \(e)"))
                     }
                 }
             }
@@ -165,15 +168,15 @@ public struct SPARQLTestRunner {
                     print("Running evaluation test: \(test.value)")
                 }
                 guard let action = testRecord["action"] else {
-                    results.append(.failure(iri: test.value, reason: "Failed to access action term"))
+                    results.append(.failure(iri: test.value, configuration: "", reason: "Failed to access action term"))
                     continue
                 }
                 guard let testResult = testRecord["result"] else {
-                    results.append(.failure(iri: test.value, reason: "Failed to access result term"))
+                    results.append(.failure(iri: test.value, configuration: "", reason: "Failed to access result term"))
                     continue
                 }
                 guard let query = testRecord["query"] else {
-                    results.append(.failure(iri: test.value, reason: "Did not find an mf:action property for this test"))
+                    results.append(.failure(iri: test.value, configuration: "", reason: "Did not find an mf:action property for this test"))
                     continue
                     
                 }
@@ -184,11 +187,11 @@ public struct SPARQLTestRunner {
                     print("Parsing results: \(testResult)...")
                 }
                 guard let testResultUrl = URL(string: testResult.value) else {
-                    results.append(.failure(iri: test.value, reason: "Failed to construct URL for result: \(testResult)"))
+                    results.append(.failure(iri: test.value, configuration: "", reason: "Failed to construct URL for result: \(testResult)"))
                     continue }
                 
                 guard let url = URL(string: query.value) else {
-                    results.append(.failure(iri: test.value, reason: "Failed to construct URL for action: \(query)"))
+                    results.append(.failure(iri: test.value, configuration: "", reason: "Failed to construct URL for action: \(query)"))
                     continue
                 }
                 
@@ -203,7 +206,7 @@ public struct SPARQLTestRunner {
                         }
                     }
                     guard var p = SPARQLParser(data: sparql, base: url.absoluteString) else {
-                        results.append(.failure(iri: test.value, reason: "Failed to construct SPARQL parser"))
+                        results.append(.failure(iri: test.value, configuration: "", reason: "Failed to construct SPARQL parser"))
                         continue
                     }
                     
@@ -229,14 +232,16 @@ public struct SPARQLTestRunner {
                     let testDataset = Dataset(defaultGraphs: [testDefaultGraph], namedGraphs: dataset.namedGraphs)
                     if verbose {
                         print("Test quadstore: \(testQuadStore)")
-                        for (i, q) in testQuadStore.enumerated() {
+                        for (i, q) in try testQuadStore.quads(matching: QuadPattern.all).enumerated() {
                             print("[\(i)] \(q)")
                         }
                         print("======================")
                     }
                     
                     if testSimpleQueryEvaluation {
-                        print("Evaluating query with SimpleQueryEvaluator")
+                        if verbose {
+                            print("Evaluating query with SimpleQueryEvaluator")
+                        }
                         let simpleEvaluator = SimpleQueryEvaluator(store: testQuadStore, dataset: testDataset, verbose: verbose)
                         let simpleResult = try runQueryEvaluation(
                             test: test,
@@ -245,14 +250,17 @@ public struct SPARQLTestRunner {
                             dataset: testDataset,
                             defaultGraph: testDefaultGraph,
                             using: simpleEvaluator,
-                            expectedResult: expectedResult
+                            expectedResult: expectedResult,
+                            configuration: "SimpleQueryEvaluation"
                         )
                         results.append(simpleResult)
                     }
 
                     if testQueryPlanEvaluation {
-                        print("Evaluating query with QueryPlanEvaluator")
-                        let planEvaluator = QueryPlanEvaluator(store: testQuadStore, dataset: testDataset, base: query.base)
+                        if verbose {
+                            print("Evaluating query with QueryPlanEvaluator")
+                        }
+                        let planEvaluator = QueryPlanEvaluator(store: testQuadStore, dataset: testDataset, base: query.base, verbose: verbose)
                         let planResult = try runQueryEvaluation(
                             test: test,
                             query: query,
@@ -260,12 +268,13 @@ public struct SPARQLTestRunner {
                             dataset: testDataset,
                             defaultGraph: testDefaultGraph,
                             using: planEvaluator,
-                            expectedResult: expectedResult
+                            expectedResult: expectedResult,
+                            configuration: "QueryPlanEvaluation"
                         )
                         results.append(planResult)
                     }
                 } catch let e {
-                    results.append(.failure(iri: test.value, reason: "failed to evaluate test \(test): \(e)"))
+                    results.append(.failure(iri: test.value, configuration: "", reason: "failed to evaluate test \(test): \(e)"))
                 }
             }
         } catch let e {
@@ -275,10 +284,10 @@ public struct SPARQLTestRunner {
         return results
     }
 
-    private func runQueryEvaluation<QE: QueryEvaluatorProtocol>(test: Term, query: Query, in store: TestedQuadStore, dataset: Dataset, defaultGraph: Term, using queryEvaluator: QE, expectedResult: QueryResult<[SPARQLResultSolution<Term>], [Triple]>) throws -> TestResult {
+    private func runQueryEvaluation<QE: QueryEvaluatorProtocol>(test: Term, query: Query, in store: TestedQuadStore, dataset: Dataset, defaultGraph: Term, using queryEvaluator: QE, expectedResult: QueryResult<[SPARQLResultSolution<Term>], [Triple]>, configuration: String) throws -> TestResult {
         let result = try evaluate(query: query, in: store, dataset: dataset, defaultGraph: defaultGraph, evaluator: queryEvaluator)
         if result == expectedResult {
-            return .success(iri: test.value)
+            return .success(iri: test.value, configuration: configuration)
         } else {
             if verbose {
                 print("*** Test results did not match expected data")
@@ -287,7 +296,7 @@ public struct SPARQLTestRunner {
                 print("Expected:")
                 print("\(expectedResult)")
             }
-            return .failure(iri: test.value, reason: "Test results did not match expected results using \(queryEvaluator)")
+            return .failure(iri: test.value, configuration: configuration, reason: "Test results did not match expected results using \(queryEvaluator)")
         }
     }
     
@@ -309,7 +318,7 @@ public struct SPARQLTestRunner {
         }
     }
     
-    func datasetDescription(from quadstore: MemoryQuadStore, for term: Term, defaultGraph graph: Term) throws -> Dataset {
+    func datasetDescription(from quadstore: M, for term: Term, defaultGraph graph: Term) throws -> Dataset {
         var d = Dataset()
         let prefix = "http://www.w3.org/2001/sw/DataAccess/tests/test-query#"
         let predicates = ["data", "graphData"].map { "\(prefix)\($0)" }
