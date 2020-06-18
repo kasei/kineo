@@ -540,9 +540,8 @@ public struct OrderPlan: UnaryQueryPlan, QueryPlanSerialization {
     var comparators: [Algebra.SortComparator]
     var evaluator: ExpressionEvaluator
     public var selfDescription: String { return "Order { \(comparators) }" }
-    public func evaluate() throws -> AnyIterator<SPARQLResultSolution<Term>> {
-        let evaluator = self.evaluator
-        let results = try Array(child.evaluate())
+    
+    static func sortResults(results: [SPARQLResultSolution<Term>], comparators: [Algebra.SortComparator], evaluator: ExpressionEvaluator) -> [SPARQLResultSolution<Term>] {
         let elements = results.map { (r) -> SortElem in
             let terms = comparators.map { (cmp) in
                 try? evaluator.evaluate(expression: cmp.expression, result: r)
@@ -566,8 +565,14 @@ public struct OrderPlan: UnaryQueryPlan, QueryPlanSerialization {
             }
             return false
         }
-        
-        return AnyIterator(sorted.map { $0.result }.makeIterator())
+        return sorted.map { $0.result }
+    }
+    
+    public func evaluate() throws -> AnyIterator<SPARQLResultSolution<Term>> {
+        let evaluator = self.evaluator
+        let results = try Array(child.evaluate())
+        let sorted = OrderPlan.sortResults(results: results, comparators: comparators, evaluator: evaluator)
+        return AnyIterator(sorted.makeIterator())
     }
 }
 
@@ -2066,12 +2071,37 @@ public struct AggregationPlan: UnaryQueryPlan, QueryPlanSerialization {
             }
         }
         func result() -> Term? {
-            let s = values.sorted().map { $0.value }.joined(separator: separator)
+            let terms = values.sorted()
+            let s = terms.map { $0.value }.joined(separator: separator)
             return Term(string: s)
         }
     }
 
     private class GroupConcatAggregate: Aggregate {
+        var rows: [SPARQLResultSolution<Term>]
+        var separator: String
+        var expression: Expression
+        var comparators: [Algebra.SortComparator]
+        var ee: ExpressionEvaluator
+        init(expression: Expression, separator: String, evaluator: ExpressionEvaluator, comparators: [Algebra.SortComparator]) {
+            self.expression = expression
+            self.separator = separator
+            self.rows = []
+            self.ee = evaluator
+            self.comparators = comparators
+        }
+        func handle(_ row: SPARQLResultSolution<Term>) {
+            rows.append(row)
+        }
+        func result() -> Term? {
+            let sorted = OrderPlan.sortResults(results: rows, comparators: comparators, evaluator: ee)
+            let terms = sorted.map { try? ee.evaluate(expression: expression, result: $0) }.compactMap { $0 }
+            let s = terms.map { $0.value }.joined(separator: separator)
+            return Term(string: s)
+        }
+    }
+
+    private class PipelinedGroupConcatAggregate: Aggregate {
         var value: String
         var separator: String
         var expression: Expression
@@ -2122,8 +2152,10 @@ public struct AggregationPlan: UnaryQueryPlan, QueryPlanSerialization {
                 self.aggregates[a.variableName] = { return SampleAggregate(expression: e, evaluator: ee) }
             case let .groupConcat(e, sep, _, true):
                 self.aggregates[a.variableName] = { return GroupConcatDistinctAggregate(expression: e, separator: sep, evaluator: ee) }
-            case let .groupConcat(e, sep, _, false):
-                self.aggregates[a.variableName] = { return GroupConcatAggregate(expression: e, separator: sep, evaluator: ee) }
+            case let .groupConcat(e, sep, [], false):
+                self.aggregates[a.variableName] = { return PipelinedGroupConcatAggregate(expression: e, separator: sep, evaluator: ee) }
+            case let .groupConcat(e, sep, cmps, false):
+                self.aggregates[a.variableName] = { return GroupConcatAggregate(expression: e, separator: sep, evaluator: ee, comparators: cmps) }
             case let .avg(e, false):
                 self.aggregates[a.variableName] = { return AverageAggregate(expression: e, evaluator: ee) }
             case let .avg(e, true):
