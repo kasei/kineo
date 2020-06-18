@@ -1,4 +1,4 @@
-FROM swift:5.2
+FROM swift:5.2.4-focal
 
 RUN apt-get update && apt-get install -y \
 	build-essential \
