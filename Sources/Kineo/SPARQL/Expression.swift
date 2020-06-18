@@ -25,6 +25,40 @@ extension Term {
     }
 }
 
+extension Term {
+    public init(time components: DateComponents) {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        
+        let hour = components.hour ?? 0
+        let minute = components.minute ?? 0
+        let second = components.second ?? 0
+        let nanoseconds = components.nanosecond ?? 0
+        let seconds = Double(second) + 1_000_000_000.0 * Double(nanoseconds)
+        let value: String
+        if seconds == 0 {
+            value = String(format: "%02d:%02d:%02d", hour, minute, seconds)
+        } else {
+            value = String(format: "%02d:%02d:%02lf", hour, minute, seconds)
+        }
+        if let tz = components.timeZone {
+            let offset = tz.secondsFromGMT(for: Date())
+            if offset == 0 {
+                let v = "\(value)Z"
+                self.init(value: v, type: .datatype(.time))
+            } else {
+                let hours = offset / (60*60)
+                let minutes = offset % (60*60)
+                let v = String(format: "\(value)%+03d:%02d", hours, minutes)
+                self.init(value: v, type: .datatype(.time))
+            }
+        } else {
+            self.init(value: value, type: .datatype(.time))
+        }
+    }
+
+}
+
 public class ExpressionEvaluator {
     public enum ConstructorFunction : String {
         case str = "STR"
@@ -125,24 +159,76 @@ public class ExpressionEvaluator {
             guard terms.count == 2 else { throw QueryError.evaluationError("Wrong argument count for \(dateFunction) call") }
             guard let term = terms[0] else { throw QueryError.evaluationError("Not all arguments are bound in \(dateFunction) call") }
             guard let adjust = terms[1] else { throw QueryError.evaluationError("Not all arguments are bound in \(dateFunction) call") }
-            guard let date = term.dateValue else {
-                throw QueryError.typeError("Not a date value in \(dateFunction) call")
-            }
-            if adjust.value.isEmpty {
-                return Term(dateTime: date, timeZone: nil)
-            }
-            guard let tzdur = adjust.duration, let toTimezone = TimeZone(secondsFromGMT: Int(tzdur.seconds)) else {
-                throw QueryError.typeError("Timezone value is not a valid duration in \(dateFunction) call")
-            }
-            if let tz = term.timeZone {
-                let fromTimezone = tz
-                let offset = TimeInterval(toTimezone.secondsFromGMT() - fromTimezone.secondsFromGMT())
-                let d = date.addingTimeInterval(offset)
-                let t = Term(dateTime: d, timeZone: toTimezone)
-                return t
+            if term.isTime {
+                guard let components = term.dateComponents else {
+                    throw QueryError.typeError("Could not parse components from xsd:time value in \(dateFunction) call")
+                }
+                if adjust.value.isEmpty {
+                    if term.hasTimeZone {
+                        var adjustedComponents = components
+                        adjustedComponents.timeZone = nil
+                        return Term(time: adjustedComponents)
+                    } else {
+                        return Term(time: components)
+                    }
+                }
+                guard let tzdur = adjust.duration, let toTimezone = TimeZone(secondsFromGMT: Int(tzdur.seconds)) else {
+                    throw QueryError.typeError("Timezone value is not a valid duration in \(dateFunction) call")
+                }
+                if let tz = term.timeZone, term.hasTimeZone { // both of these are necessary, because term.timeZone will return UTC for a valid date(time) term that is floating
+                    let fromTimezone = tz
+                    let diff = toTimezone.secondsFromGMT() - fromTimezone.secondsFromGMT()
+                    let calendar = Calendar(identifier: .gregorian)
+                    guard let base = calendar.date(from: DateComponents(year: 2000, month: 1, day: 1)),
+                        let time = calendar.date(byAdding: components, to: base),
+                        let adjusted = calendar.date(byAdding: DateComponents(second: diff), to: time) else {
+                        throw QueryError.typeError("Failed to compute time adjustment in \(dateFunction) call")
+                    }
+                    
+                    let set : Set<Calendar.Component> = [.year, .month, .day, .hour, .minute, .second, .nanosecond]
+                    var adjustedComponents = calendar.dateComponents(set, from: adjusted)
+                    adjustedComponents.timeZone = toTimezone
+                    let adjustedTime = Term(time: adjustedComponents)
+                    return adjustedTime
+                } else {
+                    var adjustedComponents = components
+                    adjustedComponents.timeZone = toTimezone
+                    return Term(time: adjustedComponents)
+                }
             } else {
-                let t = Term(dateTime: date, timeZone: toTimezone)
-                return t
+                guard let date = term.dateValue else {
+                    throw QueryError.typeError("Not a date value in \(dateFunction) call: \(term)")
+                }
+                if adjust.value.isEmpty {
+                    if term.type == .datatype(.date) {
+                        return Term(date: date, timeZone: nil)
+                    } else {
+                        return Term(dateTime: date, timeZone: nil)
+                    }
+                }
+                guard let tzdur = adjust.duration, let toTimezone = TimeZone(secondsFromGMT: Int(tzdur.seconds)) else {
+                    throw QueryError.typeError("Timezone value is not a valid duration in \(dateFunction) call")
+                }
+                if let tz = term.timeZone, term.hasTimeZone { // both of these are necessary, because term.timeZone will return UTC for a valid date(time) term that is floating
+                    let fromTimezone = tz
+                    let diff = toTimezone.secondsFromGMT() - fromTimezone.secondsFromGMT()
+                    let offset = TimeInterval(diff)
+                    let d = date.addingTimeInterval(offset)
+                    switch term.type {
+                    case .datatype(.date):
+                        return Term(date: d, timeZone: toTimezone)
+                    case .datatype(.dateTime):
+                        return Term(dateTime: d, timeZone: toTimezone)
+                    default:
+                        throw QueryError.typeError("unexpected term type in ADJUST call: \(term)")
+                    }
+                } else {
+                    if term.type == .datatype(.date) {
+                        return Term(date: date, timeZone: toTimezone)
+                    } else {
+                        return Term(dateTime: date, timeZone: toTimezone)
+                    }
+                }
             }
         } else {
             guard terms.count == 1 else { throw QueryError.evaluationError("Wrong argument count for \(dateFunction) call") }
@@ -603,7 +689,8 @@ public class ExpressionEvaluator {
             return Term(value: ts, type: .datatype(.date))
         }
 
-        return Term(dateTime: dd, timeZone: term.timeZone)
+        let tz : TimeZone? = term.hasTimeZone ? term.timeZone : nil
+        return Term(dateTime: dd, timeZone: tz)
     }
     
     private func evaluate(numericFunction: NumericFunction, terms: [Term?]) throws -> Term {

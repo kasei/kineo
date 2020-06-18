@@ -345,6 +345,94 @@ extension Term {
         }
     }
     
+    public var dateComponents: DateComponents? {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let set : Set<Calendar.Component> = [.year, .month, .day, .hour, .minute, .second, .nanosecond, .timeZone]
+        
+        guard case .datatype(let dt) = self.type else {
+            return nil
+        }
+        let lexical = self.value
+        if dt.value == Namespace.xsd.dateTime {
+            if #available (OSX 10.12, *) {
+                let f = W3CDTFLocatedDateFormatter()
+                f.formatOptions.remove(.withTimeZone)
+                guard let d = f.date(from: lexical) else {
+                    return nil
+                }
+                return calendar.dateComponents(set, from: d)
+            } else {
+                warn("MacOS 10.12 is required to use date functions")
+                return nil
+            }
+        } else if dt.value == Namespace.xsd.date {
+            if #available (OSX 10.12, *) {
+                let f = W3CDTFLocatedDateFormatter()
+                f.formatOptions = [.withYear, .withMonth, .withDay, .withDashSeparatorInDate]
+                
+                guard let d = f.date(from: lexical) else {
+                    return nil
+                }
+                return calendar.dateComponents(set, from: d)
+            } else {
+                warn("MacOS 10.12 is required to use date functions")
+                return nil
+            }
+        } else if dt.value == Namespace.xsd.time {
+            if #available (OSX 10.12, *) {
+                var v = lexical
+                var tz: TimeZone? = nil
+                if v.hasSuffix("Z") {
+                    v = String(v.dropLast())
+                    tz = TimeZone(secondsFromGMT: 0)
+                } else if v.contains("-") || v.contains("+") {
+                    //                    print("TODO: implement timezone support for xsd:time")
+                    //                    return nil
+                    var seconds = 0
+                    let index = v.index(v.endIndex, offsetBy: -6)
+                    if v[index] == "-" || v[index] == "+" {
+                        let tz = v[v.index(v.endIndex, offsetBy: -6)...]
+                        let parts = tz[tz.index(after: tz.startIndex)...].components(separatedBy: ":")
+                        guard parts.count == 2 else {
+                            return nil }
+                        guard let hours = Int(parts[0]) else {
+                            return nil }
+                        guard let minutes = Int(parts[1]) else {
+                            return nil }
+                        seconds = 60 * ((60 * hours) + minutes)
+                        if String(tz).hasPrefix("-") {
+                            seconds = seconds * -1
+                        }
+                        v.removeSubrange(index...)
+                    }
+                    tz = TimeZone(secondsFromGMT: seconds)
+                }
+                let parts = v.split(separator: ":").map { String($0) }
+                guard parts.count >= 3 else {
+                    return nil
+                }
+                guard let h = Int(parts[0]), let m = Int(parts[1]), let s = Double(parts[2]) else {
+                    return nil
+                }
+                
+                let seconds = Int(s)
+                let nanoseconds = Int((s - Double(seconds)) / 1_000_000_000.0)
+                if let tz = tz {
+                    let components = DateComponents(timeZone: tz, hour: h, minute: m, second: seconds, nanosecond: nanoseconds)
+                    return components
+                } else {
+                    let components = DateComponents(hour: h, minute: m, second: seconds, nanosecond: nanoseconds)
+                    return components
+                }
+            } else {
+                warn("MacOS 10.12 is required to use date functions")
+                return nil
+            }
+        }
+        return nil
+    }
+    
     public var dateValue: Date? {
         guard case .datatype(let dt) = self.type else {
             return nil
@@ -379,10 +467,25 @@ extension Term {
                 if v.hasSuffix("Z") {
                     v = String(v.dropLast())
                     tz = TimeZone(secondsFromGMT: 0)
-                } else if v.contains("-") {
-                    fatalError("TODO: implement timezone support for xsd:time")
-                } else if v.contains("+") {
-                    fatalError("TODO: implement timezone support for xsd:time")
+                } else if v.contains("-") || v.contains("+") {
+//                    print("TODO: implement timezone support for xsd:time")
+//                    return nil
+                    var seconds = 0
+                    if !v.hasSuffix("Z") {
+                        let index = v.index(v.endIndex, offsetBy: -6)
+                        if v[index] == "-" || v[index] == "+" {
+                            let tz = v[v.index(v.endIndex, offsetBy: -6)...]
+                            let parts = tz[tz.index(after: tz.startIndex)...].components(separatedBy: ":")
+                            guard parts.count == 2 else { return nil }
+                            guard let hours = Int(parts[0]) else { return nil }
+                            guard let minutes = Int(parts[1]) else { return nil }
+                            seconds = 60 * ((60 * hours) + minutes)
+                            if String(tz).hasPrefix("-") {
+                                seconds = seconds * -1
+                            }
+                        }
+                    }
+                    tz = TimeZone(secondsFromGMT: seconds)
                 }
                 let parts = v.split(separator: ":").map { String($0) }
                 guard parts.count == 3 else {
@@ -396,8 +499,14 @@ extension Term {
                 calendar.timeZone = TimeZone(secondsFromGMT: 0)!
                 let seconds = Int(s)
                 let nanoseconds = Int((s - Double(seconds)) / 1_000_000_000.0)
-                let components = DateComponents(timeZone: tz, hour: h, minute: m, second: seconds, nanosecond: nanoseconds)
-                return calendar.date(from: components)
+                if let tz = tz {
+                    var components = DateComponents(timeZone: tz, hour: h, minute: m, second: seconds, nanosecond: nanoseconds)
+                    return calendar.date(from: components)
+                } else {
+                    var components = DateComponents(hour: h, minute: m, second: seconds, nanosecond: nanoseconds)
+                    let d = calendar.date(from: components)
+                    return d
+                }
             } else {
                 warn("MacOS 10.12 is required to use date functions")
                 return nil
@@ -407,15 +516,56 @@ extension Term {
     }
     
     public var timeZone: TimeZone? {
-        guard case .datatype(.dateTime) = self.type else { return nil }
-        let lexical = self.value
-        if #available (OSX 10.12, *) {
-            let f = W3CDTFLocatedDateFormatter()
-            guard let ld = f.locatedDate(from: lexical) else { return nil }
-            return ld.timezone
-        } else {
-            warn("MacOS 10.12 is required to use date functions")
+        switch self.type {
+        case .datatype(.dateTime), .datatype(.date):
+            break
+        case .datatype(.time):
+            break
+        default:
             return nil
+        }
+        let string = self.value
+        if string.hasSuffix("Z") {
+            return TimeZone(secondsFromGMT: 0)
+        } else {
+            let index = string.index(string.endIndex, offsetBy: -6)
+            if string[index] == "-" || string[index] == "+" {
+                let neg = (string[index] == "-")
+                let tz = string[string.index(string.endIndex, offsetBy: -6)...]
+                let parts = tz[tz.index(after: tz.startIndex)...].components(separatedBy: ":")
+                guard parts.count == 2 else { return nil }
+                guard let hours = Int(parts[0]) else { return nil }
+                guard let minutes = Int(parts[1]) else { return nil }
+                let seconds = (neg ? -1 : 1) * ((60 * minutes) + (60 * 60 * hours))
+                return TimeZone(secondsFromGMT: seconds)
+            } else {
+                return nil
+            }
+        }
+    }
+    
+    public var hasTimeZone: Bool {
+        switch self.type {
+        case .datatype(.dateTime), .datatype(.date), .datatype(.time):
+            break
+        default:
+            return false
+        }
+        let string = self.value
+        if string.hasSuffix("Z") {
+            return true
+        } else {
+            let index = string.index(string.endIndex, offsetBy: -6)
+            if string[index] == "-" || string[index] == "+" {
+                let tz = string[string.index(string.endIndex, offsetBy: -6)...]
+                let parts = tz[tz.index(after: tz.startIndex)...].components(separatedBy: ":")
+                guard parts.count == 2 else { return false }
+                guard let hours = Int(parts[0]) else { return false }
+                guard let minutes = Int(parts[1]) else { return false }
+                return true
+            } else {
+                return false
+            }
         }
     }
 }
