@@ -5,7 +5,6 @@ XCTMain([
 	testCase(ConfigurationTest.allTests),
 	testCase(GraphAPITest.allTests),
 	testCase(LanguageMemoryQuadStoreTest.allTests),
-	testCase(LanguageSQLiteQuadStoreTest.allTests),
 	testCase(NTriplesSerializationTest.allTests),
 	testCase(QuadStoreGraphDescriptionTest.allTests),
 	testCase(QueryEvaluationPerformanceTest.allTests),
