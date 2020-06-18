@@ -500,10 +500,10 @@ extension Term {
                 let seconds = Int(s)
                 let nanoseconds = Int((s - Double(seconds)) / 1_000_000_000.0)
                 if let tz = tz {
-                    var components = DateComponents(timeZone: tz, hour: h, minute: m, second: seconds, nanosecond: nanoseconds)
+                    let components = DateComponents(timeZone: tz, hour: h, minute: m, second: seconds, nanosecond: nanoseconds)
                     return calendar.date(from: components)
                 } else {
-                    var components = DateComponents(hour: h, minute: m, second: seconds, nanosecond: nanoseconds)
+                    let components = DateComponents(hour: h, minute: m, second: seconds, nanosecond: nanoseconds)
                     let d = calendar.date(from: components)
                     return d
                 }
@@ -560,8 +560,8 @@ extension Term {
                 let tz = string[string.index(string.endIndex, offsetBy: -6)...]
                 let parts = tz[tz.index(after: tz.startIndex)...].components(separatedBy: ":")
                 guard parts.count == 2 else { return false }
-                guard let hours = Int(parts[0]) else { return false }
-                guard let minutes = Int(parts[1]) else { return false }
+                guard let _ = Int(parts[0]) else { return false }
+                guard let _ = Int(parts[1]) else { return false }
                 return true
             } else {
                 return false
