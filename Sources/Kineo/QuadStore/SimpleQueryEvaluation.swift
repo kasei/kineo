@@ -995,14 +995,18 @@ extension SimpleQueryEvaluatorProtocol {
         try alp(term: term, path: path, seen: &v, graph: graph)
         return AnyIterator(v.makeIterator())
     }
-    
+
     internal func alp(term: Term, path: PropertyPath, seen: inout Set<Term>, graph: Term) throws {
-        guard !seen.contains(term) else { return }
-        seen.insert(term)
-        let pvar = freshVariable()
-        for result in try evaluatePath(subject: .bound(term), object: pvar, graph: graph, path: path) {
-            if let n = result[pvar] {
-                try alp(term: n, path: path, seen: &seen, graph: graph)
+        var termBuffer = [term]
+        while !termBuffer.isEmpty {
+            let term = termBuffer.remove(at: 0)
+            guard !seen.contains(term) else { return }
+            seen.insert(term)
+            let pvar = freshVariable()
+            for result in try evaluatePath(subject: .bound(term), object: pvar, graph: graph, path: path) {
+                if let n = result[pvar] {
+                    termBuffer.append(n)
+                }
             }
         }
     }
