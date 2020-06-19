@@ -179,10 +179,10 @@ private func cliPrintResult<R, T>(_ results: QueryResult<R, T>) -> Int {
 private func printResult<R, T>(_ results: QueryResult<R, T>) -> Int {
     var count       = 0
     switch results {
-    case .bindings(_, let iter):
+    case let .bindings(order, iter):
         for result in iter {
             count += 1
-            print("\(count)\t\(result.description)")
+            print("\(count)\t\(result.description(orderedBy: order))")
         }
     case .boolean(let v):
         print("\(v)")

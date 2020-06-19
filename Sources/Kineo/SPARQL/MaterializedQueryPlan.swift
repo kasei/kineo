@@ -1699,7 +1699,7 @@ public struct PlusPathPlan : PathPlan {
     public var selfDescription: String { return "Plus" }
     public func evaluate(from subject: Node, to object: Node, in graph: Term) throws -> AnyIterator<SPARQLResultSolution<Term>> {
         switch subject {
-        case .bound(_):
+        case .bound:
             var v = Set<Term>()
             let frontierNode : Node = .variable(".pp-plus", binding: true)
             for r in try child.evaluate(from: subject, to: frontierNode, in: graph) {
@@ -1719,8 +1719,31 @@ public struct PlusPathPlan : PathPlan {
             }
             
             return AnyIterator(i.makeIterator())
-        default:
-            throw QueryPlanError.unexpectedError("Unexpected subject to PlusPathPlan")
+        case .variable(let s, binding: _):
+            switch object {
+            case .variable:
+                var iterators = [AnyIterator<SPARQLResultSolution<Term>>]()
+                for gn in store.graphTerms(in: graph) {
+                    let results = try evaluate(from: .bound(gn), to: object, in: graph).lazy.compactMap { (r) -> SPARQLResultSolution<Term>? in
+                        r.extended(variable: s, value: gn)
+                    }
+                    iterators.append(AnyIterator(results.makeIterator()))
+                }
+                return AnyIterator { () -> SPARQLResultSolution<Term>? in
+                    repeat {
+                        guard let i = iterators.first else { return nil }
+                        if let r = i.next() {
+                            return r
+                        } else {
+                            iterators.removeFirst(1)
+                        }
+                    } while true
+                }
+            case .bound:
+                // ?subject path+ <bound>
+                let ipath = PlusPathPlan(child: InversePathPlan(child: child), store: store)
+                return try ipath.evaluate(from: object, to: subject, in: graph)
+            }
         }
     }
 }
@@ -1772,7 +1795,8 @@ public struct StarPathPlan : PathPlan {
                     } while true
                 }
             case .bound:
-                throw QueryPlanError.unimplemented("unimplemented: ?var :starpath* <bound>") // TODO: implement
+                let ipath = StarPathPlan(child: InversePathPlan(child: child), store: store)
+                return try ipath.evaluate(from: object, to: subject, in: graph)
             }
         }
     }
