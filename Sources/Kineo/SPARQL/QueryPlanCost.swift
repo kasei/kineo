@@ -46,6 +46,8 @@ extension Node {
 public struct QueryPlanSimpleCostEstimator: QueryPlanCostEstimator {
     var boundQuadCost: Double
     var serviceCost: Double
+    
+    let idPlanPriority = 0.5
     public init() {
         self.boundQuadCost = 1.0
         self.serviceCost = 50.0
@@ -84,7 +86,7 @@ public struct QueryPlanSimpleCostEstimator: QueryPlanCostEstimator {
                 if q.graph.isVariable {
                     cost *= 10.0
                 }
-                return QueryPlanSimpleCost(cost: cost)
+                return QueryPlanSimpleCost(cost: idPlanPriority * cost)
             } else if let p = plan as? IDOrderedQuadPlan {
                     let q = p.quad
                     var cost = boundQuadCost
@@ -100,7 +102,7 @@ public struct QueryPlanSimpleCostEstimator: QueryPlanCostEstimator {
                     if q.graph.isVariable {
                         cost *= 10.0
                     }
-                    return QueryPlanSimpleCost(cost: cost)
+                    return QueryPlanSimpleCost(cost: idPlanPriority * cost)
             }
             print("[1] cost for ID plan: \(plan)")
         } else if let p = plan as? UnaryIDQueryPlan {
@@ -127,40 +129,40 @@ public struct QueryPlanSimpleCostEstimator: QueryPlanCostEstimator {
                 if jv.isEmpty {
                     penalty = 1000.0
                 }
-                return QueryPlanSimpleCost(cost: penalty * (lc.cost + 2.0 * rc.cost)) // value rhs more, since that is the one that is materialized
+                return QueryPlanSimpleCost(cost: idPlanPriority * penalty * (lc.cost + 2.0 * rc.cost)) // value rhs more, since that is the one that is materialized
             } else if let p = plan as? IDHashLeftJoinPlan {
                 var penalty = 1.0
                 let jv = p.joinVariables
                 if jv.isEmpty {
                     penalty = 1000.0
                 }
-                return QueryPlanSimpleCost(cost: penalty * (lc.cost + 2.0 * rc.cost)) // value rhs more, since that is the one that is materialized
+                return QueryPlanSimpleCost(cost: idPlanPriority * penalty * (lc.cost + 2.0 * rc.cost)) // value rhs more, since that is the one that is materialized
             } else if let p = plan as? IDHashAntiJoinPlan {
                 var penalty = 1.0
                 let jv = p.joinVariables
                 if jv.isEmpty {
                     penalty = 1000.0
                 }
-                return QueryPlanSimpleCost(cost: penalty * (lc.cost + 2.0 * rc.cost)) // value rhs more, since that is the one that is materialized
+                return QueryPlanSimpleCost(cost: idPlanPriority * penalty * (lc.cost + 2.0 * rc.cost)) // value rhs more, since that is the one that is materialized
             } else if let _ = plan as? IDMergeJoinPlan {
-                return QueryPlanSimpleCost(cost: lc.cost + rc.cost)
+                return QueryPlanSimpleCost(cost: idPlanPriority * (lc.cost + rc.cost))
             } else if let _ = plan as? IDNestedLoopJoinPlan {
-                return QueryPlanSimpleCost(cost: lc.cost * rc.cost)
+                return QueryPlanSimpleCost(cost: idPlanPriority * (lc.cost * rc.cost))
             } else if let _ = plan as? IDNestedLoopLeftJoinPlan {
-                return QueryPlanSimpleCost(cost: lc.cost * rc.cost)
+                return QueryPlanSimpleCost(cost: idPlanPriority * (lc.cost * rc.cost))
             } else if let _ = plan as? IDUnionPlan {
-                return QueryPlanSimpleCost(cost: lc.cost + rc.cost)
+                return QueryPlanSimpleCost(cost: idPlanPriority * (lc.cost + rc.cost))
             } else if let _ = plan as? IDMinusPlan {
-                return QueryPlanSimpleCost(cost: lc.cost + 2.0 * rc.cost) // value rhs more, since that is the one that is materialized
+                return QueryPlanSimpleCost(cost: idPlanPriority * (lc.cost + 2.0 * rc.cost)) // value rhs more, since that is the one that is materialized
             } else if let _ = plan as? IDDiffPlan {
-                return QueryPlanSimpleCost(cost: lc.cost + 2.0 * rc.cost) // value rhs more, since that is the one that is materialized
+                return QueryPlanSimpleCost(cost: idPlanPriority * (lc.cost + 2.0 * rc.cost)) // value rhs more, since that is the one that is materialized
             } else {
                 print("[3] cost for ID plan: \(plan)")
             }
         } else {
             print("[4] cost for ID plan: \(plan)")
         }
-        return QueryPlanSimpleCost(cost: 100.0)
+        return QueryPlanSimpleCost(cost: idPlanPriority * 100.0)
     }
     
     public func cost(for plan: QueryPlan) throws -> QueryPlanSimpleCost {
@@ -189,7 +191,17 @@ public struct QueryPlanSimpleCostEstimator: QueryPlanCostEstimator {
                 print("TODO: improve cost estimation for path queries")
                 return QueryPlanSimpleCost(cost: 20.0)
             } else if let matplan = plan as? MaterializeTermsPlan {
-                return try cost(for: matplan.idPlan)
+                // cost to covert ID results to materialized results
+                // with the priority we give to id plans (n = 1/2), we give the inverse penalty (0.9/n = 1.8 ~ 1/n)
+                // to materialization so that using a trivial ID plan (e.g. MaterializeTermsPlan(IDQuadPlan())) is
+                // roughly the same cost as doing it directly (QuadPlan()).
+                // we don't want it to be exactly 1/n because some non-trivial plans that we would prefer might
+                // end up having indistinguishable costs from a fully-materialized version (e.g. a hash join which
+                // is composed of a sum of sub-costs).
+                let idCost = try cost(for: matplan.idPlan)
+                let penalty = (0.9 / idPlanPriority)
+                let cost = QueryPlanSimpleCost(cost: penalty * idCost.cost)
+                return cost
             } else {
                 // TODO: store-provided query plans will appear here, but we don't know how to cost them
                 return QueryPlanSimpleCost(cost: 1.0)
