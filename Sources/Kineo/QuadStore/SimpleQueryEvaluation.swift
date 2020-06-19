@@ -999,8 +999,8 @@ extension SimpleQueryEvaluatorProtocol {
     internal func alp(term: Term, path: PropertyPath, seen: inout Set<Term>, graph: Term) throws {
         var termBuffer = [term]
         while !termBuffer.isEmpty {
-            let term = termBuffer.remove(at: 0)
-            guard !seen.contains(term) else { return }
+            let term = termBuffer.removeLast()
+            guard !seen.contains(term) else { continue }
             seen.insert(term)
             let pvar = freshVariable()
             for result in try evaluatePath(subject: .bound(term), object: pvar, graph: graph, path: path) {
