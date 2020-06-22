@@ -306,6 +306,10 @@ func usage(_ pname: String) {
                 Parse RDF from the named file into a graph named with the
                 corresponding file: URL.
 
+            -g IRI FILENAME
+
+                Parse RDF from the named file into the graph named IRI.
+
             -D PATH
 
                 Parse RDF files in subdirectories of the supplied path to construct
@@ -333,9 +337,14 @@ func usage(_ pname: String) {
                 which named graph is used as the default graph during query
                 planning.
 
-            query QUERY
+            query [-G DEFAULT-GRAPH-IRI] QUERY
 
                 Evaluate the given SPARQL query and print the results.
+        
+                If a DEFAULT-GRAPH-IRI is specified, the corresponding graph
+                is used as the default graph during query evaluation. Otherwise,
+                the first graph encountered in the database (typically the first
+                one to have been loaded) will be used as the default graph.
 
             explain QUERY
 
@@ -393,7 +402,7 @@ do {
         if op == "load" || op == "create" {
         } else if op == "dataset" {
             var graph: Term? = nil
-            if let next = args.peek(), next == "-g" {
+            if let next = args.peek(), next == "-G" {
                 _ = args.next()
                 guard let iri = args.next() else { fatalError("No IRI value given after -g") }
                 graph = Term(value: iri, type: .iri)
@@ -403,7 +412,7 @@ do {
             count = try printGraphs(in: qs)
         } else if op == "explain" {
             var graph: Term? = nil
-            if let next = args.peek(), next == "-g" {
+            if let next = args.peek(), next == "-G" {
                 _ = args.next()
                 guard let iri = args.next() else { fatalError("No IRI value given after -g") }
                 graph = Term(value: iri, type: .iri)
@@ -421,7 +430,7 @@ do {
             }
         } else if op == "query" {
             var graph: Term? = nil
-            if let next = args.peek(), next == "-g" {
+            if let next = args.peek(), next == "-G" {
                 _ = args.next()
                 guard let iri = args.next() else { fatalError("No IRI value given after -g") }
                 graph = Term(value: iri, type: .iri)
@@ -431,7 +440,9 @@ do {
                 let sparql = try data(fromFileOrString: qfile)
                 guard var p = SPARQLParser(data: sparql) else { fatalError("Failed to construct SPARQL parser") }
                 let q = try p.parseQuery()
-                count = try query(in: qs, query: q, graph: graph, verbose: verbose)
+//                for _ in 0..<10 {
+                    count = try query(in: qs, query: q, graph: graph, verbose: verbose)
+//                }
             } catch let e {
                 warn("*** Failed to evaluate query:")
                 warn("*** - \(e)")
