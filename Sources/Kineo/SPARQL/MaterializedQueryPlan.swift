@@ -1493,7 +1493,6 @@ public struct PathQueryPlan: NullaryQueryPlan, QueryPlanSerialization {
     }
 }
 
-
 public extension PathPlan {
     var arity: Int { return children.count }
     var selfDescription: String {

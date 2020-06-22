@@ -72,7 +72,7 @@ public struct QueryPlanSimpleCostEstimator: QueryPlanCostEstimator {
     public func cost(for plan: IDQueryPlan) throws -> QueryPlanSimpleCost {
         if let _ = plan as? NullaryIDQueryPlan {
             if let p = plan as? IDQuadPlan {
-                let q = p.quad
+                let q = p.pattern
                 var cost = boundQuadCost
                 if q.subject.isVariable {
                     cost *= 7.5
@@ -103,6 +103,9 @@ public struct QueryPlanSimpleCostEstimator: QueryPlanCostEstimator {
                         cost *= 10.0
                     }
                     return QueryPlanSimpleCost(cost: idPlanPriority * cost)
+            } else if let p = plan as? IDPathQueryPlan {
+                print("TODO: improve cost estimation for path queries")
+                return QueryPlanSimpleCost(cost: idPlanPriority * 20.0)
             }
             print("[1] cost for ID plan: \(plan)")
         } else if let p = plan as? UnaryIDQueryPlan {
@@ -111,10 +114,14 @@ public struct QueryPlanSimpleCostEstimator: QueryPlanCostEstimator {
                 return c
             } else if let _ = plan as? IDReducedPlan {
                 return c
+            } else if let _ = plan as? IDUniquePlan {
+                return c
             } else if let _ = plan as? IDLimitPlan {
                 return c
             } else if let _ = plan as? IDOffsetPlan {
                 return c
+            } else if let _ = plan as? IDSortPlan {
+                return QueryPlanSimpleCost(cost: idPlanPriority * c.cost * log(c.cost))
             } else {
                 print("[2] cost for ID plan: \(plan)")
             }

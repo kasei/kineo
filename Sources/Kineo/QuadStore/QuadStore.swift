@@ -55,6 +55,7 @@ public protocol LazyMaterializingQuadStore: QuadStoreProtocol {
     func quadIds(matching pattern: QuadPattern) throws -> [[IDType]]
     func quadsIterator(fromIds ids: [[IDType]]) -> AnyIterator<Quad>
     func term(from: IDType) throws -> Term?
+    func id(for: Term) throws -> IDType?
     
     // in the returned tuples,
     //  order: is the positions in the quad that results will come back ordered by
@@ -63,6 +64,8 @@ public protocol LazyMaterializingQuadStore: QuadStoreProtocol {
     //             (and is used in quadIds(matching:orderedBt:) to pull data from the specific index
     func availableOrders(matching pattern: QuadPattern) throws -> [(order: [Quad.Position], fullOrder: [Quad.Position])]
     func quadIds(matching pattern: QuadPattern, orderedBy: [Quad.Position]) throws -> [[IDType]]
+    func quadIds(matchingIDs pattern: [UInt64]) throws -> AnyIterator<[UInt64]>
+    func graphTermIDs(in graph: UInt64) -> AnyIterator<UInt64>
 }
 
 extension LazyMaterializingQuadStore {

@@ -206,7 +206,9 @@ public class ExpressionEvaluator {
     
     private func evaluate(hashFunction: HashFunction, terms: [Term?]) throws -> Term {
         try guardArity(terms.count, 1, "Hash")
-        let term = terms[0]!
+        guard let term = terms[0] else {
+            throw QueryError.evaluationError("Hash function invocation with unbound value")
+        }
         guard case .datatype(.string) = term.type else {
             throw QueryError.evaluationError("Hash function invocation must have simple literal operand")
         }

@@ -11,6 +11,60 @@ import DiomedeQuadStore
 
 public enum QueryPlannerError: Error {
     case noPlanAvailable
+    case termNotFound
+}
+
+extension QuadPattern {
+    var inscope: Set<String> {
+        var variables = Set<String>()
+        for node in [self.subject, self.predicate, self.object, self.graph] {
+            if case .variable(let name, true) = node {
+                variables.insert(name)
+            }
+        }
+        return variables
+    }
+    
+    func repeatedVariables() -> [String : Set<Int>] {
+        let variableUsage = self.variablePositions()
+        let dups = variableUsage.filter { (u) -> Bool in u.value.count > 1 }
+        return dups
+    }
+    
+    func variablePositions() -> [String: Set<Int>] {
+        var variableUsage = [String: Set<Int>]()
+        for (i, n) in self.enumerated() {
+            switch n {
+            case .bound(_):
+                break
+            case .variable(let name, binding: _):
+                variableUsage[name, default: []].insert(i)
+            }
+        }
+        return variableUsage
+    }
+    
+    func idquad(for store: LazyMaterializingQuadStore) throws -> IDQuad {
+        let s = try self.subject.idnode(for: store)
+        let p = try self.predicate.idnode(for: store)
+        let o = try self.object.idnode(for: store)
+        let g = try self.graph.idnode(for: store)
+        return IDQuad(subject: s, predicate: p, object: o, graph: g)
+    }
+}
+
+extension Node {
+    func idnode(for store: LazyMaterializingQuadStore) throws -> IDNode {
+        switch self {
+        case .bound(let term):
+            guard let tid = try store.id(for: term) else {
+                throw QueryPlannerError.termNotFound
+            }
+            return .bound(tid)
+        case let .variable(name, binding: binding):
+            return .variable(name, binding: binding)
+        }
+    }
 }
 
 extension Array where Element: Equatable {
@@ -160,7 +214,7 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
         }
         return candidatePlans(plans, estimator: estimator)
     }
-    
+
     private func reduceIDQuadJoins<E: QueryPlanCostEstimator>(_ plan: IDQueryPlan, ordered orderVars: [String], rest tail: [QuadPattern], currentVariables: Set<String>, estimator: E) throws -> [MaterializeTermsPlan] {
         guard let store = _lazyStore() else {
             throw QueryPlannerError.noPlanAvailable
@@ -190,8 +244,9 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
                     intermediate.append((plan, sharedOrder))
                 }
             }
-
-            let qp = IDQuadPlan(quad: q, store: store)
+            
+            let rv = q.repeatedVariables()
+            let qp : IDQueryPlan = try IDQuadPlan(pattern: q.idquad(for: store), repeatedVariables: rv, store: store)
             let tv = q.variables
             let i = currentVariables.intersection(tv)
             intermediate.append((IDNestedLoopJoinPlan(lhs: plan, rhs: qp), []))
@@ -258,7 +313,6 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
     }
     
     func plan<E: QueryPlanCostEstimator>(bgp: [TriplePattern], activeGraph g: Node, estimator: E) throws -> [QueryPlan] {
-        let proj = Algebra.bgp(bgp).inscope
         let quadPatterns = bgp.map { (t) in
             return QuadPattern(triplePattern: t, graph: g).bindingAllVariables
         }
@@ -274,13 +328,20 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
 
         var plans = [QueryPlan]()
         if let s = _lazyStore() {
-            try plans.append(contentsOf: idPlans(for: quadPatterns, in: s, estimator: estimator))
+            do {
+                let idplans = try idPlans(for: quadPatterns, in: s, estimator: estimator)
+                plans.append(contentsOf: idplans)
+            } catch QueryPlannerError.termNotFound {
+                // in cases where we can tell during planning that no data will match
+                plans.append(TablePlan.unionIdentity)
+            }
         }
         
         let qp = QuadPlan(quad: firstQuad, store: store)
         try plans.append(contentsOf: reduceQuadJoins(qp, rest: restQuads, currentVariables: firstQuad.variables, estimator: estimator))
         
 //        print("Got \(plans.count) possible BGP join plans...")
+        let proj = Algebra.bgp(bgp).inscope
         if vars == proj {
             return plans
         } else {
@@ -664,15 +725,44 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
             let plans = try plan(algebra: .quad(quad), activeGraph: activeGraph, estimator: estimator)
             return plans
         case let .quad(quad):
+            var plans = [QueryPlan]()
             if let store = self._lazyStore() {
-                let idplan = IDQuadPlan(quad: quad, store: store)
-                return [MaterializeTermsPlan(idPlan: idplan, store: store, verbose: verbose)]
+                let rv = quad.repeatedVariables()
+                do {
+                    let idquad = try quad.idquad(for: store)
+                    let idplan = IDQuadPlan(pattern: idquad, repeatedVariables: rv, store: store)
+                    plans.append(MaterializeTermsPlan(idPlan: idplan, store: store, verbose: verbose))
+                } catch QueryPlannerError.termNotFound {
+                    plans.append(TablePlan.unionIdentity)
+                }
             } else {
-                return [QuadPlan(quad: quad, store: store)]
+                plans.append(QuadPlan(quad: quad, store: store))
+            }
+            
+            // get rid of any variables that are non-projected (e.g. using the `[]` syntax)
+            let proj = quad.inscope
+            if quad.variables == proj {
+                return plans
+            } else {
+                // binding variables were introduced to allow the join to be performed,
+                // but they shouldn't escape the BGP evaluation, so introduce an extra projection
+                return plans.map { ProjectPlan(child: $0, variables: Set(proj)) }
             }
         case let .path(s, path, o):
+            var plans = [QueryPlan]()
+            if let store = _lazyStore() {
+                let subject = try s.idnode(for: store)
+                let object = try o.idnode(for: store)
+                guard let graph = try store.id(for: activeGraph) else {
+                    throw QueryPlannerError.termNotFound
+                }
+                let pathPlan = try idplan(subject: subject, path: path, object: object, activeGraph: activeGraph, estimator: estimator)
+                let qp = IDPathQueryPlan(subject: subject, path: pathPlan, object: object, graph: graph)
+                plans.append(MaterializeTermsPlan(idPlan: qp, store: store, verbose: self.verbose))
+            }
             let pathPlan = try plan(subject: s, path: path, object: o, activeGraph: activeGraph, estimator: estimator)
-            return [PathQueryPlan(subject: s, path: pathPlan, object: o, graph: activeGraph)]
+            plans.append(PathQueryPlan(subject: s, path: pathPlan, object: o, graph: activeGraph))
+            return plans
         }
     }
 
@@ -744,6 +834,44 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
         case .zeroOrOne(let pp):
             let p = try plan(subject: s, path: pp, object: o, activeGraph: activeGraph, estimator: estimator)
             return ZeroOrOnePathPlan(child: p, store: store)
+        }
+    }
+
+    public func idplan<E: QueryPlanCostEstimator>(subject s: IDNode, path: PropertyPath, object o: IDNode, activeGraph: Term, estimator: E) throws -> IDPathPlan {
+        guard let store = _lazyStore() else {
+            throw QueryPlannerError.noPlanAvailable
+        }
+
+        switch path {
+        case .link(let predicate):
+            guard let p = try store.id(for: predicate) else {
+                throw QueryPlannerError.termNotFound
+            }
+            return IDLinkPathPlan(predicate: p, store: store)
+        case .inv(let ipath):
+            let p = try idplan(subject: o, path: ipath, object: s, activeGraph: activeGraph, estimator: estimator)
+            return IDInversePathPlan(child: p)
+        case let .alt(lhs, rhs):
+            let l = try idplan(subject: s, path: lhs, object: o, activeGraph: activeGraph, estimator: estimator)
+            let r = try idplan(subject: s, path: rhs, object: o, activeGraph: activeGraph, estimator: estimator)
+            return IDUnionPathPlan(lhs: l, rhs: r)
+        case let .seq(lhs, rhs):
+            let j = try freshVariable().idnode(for: store)
+            let l = try idplan(subject: s, path: lhs, object: j, activeGraph: activeGraph, estimator: estimator)
+            let r = try idplan(subject: j, path: rhs, object: o, activeGraph: activeGraph, estimator: estimator)
+            return IDSequencePathPlan(lhs: l, joinNode: j, rhs: r)
+        case .nps(let iris):
+            let ids = try iris.map { try store.id(for: $0) }.compactMap { $0 }
+            return IDNPSPathPlan(iris: ids, store: store)
+        case .plus(let pp):
+            let p = try idplan(subject: s, path: pp, object: o, activeGraph: activeGraph, estimator: estimator)
+            return IDPlusPathPlan(child: p, store: store)
+        case .star(let pp):
+            let p = try idplan(subject: s, path: pp, object: o, activeGraph: activeGraph, estimator: estimator)
+            return IDStarPathPlan(child: p, store: store)
+        case .zeroOrOne(let pp):
+            let p = try idplan(subject: s, path: pp, object: o, activeGraph: activeGraph, estimator: estimator)
+            return IDZeroOrOnePathPlan(child: p, store: store)
         }
     }
 }
