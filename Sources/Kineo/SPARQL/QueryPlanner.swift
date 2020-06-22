@@ -103,7 +103,7 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
     public var dataset: Dataset
     public var evaluator: ExpressionEvaluator
     private var freshCounter: UnfoldSequence<Int, (Int?, Bool)>
-    private var maxInFlightPlans: Int
+    public var maxInFlightPlans: Int
     var serviceClients: [URL:SPARQLClient]
 
     enum PlanResult {
@@ -136,6 +136,55 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
         return ".v\(n)"
     }
     
+    func project(plan: QueryPlan, to variables: Set<String>) throws -> QueryPlan {
+        if let store = _lazyStore(), let plan = plan as? MaterializeTermsPlan {
+            if let p = plan.idPlan as? IDProjectPlan {
+                let child = p.child
+                let vars = p.variables.intersection(variables)
+                let proj = IDProjectPlan(child: child, variables: vars)
+                return MaterializeTermsPlan(idPlan: proj, store: store, verbose: self.verbose)
+            }
+
+            let proj = IDProjectPlan(child: plan.idPlan, variables: variables)
+            return MaterializeTermsPlan(idPlan: proj, store: store, verbose: self.verbose)
+        }
+        
+        if let p = plan as? ProjectPlan {
+            let child = p.child
+            let vars = p.variables.intersection(variables)
+            return ProjectPlan(child: child, variables: vars)
+        }
+        
+        return ProjectPlan(child: plan, variables: Set(variables))
+    }
+    
+    func wrap(plan p: QueryPlan, from algebra: Algebra, for query: Query) throws -> QueryPlan {
+        switch query.form {
+        case .select(.star):
+            return p
+        case .select(.variables(let proj)):
+            if let pp = p as? ProjectPlan {
+                if pp.variables.count == proj.count && pp.variables == Set(proj) {
+                    // avoid duplicating projection
+                    return p
+                }
+            }
+            
+            let from = algebra.inscope
+            let to = Set(proj)
+            if from == to {
+                return p
+            } else {
+                print("adding final projection:")
+                print("from: \(from)")
+                print("to  : \(proj.sorted())")
+                return try self.project(plan: p, to: Set(proj))
+            }
+        case .ask, .construct(_), .describe(_):
+            return p
+        }
+    }
+    
     public func plan(query: Query, activeGraph: Term? = nil) throws -> QueryPlan {
         let costEstimator = QueryPlanSimpleCostEstimator()
         // The plan returned here does not fully handle the query form; it only sets up the correct query plan.
@@ -160,29 +209,70 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
             let p = try bestPlan(ps, estimator: costEstimator)
             plans.append(p)
         }
-
+        
         guard let f = plans.first else {
             throw QueryPlannerError.noPlanAvailable
         }
         
         let p = plans.dropFirst().reduce(f) { UnionPlan(lhs: $0, rhs: $1) }
-//        if verbose {
-//            warn("QueryPlanner plan: " + p.serialize(depth: 0))
-//        }
-
-        switch query.form {
-        case .select(.star):
-            return p
-        case .select(.variables(let proj)):
-            if let pp = p as? ProjectPlan {
-                if pp.variables.count == proj.count && pp.variables == Set(proj) {
-                    // avoid duplicating projection
-                    return p
-                }
+        //        if verbose {
+        //            warn("QueryPlanner plan: " + p.serialize(depth: 0))
+        //        }
+        return try wrap(plan: p, from: algebra, for: query)
+    }
+    
+    func unionCartesians(for plans: [[QueryPlan]]) throws -> [QueryPlan] {
+        guard !plans.isEmpty else { return [] }
+        if plans.count == 1 {
+            return plans[0]
+        }
+        
+        guard let f = plans.first else {
+            throw QueryPlannerError.noPlanAvailable
+        }
+        
+        let rest = try unionCartesians(for: Array(plans.dropFirst()))
+        var plans = [QueryPlan]()
+        for lhs in f {
+            for rhs in rest {
+                let p = UnionPlan(lhs: lhs, rhs: rhs)
+                plans.append(p)
             }
-            return ProjectPlan(child: p, variables: Set(proj))
-        case .ask, .construct(_), .describe(_):
-            return p
+        }
+        
+        return plans
+    }
+    
+    public func plans(query: Query, activeGraph: Term? = nil) throws -> [QueryPlan] {
+        let costEstimator = QueryPlanSimpleCostEstimator()
+        // The plan returned here does not fully handle the query form; it only sets up the correct query plan.
+        // For CONSTRUCT and DESCRIBE queries, the production of triples must still be handled elsewhere.
+        // For ASK queries, code must handle conversion of the iterator into a boolean result
+        let algebra = query.algebra
+        
+        let graphs : [Term]
+        if let g = activeGraph {
+            graphs = [g]
+        } else {
+            graphs = dataset.defaultGraphs
+        }
+        if graphs.isEmpty {
+            print("*** There is no active graph during query planning:")
+            print("*** \(algebra.serialize())")
+        }
+        
+        var planOptions = [[QueryPlan]]()
+        for activeGraph in graphs {
+            let ps = try plan(algebra: algebra, activeGraph: activeGraph, estimator: costEstimator)
+            planOptions.append(ps)
+        }
+        
+        let plans = try unionCartesians(for: planOptions)
+        //        if verbose {
+        //            warn("QueryPlanner plan: " + p.serialize(depth: 0))
+        //        }
+        return try plans.sorted(by: { costEstimator.cheaperThan(lhs: $0, rhs: $1) }).map {
+            try wrap(plan: $0, from: algebra, for: query)
         }
     }
     
@@ -347,7 +437,8 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
         } else {
             // binding variables were introduced to allow the join to be performed,
             // but they shouldn't escape the BGP evaluation, so introduce an extra projection
-            return plans.map { ProjectPlan(child: $0, variables: Set(proj)) }
+            let variables = Set(proj)
+            return try plans.map { try self.project(plan: $0, to: variables) }
         }
     }
 
@@ -502,7 +593,7 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
             if child.inscope == vars {
                 return p
             } else {
-                return p.map { ProjectPlan(child: $0, variables: vars) }
+                return try p.map { try self.project(plan: $0, to: vars) }
             }
         case let .slice(.order(child, orders), nil, .some(limit)):
             let p = try plan(algebra: child, activeGraph: activeGraph, estimator: estimator)
@@ -584,7 +675,8 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
             } else {
                 let extend = ExtendPlan(child: p, expression: e, variable: name, evaluator: evaluator)
                 let vars = child.inscope
-                return [ProjectPlan(child: extend, variables: vars.union([name]))]
+                let variables = vars.union([name])
+                return try [self.project(plan: extend, to: variables)]
             }
         case let .order(child, orders):
             let p = try plan(algebra: child, activeGraph: activeGraph, estimator: estimator)
@@ -633,14 +725,33 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
                 return [FilterPlan(child: p, expression: e, evaluator: evaluator)]
             } else {
                 let filter = FilterPlan(child: p, expression: e, evaluator: evaluator)
-                return [ProjectPlan(child: filter, variables: child.inscope)]
+                let variables = child.inscope
+                return try [self.project(plan: filter, to: variables)]
             }
         case let .distinct(child):
-            let p = try plan(algebra: child, activeGraph: activeGraph, estimator: estimator)
-            return p.map { DistinctPlan(child: $0) }
+            let plans = try plan(algebra: child, activeGraph: activeGraph, estimator: estimator)
+            return plans.map { (plan) -> [QueryPlan] in
+                var plans = [QueryPlan]()
+                if let store = _lazyStore(), let plan = plan as? MaterializeTermsPlan {
+                    // TODO: check if the data is already fully sorted
+                    let uniq1 = IDUniquePlan(child: plan.idPlan) // this should be relatively cheap, but might save a lot of work in the IDSortPlan that happens next
+                    let ordered = IDSortPlan(child: uniq1, orderVariables: Array(child.inscope))
+                    let uniq2 = IDUniquePlan(child: ordered)
+                    plans.append(MaterializeTermsPlan(idPlan: uniq2, store: store, verbose: self.verbose))
+                }
+                plans.append(DistinctPlan(child: plan))
+                return plans
+            }.flatMap { $0 }
         case let .reduced(child):
-            let p = try plan(algebra: child, activeGraph: activeGraph, estimator: estimator)
-            return p.map { ReducedPlan(child: $0) }
+            // remove duplicated adjacent results 
+            let plans = try plan(algebra: child, activeGraph: activeGraph, estimator: estimator)
+            return plans.map { (plan) -> QueryPlan in
+                if let store = _lazyStore(), let plan = plan as? MaterializeTermsPlan {
+                    let uniq = IDUniquePlan(child: plan.idPlan)
+                    return MaterializeTermsPlan(idPlan: uniq, store: store, verbose: self.verbose)
+                }
+                return ReducedPlan(child: plan)
+            }
         case .bgp(let patterns):
             let plans = try plan(bgp: patterns, activeGraph: .bound(activeGraph), estimator: estimator)
             return candidatePlans(plans, estimator: estimator)
@@ -746,7 +857,8 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
             } else {
                 // binding variables were introduced to allow the join to be performed,
                 // but they shouldn't escape the BGP evaluation, so introduce an extra projection
-                return plans.map { ProjectPlan(child: $0, variables: Set(proj)) }
+                let variables = Set(proj)
+                return try plans.map { try self.project(plan: $0, to: variables) }
             }
         case let .path(s, path, o):
             var plans = [QueryPlan]()

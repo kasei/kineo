@@ -286,7 +286,7 @@ public struct IDProjectPlan: UnaryIDQueryPlan {
         self.child = child
         self.variables = variables
     }
-    public var selfDescription: String { return "ID Project { \(variables) }" }
+    public var selfDescription: String { return "ID Project { \(variables.sorted().joined(separator: ", ")) }" }
     public func evaluate() throws -> AnyIterator<SPARQLResultSolution<UInt64>> {
         let vars = self.variables
         let s = try child.evaluate().lazy.map { $0.projected(variables: vars) }

@@ -48,6 +48,7 @@ public struct QueryPlanSimpleCostEstimator: QueryPlanCostEstimator {
     var serviceCost: Double
     
     let idPlanPriority = 0.5
+    let joinRHSMaterializationPenalty = 3.0
     public init() {
         self.boundQuadCost = 1.0
         self.serviceCost = 50.0
@@ -130,33 +131,39 @@ public struct QueryPlanSimpleCostEstimator: QueryPlanCostEstimator {
             let rhs = p.children[1]
             let lc = try cost(for: lhs)
             let rc = try cost(for: rhs)
+            var penalty = 1.0
             if let p = plan as? IDHashJoinPlan {
-                var penalty = 1.0
                 let jv = p.joinVariables
                 if jv.isEmpty {
                     penalty = 1000.0
                 }
-                return QueryPlanSimpleCost(cost: idPlanPriority * penalty * (lc.cost + 2.0 * rc.cost)) // value rhs more, since that is the one that is materialized
+                return QueryPlanSimpleCost(cost: idPlanPriority * penalty * (lc.cost + joinRHSMaterializationPenalty * rc.cost)) // value rhs more, since that is the one that is materialized
             } else if let p = plan as? IDHashLeftJoinPlan {
-                var penalty = 1.0
                 let jv = p.joinVariables
                 if jv.isEmpty {
                     penalty = 1000.0
                 }
-                return QueryPlanSimpleCost(cost: idPlanPriority * penalty * (lc.cost + 2.0 * rc.cost)) // value rhs more, since that is the one that is materialized
+                return QueryPlanSimpleCost(cost: penalty * (lc.cost + joinRHSMaterializationPenalty * rc.cost)) // value rhs more, since that is the one that is materialized
             } else if let p = plan as? IDHashAntiJoinPlan {
-                var penalty = 1.0
                 let jv = p.joinVariables
                 if jv.isEmpty {
                     penalty = 1000.0
                 }
-                return QueryPlanSimpleCost(cost: idPlanPriority * penalty * (lc.cost + 2.0 * rc.cost)) // value rhs more, since that is the one that is materialized
+                return QueryPlanSimpleCost(cost: penalty * (lc.cost + joinRHSMaterializationPenalty * rc.cost)) // value rhs more, since that is the one that is materialized
             } else if let _ = plan as? IDMergeJoinPlan {
-                return QueryPlanSimpleCost(cost: idPlanPriority * (lc.cost + rc.cost))
+                var mergePlanPriority = 1.0
+                
+                if let _ = lhs as? IDMergeJoinPlan {
+                    mergePlanPriority *= 1.5
+                }
+                if let _ = rhs as? IDQuadPlan {
+                    mergePlanPriority *= 1.5
+                }
+                return QueryPlanSimpleCost(cost: (1.0 / mergePlanPriority) * idPlanPriority * (lc.cost + rc.cost))
             } else if let _ = plan as? IDNestedLoopJoinPlan {
-                return QueryPlanSimpleCost(cost: idPlanPriority * (lc.cost * rc.cost))
+                return QueryPlanSimpleCost(cost: idPlanPriority * (lc.cost * joinRHSMaterializationPenalty * rc.cost))
             } else if let _ = plan as? IDNestedLoopLeftJoinPlan {
-                return QueryPlanSimpleCost(cost: idPlanPriority * (lc.cost * rc.cost))
+                return QueryPlanSimpleCost(cost: idPlanPriority * (lc.cost * joinRHSMaterializationPenalty * rc.cost))
             } else if let _ = plan as? IDUnionPlan {
                 return QueryPlanSimpleCost(cost: idPlanPriority * (lc.cost + rc.cost))
             } else if let _ = plan as? IDMinusPlan {
@@ -256,9 +263,9 @@ public struct QueryPlanSimpleCostEstimator: QueryPlanCostEstimator {
                 if jv.isEmpty {
                     penalty = 1000.0
                 }
-                return QueryPlanSimpleCost(cost: penalty * (lc.cost + 2.0 * rc.cost)) // value rhs more, since that is the one that is materialized
+                return QueryPlanSimpleCost(cost: penalty * (lc.cost + joinRHSMaterializationPenalty * rc.cost)) // value rhs more, since that is the one that is materialized
             } else if let _ = plan as? NestedLoopJoinPlan {
-                return QueryPlanSimpleCost(cost: lc.cost * rc.cost)
+                return QueryPlanSimpleCost(cost: lc.cost * joinRHSMaterializationPenalty * rc.cost)
             } else if let _ = plan as? DiffPlan {
                 return QueryPlanSimpleCost(cost: lc.cost + 2.0 * rc.cost) // value rhs more, since that is the one that is materialized
             } else if let _ = plan as? UnionPlan {

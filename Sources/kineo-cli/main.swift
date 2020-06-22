@@ -61,14 +61,25 @@ func parse(into store: MutableQuadStoreProtocol, files: [String], version: Versi
 ///
 /// - parameter query: The query to plan.
 /// - parameter graph: The graph name to use as the initial active graph.
-func explain<Q: QuadStoreProtocol>(in store: Q, query: Query, graph: Term? = nil, verbose: Bool) throws {
+func explain<Q: QuadStoreProtocol>(in store: Q, query: Query, graph: Term? = nil, multiple: Bool, verbose: Bool) throws {
     let dataset = datasetForStore(store, graph: graph, verbose: verbose)
     let planner     = queryPlanner(store: store, dataset: dataset)
-    let plan        = try planner.plan(query: query)
-    let ce = QueryPlanSimpleCostEstimator()
-    let cost = try ce.cost(for: plan)
-    print("Query plan [\(cost)]")
-    print(plan.serialize(depth: 0))
+    if multiple {
+        planner.maxInFlightPlans = Int.max
+        let plans        = try planner.plans(query: query)
+        let ce = QueryPlanSimpleCostEstimator()
+        for (i, plan) in plans.enumerated() {
+            let cost = try ce.cost(for: plan)
+            print("\(i) Query plan [\(cost)]")
+            print(plan.serialize(depth: 0))
+        }
+    } else {
+        let plan        = try planner.plan(query: query)
+        let ce = QueryPlanSimpleCostEstimator()
+        let cost = try ce.cost(for: plan)
+        print("Query plan [\(cost)]")
+        print(plan.serialize(depth: 0))
+    }
 }
 
 func datasetForStore(_ store: QuadStoreProtocol, graph: Term?, verbose: Bool = false) -> Dataset {
@@ -100,7 +111,7 @@ func time<T>(_ name: String, verbose: Bool = true, handler: () throws -> T) reth
 }
 
 func runQuery<Q: QuadStoreProtocol>(_ query: Query, in store: Q, graph: Term?, verbose: Bool) throws -> QueryResult<AnySequence<SPARQLResultSolution<Term>>, [Triple]> {
-    let dataset = time("comuting dataset", verbose: verbose) { datasetForStore(store, graph: graph, verbose: verbose) }
+    let dataset = time("computing dataset", verbose: verbose) { datasetForStore(store, graph: graph, verbose: verbose) }
     try time("computing last-modified", verbose: verbose) {
         let simpleEvaluator       = SimpleQueryEvaluator(store: store, dataset: dataset, verbose: verbose)
         if let mtime = try simpleEvaluator.effectiveVersion(matching: query) {
@@ -410,7 +421,8 @@ do {
             count = try printDataset(in: qs, graph: graph)
         } else if op == "graphs" {
             count = try printGraphs(in: qs)
-        } else if op == "explain" {
+        } else if op == "explain" || op == "plans" {
+            let multiple = op == "plans"
             var graph: Term? = nil
             if let next = args.peek(), next == "-G" {
                 _ = args.next()
@@ -424,7 +436,7 @@ do {
                 let q = try p.parseQuery()
                 print("Parsed query:")
                 print(q.serialize())
-                try explain(in: qs, query: q, graph: graph, verbose: verbose)
+                try explain(in: qs, query: q, graph: graph, multiple: multiple, verbose: verbose)
             } catch let e {
                 warn("*** Failed to explain query: \(e)")
             }
