@@ -336,13 +336,33 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
             }
             
             let rv = q.repeatedVariables()
-            let qp : IDQueryPlan = try IDQuadPlan(pattern: q.idquad(for: store), repeatedVariables: rv, store: store)
+            let idquad = try q.idquad(for: store)
+            let qp : IDQueryPlan = try IDQuadPlan(pattern: idquad, repeatedVariables: rv, store: store)
             let tv = q.variables
             let i = currentVariables.intersection(tv)
             intermediate.append((IDNestedLoopJoinPlan(lhs: plan, rhs: qp), []))
             if !i.isEmpty {
-                let plan = IDHashJoinPlan(lhs: plan, rhs: qp, joinVariables: i)
-                intermediate.append((plan, orderVars)) // hashjoin keeps the order of the LHS
+                let hashJoinPlan = IDHashJoinPlan(lhs: plan, rhs: qp, joinVariables: i)
+                intermediate.append((hashJoinPlan, orderVars)) // hashjoin keeps the order of the LHS
+                
+                var bindings = [String: WritableKeyPath<IDQuad, IDNode>]()
+                for name in i {
+                    if case .variable(name, _) = q.subject {
+                        bindings[name] = \IDQuad.subject
+                    }
+                    if case .variable(name, _) = q.predicate {
+                        bindings[name] = \IDQuad.predicate
+                    }
+                    if case .variable(name, _) = q.object {
+                        bindings[name] = \IDQuad.object
+                    }
+                    if case .variable(name, _) = q.graph {
+                        bindings[name] = \IDQuad.graph
+                    }
+                }
+                
+                let bindPlan = IDIndexBindQuadPlan(child: plan, pattern: idquad, bindings: bindings, repeatedVariables: rv, store: store)
+                intermediate.append((bindPlan, orderVars)) // bind join keeps the order of the LHS
             }
             
             let u = currentVariables.union(tv)

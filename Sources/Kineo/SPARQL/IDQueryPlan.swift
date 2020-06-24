@@ -71,6 +71,94 @@ public struct IDQuadPlan: NullaryIDQueryPlan {
     public var isUnionIdentity: Bool { return false }
 }
 
+public struct IDIndexBindQuadPlan: UnaryIDQueryPlan { // for each LHS result, replace variables in the RHS and probe the quadstore for matching results
+    public var child: IDQueryPlan
+    public var pattern: IDQuad
+    var bindings: [String: WritableKeyPath<IDQuad, IDNode>]
+    var store: LazyMaterializingQuadStore
+    var repeatedVariables: [String : Set<Int>]
+    public var selfDescription: String { return "IDIndexBindQuadPlan(\(pattern))" }
+    
+    public init(child: IDQueryPlan, pattern: IDQuad, bindings: [String: WritableKeyPath<IDQuad, IDNode>], repeatedVariables: [String : Set<Int>], store: LazyMaterializingQuadStore) {
+        self.child = child
+        self.pattern = pattern
+        self.bindings = bindings
+        self.store = store
+        self.repeatedVariables = repeatedVariables
+    }
+    
+    func idResults(matching pattern: IDQuad) throws -> AnyIterator<SPARQLResultSolution<IDType>> {
+        let dupCheck = { (qids: [UInt64]) -> Bool in
+            for (_, positions) in self.repeatedVariables {
+                let values = positions.map { qids[$0] }.sorted()
+                if let f = values.first, let l = values.last {
+                    if f != l {
+                        return false
+                    }
+                }
+            }
+            return true
+        }
+
+        var bindings : [String: Int] = [:]
+        for (i, node) in pattern.enumerated() {
+            if case IDNode.variable(let name, binding: _) = node {
+                bindings[name] = i
+            }
+        }
+        // TODO: get quads matching the *ID* pattern, not a term pattern
+        let idpattern = pattern.map { (node) -> UInt64 in
+            switch node {
+            case .variable:
+                return 0
+            case .bound(let tid):
+                return tid
+            }
+        }
+        var quads = try store.quadIds(matchingIDs: idpattern)
+        if !repeatedVariables.isEmpty {
+            quads = AnyIterator(quads.filter(dupCheck).makeIterator())
+        }
+        
+        let results = quads.lazy.map { (q) -> SPARQLResultSolution<UInt64> in
+            var b = [String: UInt64]()
+            for (name, pos) in bindings {
+                b[name] = q[pos]
+            }
+            return SPARQLResultSolution(bindings: b)
+        }
+        return AnyIterator(results.makeIterator())
+    }
+
+    public func evaluate() throws -> AnyIterator<SPARQLResultSolution<UInt64>> {
+        let i = try self.child.evaluate()
+        var buffer = [SPARQLResultSolution<UInt64>]()
+        return AnyIterator {
+            repeat {
+                if !buffer.isEmpty {
+                    return buffer.removeFirst()
+                }
+                guard let lhs = i.next() else { return nil }
+                var pattern = self.pattern
+                for (name, path) in self.bindings {
+                    if let tid = lhs[name] {
+                        pattern[keyPath: path] = .bound(tid)
+                    }
+                }
+                guard let j = try? self.idResults(matching: pattern) else { continue }
+                for rhs in j {
+                    if let j = lhs.join(rhs) {
+                        buffer.append(j)
+                    }
+                }
+            } while true
+        }
+    }
+    
+    public var isJoinIdentity: Bool { return false }
+    public var isUnionIdentity: Bool { return false }
+}
+
 public struct IDOrderedQuadPlan: NullaryIDQueryPlan {
     var quad: QuadPattern
     var order: [Quad.Position]
@@ -411,6 +499,18 @@ public enum IDNode: Hashable {
     }
 }
 
+extension IDNode: CustomStringConvertible {
+    public var description: String {
+        switch self {
+        case .variable(let name, binding: true):
+            return "?\(name)"
+        case .variable(let name, binding: false):
+            return "_:\(name)"
+        case .bound(let tid):
+            return "#\(tid)"
+        }
+    }
+}
 extension SPARQLResultSolution where T == UInt64 {
     subscript(_ key: IDNode) -> UInt64? {
         switch key {
