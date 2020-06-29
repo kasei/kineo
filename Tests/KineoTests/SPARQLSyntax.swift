@@ -23,9 +23,12 @@ class SPARQLSyntaxTest: XCTestCase {
     
     override func setUp() {
         super.setUp()
-        guard let rdfTestsBase = ProcessInfo.processInfo.environment["KINEO_W3C_TEST_PATH"] else { fatalError("*** KINEO_W3C_TEST_PATH environment variable must be set") }
-        let base = NSURL(fileURLWithPath: rdfTestsBase)
-        sparqlBase = base.appendingPathComponent("sparql11")
+        if let rdfTestsBase = ProcessInfo.processInfo.environment["KINEO_W3C_TEST_PATH"] {
+            let base = NSURL(fileURLWithPath: rdfTestsBase)
+            sparqlBase = base.appendingPathComponent("sparql11")
+        } else {
+            sparqlBase = nil
+        }
         let newStore = { return MemoryQuadStore() }
         testRunner = SPARQLTestRunner(newStore: newStore)
     }
@@ -46,6 +49,7 @@ class SPARQLSyntaxTest: XCTestCase {
     }
     
     func testPositive11Syntax() throws {
+        guard sparqlBase != nil else { throw XCTSkip("SPARQL tests base location missing; set the KINEO_W3C_TEST_PATH environment variable") }
         let sparql11Path = sparqlBase.appendingPathComponent("data-sparql11")
         let subdirs = ["syntax-query"]
         for dir in subdirs {
@@ -57,6 +61,7 @@ class SPARQLSyntaxTest: XCTestCase {
     }
     
     func testNegative11Syntax() throws {
+        guard sparqlBase != nil else { throw XCTSkip("SPARQL tests base location missing; set the KINEO_W3C_TEST_PATH environment variable") }
         let sparql11Path = sparqlBase.appendingPathComponent("data-sparql11")
         let subdirs = ["syntax-query"]
         for dir in subdirs {
@@ -68,6 +73,7 @@ class SPARQLSyntaxTest: XCTestCase {
     }
     
     func testPositive10Syntax() throws {
+        guard sparqlBase != nil else { throw XCTSkip("SPARQL tests base location missing; set the KINEO_W3C_TEST_PATH environment variable") }
         let sparql10Path = sparqlBase.appendingPathComponent("data-r2")
         let subdirs = ["syntax-sparql1", "syntax-sparql2", "syntax-sparql3", "syntax-sparql4", "syntax-sparql5"]
         let skip = Set([
@@ -82,6 +88,7 @@ class SPARQLSyntaxTest: XCTestCase {
     }
     
     func testNegative10Syntax() throws {
+        guard sparqlBase != nil else { throw XCTSkip("SPARQL tests base location missing; set the KINEO_W3C_TEST_PATH environment variable") }
         let sparql10Path = sparqlBase.appendingPathComponent("data-r2")
         let subdirs = ["syntax-sparql1", "syntax-sparql2", "syntax-sparql3", "syntax-sparql4", "syntax-sparql5"]
         for dir in subdirs {
