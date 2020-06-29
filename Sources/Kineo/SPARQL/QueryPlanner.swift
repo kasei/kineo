@@ -337,7 +337,7 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
             
             let rv = q.repeatedVariables()
             let idquad = try q.idquad(for: store)
-            let qp : IDQueryPlan = try IDQuadPlan(pattern: idquad, repeatedVariables: rv, store: store)
+            let qp : IDQueryPlan = IDQuadPlan(pattern: idquad, repeatedVariables: rv, store: store)
             let tv = q.variables
             let i = currentVariables.intersection(tv)
             intermediate.append((IDNestedLoopJoinPlan(lhs: plan, rhs: qp), []))

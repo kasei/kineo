@@ -117,7 +117,7 @@ func parseRDF(_ filename: String, silent: Bool) throws -> Int32 {
     let syntax = RDFParserCombined.guessSyntax(filename: filename)
     let parser = RDFParserCombined()
     let url = URL(fileURLWithPath: filename)
-    let path = url.absoluteString
+//    let path = url.absoluteString
     let manager = FileManager.default
     guard manager.fileExists(atPath: filename) else {
         throw KineoParseError.fileDoesNotExist

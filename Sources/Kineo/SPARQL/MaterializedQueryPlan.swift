@@ -27,8 +27,8 @@ public struct MaterializeTermsPlan: NullaryQueryPlan {
     
     public func evaluate() throws -> AnyIterator<SPARQLResultSolution<Term>> {
         let i = try idPlan.evaluate()
-        var seen = Set<UInt64>()
-        let verbose = self.verbose
+//        var seen = Set<UInt64>()
+//        let verbose = self.verbose
         let s = i.lazy.map { (r) -> SPARQLResultSolution<Term>? in
             do {
                 let d = try r.map { (pair) -> (String, Term)? in
