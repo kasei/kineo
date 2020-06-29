@@ -11,17 +11,14 @@ Install [serd](http://drobilla.net/software/serd):
 
 ### Build
 
-* MacOS: `swift build -Xswiftc "-target" -Xswiftc "x86_64-apple-macosx10.14" -c release`
-* Linux: `swift build -c release`
-
-(On MacOS, the `-Xswiftc` arguments set the build target to 10.14.)
+`swift build -c release`
 
 ### Load data
 
 Create a database file (`geo.db`) and load one or more N-Triples or Turtle files:
 
 ```
-% ./.build/release/kineo-cli -s geo.db -d examples/geo-data/geo.ttl
+% ./.build/release/kineo -q geo.db -d examples/geo-data/geo.ttl load
 ```
 
 Specifying `-d FILENAME` will load data from `FILENAME` into the default graph.
@@ -29,7 +26,7 @@ Alternatively, data can be loaded into a specific named graph (similarly, a
 custom graph name can be used for the query default graph):
 
 ```
-% ./.build/release/kineo-cli -s geo.db load -g http://example.org/dbpedia examples/geo-data/geo.ttl
+% ./.build/release/kineo -q geo.db -g http://example.org/dbpedia examples/geo-data/geo.ttl load
 ```
 
 ### Query
@@ -37,7 +34,7 @@ custom graph name can be used for the query default graph):
 Querying of the data can be done using SPARQL:
 
 ```
-% cat geo.rq
+% cat examples/geo-data/geo.rq
 PREFIX geo: <http://www.w3.org/2003/01/geo/wgs84_pos#>
 SELECT  ?s
 WHERE {
@@ -49,7 +46,7 @@ WHERE {
 }
 ORDER BY ?s
 
-% ./.build/release/kineo-cli -s geo.db query examples/geo-data/geo.rq
+% ./.build/release/kineo -q geo.db query examples/geo-data/geo.rq
 Using default graph <file://examples/geo-data/geo.ttl>
 1	Result[s: <http://dbpedia.org/resource/Buellton,_California>]
 2	Result[s: <http://dbpedia.org/resource/Lompoc,_California>]
@@ -69,7 +66,7 @@ Finally, using the companion [kineo-endpoint](https://github.com/kasei/kineo-end
 a SPARQL endpoint can be run allowing SPARQL Protocol clients to access the data:
 
 ```
-% kineo-endpoint -s geo.db &
+% kineo-endpoint -q geo.db &
 % curl -H "Accept: application/sparql-results+json" -H "Content-Type: application/sparql-query" --data 'PREFIX geo: <http://www.w3.org/2003/01/geo/wgs84_pos#> SELECT ?s ?lat ?long WHERE { ?s geo:lat ?lat ; geo:long ?long } LIMIT 3' 'http://localhost:8080/sparql'
 {
   "head": {

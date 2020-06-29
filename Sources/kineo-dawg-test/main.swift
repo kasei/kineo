@@ -102,6 +102,9 @@ while true {
         } else if next == "-d" {
             _ = args.next()
             testStore = .diomede
+        } else if next == "-m" {
+            _ = args.next()
+            testStore = .memory
         } else if next == "-s" {
             _ = args.next()
             testType = .syntax

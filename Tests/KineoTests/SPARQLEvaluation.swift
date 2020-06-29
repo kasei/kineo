@@ -116,6 +116,7 @@ extension SPARQLEvaluationTestImpl {
     }
     
     func _test10Evaluation_basic() throws {
+        guard sparqlBase != nil else { throw XCTSkip("SPARQL tests base location missing; set the KINEO_W3C_TEST_PATH environment variable") }
         let path = sparqlBase.appendingPathComponent("data-r2").appendingPathComponent("basic")
         let skip = Set([
             "http://www.w3.org/2001/sw/DataAccess/tests/data-r2/basic/manifest#term-6",
@@ -125,57 +126,68 @@ extension SPARQLEvaluationTestImpl {
     }
     
     func _test10Evaluation_triple_match() throws {
+        guard sparqlBase != nil else { throw XCTSkip("SPARQL tests base location missing; set the KINEO_W3C_TEST_PATH environment variable") }
         let path = sparqlBase.appendingPathComponent("data-r2").appendingPathComponent("triple-match")
         try runEvaluationTests(inPath: path)
     }
     
     func _test10Evaluation_open_world() throws {
+        guard sparqlBase != nil else { throw XCTSkip("SPARQL tests base location missing; set the KINEO_W3C_TEST_PATH environment variable") }
         // many of these tests rely on not canonicalizing Terms on load
         //        let path = sparqlBase.appendingPathComponent("data-r2").appendingPathComponent("open-world")
         //        try runEvaluationTests(inPath: path)
     }
     
     func _test10Evaluation_algebra() throws {
+        guard sparqlBase != nil else { throw XCTSkip("SPARQL tests base location missing; set the KINEO_W3C_TEST_PATH environment variable") }
         let path = sparqlBase.appendingPathComponent("data-r2").appendingPathComponent("algebra")
         try runEvaluationTests(inPath: path)
     }
     
     func _test10Evaluation_bnode_coreference() throws {
+        guard sparqlBase != nil else { throw XCTSkip("SPARQL tests base location missing; set the KINEO_W3C_TEST_PATH environment variable") }
         let path = sparqlBase.appendingPathComponent("data-r2").appendingPathComponent("bnode-coreference")
         try runEvaluationTests(inPath: path)
     }
     
     func _test10Evaluation_optional() throws {
+        guard sparqlBase != nil else { throw XCTSkip("SPARQL tests base location missing; set the KINEO_W3C_TEST_PATH environment variable") }
         let path = sparqlBase.appendingPathComponent("data-r2").appendingPathComponent("optional")
         try runEvaluationTests(inPath: path)
     }
     
     func _test10Evaluation_graph() throws {
+        guard sparqlBase != nil else { throw XCTSkip("SPARQL tests base location missing; set the KINEO_W3C_TEST_PATH environment variable") }
         let path = sparqlBase.appendingPathComponent("data-r2").appendingPathComponent("graph")
         try runEvaluationTests(inPath: path)
     }
     
     func _test10Evaluation_dataset() throws {
+        guard sparqlBase != nil else { throw XCTSkip("SPARQL tests base location missing; set the KINEO_W3C_TEST_PATH environment variable") }
         let path = sparqlBase.appendingPathComponent("data-r2").appendingPathComponent("dataset")
         try runEvaluationTests(inPath: path)
     }
     
     func _test10Evaluation_type_promotion() throws {
+        guard sparqlBase != nil else { throw XCTSkip("SPARQL tests base location missing; set the KINEO_W3C_TEST_PATH environment variable") }
         let path = sparqlBase.appendingPathComponent("data-r2").appendingPathComponent("type-promotion")
         try runEvaluationTests(inPath: path)
     }
     
     func _test10Evaluation_cast() throws {
+        guard sparqlBase != nil else { throw XCTSkip("SPARQL tests base location missing; set the KINEO_W3C_TEST_PATH environment variable") }
         let path = sparqlBase.appendingPathComponent("data-r2").appendingPathComponent("cast")
         try runEvaluationTests(inPath: path)
     }
     
     func _test10Evaluation_boolean_effective_value() throws {
+        guard sparqlBase != nil else { throw XCTSkip("SPARQL tests base location missing; set the KINEO_W3C_TEST_PATH environment variable") }
         let path = sparqlBase.appendingPathComponent("data-r2").appendingPathComponent("boolean-effective-value")
         try runEvaluationTests(inPath: path)
     }
     
     func _test10Evaluation_bound() throws {
+        guard sparqlBase != nil else { throw XCTSkip("SPARQL tests base location missing; set the KINEO_W3C_TEST_PATH environment variable") }
         let path = sparqlBase.appendingPathComponent("data-r2").appendingPathComponent("bound")
         try runEvaluationTests(inPath: path)
     }
@@ -190,17 +202,20 @@ extension SPARQLEvaluationTestImpl {
             "http://www.w3.org/2001/sw/DataAccess/tests/data-r2/expr-builtin/manifest#sameTerm-eq",
             "http://www.w3.org/2001/sw/DataAccess/tests/data-r2/expr-builtin/manifest#dawg-datatype-2",
         ])
+        guard sparqlBase != nil else { throw XCTSkip("SPARQL tests base location missing; set the KINEO_W3C_TEST_PATH environment variable") }
         let path = sparqlBase.appendingPathComponent("data-r2").appendingPathComponent("expr-builtin")
         try runEvaluationTests(inPath: path, skip: skip)
     }
     
     func _test10Evaluation_expr_ops() throws {
+        guard sparqlBase != nil else { throw XCTSkip("SPARQL tests base location missing; set the KINEO_W3C_TEST_PATH environment variable") }
         let path = sparqlBase.appendingPathComponent("data-r2").appendingPathComponent("expr-ops")
         try runEvaluationTests(inPath: path)
     }
     
     func _test10Evaluation_expr_equals() throws {
         // many of these tests rely on not canonicalizing Terms on load
+        guard sparqlBase != nil else { throw XCTSkip("SPARQL tests base location missing; set the KINEO_W3C_TEST_PATH environment variable") }
         let path = sparqlBase.appendingPathComponent("data-r2").appendingPathComponent("expr-equals")
         let skip = Set([
             "http://www.w3.org/2001/sw/DataAccess/tests/data-r2/expr-equals/manifest#eq-graph-1",
@@ -212,21 +227,25 @@ extension SPARQLEvaluationTestImpl {
     }
     
     func _test10Evaluation_regex() throws {
+        guard sparqlBase != nil else { throw XCTSkip("SPARQL tests base location missing; set the KINEO_W3C_TEST_PATH environment variable") }
         let path = sparqlBase.appendingPathComponent("data-r2").appendingPathComponent("regex")
         try runEvaluationTests(inPath: path)
     }
     
     func _test10Evaluation_i18n() throws {
+        guard sparqlBase != nil else { throw XCTSkip("SPARQL tests base location missing; set the KINEO_W3C_TEST_PATH environment variable") }
         let path = sparqlBase.appendingPathComponent("data-r2").appendingPathComponent("i18n")
         try runEvaluationTests(inPath: path)
     }
     
     func _test10Evaluation_construct() throws {
+        guard sparqlBase != nil else { throw XCTSkip("SPARQL tests base location missing; set the KINEO_W3C_TEST_PATH environment variable") }
         let path = sparqlBase.appendingPathComponent("data-r2").appendingPathComponent("construct")
         try runEvaluationTests(inPath: path)
     }
     
     func _test10Evaluation_ask() throws {
+        guard sparqlBase != nil else { throw XCTSkip("SPARQL tests base location missing; set the KINEO_W3C_TEST_PATH environment variable") }
         let path = sparqlBase.appendingPathComponent("data-r2").appendingPathComponent("ask")
         try runEvaluationTests(inPath: path)
     }
@@ -238,16 +257,19 @@ extension SPARQLEvaluationTestImpl {
             "http://www.w3.org/2001/sw/DataAccess/tests/data-r2/distinct/manifest#distinct-2",
             "http://www.w3.org/2001/sw/DataAccess/tests/data-r2/distinct/manifest#distinct-1",
         ])
+        guard sparqlBase != nil else { throw XCTSkip("SPARQL tests base location missing; set the KINEO_W3C_TEST_PATH environment variable") }
         let path = sparqlBase.appendingPathComponent("data-r2").appendingPathComponent("distinct")
         try runEvaluationTests(inPath: path, skip: skip)
     }
     
     func _test10Evaluation_sort() throws {
+        guard sparqlBase != nil else { throw XCTSkip("SPARQL tests base location missing; set the KINEO_W3C_TEST_PATH environment variable") }
         let path = sparqlBase.appendingPathComponent("data-r2").appendingPathComponent("sort")
         try runEvaluationTests(inPath: path)
     }
     
     func _test10Evaluation_solution_seq() throws {
+        guard sparqlBase != nil else { throw XCTSkip("SPARQL tests base location missing; set the KINEO_W3C_TEST_PATH environment variable") }
         let path = sparqlBase.appendingPathComponent("data-r2").appendingPathComponent("solution-seq")
         try runEvaluationTests(inPath: path)
     }
@@ -258,6 +280,7 @@ extension SPARQLEvaluationTestImpl {
             "http://www.w3.org/2001/sw/DataAccess/tests/data-r2/reduced/manifest#reduced-1",
             "http://www.w3.org/2001/sw/DataAccess/tests/data-r2/reduced/manifest#reduced-2",
         ])
+        guard sparqlBase != nil else { throw XCTSkip("SPARQL tests base location missing; set the KINEO_W3C_TEST_PATH environment variable") }
         let path = sparqlBase.appendingPathComponent("data-r2").appendingPathComponent("reduced")
         try runEvaluationTests(inPath: path, skip: skip)
     }
@@ -268,61 +291,73 @@ extension SPARQLEvaluationTestImpl {
     
     
     func _test11Evaluation_aggregates() throws {
+        guard sparqlBase != nil else { throw XCTSkip("SPARQL tests base location missing; set the KINEO_W3C_TEST_PATH environment variable") }
         let path = sparqlBase.appendingPathComponent("data-sparql11").appendingPathComponent("aggregates")
         try runEvaluationTests(inPath: path)
     }
     
     func _test11Evaluation_bind() throws {
+        guard sparqlBase != nil else { throw XCTSkip("SPARQL tests base location missing; set the KINEO_W3C_TEST_PATH environment variable") }
         let path = sparqlBase.appendingPathComponent("data-sparql11").appendingPathComponent("bind")
         try runEvaluationTests(inPath: path)
     }
     
     func _test11Evaluation_bindings() throws {
+        guard sparqlBase != nil else { throw XCTSkip("SPARQL tests base location missing; set the KINEO_W3C_TEST_PATH environment variable") }
         let path = sparqlBase.appendingPathComponent("data-sparql11").appendingPathComponent("bindings")
         try runEvaluationTests(inPath: path)
     }
     
     func _test11Evaluation_construct() throws {
+        guard sparqlBase != nil else { throw XCTSkip("SPARQL tests base location missing; set the KINEO_W3C_TEST_PATH environment variable") }
         let path = sparqlBase.appendingPathComponent("data-sparql11").appendingPathComponent("construct")
         try runEvaluationTests(inPath: path)
     }
     
     func _test11Evaluation_exists() throws {
+        guard sparqlBase != nil else { throw XCTSkip("SPARQL tests base location missing; set the KINEO_W3C_TEST_PATH environment variable") }
         let path = sparqlBase.appendingPathComponent("data-sparql11").appendingPathComponent("exists")
         try runEvaluationTests(inPath: path)
     }
     
     func _test11Evaluation_functions() throws {
+        guard sparqlBase != nil else { throw XCTSkip("SPARQL tests base location missing; set the KINEO_W3C_TEST_PATH environment variable") }
         let path = sparqlBase.appendingPathComponent("data-sparql11").appendingPathComponent("functions")
         try runEvaluationTests(inPath: path)
     }
     
     func _test11Evaluation_grouping() throws {
+        guard sparqlBase != nil else { throw XCTSkip("SPARQL tests base location missing; set the KINEO_W3C_TEST_PATH environment variable") }
         let path = sparqlBase.appendingPathComponent("data-sparql11").appendingPathComponent("grouping")
         try runEvaluationTests(inPath: path)
     }
     
     func _test11Evaluation_negation() throws {
+        guard sparqlBase != nil else { throw XCTSkip("SPARQL tests base location missing; set the KINEO_W3C_TEST_PATH environment variable") }
         let path = sparqlBase.appendingPathComponent("data-sparql11").appendingPathComponent("negation")
         try runEvaluationTests(inPath: path)
     }
     
     func _test11Evaluation_project_expression() throws {
+        guard sparqlBase != nil else { throw XCTSkip("SPARQL tests base location missing; set the KINEO_W3C_TEST_PATH environment variable") }
         let path = sparqlBase.appendingPathComponent("data-sparql11").appendingPathComponent("project-expression")
         try runEvaluationTests(inPath: path)
     }
     
     func _test11Evaluation_property_path() throws {
+        guard sparqlBase != nil else { throw XCTSkip("SPARQL tests base location missing; set the KINEO_W3C_TEST_PATH environment variable") }
         let path = sparqlBase.appendingPathComponent("data-sparql11").appendingPathComponent("property-path")
         try runEvaluationTests(inPath: path)
     }
     
     func _test11Evaluation_subquery() throws {
+        guard sparqlBase != nil else { throw XCTSkip("SPARQL tests base location missing; set the KINEO_W3C_TEST_PATH environment variable") }
         let path = sparqlBase.appendingPathComponent("data-sparql11").appendingPathComponent("subquery")
         try runEvaluationTests(inPath: path)
     }
     
     func _test11Evaluation_syntax_query() throws {
+        guard sparqlBase != nil else { throw XCTSkip("SPARQL tests base location missing; set the KINEO_W3C_TEST_PATH environment variable") }
         let path = sparqlBase.appendingPathComponent("data-sparql11").appendingPathComponent("syntax-query")
         try runEvaluationTests(inPath: path)
     }
@@ -336,9 +371,12 @@ class MemoryStore_SPARQLEvaluationTest: XCTestCase, SPARQLEvaluationTestImpl {
     var testRunner: SPARQLTestRunner<M>!
     override func setUp() {
         super.setUp()
-        guard let rdfTestsBase = ProcessInfo.processInfo.environment["KINEO_W3C_TEST_PATH"] else { fatalError("*** KINEO_W3C_TEST_PATH environment variable must be set") }
-        let base = NSURL(fileURLWithPath: rdfTestsBase)
-        sparqlBase = base.appendingPathComponent("sparql11")
+        if let rdfTestsBase = ProcessInfo.processInfo.environment["KINEO_W3C_TEST_PATH"] {
+            let base = NSURL(fileURLWithPath: rdfTestsBase)
+            sparqlBase = base.appendingPathComponent("sparql11")
+        } else {
+            sparqlBase = nil
+        }
         testRunner = SPARQLTestRunner(newStore: { return M() })
 //        testRunner.verbose = true
     }
@@ -392,9 +430,12 @@ class DiomedeStore_SPARQLEvaluationTest: XCTestCase, SPARQLEvaluationTestImpl {
     var testRunner: SPARQLTestRunner<M>!
     override func setUp() {
         super.setUp()
-        guard let rdfTestsBase = ProcessInfo.processInfo.environment["KINEO_W3C_TEST_PATH"] else { fatalError("*** KINEO_W3C_TEST_PATH environment variable must be set") }
-        let base = NSURL(fileURLWithPath: rdfTestsBase)
-        sparqlBase = base.appendingPathComponent("sparql11")
+        if let rdfTestsBase = ProcessInfo.processInfo.environment["KINEO_W3C_TEST_PATH"] {
+            let base = NSURL(fileURLWithPath: rdfTestsBase)
+            sparqlBase = base.appendingPathComponent("sparql11")
+        } else {
+            sparqlBase = nil
+        }
         testRunner = SPARQLTestRunner {
             let f = FileManager.default
             let dir = f.temporaryDirectory

@@ -438,7 +438,7 @@ public struct ProjectPlan: UnaryQueryPlan, QueryPlanSerialization {
         self.child = child
         self.variables = variables
     }
-    public var selfDescription: String { return "Project { \(variables) }" }
+    public var selfDescription: String { return "Project { \(variables.sorted().joined(separator: ", ")) }" }
     public func evaluate() throws -> AnyIterator<SPARQLResultSolution<Term>> {
         let vars = self.variables
         let s = try child.evaluate().lazy.map { $0.projected(variables: vars) }
@@ -1497,7 +1497,6 @@ public struct PathQueryPlan: NullaryQueryPlan, QueryPlanSerialization {
         return try path.evaluate(from: subject, to: object, in: graph)
     }
 }
-
 
 public extension PathPlan {
     var arity: Int { return children.count }

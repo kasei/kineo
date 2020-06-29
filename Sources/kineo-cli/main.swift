@@ -10,6 +10,7 @@ import Foundation
 import SPARQLSyntax
 import Kineo
 import Diomede
+import DiomedeQuadStore
 
 /// Parse the supplied RDF files and load the resulting RDF triples into the database's
 /// QuadStore in the supplied named graph (or into a graph named with the corresponding
@@ -61,14 +62,25 @@ func parse(into store: MutableQuadStoreProtocol, files: [String], version: Versi
 ///
 /// - parameter query: The query to plan.
 /// - parameter graph: The graph name to use as the initial active graph.
-func explain<Q: QuadStoreProtocol>(in store: Q, query: Query, graph: Term? = nil, verbose: Bool) throws {
+func explain<Q: QuadStoreProtocol>(in store: Q, query: Query, graph: Term? = nil, multiple: Bool, verbose: Bool) throws {
     let dataset = datasetForStore(store, graph: graph, verbose: verbose)
     let planner     = queryPlanner(store: store, dataset: dataset)
-    let plan        = try planner.plan(query: query)
-    let ce = QueryPlanSimpleCostEstimator()
-    let cost = try ce.cost(for: plan)
-    print("Query plan [\(cost)]")
-    print(plan.serialize(depth: 0))
+    if multiple {
+        planner.maxInFlightPlans = Int.max
+        let plans        = try planner.plans(query: query)
+        let ce = QueryPlanSimpleCostEstimator()
+        for (i, plan) in plans.enumerated() {
+            let cost = try ce.cost(for: plan)
+            print("\(i) Query plan [\(cost)]")
+            print(plan.serialize(depth: 0))
+        }
+    } else {
+        let plan        = try planner.plan(query: query)
+        let ce = QueryPlanSimpleCostEstimator()
+        let cost = try ce.cost(for: plan)
+        print("Query plan [\(cost)]")
+        print(plan.serialize(depth: 0))
+    }
 }
 
 func datasetForStore(_ store: QuadStoreProtocol, graph: Term?, verbose: Bool = false) -> Dataset {
@@ -100,7 +112,7 @@ func time<T>(_ name: String, verbose: Bool = true, handler: () throws -> T) reth
 }
 
 func runQuery<Q: QuadStoreProtocol>(_ query: Query, in store: Q, graph: Term?, verbose: Bool) throws -> QueryResult<AnySequence<SPARQLResultSolution<Term>>, [Triple]> {
-    let dataset = time("comuting dataset", verbose: verbose) { datasetForStore(store, graph: graph, verbose: verbose) }
+    let dataset = time("computing dataset", verbose: verbose) { datasetForStore(store, graph: graph, verbose: verbose) }
     try time("computing last-modified", verbose: verbose) {
         let simpleEvaluator       = SimpleQueryEvaluator(store: store, dataset: dataset, verbose: verbose)
         if let mtime = try simpleEvaluator.effectiveVersion(matching: query) {
@@ -266,9 +278,35 @@ func readLine(prompt: String) -> String? {
     return readLine()
 }
 
-func quadStore(_ config: QuadStoreConfiguration) throws -> AnyMutableQuadStore {
+private func humanReadable(count: Int) -> String {
+    var names = ["", "k", "m", "b"]
+    var unit = names.remove(at: 0)
+    var size = count
+    while !names.isEmpty && size >= 1000 {
+        unit = names.remove(at: 0)
+        size /= 1000
+    }
+    return "\(size)\(unit)"
+}
+
+func quadStore(_ config: QuadStoreConfiguration, verbose: Bool) throws -> AnyMutableQuadStore {
 //    print("Using AnyQuadStore")
     let mqs = try config.anymutablestore()
+    
+    if verbose {
+        if let d = mqs._store as? DiomedeQuadStore {
+            d.progressHandler = { (status) in
+                switch status {
+                case let .loadProgress(count: i, rate: tps):
+                    let s = String(format: "\(humanReadable(count: i)) triples (%.1f t/s)", tps)
+                    print("\(s)")
+                @unknown default:
+                    break
+                }
+            }
+        }
+    }
+    
     if case let .loadFiles(defaultFiles, namedFiles) = config.initialize {
         let graph = Term(iri: "tag:kasei.us,2018:default-graph")
         _ = try parse(into: mqs, files: defaultFiles, version: startSecond, graph: graph, verbose: verbose)
@@ -306,6 +344,10 @@ func usage(_ pname: String) {
                 Parse RDF from the named file into a graph named with the
                 corresponding file: URL.
 
+            -g IRI FILENAME
+
+                Parse RDF from the named file into the graph named IRI.
+
             -D PATH
 
                 Parse RDF files in subdirectories of the supplied path to construct
@@ -333,9 +375,14 @@ func usage(_ pname: String) {
                 which named graph is used as the default graph during query
                 planning.
 
-            query QUERY
+            query [-G DEFAULT-GRAPH-IRI] QUERY
 
                 Evaluate the given SPARQL query and print the results.
+        
+                If a DEFAULT-GRAPH-IRI is specified, the corresponding graph
+                is used as the default graph during query evaluation. Otherwise,
+                the first graph encountered in the database (typically the first
+                one to have been loaded) will be used as the default graph.
 
             explain QUERY
 
@@ -388,12 +435,12 @@ let startSecond = getCurrentDateSeconds()
 var count = 0
 
 do {
-    let qs  = try quadStore(config)
+    let qs  = try quadStore(config, verbose: verbose)
     if let op = args.next() {
         if op == "load" || op == "create" {
         } else if op == "dataset" {
             var graph: Term? = nil
-            if let next = args.peek(), next == "-g" {
+            if let next = args.peek(), next == "-G" {
                 _ = args.next()
                 guard let iri = args.next() else { fatalError("No IRI value given after -g") }
                 graph = Term(value: iri, type: .iri)
@@ -401,9 +448,10 @@ do {
             count = try printDataset(in: qs, graph: graph)
         } else if op == "graphs" {
             count = try printGraphs(in: qs)
-        } else if op == "explain" {
+        } else if op == "explain" || op == "plans" {
+            let multiple = op == "plans"
             var graph: Term? = nil
-            if let next = args.peek(), next == "-g" {
+            if let next = args.peek(), next == "-G" {
                 _ = args.next()
                 guard let iri = args.next() else { fatalError("No IRI value given after -g") }
                 graph = Term(value: iri, type: .iri)
@@ -415,13 +463,13 @@ do {
                 let q = try p.parseQuery()
                 print("Parsed query:")
                 print(q.serialize())
-                try explain(in: qs, query: q, graph: graph, verbose: verbose)
+                try explain(in: qs, query: q, graph: graph, multiple: multiple, verbose: verbose)
             } catch let e {
                 warn("*** Failed to explain query: \(e)")
             }
         } else if op == "query" {
             var graph: Term? = nil
-            if let next = args.peek(), next == "-g" {
+            if let next = args.peek(), next == "-G" {
                 _ = args.next()
                 guard let iri = args.next() else { fatalError("No IRI value given after -g") }
                 graph = Term(value: iri, type: .iri)
@@ -431,7 +479,9 @@ do {
                 let sparql = try data(fromFileOrString: qfile)
                 guard var p = SPARQLParser(data: sparql) else { fatalError("Failed to construct SPARQL parser") }
                 let q = try p.parseQuery()
-                count = try query(in: qs, query: q, graph: graph, verbose: verbose)
+//                for _ in 0..<10 {
+                    count = try query(in: qs, query: q, graph: graph, verbose: verbose)
+//                }
             } catch let e {
                 warn("*** Failed to evaluate query:")
                 warn("*** - \(e)")

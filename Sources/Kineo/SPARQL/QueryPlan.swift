@@ -20,6 +20,10 @@ public protocol PlanSerializable {
     func serialize(depth: Int) -> String
 }
 
+public protocol IDPlanSerializable {
+    func serialize(depth: Int) -> String
+}
+
 public protocol _QueryPlan: PlanSerializable {
     var selfDescription: String { get }
     var properties: [PlanSerializable] { get }
