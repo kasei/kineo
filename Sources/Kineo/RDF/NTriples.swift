@@ -103,19 +103,24 @@ extension String {
 }
 
 extension Term {
-    public func ntriplesData() -> Data? {
+    public func ntriplesString() -> String {
         switch self.type {
         case .iri:
-            return "<\(self.value.ntriplesIRIEscaped)>".data(using: .utf8)
+            return "<\(self.value.ntriplesIRIEscaped)>"
         case .blank:
-            return "_:\(self.value)".data(using: .utf8)
+            return "_:\(self.value)"
         case .language(let l):
-            return "\"\(value.ntriplesStringEscaped)\"@\(l)".data(using: .utf8)
+            return "\"\(value.ntriplesStringEscaped)\"@\(l)"
         case .datatype(.string):
-            return "\"\(value.ntriplesStringEscaped)\"".data(using: .utf8)
+            return "\"\(value.ntriplesStringEscaped)\""
         case .datatype(let dt):
-            return "\"\(value.ntriplesStringEscaped)\"^^<\(dt.value)>".data(using: .utf8)
+            return "\"\(value.ntriplesStringEscaped)\"^^<\(dt.value)>"
         }
+    }
+    
+    public func ntriplesData() -> Data? {
+        let s = self.ntriplesString()
+        return s.data(using: .utf8)
     }
     
     public func printNTriplesString<T: TextOutputStream>(to stream: inout T) {
