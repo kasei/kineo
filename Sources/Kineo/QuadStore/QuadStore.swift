@@ -50,6 +50,10 @@ public protocol QuadStoreProtocol {
     var features: [QuadStoreFeature] { get }
 }
 
+public protocol PrefixNameSotringQuadStore: QuadStoreProtocol {
+    var prefixes: [String: Term] { get }
+}
+
 public protocol LazyMaterializingQuadStore: QuadStoreProtocol {
 //    func resultOrder(matching pattern: QuadPattern) throws -> [Quad.Position]
     func quadIds(matching pattern: QuadPattern) throws -> [[IDType]]

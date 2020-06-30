@@ -24,3 +24,13 @@ extension DiomedeQuadStore: PlanningQuadStore {
         return nil
     }
 }
+
+extension DiomedeQuadStore: PrefixNameSotringQuadStore {
+    public var prefixes: [String : Term] {
+        do {
+            return try self.prefixes()
+        } catch {
+            return [:]
+        }
+    }
+}
