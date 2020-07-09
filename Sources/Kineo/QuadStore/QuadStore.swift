@@ -279,6 +279,13 @@ extension QuadStoreProtocol {
     public var features: [QuadStoreFeature] {
         return []
     }
+    
+    public func query(_ query: Query, defaultGraph graph: Term, verbose: Bool = false) throws -> QueryResult<[SPARQLResultSolution<Term>], [Triple]> {
+        let dataset = self.dataset(withDefault: graph)
+        let e       = SimpleQueryEvaluator(store: self, dataset: dataset, verbose: verbose)
+        let results = try e.evaluate(query: query)
+        return results
+    }
 }
 
 extension QuadStoreProtocol {
