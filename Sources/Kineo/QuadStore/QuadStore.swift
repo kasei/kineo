@@ -161,7 +161,8 @@ extension MutableQuadStoreProtocol {
         try self.load(version: 0, quads: quads)
     }
     
-    public func load(url: URL, into graph: Term, version: Version = 0) throws -> Int {
+    @discardableResult
+    public func load(url: URL, defaultGraph: Term, version: Version = 0) throws -> Int {
         let parser = RDFParserCombined()
         var quads = [Quad]()
         let session = URLSession.shared
