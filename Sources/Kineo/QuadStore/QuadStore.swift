@@ -356,6 +356,17 @@ public enum QueryResult<S, T> where S: Sequence, S.Element == SPARQLResultSoluti
     case bindings([String], S)
 }
 
+extension QueryResult {
+    public var bindings: [S.Element] {
+        switch self {
+        case let .bindings(_, seq):
+            return Array(seq)
+        default:
+            return []
+        }
+    }
+}
+
 extension QueryResult: CustomStringConvertible {
     public var description: String {
         var s = ""
