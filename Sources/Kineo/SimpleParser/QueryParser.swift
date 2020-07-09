@@ -274,7 +274,7 @@ open class QueryParser<T: LineReadable> {
     }
     
     public func parse() throws -> Query? {
-        let lines = self.reader.lines()
+        let lines = try self.reader.lines()
         for line in lines {
             guard let algebra = try self.parse(line: line) else { continue }
             stack.append(algebra)

@@ -14,6 +14,10 @@ public enum DatabaseError: Error {
     case PermissionError(String)
 }
 
+public enum NetworkError: Error {
+    case noData(String)
+}
+
 public typealias Version = UInt64
 public typealias IDType = UInt64
 
@@ -128,7 +132,71 @@ public protocol MutableQuadStoreProtocol: QuadStoreProtocol {
     func load<S: Sequence>(version: Version, quads: S) throws where S.Iterator.Element == Quad
 }
 
+extension URLSession {
+    func synchronousDataTaskWithURL(url: URL) throws -> (Data, URLResponse?) {
+        var data: Data?, response: URLResponse?, error: Error?
+
+        let semaphore = DispatchSemaphore.init(value: 0)
+        
+        dataTask(with: url) {
+            data = $0; response = $1; error = $2
+            semaphore.signal()
+        }.resume()
+
+        semaphore.wait()
+        if let e = error {
+            throw e
+        }
+        
+        if let d = data {
+            return (d, response)
+        } else {
+            throw NetworkError.noData("No data loaded from URL \(url)")
+        }
+    }
+}
+
 extension MutableQuadStoreProtocol {
+    public func load<S: Sequence>(quads: S) throws where S.Element == Quad {
+        try self.load(version: 0, quads: quads)
+    }
+    
+    public func load(url: URL, into graph: Term, version: Version = 0) throws -> Int {
+        let parser = RDFParserCombined()
+        var quads = [Quad]()
+        let session = URLSession.shared
+        let (data, resp) = try session.synchronousDataTaskWithURL(url: url)
+        var mt: String? = nil
+        if let httpResponse = resp as? HTTPURLResponse {
+            mt = httpResponse.value(forHTTPHeaderField: "Content-Type")
+        }
+        
+        if mt == nil {
+            // this should probably use RDFSerializationConfiguration instead of hard-coding a specific list of media types
+            let ext = url.pathExtension
+            switch ext {
+            case "nt":
+                mt = "application/n-triples"
+            case "nq":
+                mt = "application/n-triples"
+            case "ttl":
+                mt = "text/turtle"
+            default:
+                break
+            }
+        }
+        
+        let mediaType = mt ?? "text/plain"
+        
+        let count = try parser.parse(data: data, mediaType: mediaType, defaultGraph: graph, base: url.absoluteString) { (s, p, o, g) in
+            let q = Quad(subject: s, predicate: p, object: o, graph: g)
+            quads.append(q)
+        }
+        
+        try self.load(version: version, quads: quads)
+        return count
+    }
+    
     public func load<S: Sequence, T: Sequence>(version: Version, dictionary: S, quads: T) throws where S.Element == (UInt64, Term), T.Element == (UInt64, UInt64, UInt64, UInt64) {
 //        print("default MutableQuadStoreProtocol.load(version:dictionary:quads:) called")
         let d = Dictionary(uniqueKeysWithValues: dictionary)

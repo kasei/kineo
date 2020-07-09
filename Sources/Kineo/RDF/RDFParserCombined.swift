@@ -112,6 +112,20 @@ public class RDFParserCombined : RDFPushParser {
     
     
     @discardableResult
+    public func parse<L: LineReadable>(data: L, mediaType type: String, defaultGraph: Term, base: String? = nil, handleQuad: @escaping QuadHandler) throws -> Int {
+        let inputSyntax = RDFParserCombined.guessSyntax(mediaType: type)
+        let string = try data.lines().joined(separator: "\n")
+        if case .nquads = inputSyntax {
+            return try parse(string: string, syntax: inputSyntax, defaultGraph: defaultGraph, base: base, handleQuad: handleQuad)
+        } else {
+            return try parse(string: string, syntax: inputSyntax, base: base) { (s, p, o) in
+                handleQuad(s, p, o, defaultGraph)
+            }
+        }
+    }
+    
+    
+    @discardableResult
     public func parse(string: String, syntax inputSyntax: RDFSyntax, defaultGraph: Term, base: String? = nil, handleQuad: @escaping QuadHandler) throws -> Int {
         let base = base ?? defaultBase
         switch inputSyntax {
