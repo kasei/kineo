@@ -25,7 +25,7 @@ extension DiomedeQuadStore: PlanningQuadStore {
     }
 }
 
-extension DiomedeQuadStore: PrefixNameSotringQuadStore {
+extension DiomedeQuadStore: PrefixNameStoringQuadStore {
     public var prefixes: [String : Term] {
         do {
             return try self.prefixes()

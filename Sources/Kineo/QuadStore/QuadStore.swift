@@ -50,7 +50,7 @@ public protocol QuadStoreProtocol {
     var features: [QuadStoreFeature] { get }
 }
 
-public protocol PrefixNameSotringQuadStore: QuadStoreProtocol {
+public protocol PrefixNameStoringQuadStore: QuadStoreProtocol {
     var prefixes: [String: Term] { get }
 }
 
