@@ -71,7 +71,7 @@ import Foundation
 import SPARQLSyntax
 import Kineo
 
-let graph = Term(iri: "http://example.org/")
+let graph = Term(iri: "http://example.org/default-graph")
 let store = MemoryQuadStore()
 
 let url = URL(string: "http://kasei.us/about/foaf.ttl")!
