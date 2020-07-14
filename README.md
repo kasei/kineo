@@ -2,16 +2,17 @@
 
 ## A persistent RDF quadstore and SPARQL engine
 
-### Install dependencies
-
-Install [serd](http://drobilla.net/software/serd):
-
-* MacOS: `brew install serd`
-* Linux: `apt-get install libserd-dev`
-
 ### Build
 
 `swift build -c release`
+
+### Swift Package Manager
+
+You can use the [Swift Package Manager](https://swift.org/package-manager/) to add Kineo to a Swift project by adding it as a dependency in `Package.swift`:
+
+```swift
+.package(name: "Kineo", url: "https://github.com/kasei/kineo.git", .upToNextMinor(from: "0.0.91")),
+```
 
 ### Load data
 
@@ -58,6 +59,47 @@ Using default graph <file://examples/geo-data/geo.ttl>
 8	Result[s: <http://dbpedia.org/resource/Santa_Ynez,_California>]
 9	Result[s: <http://dbpedia.org/resource/Solvang,_California>]
 10	Result[s: <http://dbpedia.org/resource/Vandenberg_Air_Force_Base>]
+```
+
+### Kineo API
+
+The Kineo API can be used to create an in-memory or persistent quadstore,
+load RDF data into it, and evaluate SPARQL queries over the data:
+
+```swift
+import Foundation
+import SPARQLSyntax
+import Kineo
+
+let graph = Term(iri: "http://example.org/default-graph")
+let store = MemoryQuadStore()
+
+let url = URL(string: "http://kasei.us/about/foaf.ttl")!
+try store.load(url: url, defaultGraph: graph)
+
+let sparql = "PREFIX foaf: <http://xmlns.com/foaf/0.1/> SELECT * WHERE { ?person a foaf:Person ; foaf:name ?name }"
+let q = try SPARQLParser.parse(query: sparql)
+let results = try store.query(q, defaultGraph: graph)
+for (i, result) in results.bindings.enumerated() {
+    print("\(i+1)\t\(result)")
+}
+```
+
+There is also an API that exposes the RDF data in terms of graph vertices and edge traversals:
+
+```swift
+let graphView = store.graph(graph)
+let greg = graphView.vertex(Term(iri: "http://kasei.us/about/#greg"))
+
+let knows = Term(iri: "http://xmlns.com/foaf/0.1/knows")
+let name = Term(iri: "http://xmlns.com/foaf/0.1/name")
+for v in try greg.outgoing(knows) {
+    let names = try v.outgoing(name)
+    if let nameVertex = names.first {
+        let name = nameVertex.term
+        print("Greg know \(name)")
+    }
+}
 ```
 
 ### SPARQL Endpoint

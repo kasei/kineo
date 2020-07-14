@@ -376,7 +376,7 @@ open class NTriplesParser<T: LineReadable> : NTuplesParser<T>, Sequence {
 
     public func makeIterator() -> AnyIterator<Triple> {
         let fr = self.reader
-        let lines = fr.lines()
+        let lines = (try? fr.lines()) ?? AnyIterator([].makeIterator())
         return AnyIterator { () -> Triple? in
             repeat {
                 guard let line = lines.next() else { return nil }
@@ -419,7 +419,7 @@ open class NQuadsParser<T: LineReadable> : NTuplesParser<T>, Sequence {
 
     public func makeIterator() -> AnyIterator<Quad> {
         let fr = self.reader
-        let lines = fr.lines()
+        let lines = (try? fr.lines()) ?? AnyIterator([].makeIterator())
         return AnyIterator { () -> Quad? in
             repeat {
                 guard let line = lines.next() else { return nil }
@@ -452,7 +452,7 @@ open class NTriplesPatternParser<T: LineReadable> : NTriplesParser<T> {
 
     public func patternIterator() -> AnyIterator<QuadPattern> {
         let fr = self.reader
-        let lines = fr.lines()
+        let lines = (try? fr.lines()) ?? AnyIterator([].makeIterator())
         return AnyIterator { () -> QuadPattern? in
             LINE: repeat {
                 guard let line = lines.next() else { return nil }

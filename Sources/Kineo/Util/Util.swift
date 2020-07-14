@@ -34,12 +34,24 @@ public func callStackCallers(_ maxLength: Int, _ skip: Int = 0) -> String {
 }
 
 public protocol LineReadable {
-    func lines() -> AnyIterator<String>
+    func lines() throws -> AnyIterator<String>
 }
 
 extension String: LineReadable {
     public func lines() -> AnyIterator<String> {
         let lines = self.components(separatedBy: "\n")
+        return AnyIterator(lines.makeIterator())
+    }
+}
+
+extension Data: LineReadable {
+    public func lines() throws -> AnyIterator<String> {
+        let lines = try self.split(separator: 0x0A).map { (data) -> String in
+            guard let s = String(data: data, encoding: .utf8) else {
+                throw SerializationError.parsingError("Data is not encoded in UTF-8")
+            }
+            return s
+        }
         return AnyIterator(lines.makeIterator())
     }
 }
