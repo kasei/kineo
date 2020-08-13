@@ -142,7 +142,7 @@ extension Term {
     }
 }
 
-open class TurtleSerializer : RDFSerializer {
+open class TurtleSerializer : RDFSerializer, PrefixableRDFSerializer {
     public var canonicalMediaType = "application/turtle"
     public var prefixes: [String:Term]
 
