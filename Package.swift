@@ -14,7 +14,7 @@ let package = Package(
         	targets: ["kineo-parse"]),
 	],    
     dependencies: [
-		.package(name: "SPARQLSyntax", url: "https://github.com/kasei/swift-sparql-syntax.git", .upToNextMinor(from: "0.0.113")),
+		.package(name: "SPARQLSyntax", url: "https://github.com/kasei/swift-sparql-syntax.git", .upToNextMinor(from: "0.0.114")),
 		.package(name: "Cserd", url: "https://github.com/kasei/swift-serd.git", .upToNextMinor(from: "0.0.4")),
 		.package(name: "CryptoSwift", url: "https://github.com/krzyzanowskim/CryptoSwift.git", .upToNextMinor(from: "1.0.0")),
 		.package(name: "URITemplate", url: "https://github.com/kylef/URITemplate.swift.git", .upToNextMinor(from: "3.0.0")),
