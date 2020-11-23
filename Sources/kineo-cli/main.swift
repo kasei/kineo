@@ -249,7 +249,7 @@ func printSPARQL(_ qfile: String, pretty: Bool = false, silent: Bool = false, in
     let sparql = try Data(contentsOf: url)
     let stream = InputStream(data: sparql)
     stream.open()
-    let lexer = SPARQLLexer(source: stream, includeComments: includeComments)
+    let lexer = try SPARQLLexer(source: stream, includeComments: includeComments)
     let s = SPARQLSerializer(prettyPrint: true)
     let tokens: UnfoldSequence<SPARQLToken, Int> = sequence(state: 0) { (_) in return lexer.next() }
     if pretty {
