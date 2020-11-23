@@ -30,7 +30,7 @@ enum TestType {
     case evaluation
 }
 
-func run<M: MutableQuadStoreProtocol>(config: String, path: String, testType: TestType, engines: (simple: Bool, plan: Bool), newStore: @escaping () -> M) throws {
+func run<M: MutableQuadStoreProtocol>(config: String, path: String, testType: TestType, engines: (simple: Bool, plan: Bool), verbose: Bool, newStore: @escaping () -> M) throws {
     let sparqlPath = URL(fileURLWithPath: path)
     var testRunner = SPARQLTestRunner(newStore: newStore)
     testRunner.testSimpleQueryEvaluation = engines.simple
@@ -128,11 +128,11 @@ guard let path = args.next() else { fatalError("Missing path") }
 
 switch testStore {
 case .memory:
-    try run(config: "Memory", path: path, testType: testType, engines: evaluationEngines) { return MemoryQuadStore() }
+    try run(config: "Memory", path: path, testType: testType, engines: evaluationEngines, verbose: verbose) { return MemoryQuadStore() }
 case .diomede:
     var files = [URL]()
     let f = FileManager.default
-    try run(config: "Diomede", path: path, testType: testType, engines: evaluationEngines) { () -> DiomedeQuadStore in
+    try run(config: "Diomede", path: path, testType: testType, engines: evaluationEngines, verbose: verbose) { () -> DiomedeQuadStore in
         let dir = f.temporaryDirectory
         let filename = "kineo-test-\(UUID().uuidString).db"
         let path = dir.appendingPathComponent(filename)
