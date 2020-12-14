@@ -14,14 +14,14 @@ let package = Package(
         	targets: ["kineo-parse"]),
 	],    
     dependencies: [
-		.package(name: "SPARQLSyntax", url: "https://github.com/kasei/swift-sparql-syntax.git", .upToNextMinor(from: "0.1.0")),
+		.package(name: "SPARQLSyntax", url: "https://github.com/kasei/swift-sparql-syntax.git", .upToNextMinor(from: "0.1.1")),
 //		.package(name: "SPARQLSyntax", url: "https://github.com/kasei/swift-sparql-syntax.git", .branch("update")),
 		.package(name: "Cserd", url: "https://github.com/kasei/swift-serd.git", .upToNextMinor(from: "0.0.4")),
 		.package(name: "CryptoSwift", url: "https://github.com/krzyzanowskim/CryptoSwift.git", .upToNextMinor(from: "1.0.0")),
 		.package(name: "URITemplate", url: "https://github.com/kylef/URITemplate.swift.git", .upToNextMinor(from: "3.0.0")),
 		.package(name: "SQLite.swift", url: "https://github.com/stephencelis/SQLite.swift.git", .upToNextMinor(from: "0.11.5")),
 //		.package(name: "SQLite.swift", url: "https://github.com/kasei/SQLite.swift.git", .branch("fix-swift-4")),
-		.package(name: "Diomede", url: "https://github.com/kasei/diomede.git", .upToNextMinor(from: "0.0.53")),
+		.package(name: "Diomede", url: "https://github.com/kasei/diomede.git", .upToNextMinor(from: "0.0.54")),
     ],
     targets: [
     	.target(

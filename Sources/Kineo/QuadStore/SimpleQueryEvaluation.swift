@@ -1275,13 +1275,12 @@ extension SimpleQueryEvaluatorProtocol {
         
         let sorted = elements.sorted { (a, b) -> Bool in
             let pairs = zip(a.terms, b.terms)
+            
             for (cmp, pair) in zip(comparators, pairs) {
+                if (pair.0 == pair.1) { continue }
                 guard let lhs = pair.0 else { return true }
                 guard let rhs = pair.1 else { return false }
-                
-                if lhs == rhs {
-                    continue
-                }
+
                 var sorted = lhs < rhs
                 if !cmp.ascending {
                     sorted = !sorted

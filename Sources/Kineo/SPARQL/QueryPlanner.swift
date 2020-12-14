@@ -175,9 +175,9 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
             if from == to {
                 return p
             } else {
-                print("adding final projection:")
-                print("from: \(from)")
-                print("to  : \(proj.sorted())")
+//                print("adding final projection:")
+//                print("from: \(from)")
+//                print("to  : \(proj.sorted())")
                 return try self.project(plan: p, to: Set(proj))
             }
         case .ask, .construct(_), .describe(_):
