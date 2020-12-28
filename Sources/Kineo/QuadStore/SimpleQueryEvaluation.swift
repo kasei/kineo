@@ -56,6 +56,7 @@ public protocol SimpleQueryEvaluatorProtocol: QueryEvaluatorProtocol {
     func evaluate(algebra: Algebra, inGraph: Node) throws -> AnyIterator<SPARQLResultSolution<Term>>
     func evaluateGraphTerms(in: Term) -> AnyIterator<Term>
     func triples(describing term: Term) throws -> AnyIterator<Triple>
+    func evaluate(embeddedTriple: EmbeddedTriple, name: String, activeGraph: Term) throws -> AnyIterator<SPARQLResultSolution<Term>>
 }
 
 extension SimpleQueryEvaluatorProtocol {
@@ -374,8 +375,8 @@ extension SimpleQueryEvaluatorProtocol {
             return try evaluatePath(subject: s, object: o, graph: activeGraph, path: path)
         case let .namedGraph(child, graph):
             return try evaluate(algebra: child, inGraph: graph)
-        case .matchStatement(_, _):
-            fatalError("TODO: implement evaluate(algebra: .matchStatement)")
+        case let .embeddedTriple(pattern, name):
+            return try evaluate(embeddedTriple: pattern, name: name, activeGraph: activeGraph)
         }
     }
     
@@ -1345,6 +1346,12 @@ extension SimpleQueryEvaluatorProtocol {
     }
 }
 
+public enum SimpleQueryEvaluatorError : Error {
+    case invalidEmbeddedPattern
+    case unimplemented(String)
+}
+
+
 open class SimpleQueryEvaluator<Q: QuadStoreProtocol>: SimpleQueryEvaluatorProtocol {
     public var store: Q
     public var dataset: Dataset
@@ -1493,7 +1500,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol>: SimpleQueryEvaluatorProto
             return mtime
         case .subquery(let q):
             return try effectiveVersion(matching: q)
-        case .matchStatement(_, _):
+        case .embeddedTriple(_, _):
             return nil
         }
     }
@@ -1527,6 +1534,52 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol>: SimpleQueryEvaluatorProto
     public func evaluateGraphTerms(in graph: Term) -> AnyIterator<Term> {
         return store.graphTerms(in: graph)
     }
+
+    public func evaluate(embeddedTriple et: EmbeddedTriple, name: String, activeGraph: Term) throws -> AnyIterator<SPARQLResultSolution<Term>> {
+        if let sstore = store as? RDFStarStoreProtocol {
+            guard case let .node(on) = et.object else {
+                throw SimpleQueryEvaluatorError.unimplemented("SimpleQueryEvaluator does not support recursive of SPARQL* patterns")
+            }
+
+            switch et.subject {
+            case let .embeddedTriple(ets):
+                if case .node(let esn) = ets.subject, case .node(let eon) = ets.object {
+                    let epn = ets.predicate
+                    let qp = QuadPattern(subject: esn, predicate: epn, object: eon, graph: .bound(activeGraph))
+                    let quads = try sstore.quads(matching: qp)
+                    var results = [SPARQLResultSolution<Term>]()
+                    for q in quads {
+                        guard let id = sstore.id(for: q) else { continue }
+                        let oet = EmbeddedTriple(subject: .node(.bound(id)), predicate: et.predicate, object: et.object)
+                        let iter = try evaluate(embeddedTriple: oet, name: name, activeGraph: activeGraph)
+                        let innerResults = iter.compactMap { $0.extended(variable: name, value: id) }
+                        results.append(contentsOf: innerResults)
+                    }
+                    return AnyIterator(results.makeIterator())
+                } else {
+                    throw SimpleQueryEvaluatorError.unimplemented("SimpleQueryEvaluator does not support recursive of SPARQL* patterns")
+                }
+            case let .node(sn):
+                let qp = QuadPattern(subject: sn, predicate: et.predicate, object: on, graph: .bound(activeGraph))
+                let quads = try sstore.quads(matching: qp)
+                var results = [SPARQLResultSolution<Term>]()
+                for q in quads {
+                    guard let id = sstore.id(for: q) else { continue }
+                    if let r = qp.matches(quad: q) {
+                        if let rr = r.extended(variable: name, value: id) {
+                            results.append(rr)
+                        }
+                    }
+                }
+                return AnyIterator(results.makeIterator())
+            default:
+                throw SimpleQueryEvaluatorError.unimplemented("SimpleQueryEvaluator does not support recursive of SPARQL* patterns")
+            }
+        } else {
+            throw SimpleQueryEvaluatorError.unimplemented("SimpleQueryEvaluator does not support evaluation of SPARQL* patterns")
+        }
+    }
+    
 }
 
 public func pipelinedHashJoin<R: ResultProtocol>(boundJoinVariables joinVariables: Set<String>, lhs: AnyIterator<R>, rhs: AnyIterator<R>, left: Bool = false) -> AnyIterator<R> {

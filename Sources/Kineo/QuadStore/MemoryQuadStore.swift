@@ -9,7 +9,9 @@ import Foundation
 import SPARQLSyntax
 
 // swiftlint:disable:next type_body_length
-open class MemoryQuadStore: Sequence, MutableQuadStoreProtocol {
+open class MemoryQuadStore: Sequence, MutableQuadStoreProtocol, RDFStarStoreProtocol {
+    public static let statementIDDatatype = "http://example.org/quadId"
+    
     public enum MemoryQuadStoreError: Error {
         case existingMapping(UInt64, Term)
         case unexpectedError
@@ -101,6 +103,32 @@ open class MemoryQuadStore: Sequence, MutableQuadStoreProtocol {
         return AnyIterator(quads.makeIterator())
     }
     
+    public func id(for q: Quad) -> Term? {
+        let qp = QuadPattern(subject: .bound(q.subject), predicate: .bound(q.predicate), object: .bound(q.object), graph: .bound(q.graph))
+        guard let idIter = try? idquads(matching: qp) else {
+            return nil
+        }
+        let ids = Array(idIter)
+        guard let id = ids.first else {
+            return nil
+        }
+        for (i, q) in idquads.enumerated() {
+            if q == id {
+                return Term(value: "\(i)", type: .datatype(.custom(Self.statementIDDatatype)))
+            }
+        }
+        return nil
+    }
+
+    public func quad(withIdentifier id: Term) -> Quad? {
+        guard case .datatype(.custom(Self.statementIDDatatype)) = id.type else { return nil }
+        guard let i = Int(id.value) else { return nil }
+        guard i >= 0 && i < idquads.count else { return nil }
+        let idq = idquads[i]
+        let q = self.quad(from: idq)
+        return q
+    }
+
     public func results(matching pattern: QuadPattern) throws -> AnyIterator<SPARQLResultSolution<Term>> {
         var map = [String: KeyPath<Quad, Term>]()
         for (node, path) in zip(pattern, QuadPattern.groundKeyPaths) {

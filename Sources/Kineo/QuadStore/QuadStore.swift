@@ -54,6 +54,11 @@ public protocol QuadStoreProtocol {
     var features: [QuadStoreFeature] { get }
 }
 
+public protocol RDFStarStoreProtocol: QuadStoreProtocol {
+    func id(for: Quad) -> Term?
+    func quad(withIdentifier id: Term) -> Quad?
+}
+
 public protocol PrefixNameStoringQuadStore: QuadStoreProtocol {
     var prefixes: [String: Term] { get }
 }
