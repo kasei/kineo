@@ -57,6 +57,8 @@ public protocol QuadStoreProtocol {
 public protocol RDFStarStoreProtocol: QuadStoreProtocol {
     func id(for: Quad) -> Term?
     func quad(withIdentifier id: Term) -> Quad?
+    func id(for: EmbeddedTriple) -> Term?
+    func embeddedTriple(withIdentifier id: Term) -> EmbeddedTriple?
 }
 
 public protocol PrefixNameStoringQuadStore: QuadStoreProtocol {

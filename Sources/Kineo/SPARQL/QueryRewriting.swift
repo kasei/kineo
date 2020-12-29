@@ -137,9 +137,9 @@ private func pushdownProjection(_ algebra: Algebra) throws -> RewriteStatus<Alge
         }
     case let .project(.innerJoin(lhs, rhs), vars):
         let intersection = lhs.inscope.intersection(rhs.inscope)
-        let needed = vars.union(intersection)
-        let l : Algebra = .project(lhs, needed)
-        let r : Algebra = .project(rhs, needed)
+        let needed = vars.union(intersection) // all the projected variables, but the ones we will need to perform the join
+        let l : Algebra = .project(lhs, needed.intersection(lhs.inscope))
+        let r : Algebra = .project(rhs, needed.intersection(rhs.inscope))
         let rewritten : Algebra = .innerJoin(l, r)
         if rewritten.inscope == vars {
             return .rewriteChildren(rewritten)

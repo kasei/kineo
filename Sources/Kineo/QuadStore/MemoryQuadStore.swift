@@ -9,9 +9,10 @@ import Foundation
 import SPARQLSyntax
 
 // swiftlint:disable:next type_body_length
-open class MemoryQuadStore: Sequence, MutableQuadStoreProtocol, RDFStarStoreProtocol {
-    public static let statementIDDatatype = "http://example.org/quadId"
-    
+open class MemoryQuadStore: Sequence, MutableQuadStoreProtocol {
+//    public static let statementIDDatatype = "tag:kasei.us,2018:memoryquadstore/quadID"
+    public static let embeddedStatementDatatype = "tag:kasei.us,2018:memoryquadstore/embeddedQuad"
+
     public enum MemoryQuadStoreError: Error {
         case existingMapping(UInt64, Term)
         case unexpectedError
@@ -103,32 +104,6 @@ open class MemoryQuadStore: Sequence, MutableQuadStoreProtocol, RDFStarStoreProt
         return AnyIterator(quads.makeIterator())
     }
     
-    public func id(for q: Quad) -> Term? {
-        let qp = QuadPattern(subject: .bound(q.subject), predicate: .bound(q.predicate), object: .bound(q.object), graph: .bound(q.graph))
-        guard let idIter = try? idquads(matching: qp) else {
-            return nil
-        }
-        let ids = Array(idIter)
-        guard let id = ids.first else {
-            return nil
-        }
-        for (i, q) in idquads.enumerated() {
-            if q == id {
-                return Term(value: "\(i)", type: .datatype(.custom(Self.statementIDDatatype)))
-            }
-        }
-        return nil
-    }
-
-    public func quad(withIdentifier id: Term) -> Quad? {
-        guard case .datatype(.custom(Self.statementIDDatatype)) = id.type else { return nil }
-        guard let i = Int(id.value) else { return nil }
-        guard i >= 0 && i < idquads.count else { return nil }
-        let idq = idquads[i]
-        let q = self.quad(from: idq)
-        return q
-    }
-
     public func results(matching pattern: QuadPattern) throws -> AnyIterator<SPARQLResultSolution<Term>> {
         var map = [String: KeyPath<Quad, Term>]()
         for (node, path) in zip(pattern, QuadPattern.groundKeyPaths) {
@@ -305,6 +280,128 @@ extension MemoryQuadStore: CustomStringConvertible {
         s += "}\n"
         return s
     }
+}
+
+extension MemoryQuadStore: RDFStarStoreProtocol {
+    public func termID(for pattern: EmbeddedPattern) -> Term? {
+        switch pattern {
+        case .node(.bound(let t)):
+            let i = self.id(for: t)
+            return Term(string: "\(i)")
+        case .embeddedTriple(let et):
+            guard let s = self.termID(for: et.subject) else { return nil }
+            guard let p = self.termID(for: .node(et.predicate)) else { return nil }
+            guard let o = self.termID(for: et.object) else { return nil }
+            
+            let terms = [s,p,o]
+            let ser = "T " + terms.map {$0.value}.joined(separator: " ")
+            return Term(value: ser, type: .datatype(.custom(Self.embeddedStatementDatatype)))
+        default:
+            return nil
+        }
+    }
+    
+    public func id(for et: EmbeddedTriple) -> Term? {
+        return self.termID(for: .embeddedTriple(et))
+    }
+
+    func embeddedPattern(withIdentifierTokens ids: inout [String]) -> EmbeddedPattern? {
+        let id = ids.remove(at: 0)
+        if id == "Q" {
+            fatalError()
+        } else if id == "T" {
+            guard let s = self.embeddedPattern(withIdentifierTokens: &ids) else { return nil }
+            let pp = self.embeddedPattern(withIdentifierTokens: &ids)
+            guard let o = self.embeddedPattern(withIdentifierTokens: &ids) else { return nil }
+
+            guard case .node(let p) = pp else { return nil }
+            return .embeddedTriple(EmbeddedTriple(subject: s, predicate: p, object: o))
+        } else if let v = IDType(id) {
+            guard let t = self.term(for: v) else { return nil }
+            return .node(.bound(t))
+        } else {
+            return nil
+//                guard let i = Int(id.value) else { return nil }
+//                let t = self.term(for: i)
+//
+//                guard i >= 0 && i < idquads.count else { return nil }
+//                let idq = idquads[i]
+//                let q = self.quad(from: idq)
+//                return q
+        }
+    }
+    
+    public func embeddedTriple(withIdentifier id: Term) -> EmbeddedTriple? {
+        guard case .datatype(.custom(Self.embeddedStatementDatatype)) = id.type else {
+            return nil
+        }
+        var tokens = Array(id.value.split(separator: " ").map { String($0) })
+        let ep = self.embeddedPattern(withIdentifierTokens: &tokens)
+        guard case .embeddedTriple(let et) = ep else { return nil }
+        return et
+    }
+
+    public func id(for q: Quad) -> Term? {
+        if let set = self.embeddedTriple(withIdentifier: q.subject), let oet = self.embeddedTriple(withIdentifier: q.object) {
+            guard let s = self.id(for: set)?.value else {
+                return nil
+            }
+            let p = String(self.id(for: q.predicate))
+            guard let o = self.id(for: oet)?.value else {
+                return nil
+            }
+            let g = String(self.id(for: q.graph))
+            let ids = [s, p, o, g]
+            let ser = "Q " + ids.joined(separator: " ")
+            return Term(value: ser, type: .datatype(.custom(Self.embeddedStatementDatatype)))
+        } else if let set = self.embeddedTriple(withIdentifier: q.subject) {
+            guard let s = self.id(for: set)?.value else {
+                return nil
+            }
+            let p = String(self.id(for: q.predicate))
+            let o = String(self.id(for: q.object))
+            let g = String(self.id(for: q.graph))
+            let ids = [s, p, o, g]
+            let ser = "Q " + ids.joined(separator: " ")
+            return Term(value: ser, type: .datatype(.custom(Self.embeddedStatementDatatype)))
+        } else if let oet = self.embeddedTriple(withIdentifier: q.object) {
+            let s = String(self.id(for: q.subject))
+            let p = String(self.id(for: q.predicate))
+            guard let o = self.id(for: oet)?.value else {
+                return nil
+            }
+            let g = String(self.id(for: q.graph))
+            let ids = [s, p, o, g]
+            let ser = "Q " + ids.joined(separator: " ")
+            return Term(value: ser, type: .datatype(.custom(Self.embeddedStatementDatatype)))
+        }
+        
+        let qp = QuadPattern(subject: .bound(q.subject), predicate: .bound(q.predicate), object: .bound(q.object), graph: .bound(q.graph))
+        guard let idIter = try? idquads(matching: qp) else {
+            return nil
+        }
+        let ids = Array(idIter)
+        guard let id = ids.first else {
+            return nil
+        }
+        for q in idquads {
+            if q == id {
+                let quad = self.quad(from: q)
+                let terms = quad.compactMap { self.termID(for: .node(.bound($0))) }
+                guard terms.count == 4 else {
+                    return nil
+                }
+                let ser = "Q " + terms.map {$0.value}.joined(separator: " ")
+                return Term(value: ser, type: .datatype(.custom(Self.embeddedStatementDatatype)))
+            }
+        }
+        return nil
+    }
+
+    public func quad(withIdentifier id: Term) -> Quad? {
+        fatalError("TODO: quad(withIdentifier:) is unimplemented")
+    }
+
 }
 
 open class LanguageMemoryQuadStore: Sequence, LanguageAwareQuadStore, MutableQuadStoreProtocol {

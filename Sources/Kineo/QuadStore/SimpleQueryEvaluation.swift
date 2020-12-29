@@ -1536,6 +1536,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol>: SimpleQueryEvaluatorProto
     }
 
     public func evaluate(embeddedTriple et: EmbeddedTriple, name: String, activeGraph: Term) throws -> AnyIterator<SPARQLResultSolution<Term>> {
+        print("TODO: evaluate(embeddedTriple:) currently does not work for non-asserted embedded triple patterns; update this code to work")
         if let sstore = store as? RDFStarStoreProtocol {
             guard case let .node(on) = et.object else {
                 throw SimpleQueryEvaluatorError.unimplemented("SimpleQueryEvaluator does not support recursive of SPARQL* patterns")
@@ -1549,7 +1550,8 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol>: SimpleQueryEvaluatorProto
                     let quads = try sstore.quads(matching: qp)
                     var results = [SPARQLResultSolution<Term>]()
                     for q in quads {
-                        guard let id = sstore.id(for: q) else { continue }
+                        let t = EmbeddedTriple(subject: .node(.bound(q.subject)), predicate: .bound(q.predicate), object: .node(.bound(q.object)))
+                        guard let id = sstore.id(for: t) else { continue }
                         let oet = EmbeddedTriple(subject: .node(.bound(id)), predicate: et.predicate, object: et.object)
                         let iter = try evaluate(embeddedTriple: oet, name: name, activeGraph: activeGraph)
                         let innerResults = iter.compactMap { $0.extended(variable: name, value: id) }
@@ -1564,7 +1566,8 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol>: SimpleQueryEvaluatorProto
                 let quads = try sstore.quads(matching: qp)
                 var results = [SPARQLResultSolution<Term>]()
                 for q in quads {
-                    guard let id = sstore.id(for: q) else { continue }
+                    let t = EmbeddedTriple(subject: .node(.bound(q.subject)), predicate: .bound(q.predicate), object: .node(.bound(q.object)))
+                    guard let id = sstore.id(for: t) else { continue }
                     if let r = qp.matches(quad: q) {
                         if let rr = r.extended(variable: name, value: id) {
                             results.append(rr)
