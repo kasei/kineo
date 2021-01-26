@@ -20,6 +20,7 @@ enum TPFError : Error {
 }
 // swiftlint:disable:next type_body_length
 open class TriplePatternFragmentQuadStore: Sequence, QuadStoreProtocol {
+    
     let emptyPattern = QuadPattern(
         subject: .variable("s", binding: true),
         predicate: .variable("p", binding: true),
@@ -66,6 +67,8 @@ open class TriplePatternFragmentQuadStore: Sequence, QuadStoreProtocol {
         return URL(string: template.template)
     }
     
+    public var graphsCount: Int { return 1 }
+
     public func graphs() -> AnyIterator<Term> {
         return AnyIterator([defaultGraph].makeIterator())
     }

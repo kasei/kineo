@@ -249,7 +249,8 @@ public struct AnyQuadStore: QuadStoreProtocol {
     private let _features: () -> [QuadStoreFeature]
     private let _plan: (Algebra, Term, Dataset) throws -> QueryPlan?
     private let _countQuads: (QuadPattern) throws -> Int
-    
+    private let _graphsCount: () -> Int
+
     init<Q: QuadStoreProtocol>(_ value: Q) {
         self._store = value
         self._count = { value.count }
@@ -262,6 +263,8 @@ public struct AnyQuadStore: QuadStoreProtocol {
         self._graphDescriptions = { value.graphDescriptions }
         self._features = { value.features }
         self._countQuads = { try value.countQuads(matching: $0) }
+        self._graphsCount = { value.graphsCount }
+
         if let pqs = value as? PlanningQuadStore {
             self._plan = pqs.plan
         } else {
@@ -270,6 +273,10 @@ public struct AnyQuadStore: QuadStoreProtocol {
     }
     
     public var count : Int { return _count() }
+    
+    public var graphsCount: Int {
+        return _graphsCount()
+    }
     
     public func graphs() -> AnyIterator<Term> {
         return _graphs()
@@ -318,6 +325,7 @@ public struct AnyMutableQuadStore: MutableQuadStoreProtocol, PlanningQuadStore {
     private let _load: (Version, AnySequence<Quad>) throws -> ()
     private let _plan: (Algebra, Term, Dataset) throws -> QueryPlan?
     private let _countQuads: (QuadPattern) throws -> Int
+    private let _graphsCount: () -> Int
 
     init<Q: MutableQuadStoreProtocol>(_ value: Q) {
         self._store = value
@@ -332,6 +340,8 @@ public struct AnyMutableQuadStore: MutableQuadStoreProtocol, PlanningQuadStore {
         self._features = { value.features }
         self._load = { try value.load(version: $0, quads: $1) }
         self._countQuads = { try value.countQuads(matching: $0) }
+        self._graphsCount = { value.graphsCount }
+        
         if let pqs = value as? PlanningQuadStore {
             self._plan = pqs.plan
         } else {
@@ -340,6 +350,10 @@ public struct AnyMutableQuadStore: MutableQuadStoreProtocol, PlanningQuadStore {
     }
     
     public var count : Int { return _count() }
+    
+    public var graphsCount: Int {
+        return _graphsCount()
+    }
     
     public func graphs() -> AnyIterator<Term> {
         return _graphs()
