@@ -106,7 +106,13 @@ public struct QuadStoreConfiguration {
                 namedGraphs.append((Term(iri: name), file))
             case "-n":
                 let file = args.remove(at: index)
-                namedGraphs.append((Term(iri: file), file))
+                #if os (OSX)
+                let filenameURL = NSURL(fileURLWithPath: file)
+                guard let path = filenameURL.absoluteURL?.absoluteString else { throw StoreConfigurationError.initializationError }
+                #else
+                let path = NSURL(fileURLWithPath: file).absoluteURL.absoluteString
+                #endif
+                namedGraphs.append((Term(iri: path), file))
             case _ where arg.hasPrefix("--named-graph="):
                 let file = String(arg.dropFirst(14))
                 namedGraphs.append((Term(iri: file), file))
