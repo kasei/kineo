@@ -173,6 +173,10 @@ class TestStore: MutableQuadStoreProtocol, Sequence {
         self.quads.append(contentsOf: quads)
     }
     
+    var graphsCount: Int {
+        return Array(self.graphs()).count
+    }
+
     func graphs() -> AnyIterator<Term> {
         var graphs = Set<Term>()
         for q in self {
