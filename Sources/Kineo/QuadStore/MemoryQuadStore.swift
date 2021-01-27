@@ -283,7 +283,7 @@ extension MemoryQuadStore: CustomStringConvertible {
 }
 
 extension MemoryQuadStore: RDFStarStoreProtocol {
-    public func termID(for pattern: EmbeddedPattern) -> Term? {
+    public func termID(for pattern: EmbeddedTriplePattern) -> Term? {
         switch pattern {
         case .node(.bound(let t)):
             let i = self.id(for: t)
@@ -301,11 +301,11 @@ extension MemoryQuadStore: RDFStarStoreProtocol {
         }
     }
     
-    public func id(for et: EmbeddedTriple) -> Term? {
+    public func id(for et: EmbeddedTriplePattern.Pattern) -> Term? {
         return self.termID(for: .embeddedTriple(et))
     }
 
-    func embeddedPattern(withIdentifierTokens ids: inout [String]) -> EmbeddedPattern? {
+    func embeddedPattern(withIdentifierTokens ids: inout [String]) -> EmbeddedTriplePattern? {
         let id = ids.remove(at: 0)
         if id == "Q" {
             fatalError()
@@ -315,7 +315,7 @@ extension MemoryQuadStore: RDFStarStoreProtocol {
             guard let o = self.embeddedPattern(withIdentifierTokens: &ids) else { return nil }
 
             guard case .node(let p) = pp else { return nil }
-            return .embeddedTriple(EmbeddedTriple(subject: s, predicate: p, object: o))
+            return .embeddedTriple(EmbeddedTriplePattern.Pattern(subject: s, predicate: p, object: o))
         } else if let v = IDType(id) {
             guard let t = self.term(for: v) else { return nil }
             return .node(.bound(t))
@@ -331,7 +331,7 @@ extension MemoryQuadStore: RDFStarStoreProtocol {
         }
     }
     
-    public func embeddedTriple(withIdentifier id: Term) -> EmbeddedTriple? {
+    public func embeddedTriple(withIdentifier id: Term) -> EmbeddedTriplePattern.Pattern? {
         guard case .datatype(.custom(Self.embeddedStatementDatatype)) = id.type else {
             return nil
         }
