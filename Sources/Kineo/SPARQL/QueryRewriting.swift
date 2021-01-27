@@ -15,25 +15,36 @@ public struct SPARQLQueryRewriter {
     }
     
     public func simplify(query: Query) throws -> Query {
+//        print("BEFORE SIMPLIFY: \(query.algebra.serialize(depth: 0))")
+        let algebra = try simplify(algebra: query.algebra)
+//        print("AFTER SIMPLIFY: \(algebra.serialize(depth: 0))")
         return try Query(
             form: query.form,
-            algebra: simplify(algebra: query.algebra),
+            algebra: algebra,
             dataset: query.dataset,
             base: query.base
         )
     }
     
     public func simplify(algebra: Algebra) throws -> Algebra {
-        return try algebra
-            .rewrite(mergeFilters)
-            .rewrite(simplifyExpressions)
-            .rewrite(foldConstantExpressions)
-            .rewrite(foldConstantAlgebras)
-            .rewrite(propertyPathExpansion)
-            .rewrite(pushdownProjection)
-            .rewrite(removeProjection) // this removes extra projections introduced in between adjacent .extend()s
-            .rewrite(pushdownSlice)
-            .rewrite(pushdownFilter)
+        let rewriters = [
+            mergeFilters,
+            simplifyExpressions,
+            foldConstantExpressions,
+            foldConstantAlgebras,
+            propertyPathExpansion,
+            pushdownProjection,
+            removeProjection, // this removes extra projections introduced in between adjacent .extend()s
+            pushdownSlice,
+            pushdownFilter,
+        ]
+        
+        var a = algebra
+        for (_, r) in rewriters.enumerated() {
+            a = try a.rewrite(r)
+//            print("AFTER \(i) [\(r)]:\n\(a.serialize(depth: 0))")
+        }
+        return a
     }
 }
 
@@ -52,7 +63,12 @@ private func pushdownProjection(_ algebra: Algebra) throws -> RewriteStatus<Alge
     case let .project(.project(child, inner), outer):
         return .rewriteChildren(.project(child, inner.intersection(outer)))
     case let .project(.order(child, cmps), vars):
-        return .rewriteChildren(.order(.project(child, vars), cmps))
+        let cmpExpressions = cmps.map { $0.expression }.map { $0.variables }
+        let cmpVariables = cmpExpressions.reduce(Set<String>()) { (a, b) in a.union(b) }
+        if cmpVariables.isSubset(of: vars) {
+            // the ORDER BY uses only variables that remain after projection, so pushdown is OK
+            return .rewriteChildren(.order(.project(child, vars), cmps))
+        }
     case let .project(.table(columns, rows), vars):
         // make the header Nodes in the .table non-binding, and ensure that .table evaluation respects the nodes' binding flags
         guard let tableVariables = Algebra.table(columns, rows).tableVariableNames else {

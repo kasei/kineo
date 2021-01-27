@@ -120,7 +120,7 @@ public struct QueryPlanSimpleCostEstimator: QueryPlanCostEstimator {
                 let boundIDQuadPlan = IDQuadPlan(pattern: pattern, repeatedVariables: [:], store: bindJoin.store)
                 let unboundProbeCost = try self.cost(for: idQuadPlan)
                 let probeCost = try self.cost(for: boundIDQuadPlan)
-                print("bind join costs: \(unboundProbeCost) ; \(probeCost)")
+//                print("bind join costs: \(unboundProbeCost) ; \(probeCost)")
 
                 // TODO: try to determine the cost of bindJoin.pattern when all of the binding substitutions have been made, and incorporate that into the final cost
                 return QueryPlanSimpleCost(cost: idPlanPriority * 2.0 * probeCost.cost * c.cost)

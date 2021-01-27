@@ -175,6 +175,10 @@ class TestStore: MutableQuadStoreProtocol, Sequence {
         self.quads.append(contentsOf: quads)
     }
     
+    var graphsCount: Int {
+        return Array(self.graphs()).count
+    }
+
     func graphs() -> AnyIterator<Term> {
         var graphs = Set<Term>()
         for q in self {
@@ -1401,6 +1405,89 @@ extension QueryEvaluationTests {
         XCTAssertEqual(results.count, 3)
 //        print(results)
     }
+    
+    func _testAggregationSorting() throws {
+        let ttl = #"""
+        @prefix crm: <http://www.cidoc-crm.org/cidoc-crm/> .
+        @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+        @base <http://example.org/> .
+
+        <acq1> a crm:E8_Acquisition ;
+            rdfs:label "First acquisition of Object 1" ;
+            crm:P24_transferred_title_of <obj1> .
+
+        <acq2> a crm:E8_Acquisition ;
+            rdfs:label "Second acquisition of Object 1" ;
+            crm:P24_transferred_title_of <obj1> .
+
+        <acq3> a crm:E8_Acquisition ;
+            rdfs:label "First acquisition of Object 2" ;
+            crm:P24_transferred_title_of <obj2> .
+
+        <acq4> a crm:E8_Acquisition ;
+            rdfs:label "First acquisition of Object 3" ;
+            crm:P24_transferred_title_of <obj3> .
+
+        <acq5> a crm:E8_Acquisition ;
+            rdfs:label "Third acquisition of Object 1" ;
+            crm:P24_transferred_title_of <obj1> .
+
+        <acq6> a crm:E8_Acquisition ;
+            rdfs:label "Second acquisition of Object 3" ;
+            crm:P24_transferred_title_of <obj3> .
+
+        <acq7> a crm:E8_Acquisition ;
+            rdfs:label "Second acquisition of Object 2" ;
+            crm:P24_transferred_title_of <obj2> .
+
+        <obj1> a crm:E22_Human-Made_Object ;
+            rdfs:label "Z: Object 1" .
+
+        <obj2> a crm:E22_Human-Made_Object ;
+            rdfs:label "Y: Object 2" .
+
+        <obj3> a crm:E22_Human-Made_Object ;
+            rdfs:label "X: Object 3" .
+        """#
+        
+        let data = """
+        PREFIX crm: <http://www.cidoc-crm.org/cidoc-crm/>
+        PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+        SELECT
+            ?obj
+            (SAMPLE(?label) AS ?label)
+            (COUNT(DISTINCT ?acq) AS ?acquisitions)
+        WHERE {
+            ?acq a crm:E8_Acquisition ;
+                crm:P24_transferred_title_of ?obj .
+            ?obj a crm:E22_Human-Made_Object ;
+                rdfs:label ?label .
+        }
+        GROUP BY ?obj
+        HAVING(COUNT(DISTINCT ?acq) > 1)
+        ORDER BY DESC(COUNT(DISTINCT ?acq)) ?label
+        """.data(using: .utf8)!
+
+        let parser = RDFParserCombined()
+        var quads = [Quad]()
+        try parser.parse(string: ttl, syntax: .turtle) { (s, p, o) in
+            let q = Quad(subject: s, predicate: p, object: o, graph: self.graph)
+            quads.append(q)
+        }
+        try self.store.load(version: 0, quads: quads)
+
+        guard var p = SPARQLParser(data: data) else { fatalError("Failed to construct SPARQL parser") }
+        let query = try p.parseQuery()
+        print(query.algebra.serialize(depth: 0))
+        let results = try Array(eval(query: query))
+        XCTAssertEqual(results.count, 3)
+        let objects = results.map { $0["label"]!.value }
+        XCTAssertEqual(objects, [
+                        "Z: Object 1", // sorted first because it has highest COUNT(DISTINCT ?acq) = 3
+                        "X: Object 3", // sorted seond because it ties on COUNT(DISTINCT ?acq) = 2 and label is lexicographically less-than
+                        "Y: Object 2" // sorted third because it ties on COUNT(DISTINCT ?acq) = 2, but label is NOT lexicographically less-than
+        ])
+    }
 }
 
 class TestStore_SimpleQueryEvaluationTest: XCTestCase, QueryEvaluationTests {
@@ -1466,6 +1553,7 @@ class TestStore_SimpleQueryEvaluationTest: XCTestCase, QueryEvaluationTests {
     func testWindowFunctionNtile() throws { try _testWindowFunctionNtile() }
     func testGroupConcatOrdering() throws { try _testGroupConcatOrdering() }
     func testManifestQuery() throws { try _testManifestQuery() }
+    func testAggregationSorting() throws { try _testAggregationSorting() }
 }
 
 class DiomedeStore_QueryPlanEvaluationTest: XCTestCase, QueryEvaluationTests {
@@ -1547,6 +1635,7 @@ class DiomedeStore_QueryPlanEvaluationTest: XCTestCase, QueryEvaluationTests {
     func testWindowFunctionNtile() throws { try _testWindowFunctionNtile() }
     func testGroupConcatOrdering() throws { try _testGroupConcatOrdering() }
     func testManifestQuery() throws { try _testManifestQuery() }
+    func testAggregationSorting() throws { try _testAggregationSorting() }
 }
 
 
@@ -1614,4 +1703,5 @@ class TestStore_QueryPlanEvaluationTest: XCTestCase, QueryEvaluationTests {
     func testWindowFunctionNtile() throws { try _testWindowFunctionNtile() }
     func testGroupConcatOrdering() throws { try _testGroupConcatOrdering() }
     func testManifestQuery() throws { try _testManifestQuery() }
+    func testAggregationSorting() throws { try _testAggregationSorting() }
 }

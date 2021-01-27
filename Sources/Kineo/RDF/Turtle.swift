@@ -94,29 +94,31 @@ extension Term {
                 return "a"
             }
             let v = self.value
-            if let prefixes = prefixes {
-                for (k, ns) in prefixes {
-                    if v.hasPrefix(ns.value) {
-                        let index = v.index(v.startIndex, offsetBy: ns.value.count)
-                        let rest = v[index...]
-                        let prefixname = "\(k):\(rest)"
-                        guard let pndata = prefixname.data(using: .utf8) else {
-                            continue
-                        }
-                        let istream = InputStream(data: pndata)
-                        istream.open()
-                        let lexer = SPARQLLexer(source: istream)
-                        if let token = lexer.next() {
-                            if lexer.hasRemainingContent {
+            do {
+                if let prefixes = prefixes {
+                    for (k, ns) in prefixes {
+                        if v.hasPrefix(ns.value) {
+                            let index = v.index(v.startIndex, offsetBy: ns.value.count)
+                            let rest = v[index...]
+                            let prefixname = "\(k):\(rest)"
+                            guard let pndata = prefixname.data(using: .utf8) else {
                                 continue
                             }
-                            if case .prefixname = token {
-                                return prefixname
+                            let istream = InputStream(data: pndata)
+                            istream.open()
+                            let lexer = try SPARQLLexer(source: istream)
+                            if let token = lexer.next() {
+                                if lexer.hasRemainingContent {
+                                    continue
+                                }
+                                if case .prefixname = token {
+                                    return prefixname
+                                }
                             }
                         }
                     }
                 }
-            }
+            } catch {}
             return "<\(v.turtleIRIEscaped)>"
         case .blank:
             return "_:\(self.value)"
@@ -142,7 +144,7 @@ extension Term {
     }
 }
 
-open class TurtleSerializer : RDFSerializer {
+open class TurtleSerializer : RDFSerializer, PrefixableRDFSerializer {
     public var canonicalMediaType = "application/turtle"
     public var prefixes: [String:Term]
 

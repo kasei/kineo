@@ -308,6 +308,12 @@ extension SPARQLEvaluationTestImpl {
         try runEvaluationTests(inPath: path)
     }
     
+    func _test11Evaluation_cast() throws {
+        guard sparqlBase != nil else { throw XCTSkip("SPARQL tests base location missing; set the KINEO_W3C_TEST_PATH environment variable") }
+        let path = sparqlBase.appendingPathComponent("data-sparql11").appendingPathComponent("cast")
+        try runEvaluationTests(inPath: path)
+    }
+    
     func _test11Evaluation_construct() throws {
         guard sparqlBase != nil else { throw XCTSkip("SPARQL tests base location missing; set the KINEO_W3C_TEST_PATH environment variable") }
         let path = sparqlBase.appendingPathComponent("data-sparql11").appendingPathComponent("construct")
@@ -392,6 +398,7 @@ class MemoryStore_SPARQLEvaluationTest: XCTestCase, SPARQLEvaluationTestImpl {
     func test10Evaluation_boolean_effective_value() throws { return try _test10Evaluation_boolean_effective_value() }
     func test10Evaluation_bound() throws { return try _test10Evaluation_bound() }
     func test10Evaluation_cast() throws { return try _test10Evaluation_cast() }
+    func test11Evaluation_cast() throws { return try _test11Evaluation_cast() }
     func test10Evaluation_construct() throws { return try _test10Evaluation_construct() }
     func test10Evaluation_dataset() throws { return try _test10Evaluation_dataset() }
     func test10Evaluation_distinct() throws { return try _test10Evaluation_distinct() }
@@ -467,6 +474,7 @@ class DiomedeStore_SPARQLEvaluationTest: XCTestCase, SPARQLEvaluationTestImpl {
     func test10Evaluation_boolean_effective_value() throws { return try _test10Evaluation_boolean_effective_value() }
     func test10Evaluation_bound() throws { return try _test10Evaluation_bound() }
     func test10Evaluation_cast() throws { return try _test10Evaluation_cast() }
+    func test11Evaluation_cast() throws { return try _test11Evaluation_cast() }
     func test10Evaluation_construct() throws { return try _test10Evaluation_construct() }
     func test10Evaluation_dataset() throws { return try _test10Evaluation_dataset() }
     func test10Evaluation_distinct() throws { return try _test10Evaluation_distinct() }

@@ -175,9 +175,9 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
             if from == to {
                 return p
             } else {
-                print("adding final projection:")
-                print("from: \(from)")
-                print("to  : \(proj.sorted())")
+//                print("adding final projection:")
+//                print("from: \(from)")
+//                print("to  : \(proj.sorted())")
                 return try self.project(plan: p, to: Set(proj))
             }
         case .ask, .construct(_), .describe(_):
@@ -337,7 +337,7 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
             
             let rv = q.repeatedVariables()
             let idquad = try q.idquad(for: store)
-            let qp : IDQueryPlan = try IDQuadPlan(pattern: idquad, repeatedVariables: rv, store: store)
+            let qp : IDQueryPlan = IDQuadPlan(pattern: idquad, repeatedVariables: rv, store: store)
             let tv = q.variables
             let i = currentVariables.intersection(tv)
             intermediate.append((IDNestedLoopJoinPlan(lhs: plan, rhs: qp), []))
@@ -821,6 +821,7 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
             }
             return [ServicePlan(endpoint: endpoint, query: query, silent: silent, client: client)]
         case let .namedGraph(child, .bound(g)):
+            guard dataset.namedGraphs.contains(g) else { return [TablePlan.unionIdentity] }
             return try plan(algebra: child, activeGraph: g, estimator: estimator)
         case let .namedGraph(child, .variable(graph, binding: _)):
             // TODO: handle multiple query plans from child

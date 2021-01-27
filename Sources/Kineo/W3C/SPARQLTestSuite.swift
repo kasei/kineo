@@ -400,6 +400,9 @@ public struct SPARQLTestRunner<M: MutableQuadStoreProtocol> {
         if url.absoluteString.hasSuffix("srx") {
             let srxParser = SPARQLXMLParser()
             return try srxParser.parse(Data(contentsOf: url))
+        } else if url.absoluteString.hasSuffix("srj") {
+            let srjParser = SPARQLJSONParser()
+            return try srjParser.parse(Data(contentsOf: url))
         } else if url.absoluteString.hasSuffix("ttl") || url.absoluteString.hasSuffix("rdf") {
             let syntax = RDFParserCombined.guessSyntax(filename: url.absoluteString)
             let parser = RDFParserCombined()
@@ -428,7 +431,7 @@ public struct SPARQLTestRunner<M: MutableQuadStoreProtocol> {
     
     public func manifestEvaluationItems<Q: QuadStoreProtocol>(quadstore: Q, manifest: Term, type: Term? = nil) throws -> AnyIterator<SPARQLResultSolution<Term>> {
         if verbose {
-            print("Retrieving evaluation tests from manifest file...")
+            print("Retrieving evaluation tests from manifest file \(manifest)...")
         }
         let sparql = """
         PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
@@ -440,9 +443,10 @@ public struct SPARQLTestRunner<M: MutableQuadStoreProtocol> {
                 mf:entries/rdf:rest*/rdf:first ?test .
             ?test a ?test_type ;
                 mf:action ?action ;
-                mf:result ?result ;
-                dawgt:approval ?approval ;
-            .
+                mf:result ?result .
+            OPTIONAL {
+                ?test dawgt:approval ?approval ;
+            }
             ?action qt:query ?query .
         }
         """

@@ -17,7 +17,7 @@ enum KineoParseError: Error {
 func prettyPrint(_ data: Data, silent: Bool = false, includeComments: Bool = false) throws {
     let stream = InputStream(data: data)
     stream.open()
-    let lexer = SPARQLLexer(source: stream, includeComments: includeComments)
+    let lexer = try SPARQLLexer(source: stream, includeComments: includeComments)
     let s = SPARQLSerializer(prettyPrint: true)
     let tokens: UnfoldSequence<SPARQLToken, Int> = sequence(state: 0) { (_) in return lexer.next() }
     let pretty = s.serialize(tokens)
@@ -42,7 +42,7 @@ func parseQuery(_ data: Data, simplify: Bool, silent: Bool = false, includeComme
 func parseTokens(_ data: Data, silent: Bool = false) throws {
     let stream = InputStream(data: data)
     stream.open()
-    let lexer = SPARQLLexer(source: stream)
+    let lexer = try SPARQLLexer(source: stream)
     while let t = lexer.next() {
         if !silent {
             print("\(t)")
@@ -117,7 +117,7 @@ func parseRDF(_ filename: String, silent: Bool) throws -> Int32 {
     let syntax = RDFParserCombined.guessSyntax(filename: filename)
     let parser = RDFParserCombined()
     let url = URL(fileURLWithPath: filename)
-    let path = url.absoluteString
+//    let path = url.absoluteString
     let manager = FileManager.default
     guard manager.fileExists(atPath: filename) else {
         throw KineoParseError.fileDoesNotExist

@@ -23,9 +23,10 @@ func parse(into store: MutableQuadStoreProtocol, files: [String], version: Versi
     var count = 0
     for filename in files {
         #if os (OSX)
-        guard let path = NSURL(fileURLWithPath: filename).absoluteString else { throw DatabaseError.DataError("Not a valid graph path: \(filename)") }
+        let filenameURL = NSURL(fileURLWithPath: filename)
+        guard let path = filenameURL.absoluteURL?.absoluteString else { throw DatabaseError.DataError("Not a valid graph path: \(filename)") }
         #else
-        let path = NSURL(fileURLWithPath: filename).absoluteString
+        let path = NSURL(fileURLWithPath: filename).absoluteURL.absoluteString
         #endif
         let graph   = defaultGraphTerm ?? Term(value: path, type: .iri)
         
@@ -249,7 +250,7 @@ func printSPARQL(_ qfile: String, pretty: Bool = false, silent: Bool = false, in
     let sparql = try Data(contentsOf: url)
     let stream = InputStream(data: sparql)
     stream.open()
-    let lexer = SPARQLLexer(source: stream, includeComments: includeComments)
+    let lexer = try SPARQLLexer(source: stream, includeComments: includeComments)
     let s = SPARQLSerializer(prettyPrint: true)
     let tokens: UnfoldSequence<SPARQLToken, Int> = sequence(state: 0) { (_) in return lexer.next() }
     if pretty {

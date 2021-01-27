@@ -23,6 +23,10 @@ struct PerformanceTestStore: QuadStoreProtocol, Sequence {
     var quads: [Quad]
     var count: Int { return quads.count }
     
+    var graphsCount: Int {
+        return Array(self.graphs()).count
+    }
+
     func graphs() -> AnyIterator<Term> {
         var graphs = Set<Term>()
         for q in self {

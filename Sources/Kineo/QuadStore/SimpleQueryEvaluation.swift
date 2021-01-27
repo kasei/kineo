@@ -804,17 +804,21 @@ public func evaluateGroupConcat<S: Sequence>(results: S, expression keyExpr: Exp
         }
         
         if numericGroups.count == 0 && termGroups.count == 0 {
-            switch agg {
-            case .avg, .count, .countAll, .sum:
+            if groups.isEmpty {
                 // special case where there are no groups (no input rows led to no groups being created);
-                // in this case, counts should return a single result with { $name=0 }
                 // TODO: make sure this works the same as the more general code in evaluateAggregation(algebra:groups:aggregations:activeGraph:)
-                let result = SPARQLResultSolution<Term>(bindings: [name: Term(integer: 0)])
-                return AnyIterator([result].makeIterator())
-            default:
-                let result = SPARQLResultSolution<Term>(bindings: [:])
-                return AnyIterator([result].makeIterator())
+                switch agg {
+                case .avg, .count, .countAll, .sum:
+                    // in this case, counts should return a single result with { $name=0 }
+                    let result = SPARQLResultSolution<Term>(bindings: [name: Term(integer: 0)])
+                    return AnyIterator([result].makeIterator())
+                default:
+                    // the non-numeric aggregates don't produce a value on an empty resultset
+                    let result = SPARQLResultSolution<Term>(bindings: [:])
+                    return AnyIterator([result].makeIterator())
+                }
             }
+            return AnyIterator([].makeIterator())
         }
         
         var a = numericGroups.makeIterator()
@@ -1276,13 +1280,12 @@ public func evaluateGroupConcat<S: Sequence>(results: S, expression keyExpr: Exp
         
         let sorted = elements.sorted { (a, b) -> Bool in
             let pairs = zip(a.terms, b.terms)
+            
             for (cmp, pair) in zip(comparators, pairs) {
+                if (pair.0 == pair.1) { continue }
                 guard let lhs = pair.0 else { return true }
                 guard let rhs = pair.1 else { return false }
-                
-                if lhs == rhs {
-                    continue
-                }
+
                 var sorted = lhs < rhs
                 if !cmp.ascending {
                     sorted = !sorted

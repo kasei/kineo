@@ -2150,6 +2150,7 @@ public struct AggregationPlan: UnaryQueryPlan, QueryPlanSerialization {
 
     public var child: QueryPlan
     var groups: [Expression]
+    var emitOnEmpty: Bool
     var aggregates: [String: () -> (Aggregate)]
     var ee: ExpressionEvaluator
     public init(child: QueryPlan, groups: [Expression], aggregates: Set<Algebra.AggregationMapping>) {
@@ -2158,6 +2159,7 @@ public struct AggregationPlan: UnaryQueryPlan, QueryPlanSerialization {
         self.aggregates = [:]
         let ee = ExpressionEvaluator(base: nil)
         self.ee = ee
+        self.emitOnEmpty = self.groups.isEmpty
 
         for a in aggregates {
             switch a.aggregation {
@@ -2194,7 +2196,9 @@ public struct AggregationPlan: UnaryQueryPlan, QueryPlanSerialization {
     public var selfDescription: String { return "Aggregate \(aggregates) over groups \(groups)" }
     public func evaluate() throws -> AnyIterator<SPARQLResultSolution<Term>> {
         var aggData = [[Term?]:[String:Aggregate]]()
+        var seenRows = 0
         for r in try child.evaluate() {
+            seenRows += 1
             let group = groups.map { try? ee.evaluate(expression: $0, result: r) }
             if let _ = aggData[group] {
             } else {
@@ -2206,18 +2210,22 @@ public struct AggregationPlan: UnaryQueryPlan, QueryPlanSerialization {
                 agg.handle(r)
             }
         }
-        
+
         guard aggData.count > 0 else {
-            let d = aggregates.compactMap { (name, a) -> (String, Term)? in
-                let agg = a()
-                guard let term = agg.result() else { return nil }
-                return (name, term)
+            if emitOnEmpty {
+                let d = aggregates.compactMap { (name, a) -> (String, Term)? in
+                    let agg = a()
+                    guard let term = agg.result() else { return nil }
+                    return (name, term)
+                }
+                let r = SPARQLResultSolution<Term>(bindings: Dictionary(uniqueKeysWithValues: d))
+                return AnyIterator([r].makeIterator())
+            } else {
+                return AnyIterator([].makeIterator())
             }
-            let r = SPARQLResultSolution<Term>(bindings: Dictionary(uniqueKeysWithValues: d))
-            return AnyIterator([r].makeIterator())
         }
         
-        let rows = aggData.map { (group, aggs) -> SPARQLResultSolution<Term> in
+        let rows = aggData.compactMap { (group, aggs) -> SPARQLResultSolution<Term>? in
             var groupTerms = [String:Term]()
             for (e, t) in zip(groups, group) {
                 if case .node(.variable(let name, _)) = e {

@@ -106,7 +106,13 @@ public struct QuadStoreConfiguration {
                 namedGraphs.append((Term(iri: name), file))
             case "-n":
                 let file = args.remove(at: index)
-                namedGraphs.append((Term(iri: file), file))
+                #if os (OSX)
+                let filenameURL = NSURL(fileURLWithPath: file)
+                guard let path = filenameURL.absoluteURL?.absoluteString else { throw StoreConfigurationError.initializationError }
+                #else
+                let path = NSURL(fileURLWithPath: file).absoluteURL.absoluteString
+                #endif
+                namedGraphs.append((Term(iri: path), file))
             case _ where arg.hasPrefix("--named-graph="):
                 let file = String(arg.dropFirst(14))
                 namedGraphs.append((Term(iri: file), file))
@@ -250,6 +256,7 @@ public struct AnyQuadStore: QuadStoreProtocol {
     private let _plan: (Algebra, Term, Dataset) throws -> QueryPlan?
     private let _language: ([(String, Double)]) -> AnyQuadStore?
     private let _countQuads: (QuadPattern) throws -> Int
+    private let _graphsCount: () -> Int
 
     public init<Q: QuadStoreProtocol>(_ value: Q) {
         self._store = value
@@ -263,6 +270,7 @@ public struct AnyQuadStore: QuadStoreProtocol {
         self._graphDescriptions = { value.graphDescriptions }
         self._features = { value.features }
         self._countQuads = { (qp) throws -> Int in return try value.countQuads(matching: qp) }
+        self._graphsCount = { value.graphsCount }
         if let pqs = value as? PlanningQuadStore {
             self._plan = pqs.plan
         } else {
@@ -284,6 +292,8 @@ public struct AnyQuadStore: QuadStoreProtocol {
         self._graphDescriptions = { value.graphDescriptions }
         self._features = { value.features }
         self._countQuads = { try value.countQuads(matching: $0) }
+        self._graphsCount = { value.graphsCount }
+
         if let pqs = value as? PlanningQuadStore {
             self._plan = pqs.plan
         } else {
@@ -297,6 +307,10 @@ public struct AnyQuadStore: QuadStoreProtocol {
     }
     
     public var count : Int { return _count() }
+    
+    public var graphsCount: Int {
+        return _graphsCount()
+    }
     
     public func graphs() -> AnyIterator<Term> {
         return _graphs()
@@ -350,6 +364,7 @@ public struct AnyMutableQuadStore: MutableQuadStoreProtocol, PlanningQuadStore {
     private let _plan: (Algebra, Term, Dataset) throws -> QueryPlan?
     private let _language: ([(String, Double)]) -> AnyQuadStore?
     private let _countQuads: (QuadPattern) throws -> Int
+    private let _graphsCount: () -> Int
 
     public init<Q: MutableQuadStoreProtocol>(_ value: Q) {
         self._store = value
@@ -364,6 +379,8 @@ public struct AnyMutableQuadStore: MutableQuadStoreProtocol, PlanningQuadStore {
         self._features = { value.features }
         self._countQuads = { try value.countQuads(matching: $0) }
         self._load = { try value.load(version: $0, quads: $1) }
+        self._graphsCount = { value.graphsCount }
+        
         if let pqs = value as? PlanningQuadStore {
             self._plan = pqs.plan
         } else {
@@ -385,6 +402,7 @@ public struct AnyMutableQuadStore: MutableQuadStoreProtocol, PlanningQuadStore {
         self._features = { value.features }
         self._countQuads = { (qp) throws -> Int in return try value.countQuads(matching: qp) }
         self._load = { try value.load(version: $0, quads: $1) }
+        self._graphsCount = { value.graphsCount }
         if let pqs = value as? PlanningQuadStore {
             self._plan = pqs.plan
         } else {
@@ -398,6 +416,10 @@ public struct AnyMutableQuadStore: MutableQuadStoreProtocol, PlanningQuadStore {
     }
     
     public var count : Int { return _count() }
+    
+    public var graphsCount: Int {
+        return _graphsCount()
+    }
     
     public func graphs() -> AnyIterator<Term> {
         return _graphs()

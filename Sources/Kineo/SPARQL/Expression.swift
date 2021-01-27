@@ -469,7 +469,7 @@ public class ExpressionEvaluator {
             case .str:
                 return Term(string: string.value)
             case .strlen:
-                return Term(integer: string.value.count)
+                return Term(integer: string.value.unicodeScalars.count)
             case .lcase:
                 return Term(value: string.value.lowercased(), type: string.type)
             case .ucase:
@@ -543,16 +543,17 @@ public class ExpressionEvaluator {
             } else if stringFunction == .substr {
                 guard let fromTerm = terms[1] else { throw QueryError.evaluationError("Not all arguments are bound in \(stringFunction) call") }
                 let from = Int(fromTerm.numericValue)
-                let fromIndex = string.value.index(string.value.startIndex, offsetBy: from-1)
+                let codepoints = string.value.unicodeScalars
+                let fromIndex = codepoints.index(codepoints.startIndex, offsetBy: from-1)
                 if terms.count == 2 {
-                    let toIndex = string.value.endIndex
-                    let value = string.value[fromIndex..<toIndex]
+                    let toIndex = codepoints.endIndex
+                    let value = codepoints[fromIndex..<toIndex]
                     return Term(value: String(value), type: string.type)
                 } else {
                     let lenTerm = terms[2]!
                     let len = Int(lenTerm.numericValue)
-                    let toIndex = string.value.index(fromIndex, offsetBy: len)
-                    let value = string.value[fromIndex..<toIndex]
+                    let toIndex = codepoints.index(fromIndex, offsetBy: len)
+                    let value = codepoints[fromIndex..<toIndex]
                     return Term(value: String(value), type: string.type)
                 }
             }
@@ -894,7 +895,7 @@ public class ExpressionEvaluator {
             } else if case .language(_) = val.type {
                 return Term(value: Namespace.rdf.langString, type: .iri)
             } else {
-                throw QueryError.typeError("DATATYPE called with non-literal")
+                throw QueryError.typeError("DATATYPE called with non-literal: \(val)")
             }
         case .bound(let expr):
             if let _ = try? evaluate(expression: expr, result: result) {
@@ -906,51 +907,89 @@ public class ExpressionEvaluator {
             let term = try evaluate(expression: expr, result: result)
             if let n = term.numeric {
                 return Term(boolean: n.value != 0.0)
-            } else if term.value == "true" {
+            } else if term.value == "true" || term.value == "1" {
                 return Term(boolean: true)
-            } else if term.value == "false" {
+            } else if term.value == "false" || term.value == "0" {
                 return Term(boolean: false)
             } else {
-                throw QueryError.typeError("Cannot coerce term to a numeric value")
+                throw QueryError.typeError("Cannot coerce term to a boolean value: \(term)")
             }
         case .intCast(let expr):
             let term = try evaluate(expression: expr, result: result)
+            if case .datatype(.integer) = term.type {
+                return term
+            }
+            
             if let n = term.numeric {
                 return Term(integer: Int(n.value))
+            }
+            
+            if case .datatype(.boolean) = term.type, let b = term.booleanValue {
+                return Term(integer: b ? 1 : 0)
             } else if let v = Int(term.value) {
                 return Term(integer: v)
             } else {
-                throw QueryError.typeError("Cannot coerce term to a numeric value")
+                throw QueryError.typeError("Cannot coerce term to an integer value: \(term)")
             }
         case .floatCast(let expr):
             let term = try evaluate(expression: expr, result: result)
+            switch term.type {
+            case .datatype(.float):
+                return Term(float: term.numericValue)
+            case .datatype(.boolean):
+                if let b = term.booleanValue {
+                    return Term(float: b ? 1.0 : 0.0)
+                }
+            default:
+                break
+            }
+            
             if let n = term.numeric {
                 return Term(float: n.value)
-            } else if let v = Double(term.value) {
+            } else if Term.isValidLexicalForm(term.value, for: .float), let v = Double(term.value) {
                 return Term(float: v)
             } else {
-                throw QueryError.typeError("Cannot coerce term to a numeric value")
+                throw QueryError.typeError("Cannot coerce term to a float value: \(term)")
             }
         case .doubleCast(let expr):
             let term = try evaluate(expression: expr, result: result)
+            switch term.type {
+            case .datatype(.double):
+                return Term(double: term.numericValue)
+            case .datatype(.boolean):
+                if let b = term.booleanValue {
+                    return Term(double: b ? 1.0 : 0.0)
+                }
+            default:
+                break
+            }
+            
             if let n = term.numeric {
                 return Term(double: n.value)
-            } else if let v = Double(term.value) {
+            } else if Term.isValidLexicalForm(term.value, for: .double), let v = Double(term.value) {
                 return Term(double: v)
             } else {
-                throw QueryError.typeError("Cannot coerce term to a numeric value")
+                throw QueryError.typeError("Cannot coerce term to a double value: \(term)")
             }
         case .decimalCast(let expr):
             let term = try evaluate(expression: expr, result: result)
+            switch term.type {
+            case .datatype(.decimal):
+                return Term(decimal: term.numericValue)
+            case .datatype(.boolean):
+                if let b = term.booleanValue {
+                    return Term(decimal: b ? 1.0 : 0.0)
+                }
+            default:
+                break
+            }
+
             if let n = term.numeric {
                 return Term(decimal: n.value)
-            } else if let v = Double(term.value) {
-                let cs = CharacterSet.decimalDigits.union(CharacterSet(charactersIn: ".+-")).inverted
-                if term.value.rangeOfCharacter(from: cs) == nil {
-                    return Term(decimal: v)
-                }
+            } else if Term.isValidLexicalForm(term.value, for: .decimal), let v = Double(term.value) {
+                return Term(decimal: v)
             } else {
-                throw QueryError.typeError("Cannot coerce term to a numeric value")
+                throw QueryError.typeError("Cannot coerce term to a decimal value: \(term)")
             }
         case .dateCast(let expr):
             let term = try evaluate(expression: expr, result: result)
@@ -961,7 +1000,7 @@ public class ExpressionEvaluator {
                     return Term(value: term.value, type: .datatype(.date))
                 }
             }
-            throw QueryError.typeError("Cannot coerce term to a date value")
+            throw QueryError.typeError("Cannot coerce term to a date value: \(term)")
         case .dateTimeCast(let expr):
             let term = try evaluate(expression: expr, result: result)
             if #available (OSX 10.12, *) {
@@ -1052,6 +1091,42 @@ public class ExpressionEvaluator {
             throw QueryError.typeError("Cannot coerce term to a duration value")
         case .stringCast(let expr):
             let term = try evaluate(expression: expr, result: result)
+            switch (term.type) {
+            case .datatype(.string):
+                return term
+            case .datatype(.integer):
+                let i = Term(integer: Int(term.numericValue))
+                return Term(string: i.value)
+            case .datatype(.decimal):
+                let v = term.numericValue
+                if v.truncatingRemainder(dividingBy: 1) == 0 {
+                    let i = Term(integer: Int(term.numericValue))
+                    return Term(string: i.value)
+                } else {
+                    let t = Term(decimal: v)
+                    return Term(string: t.value)
+                }
+            case .datatype(.double), .datatype(.float):
+                let v = term.numericValue
+                if abs(v) >= 0.000001 && abs(v) < 1000000.0 {
+                    // this is the same as handling of xsd:decimal above
+                    if v.truncatingRemainder(dividingBy: 1) == 0 {
+                        let i = Term(integer: Int(term.numericValue))
+                        return Term(string: i.value)
+                    } else {
+                        let t = Term(decimal: v)
+                        return Term(string: t.value)
+                    }
+                } else if v == 0 {
+                    return Term(string: "0")
+                }
+            case .datatype(.boolean):
+                if let b = term.booleanValue {
+                    return Term(string: b ? "true" : "false")
+                }
+            default:
+                break
+            }
             return Term(string: term.value)
         case .lang(let expr):
             let val = try evaluate(expression: expr, result: result)
