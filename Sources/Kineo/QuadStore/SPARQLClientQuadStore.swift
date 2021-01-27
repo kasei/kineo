@@ -27,6 +27,10 @@ open class SPARQLClientQuadStore: Sequence, QuadStoreProtocol {
         return 0
     }
     
+    public var graphsCount: Int {
+        return Array(graphs()).count
+    }
+    
     public func graphs() -> AnyIterator<Term> {
         if let r = try? client.execute("SELECT ?g WHERE { GRAPH ?g {} }") {
             if case .bindings(_, let rows) = r {

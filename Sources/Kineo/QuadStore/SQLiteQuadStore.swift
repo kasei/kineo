@@ -155,6 +155,17 @@ open class SQLiteQuadStore: Sequence, MutableQuadStoreProtocol {
         }
     }
     
+    public var graphsCount: Int {
+        let query = quadsTable.select(distinct: graphColumn)
+        do {
+            let dbh = try db.prepare(query)
+            let graphs = dbh.map { (row) -> Int in 1 }
+            return graphs.count
+        } catch {
+            return 0
+        }
+    }
+    
     public func graphs() -> AnyIterator<Term> {
         let query = quadsTable.select(distinct: graphColumn)
         do {
@@ -751,6 +762,10 @@ open class SQLiteLanguageQuadStore: Sequence, LanguageAwareQuadStore, MutableQua
             count += 1
         }
         return count
+    }
+    
+    public var graphsCount: Int {
+        return quadstore.graphsCount
     }
     
     public func graphs() -> AnyIterator<Term> {

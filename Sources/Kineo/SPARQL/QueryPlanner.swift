@@ -816,6 +816,7 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
             }
             return [ServicePlan(endpoint: endpoint, query: query, silent: silent, client: client)]
         case let .namedGraph(child, .bound(g)):
+            guard dataset.namedGraphs.contains(g) else { return [TablePlan.unionIdentity] }
             return try plan(algebra: child, activeGraph: g, estimator: estimator)
         case let .namedGraph(child, .variable(graph, binding: _)):
             // TODO: handle multiple query plans from child

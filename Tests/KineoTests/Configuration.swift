@@ -75,7 +75,8 @@ class ConfigurationTest: XCTestCase {
         }
         if case let .loadFiles(defaultGraphs, namedGraphs) = config.initialize {
             XCTAssertEqual(defaultGraphs, ["default1", "default2"])
-            XCTAssertEqual(namedGraphs, [Term(iri: "name1"): "name1"])
+            let u = URL(fileURLWithPath: "name1")
+            XCTAssertEqual(namedGraphs[Term(iri: u.absoluteString)], "name1")
         } else {
             XCTFail("expected initialization dataset")
         }

@@ -52,6 +52,7 @@ public protocol QuadStoreProtocol {
     func effectiveVersion(matching pattern: QuadPattern) throws -> Version?
     var graphDescriptions: [Term:GraphDescription] { get }
     var features: [QuadStoreFeature] { get }
+    var graphsCount: Int { get }
 }
 
 public protocol RDFStarStoreProtocol: QuadStoreProtocol {

@@ -72,6 +72,8 @@ open class MemoryQuadStore: Sequence, MutableQuadStoreProtocol {
         self.version = version
     }
     
+    public var graphsCount: Int { return graphIDs.count }
+    
     public func graphs() -> AnyIterator<Term> {
         let graphs = graphIDs.map { i2t[$0]! }
         return AnyIterator(graphs.makeIterator())
@@ -420,6 +422,8 @@ open class LanguageMemoryQuadStore: Sequence, LanguageAwareQuadStore, MutableQua
         return count
     }
     
+    public var graphsCount: Int { return quadstore.graphsCount }
+
     public func graphs() -> AnyIterator<Term> {
         return quadstore.graphs()
     }
