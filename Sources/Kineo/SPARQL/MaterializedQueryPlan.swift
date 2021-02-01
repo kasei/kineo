@@ -75,14 +75,22 @@ public struct RestrictToNamedGraphsPlan<Q: QuadStoreProtocol>: UnaryQueryPlan {
         let graphFilter = { (g: Term) -> Bool in
             return (try? self.dataset.isGraphNamed(g, in: self.store)) ?? false
         }
+        
+        var okGraph = Set<Term>()
         let i = try child.evaluate()
         let s = i.lazy.compactMap { (r) -> SPARQLResultSolution<Term>? in
-            print("restrict? \(r)")
-            if let g = r[graphNode], graphFilter(g) {
+            if let g = r[graphNode] {
                 do {
-                    var rr = r.projected(variables: project)
-                    try rr.extend(variable: graphName, value: g)
-                    return rr
+                    if okGraph.contains(g) {
+                        var rr = r.projected(variables: project)
+                        try rr.extend(variable: graphName, value: g)
+                        return rr
+                    } else if graphFilter(g) {
+                        okGraph.insert(g)
+                        var rr = r.projected(variables: project)
+                        try rr.extend(variable: graphName, value: g)
+                        return rr
+                    }
                 } catch {}
             }
             return nil
