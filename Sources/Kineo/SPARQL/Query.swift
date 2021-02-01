@@ -194,22 +194,19 @@ extension Algebra {
 }
 
 public struct StoreDefaultDataset<Q: QuadStoreProtocol> : DatasetProtocol {
-    var store: Q
-    var graph: Term?
+    public var store: Q
+    public var defaultGraphs: [Term]
+    
     public init(store: Q, graph: Term?) {
         self.store = store
-        self.graph = graph
-    }
-  
-    public var defaultGraphs: [Term] {
         if let g = graph {
-            return [g]
+            defaultGraphs = [g]
         } else {
             // if there are no graphs in the database, it doesn't matter what the default graph is.
-            return [store.graphs().next() ?? Term(iri: "tag:kasei.us,2018:default-graph")]
+            defaultGraphs = [store.graphs().next() ?? Term(iri: "tag:kasei.us,2018:default-graph")]
         }
     }
-    
+  
     public var namedGraphs: [Term] {
         var named = Set(store.graphs())
         named.subtract(defaultGraphs)
