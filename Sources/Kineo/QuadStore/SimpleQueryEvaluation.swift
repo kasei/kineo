@@ -33,7 +33,7 @@ public protocol SimpleQueryEvaluatorProtocol: QueryEvaluatorProtocol {
     func evaluateMinus(_ l: AnyIterator<SPARQLResultSolution<Term>>, _ r: [SPARQLResultSolution<Term>]) throws -> AnyIterator<SPARQLResultSolution<Term>>
     func evaluate(algebra: Algebra, activeGraph: Term) throws -> AnyIterator<SPARQLResultSolution<Term>>
     func effectiveVersion(matching query: Query) throws -> Version?
-    func effectiveVersion(matching algebra: Algebra, activeGraph: Term) throws -> Version?
+    func effectiveVersion(matching algebra: Algebra, activeGraph: Node) throws -> Version?
     func evaluateUnion(_ patterns: [Algebra], activeGraph: Term) throws -> AnyIterator<SPARQLResultSolution<Term>>
     func evaluateJoin(lhs lhsAlgebra: Algebra, rhs rhsAlgebra: Algebra, left: Bool, activeGraph: Term) throws -> AnyIterator<SPARQLResultSolution<Term>>
     func evaluate(diff lhs: Algebra, _ rhs: Algebra, expression expr: Expression, activeGraph: Term) throws -> AnyIterator<SPARQLResultSolution<Term>>
@@ -1404,7 +1404,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol>: SimpleQueryEvaluatorProto
         let algebra = query.algebra
         var version : Version? = nil
         for activeGraph in dataset.defaultGraphs {
-            guard let mtime = try effectiveVersion(matching: algebra, activeGraph: activeGraph) else { return nil }
+            guard let mtime = try effectiveVersion(matching: algebra, activeGraph: .bound(activeGraph)) else { return nil }
             if case .describe(let nodes) = query.form {
                 for node in nodes {
                     let quad = QuadPattern(subject: node, predicate: .variable("p", binding: true), object: .variable("o", binding: true), graph: .bound(activeGraph))
@@ -1426,19 +1426,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol>: SimpleQueryEvaluatorProto
         return version
     }
     
-    public func effectiveVersion(algebra child: Algebra, inGraph graph: Node) throws -> Version? {
-        guard case .variable = graph else {
-            Logger.shared.error("Unexpected variable found during named graph evaluation")
-            throw QueryError.evaluationError("Unexpected variable found during named graph evaluation")
-        }
-        let defaultGraphs = Set(dataset.defaultGraphs)
-        let x = try store.graphs().filter { !defaultGraphs.contains($0) }.map { ($0, try effectiveVersion(matching: child, activeGraph: $0)) }.compactMap { $0.1 }
-        guard !x.isEmpty else { return nil }
-        let v = x.reduce(x.first!) { max($0, $1) }
-        return v
-    }
-
-    public func effectiveVersion(matching algebra: Algebra, activeGraph: Term) throws -> Version? {
+    public func effectiveVersion(matching algebra: Algebra, activeGraph: Node) throws -> Version? {
         switch algebra {
         // don't require access to the underlying store:
         case .joinIdentity, .unionIdentity:
@@ -1450,11 +1438,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol>: SimpleQueryEvaluatorProto
             guard let rhsmtime = try effectiveVersion(matching: rhs, activeGraph: activeGraph) else { return lhsmtime }
             return max(lhsmtime, rhsmtime)
         case let .namedGraph(child, graph):
-            if case .bound(let g) = graph {
-                return try effectiveVersion(matching: child, activeGraph: g)
-            } else {
-                return try effectiveVersion(algebra: child, inGraph: graph)
-            }
+            return try effectiveVersion(matching: child, activeGraph: graph)
         case .distinct(let child), .reduced(let child), .project(let child, _), .slice(let child, _, _), .extend(let child, _, _), .order(let child, _), .filter(let child, _):
             return try effectiveVersion(matching: child, activeGraph: activeGraph)
         case .aggregate(let child, _, _):
@@ -1464,7 +1448,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol>: SimpleQueryEvaluatorProto
         case .service:
             return nil
         case .triple(let t):
-            let quad = QuadPattern(subject: t.subject, predicate: t.predicate, object: t.object, graph: .bound(activeGraph))
+            let quad = QuadPattern(subject: t.subject, predicate: t.predicate, object: t.object, graph: activeGraph)
             return try effectiveVersion(matching: .quad(quad), activeGraph: activeGraph)
             
             
@@ -1473,7 +1457,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol>: SimpleQueryEvaluatorProto
             let s: Node = .variable("s", binding: true)
             let p: Node = .variable("p", binding: true)
             let o: Node = .variable("o", binding: true)
-            let quad = QuadPattern(subject: s, predicate: p, object: o, graph: .bound(activeGraph))
+            let quad = QuadPattern(subject: s, predicate: p, object: o, graph: activeGraph)
             return try store.effectiveVersion(matching: quad)
         case .quad(let quad):
             return try store.effectiveVersion(matching: quad)
@@ -1481,7 +1465,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol>: SimpleQueryEvaluatorProto
             guard children.count > 0 else { return nil }
             var mtime: Version = 0
             for t in children {
-                let quad = QuadPattern(subject: t.subject, predicate: t.predicate, object: t.object, graph: .bound(activeGraph))
+                let quad = QuadPattern(subject: t.subject, predicate: t.predicate, object: t.object, graph: activeGraph)
                 guard let triplemtime = try store.effectiveVersion(matching: quad) else { continue }
                 mtime = max(mtime, triplemtime)
             }
