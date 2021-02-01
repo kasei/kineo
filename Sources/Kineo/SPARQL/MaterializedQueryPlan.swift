@@ -108,7 +108,6 @@ public struct RestrictToNamedGraphsPlan<Q: QuadStoreProtocol>: UnaryQueryPlan {
         for c in self.children {
             d += c.serialize(depth: depth+1)
         }
-        // TODO: include non-queryplan children (e.g. TablePlan rows)
         return d
     }
 }
@@ -1567,7 +1566,6 @@ public extension PathPlan {
         for c in self.children {
             d += c.serialize(depth: depth+1)
         }
-        // TODO: include non-queryplan children (e.g. TablePlan rows)
         return d
     }
     
