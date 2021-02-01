@@ -526,7 +526,7 @@ extension SQLiteQuadStore: CustomStringConvertible {
 }
 
 extension SQLiteQuadStore: PlanningQuadStore {
-    public func plan(algebra: Algebra, activeGraph: Term, dataset: Dataset) throws -> QueryPlan? {
+    public func plan(algebra: Algebra, activeGraph: Term, dataset: DatasetProtocol) throws -> QueryPlan? {
         switch algebra {
         case let .project(a, vars):
             if let qp = try plan(algebra: a, activeGraph: activeGraph, dataset: dataset) {
@@ -921,7 +921,7 @@ open class SQLiteLanguageQuadStore: Sequence, LanguageAwareQuadStore, MutableQua
 }
 
 extension SQLiteLanguageQuadStore: PlanningQuadStore {
-    public func plan(algebra: Algebra, activeGraph: Term, dataset: Dataset) throws -> QueryPlan? {
+    public func plan(algebra: Algebra, activeGraph: Term, dataset: DatasetProtocol) throws -> QueryPlan? {
         return nil
     }
 }

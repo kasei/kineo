@@ -226,7 +226,7 @@ protocol QueryEvaluationTests {
     associatedtype Evaluator: QueryEvaluatorProtocol
     var store: Store! { get }
     var graph: Term! { get }
-    func evaluator(dataset: Dataset) -> Evaluator
+    func evaluator(dataset: DatasetProtocol) -> Evaluator
 }
 
 extension QueryEvaluationTests {
@@ -1371,6 +1371,9 @@ extension QueryEvaluationTests {
 
         guard var p = SPARQLParser(data: data) else { fatalError("Failed to construct SPARQL parser") }
         let results = try Array(eval(query: p.parseQuery()))
+        for r in results {
+            print(r)
+        }
         XCTAssertEqual(results.count, 3)
 //        print(results)
     }
@@ -1470,7 +1473,7 @@ class TestStore_SimpleQueryEvaluationTest: XCTestCase, QueryEvaluationTests {
         self.store = TestStore(quads: testQuads)
     }
     
-    func evaluator(dataset: Dataset) -> Evaluator {
+    func evaluator(dataset: DatasetProtocol) -> Evaluator {
         let e = SimpleQueryEvaluator(store: store, dataset: dataset)
         return e
     }
@@ -1550,7 +1553,7 @@ class DiomedeStore_QueryPlanEvaluationTest: XCTestCase, QueryEvaluationTests {
         #endif
     }
     
-    func evaluator(dataset: Dataset) -> Evaluator {
+    func evaluator(dataset: DatasetProtocol) -> Evaluator {
         let e = QueryPlanEvaluator(store: store, dataset: dataset)
         e.planner.allowStoreOptimizedPlans = true
         return e
@@ -1617,7 +1620,7 @@ class TestStore_QueryPlanEvaluationTest: XCTestCase, QueryEvaluationTests {
         self.store = TestStore(quads: testQuads)
     }
     
-    func evaluator(dataset: Dataset) -> Evaluator {
+    func evaluator(dataset: DatasetProtocol) -> Evaluator {
         let e = QueryPlanEvaluator(store: store, dataset: dataset)
         e.planner.allowStoreOptimizedPlans = false
         return e

@@ -572,14 +572,14 @@ public struct IDQuad: Hashable, Equatable, CustomStringConvertible, Sequence {
 public protocol IDPathPlan: IDPlanSerializable {
     var selfDescription: String { get }
     var children : [IDPathPlan] { get }
-    func evaluate(from: IDNode, to: IDNode, in: UInt64) throws -> AnyIterator<SPARQLResultSolution<UInt64>>
+    func evaluate(from: IDNode, to: IDNode, in: IDNode) throws -> AnyIterator<SPARQLResultSolution<UInt64>>
 }
 
 public struct IDPathQueryPlan: NullaryIDQueryPlan {
     var subject: IDNode
     var path: IDPathPlan
     var object: IDNode
-    var graph: UInt64
+    var graph: IDNode
     public var selfDescription: String { return "ID Path { \(subject) ---> \(object) in graph \(graph) }" }
     public var properties: [IDPlanSerializable] { return [path] }
     public var isJoinIdentity: Bool { return false }
@@ -617,7 +617,7 @@ public extension IDPathPlan {
         guard !seen.contains(term) else { return }
         seen.insert(term)
         let node : IDNode = .variable(".pp", binding: true)
-        for r in try path.evaluate(from: .bound(term), to: node, in: graph) {
+        for r in try path.evaluate(from: .bound(term), to: node, in: .bound(graph)) {
             if let term = r[node] {
                 try alp(term: term, path: path, seen: &seen, graph: graph)
             }
@@ -631,7 +631,10 @@ public struct IDNPSPathPlan: IDPathPlan {
     var store: LazyMaterializingQuadStore
     public var children: [IDPathPlan] { return [] }
     public var selfDescription: String { return "ID NPS { \(iris) }" }
-    public func evaluate(from subject: IDNode, to object: IDNode, in graph: UInt64) throws -> AnyIterator<SPARQLResultSolution<UInt64>> {
+    public func evaluate(from subject: IDNode, to object: IDNode, in graph: IDNode) throws -> AnyIterator<SPARQLResultSolution<UInt64>> {
+        // TODO: this code currently does not bind graph terms when case .variable(_, _) = graph.
+        // Therefore, to avoid invalid evaluation, this plan is not used in such cases, as guarded against in
+        // QueryPlanner.idplan(subject:path:object:activeGraph:estimator:).
         switch (subject, object) {
         case let (.bound(_), .variable(oname, binding: bind)):
             let objects = try evaluate(from: subject, in: graph)
@@ -655,7 +658,7 @@ public struct IDNPSPathPlan: IDPathPlan {
             return AnyIterator(i.makeIterator())
         case (.variable(let s, _), .bound(_)):
             let p : IDNode = .variable(".p", binding: true)
-            let qp = IDQuad(subject: subject, predicate: p, object: object, graph: .bound(graph))
+            let qp = IDQuad(subject: subject, predicate: p, object: object, graph: graph)
             let i = try store.quadIds(matchingIDs: qp.ids).makeIterator()
             let set = Set(iris)
             return AnyIterator {
@@ -669,7 +672,7 @@ public struct IDNPSPathPlan: IDPathPlan {
             }
         case let (.variable(s, _), .variable(o, _)):
             let p : IDNode = .variable(".p", binding: true)
-            let qp = IDQuad(subject: subject, predicate: p, object: object, graph: .bound(graph))
+            let qp = IDQuad(subject: subject, predicate: p, object: object, graph: graph)
             let i = try store.quadIds(matchingIDs: qp.ids).makeIterator()
             let set = Set(iris)
             return AnyIterator {
@@ -685,10 +688,10 @@ public struct IDNPSPathPlan: IDPathPlan {
         }
     }
     
-    public func evaluate(from subject: IDNode, in graph: UInt64) throws -> AnyIterator<UInt64> {
+    public func evaluate(from subject: IDNode, in graph: IDNode) throws -> AnyIterator<UInt64> {
         let object = IDNode.variable(".npso", binding: true)
         let predicate = IDNode.variable(".npsp", binding: true)
-        let quad = IDQuad(subject: subject, predicate: predicate, object: object, graph: .bound(graph))
+        let quad = IDQuad(subject: subject, predicate: predicate, object: object, graph: graph)
         let i = try store.quadIds(matchingIDs: quad.ids).makeIterator()
         // OPTIMIZE: this can be made more efficient by adding an NPS function to the store,
         //           and allowing it to do the filtering based on a SPARQLResultSolution<UInt64> objects before
@@ -711,20 +714,20 @@ public struct IDLinkPathPlan : IDPathPlan {
     var store: LazyMaterializingQuadStore
     public var children: [IDPathPlan] { return [] }
     public var selfDescription: String { return "Link { \(predicate) }" }
-    public func evaluate(from subject: IDNode, to object: IDNode, in graph: UInt64) throws -> AnyIterator<SPARQLResultSolution<UInt64>> {
+    public func evaluate(from subject: IDNode, to object: IDNode, in graph: IDNode) throws -> AnyIterator<SPARQLResultSolution<UInt64>> {
 //        print("eval(linkPath[\(subject) \(predicate) \(object) \(graph)])")
-        let qp = IDQuad(subject: subject, predicate: .bound(predicate), object: object, graph: .bound(graph))
+        let qp = IDQuad(subject: subject, predicate: .bound(predicate), object: object, graph: graph)
         let plan = IDQuadPlan(pattern: qp, repeatedVariables: [:], store: store)
         return try plan.evaluate()
     }
     
-    public func evaluate(from subject: IDNode, in graph: UInt64) throws -> AnyIterator<UInt64> {
+    public func evaluate(from subject: IDNode, in graph: IDNode) throws -> AnyIterator<UInt64> {
         let object = IDNode.variable(".lpo", binding: true)
         let qp = IDQuad(
             subject: subject,
             predicate: .bound(predicate),
             object: object,
-            graph: .bound(graph)
+            graph: graph
         )
 //        print("eval(linkPath[from: \(qp)])")
 
@@ -741,7 +744,7 @@ public struct IDUnionPathPlan: IDPathPlan {
     public var rhs: IDPathPlan
     public var children: [IDPathPlan] { return [lhs, rhs] }
     public var selfDescription: String { return "Alt" }
-    public func evaluate(from subject: IDNode, to object: IDNode, in graph: UInt64) throws -> AnyIterator<SPARQLResultSolution<UInt64>> {
+    public func evaluate(from subject: IDNode, to object: IDNode, in graph: IDNode) throws -> AnyIterator<SPARQLResultSolution<UInt64>> {
         let l = try lhs.evaluate(from: subject, to: object, in: graph)
         let r = try rhs.evaluate(from: subject, to: object, in: graph)
         return AnyIterator(ConcatenatingIterator(l, r))
@@ -755,7 +758,10 @@ public struct IDSequencePathPlan: IDPathPlan {
     public var children: [IDPathPlan] { return [lhs, rhs] }
     public var selfDescription: String { return "Seq { \(joinNode) }" }
     
-    public func evaluate(from subject: IDNode, to object: IDNode, in graph: UInt64) throws -> AnyIterator<SPARQLResultSolution<UInt64>> {
+    public func evaluate(from subject: IDNode, to object: IDNode, in graph: IDNode) throws -> AnyIterator<SPARQLResultSolution<UInt64>> {
+        // TODO: this code currently does not bind graph terms when case .variable(_, _) = graph.
+        // Therefore, to avoid invalid evaluation, this plan is not used in such cases, as guarded against in
+        // QueryPlanner.idplan(subject:path:object:activeGraph:estimator:).
 //        print("eval(sequencePath[\(subject) --> \(object)])")
         guard case .variable(_, _) = joinNode else {
             print("*** invalid child in query plan evaluation")
@@ -768,6 +774,10 @@ public struct IDSequencePathPlan: IDPathPlan {
                 let r = try rhs.evaluate(from: .bound(j), to: object, in: graph)
                 for rr in r {
                     var result = rr
+                    if case .variable(let v, _) = graph {
+                        // ensure we join on the graph variable
+                        guard let lg = lr[v], let rg = rr[v], lg == rg else { continue }
+                    }
                     if case .variable(let name, true) = subject, let term = lr[subject] {
                         result = result.extended(variable: name, value: term) ?? result
                     }
@@ -783,7 +793,7 @@ public struct IDInversePathPlan: IDPathPlan {
     public var child: IDPathPlan
     public var children: [IDPathPlan] { return [child] }
     public var selfDescription: String { return "Inv" }
-    public func evaluate(from subject: IDNode, to object: IDNode, in graph: UInt64) throws -> AnyIterator<SPARQLResultSolution<UInt64>> {
+    public func evaluate(from subject: IDNode, to object: IDNode, in graph: IDNode) throws -> AnyIterator<SPARQLResultSolution<UInt64>> {
         return try child.evaluate(from: object, to: subject, in: graph)
     }
 }
@@ -791,54 +801,81 @@ public struct IDInversePathPlan: IDPathPlan {
 public struct IDPlusPathPlan : IDPathPlan {
     public var child: IDPathPlan
     var store: LazyMaterializingQuadStore
+    var dataset: DatasetProtocol
     public var children: [IDPathPlan] { return [child] }
     public var selfDescription: String { return "Plus" }
-    public func evaluate(from subject: IDNode, to object: IDNode, in graph: UInt64) throws -> AnyIterator<SPARQLResultSolution<UInt64>> {
-        switch subject {
-        case .bound:
-            var v = Set<UInt64>()
-            let frontierNode : IDNode = .variable(".pp-plus", binding: true)
-            for r in try child.evaluate(from: subject, to: frontierNode, in: graph) {
-                if let n = r[frontierNode] {
-//                    print("First step of + resulted in term: \(n)")
-                    try alp(term: n, path: child, seen: &v, graph: graph)
-                }
-            }
-//            print("ALP resulted in: \(v)")
-            
-            let i = v.lazy.map { (term) -> SPARQLResultSolution<UInt64> in
-                if case .variable(let name, true) = object {
-                    return SPARQLResultSolution<UInt64>(bindings: [name: term])
-                } else {
-                    return SPARQLResultSolution<UInt64>(bindings: [:])
-                }
-            }
-            
-            return AnyIterator(i.makeIterator())
-        case .variable(let s, binding: _):
-            switch object {
-            case .variable:
-                var iterators = [AnyIterator<SPARQLResultSolution<UInt64>>]()
-                for gn in store.graphTermIDs(in: graph) {
-                    let results = try evaluate(from: .bound(gn), to: object, in: graph).lazy.compactMap { (r) -> SPARQLResultSolution<UInt64>? in
-                        r.extended(variable: s, value: gn)
-                    }
-                    iterators.append(AnyIterator(results.makeIterator()))
-                }
-                return AnyIterator { () -> SPARQLResultSolution<UInt64>? in
-                    repeat {
-                        guard let i = iterators.first else { return nil }
-                        if let r = i.next() {
-                            return r
-                        } else {
-                            iterators.removeFirst(1)
-                        }
-                    } while true
-                }
+    public func evaluate(from subject: IDNode, to object: IDNode, in graph: IDNode) throws -> AnyIterator<SPARQLResultSolution<UInt64>> {
+        // TODO: this code currently does not bind graph terms when case .variable(_, _) = graph.
+        // Therefore, to avoid invalid evaluation, this plan is not used in such cases, as guarded against in
+        // QueryPlanner.idplan(subject:path:object:activeGraph:estimator:).
+        let graphs: [UInt64]
+        if case .bound(let g) = graph {
+            graphs = [g]
+        } else {
+            graphs = try Array(store.graphs().compactMap { try store.id(for: $0) })
+        }
+        
+        var branches = try graphs.compactMap { (gid) -> AnyIterator<SPARQLResultSolution<UInt64>>? in
+            switch subject {
             case .bound:
-                // ?subject path+ <bound>
-                let ipath = IDPlusPathPlan(child: IDInversePathPlan(child: child), store: store)
-                return try ipath.evaluate(from: object, to: subject, in: graph)
+                var v = Set<UInt64>()
+                let frontierNode : IDNode = .variable(".pp-plus", binding: true)
+                for r in try child.evaluate(from: subject, to: frontierNode, in: graph) {
+                    if let n = r[frontierNode] {
+    //                    print("First step of + resulted in term: \(n)")
+                        try alp(term: n, path: child, seen: &v, graph: gid)
+                    }
+                }
+    //            print("ALP resulted in: \(v)")
+                
+                let i = v.lazy.map { (term) -> SPARQLResultSolution<UInt64> in
+                    if case .variable(let name, true) = object {
+                        return SPARQLResultSolution<UInt64>(bindings: [name: term])
+                    } else {
+                        return SPARQLResultSolution<UInt64>(bindings: [:])
+                    }
+                }
+                
+                return AnyIterator(i.makeIterator())
+            case .variable(let s, binding: _):
+                switch object {
+                case .variable:
+                    var iterators = [AnyIterator<SPARQLResultSolution<UInt64>>]()
+                    for gn in store.graphTermIDs(in: gid) {
+                        let results = try evaluate(from: .bound(gn), to: object, in: graph).lazy.compactMap { (r) -> SPARQLResultSolution<UInt64>? in
+                            r.extended(variable: s, value: gn)
+                        }
+                        iterators.append(AnyIterator(results.makeIterator()))
+                    }
+                    return AnyIterator { () -> SPARQLResultSolution<UInt64>? in
+                        repeat {
+                            guard let i = iterators.first else { return nil }
+                            if let r = i.next() {
+                                return r
+                            } else {
+                                iterators.removeFirst(1)
+                            }
+                        } while true
+                    }
+                case .bound:
+                    // ?subject path+ <bound>
+                    let ipath = IDPlusPathPlan(child: IDInversePathPlan(child: child), store: store, dataset: dataset)
+                    return try ipath.evaluate(from: object, to: subject, in: graph)
+                }
+            }
+        }
+        
+        var current = branches.popLast()
+        return AnyIterator {
+            while true {
+                if let current = current {
+                    if let element = current.next() {
+                        return element
+                    }
+                }
+                
+                guard !branches.isEmpty else { return nil }
+                current = branches.popLast()
             }
         }
     }
@@ -847,52 +884,82 @@ public struct IDPlusPathPlan : IDPathPlan {
 public struct IDStarPathPlan : IDPathPlan {
     public var child: IDPathPlan
     var store: LazyMaterializingQuadStore
+    var dataset: DatasetProtocol
     public var children: [IDPathPlan] { return [child] }
     public var selfDescription: String { return "Plus" }
-    public func evaluate(from subject: IDNode, to object: IDNode, in graph: UInt64) throws -> AnyIterator<SPARQLResultSolution<UInt64>> {
-        switch subject {
-        case .bound(let term):
-            var v = Set<UInt64>()
-            try alp(term: term, path: child, seen: &v, graph: graph)
-//            print("ALP resulted in: \(v)")
-            
-            switch object {
-            case let .variable(name, binding: true):
-                let i = v.lazy.map { SPARQLResultSolution<UInt64>(bindings: [name: $0]) }
-                return AnyIterator(i.makeIterator())
-            case .variable(_, binding: false):
-                let i = v.lazy.map { (_) in SPARQLResultSolution<UInt64>(bindings: [:]) }.prefix(1)
-                return AnyIterator(i.makeIterator())
-            case .bound(let o):
-                let i = v.lazy.compactMap { (term) -> SPARQLResultSolution<UInt64>? in
-                    guard term == o else { return nil }
-                    return SPARQLResultSolution<UInt64>(bindings: [:])
-                }
-                return AnyIterator(i.prefix(1).makeIterator())
-            }
-        case .variable(let s, binding: _):
-            switch object {
-            case .variable:
-                var iterators = [AnyIterator<SPARQLResultSolution<UInt64>>]()
-                for gn in store.graphTermIDs(in: graph) {
-                    let results = try evaluate(from: .bound(gn), to: object, in: graph).lazy.compactMap { (r) -> SPARQLResultSolution<UInt64>? in
-                        r.extended(variable: s, value: gn)
+    public func evaluate(from subject: IDNode, to object: IDNode, in graph: IDNode) throws -> AnyIterator<SPARQLResultSolution<UInt64>> {
+        // TODO: this code currently does not bind graph terms when case .variable(_, _) = graph.
+        // Therefore, to avoid invalid evaluation, this plan is not used in such cases, as guarded against in
+        // QueryPlanner.idplan(subject:path:object:activeGraph:estimator:).
+        let graphs: [UInt64]
+        if case .bound(let g) = graph {
+            graphs = [g]
+        } else {
+            graphs = try Array(store.graphs().compactMap { try store.id(for: $0) })
+        }
+        
+        var branches = try graphs.compactMap { (gid) -> AnyIterator<SPARQLResultSolution<UInt64>>? in
+            switch subject {
+            case .bound(let term):
+                var v = Set<UInt64>()
+                try alp(term: term, path: child, seen: &v, graph: gid)
+                //            print("ALP resulted in: \(v)")
+                
+                switch object {
+                case let .variable(name, binding: true):
+                    let i = v.lazy.map { SPARQLResultSolution<UInt64>(bindings: [name: $0]) }
+                    return AnyIterator(i.makeIterator())
+                case .variable(_, binding: false):
+                    let i = v.lazy.map { (_) in SPARQLResultSolution<UInt64>(bindings: [:]) }.prefix(1)
+                    return AnyIterator(i.makeIterator())
+                case .bound(let o):
+                    let i = v.lazy.compactMap { (term) -> SPARQLResultSolution<UInt64>? in
+                        guard term == o else { return nil }
+                        return SPARQLResultSolution<UInt64>(bindings: [:])
                     }
-                    iterators.append(AnyIterator(results.makeIterator()))
+                    return AnyIterator(i.prefix(1).makeIterator())
                 }
-                return AnyIterator { () -> SPARQLResultSolution<UInt64>? in
-                    repeat {
-                        guard let i = iterators.first else { return nil }
-                        if let r = i.next() {
-                            return r
-                        } else {
-                            iterators.removeFirst(1)
+            case .variable(let s, binding: _):
+                switch object {
+                case .variable:
+                    var iterators = [AnyIterator<SPARQLResultSolution<UInt64>>]()
+                    for gn in store.graphTermIDs(in: gid) {
+                        let results = try evaluate(from: .bound(gn), to: object, in: graph).lazy.compactMap { (r) -> SPARQLResultSolution<UInt64>? in
+                            r.extended(variable: s, value: gn)
                         }
-                    } while true
+                        iterators.append(AnyIterator(results.makeIterator()))
+                    }
+                    return AnyIterator { () -> SPARQLResultSolution<UInt64>? in
+                        repeat {
+                            guard let i = iterators.first else { return nil }
+                            if let r = i.next() {
+                                return r
+                            } else {
+                                iterators.removeFirst(1)
+                            }
+                        } while true
+                    }
+                case .bound:
+                    let ipath = IDStarPathPlan(child: IDInversePathPlan(child: child), store: store, dataset: dataset)
+                    return try ipath.evaluate(from: object, to: subject, in: graph)
                 }
-            case .bound:
-                let ipath = IDStarPathPlan(child: IDInversePathPlan(child: child), store: store)
-                return try ipath.evaluate(from: object, to: subject, in: graph)
+            }
+        }
+        
+        var current = branches.popLast()
+        print("*** first path plan branch")
+        return AnyIterator {
+            while true {
+                if let current = current {
+                    if let element = current.next() {
+                        print("-> returning path result")
+                        return element
+                    }
+                }
+                
+                guard !branches.isEmpty else { return nil }
+                current = branches.popLast()
+                print("*** next plan branch")
             }
         }
     }
@@ -900,39 +967,66 @@ public struct IDStarPathPlan : IDPathPlan {
 public struct IDZeroOrOnePathPlan : IDPathPlan {
     public var child: IDPathPlan
     var store: LazyMaterializingQuadStore
+    var dataset: DatasetProtocol
     public var children: [IDPathPlan] { return [child] }
     public var selfDescription: String { return "ZeroOrOne" }
-    public func evaluate(from subject: IDNode, to object: IDNode, in graph: UInt64) throws -> AnyIterator<SPARQLResultSolution<UInt64>> {
-        let i = try child.evaluate(from: subject, to: object, in: graph)
-        switch (subject, object) {
-        case (.variable(let s, _), .variable):
-            let gn = store.graphTermIDs(in: graph)
-            let results = try gn.lazy.map { (term) -> AnyIterator<SPARQLResultSolution<UInt64>> in
-                let i = try child.evaluate(from: .bound(term), to: object, in: graph)
-                let j = i.lazy.map { (r) -> SPARQLResultSolution<UInt64> in
-                    r.extended(variable: s, value: term) ?? r
+    public func evaluate(from subject: IDNode, to object: IDNode, in graph: IDNode) throws -> AnyIterator<SPARQLResultSolution<UInt64>> {
+        // TODO: this code currently does not bind graph terms when case .variable(_, _) = graph.
+        // Therefore, to avoid invalid evaluation, this plan is not used in such cases, as guarded against in
+        // QueryPlanner.idplan(subject:path:object:activeGraph:estimator:).
+        let graphs: [UInt64]
+        if case .bound(let g) = graph {
+            graphs = [g]
+        } else {
+            graphs = try Array(store.graphs().compactMap { try store.id(for: $0) })
+        }
+        
+        var branches = try graphs.compactMap { (gid) -> AnyIterator<SPARQLResultSolution<UInt64>>? in
+            let i = try child.evaluate(from: subject, to: object, in: graph)
+            switch (subject, object) {
+            case (.variable(let s, _), .variable):
+                let gn = store.graphTermIDs(in: gid)
+                let results = try gn.lazy.map { (term) -> AnyIterator<SPARQLResultSolution<UInt64>> in
+                    let i = try child.evaluate(from: .bound(term), to: object, in: graph)
+                    let j = i.lazy.map { (r) -> SPARQLResultSolution<UInt64> in
+                        r.extended(variable: s, value: term) ?? r
+                    }
+                    return AnyIterator(j.makeIterator())
                 }
-                return AnyIterator(j.makeIterator())
+                return AnyIterator(results.joined().makeIterator())
+            case (.bound, .bound):
+                if subject == object {
+                    let r = [SPARQLResultSolution<UInt64>(bindings: [:])]
+                    return AnyIterator(r.makeIterator())
+                } else {
+                    return i
+                }
+            case let (.bound(term), .variable(name, _)), let (.variable(name, _), .bound(term)):
+                let r = [SPARQLResultSolution<UInt64>(bindings: [name: term])]
+                var seen = Set<UInt64>()
+                let j = i.lazy.compactMap { (r) -> SPARQLResultSolution<UInt64>? in
+                    guard let t = r[name] else { return nil }
+                    guard t != term else { return nil }
+                    guard !seen.contains(t) else { return nil }
+                    seen.insert(t)
+                    return r
+                }
+                return AnyIterator(ConcatenatingIterator(r.makeIterator(), j.makeIterator()))
             }
-            return AnyIterator(results.joined().makeIterator())
-        case (.bound, .bound):
-            if subject == object {
-                let r = [SPARQLResultSolution<UInt64>(bindings: [:])]
-                return AnyIterator(r.makeIterator())
-            } else {
-                return i
+        }
+        
+        var current = branches.popLast()
+        return AnyIterator {
+            while true {
+                if let current = current {
+                    if let element = current.next() {
+                        return element
+                    }
+                }
+                
+                guard !branches.isEmpty else { return nil }
+                current = branches.popLast()
             }
-        case let (.bound(term), .variable(name, _)), let (.variable(name, _), .bound(term)):
-            let r = [SPARQLResultSolution<UInt64>(bindings: [name: term])]
-            var seen = Set<UInt64>()
-            let j = i.lazy.compactMap { (r) -> SPARQLResultSolution<UInt64>? in
-                guard let t = r[name] else { return nil }
-                guard t != term else { return nil }
-                guard !seen.contains(t) else { return nil }
-                seen.insert(t)
-                return r
-            }
-            return AnyIterator(ConcatenatingIterator(r.makeIterator(), j.makeIterator()))
         }
     }
 }

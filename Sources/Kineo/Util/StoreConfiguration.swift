@@ -253,7 +253,7 @@ public struct AnyQuadStore: QuadStoreProtocol {
     private let _effectiveVersion: (QuadPattern) throws -> Version?
     private let _graphDescriptions: () -> [Term:GraphDescription]
     private let _features: () -> [QuadStoreFeature]
-    private let _plan: (Algebra, Term, Dataset) throws -> QueryPlan?
+    private let _plan: (Algebra, Term, DatasetProtocol) throws -> QueryPlan?
     private let _countQuads: (QuadPattern) throws -> Int
     private let _graphsCount: () -> Int
 
@@ -308,7 +308,7 @@ public struct AnyQuadStore: QuadStoreProtocol {
         return try _effectiveVersion(pattern)
     }
     
-    public func plan(algebra: Algebra, activeGraph: Term, dataset: Dataset) throws -> QueryPlan? {
+    public func plan(algebra: Algebra, activeGraph: Term, dataset: DatasetProtocol) throws -> QueryPlan? {
         return try _plan(algebra, activeGraph, dataset)
     }
 
@@ -329,7 +329,7 @@ public struct AnyMutableQuadStore: MutableQuadStoreProtocol, PlanningQuadStore {
     private let _graphDescriptions: () -> [Term:GraphDescription]
     private let _features: () -> [QuadStoreFeature]
     private let _load: (Version, AnySequence<Quad>) throws -> ()
-    private let _plan: (Algebra, Term, Dataset) throws -> QueryPlan?
+    private let _plan: (Algebra, Term, DatasetProtocol) throws -> QueryPlan?
     private let _countQuads: (QuadPattern) throws -> Int
     private let _graphsCount: () -> Int
 
@@ -389,7 +389,7 @@ public struct AnyMutableQuadStore: MutableQuadStoreProtocol, PlanningQuadStore {
         return try _load(version, AnySequence(quads))
     }
 
-    public func plan(algebra: Algebra, activeGraph: Term, dataset: Dataset) throws -> QueryPlan? {
+    public func plan(algebra: Algebra, activeGraph: Term, dataset: DatasetProtocol) throws -> QueryPlan? {
         return try _plan(algebra, activeGraph, dataset)
     }
     

@@ -17,7 +17,7 @@ fileprivate struct SortElem {
 // swiftlint:disable cyclomatic_complexity
 // swiftlint:disable:next type_body_length
 public protocol SimpleQueryEvaluatorProtocol: QueryEvaluatorProtocol {
-    var dataset: Dataset { get }
+    var dataset: DatasetProtocol { get }
     var ee: ExpressionEvaluator { get }
     
     var verbose: Bool { get }
@@ -1342,7 +1342,7 @@ extension SimpleQueryEvaluatorProtocol {
 
 open class SimpleQueryEvaluator<Q: QuadStoreProtocol>: SimpleQueryEvaluatorProtocol {
     public var store: Q
-    public var dataset: Dataset
+    public var dataset: DatasetProtocol
     public var ee: ExpressionEvaluator
     public let supportedLanguages: [QueryLanguage] = [.sparqlQuery10, .sparqlQuery11]
     public let supportedFeatures: [QueryEngineFeature] = [.basicFederatedQuery]
@@ -1350,7 +1350,7 @@ open class SimpleQueryEvaluator<Q: QuadStoreProtocol>: SimpleQueryEvaluatorProto
     internal var freshVarNumber: Int
     public var verbose: Bool
 
-    public init(store: Q, dataset: Dataset, verbose: Bool = false) {
+    public init(store: Q, dataset: DatasetProtocol, verbose: Bool = false) {
         self.store = store
         self.dataset = dataset
         self.freshVarNumber = 1

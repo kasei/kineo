@@ -264,6 +264,9 @@ public struct QueryPlanSimpleCostEstimator: QueryPlanCostEstimator {
             } else if let p = plan as? ExistsPlan {
                 let patternCost = try cost(for: p.pattern)
                 return QueryPlanSimpleCost(cost: c.cost + sqrt(patternCost.cost))
+            } else if let p = plan as? UnaryQueryPlan, plan.selfDescription.contains("RestrictToNamedGraphsPlan") {
+                // this is a string-based comparison because we don't know the generic type Q to test for RestrictToNamedGraphsPlan<Q>
+                return try cost(for: p.child)
             }
         } else if let p = plan as? BinaryQueryPlan {
             let lhs = p.children[0]

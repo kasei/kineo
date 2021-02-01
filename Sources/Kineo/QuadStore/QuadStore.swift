@@ -254,17 +254,18 @@ extension Term {
 }
 
 extension QuadStoreProtocol {
-    public func dataset(withDefault defaultGraph: Term) -> Dataset {
-        var named = Set(self.graphs())
-        named.remove(defaultGraph)
-        let dataset = Dataset(defaultGraphs: [defaultGraph], namedGraphs: Array(named))
-        return dataset
+    public func dataset(withDefault defaultGraph: Term) -> StoreDefaultDataset<Self> {
+        let d = StoreDefaultDataset(store: self, graph: defaultGraph)
+        return d
     }
     
-    public func dataset() -> Dataset {
-        let named = self.graphs()
-        let dataset = Dataset(defaultGraphs: [], namedGraphs: Array(named))
-        return dataset
+    public func dataset(defaultGraph graph: Term?) -> StoreDefaultDataset<Self> {
+        return StoreDefaultDataset(store: self, graph: graph)
+    }
+    
+    public func dataset() -> StoreDefaultDataset<Self> {
+        let d = StoreDefaultDataset(store: self, graph: nil)
+        return d
     }
     
     public func effectiveVersion() throws -> Version? {

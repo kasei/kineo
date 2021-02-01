@@ -12,7 +12,7 @@ import DiomedeQuadStore
 extension DiomedeQuadStore: MutableQuadStoreProtocol {}
 extension DiomedeQuadStore: LazyMaterializingQuadStore {}
 extension DiomedeQuadStore: PlanningQuadStore {
-    private func characteristicSetSatisfiableCardinality(_ algebra: Algebra, activeGraph: Term, dataset: Dataset, distinctStarSubject: Node? = nil) throws -> Int? {
+    private func characteristicSetSatisfiableCardinality(_ algebra: Algebra, activeGraph: Term, dataset: DatasetProtocol, distinctStarSubject: Node? = nil) throws -> Int? {
         if case let .bgp(tps) = algebra, tps.allSatisfy({ (tp) in !tp.subject.isBound && !tp.object.isBound }) {
             let csDataset = try self.characteristicSets(for: activeGraph)
             let objectVariables = tps.compactMap { (tp) -> String? in if case .variable(let v, _) = tp.object { return v } else { return nil } }
@@ -46,7 +46,7 @@ extension DiomedeQuadStore: PlanningQuadStore {
     /// If `algebra` represents a COUNT(*) aggregation with no grouping, and the graph pattern being aggregated is a simple star
     /// (one subject variable, and all objects are non-shared variables), then compute the count statically using the database's
     /// Characteristic Sets, and return Table (static data) query plan.
-    private func characteristicSetSatisfiableCountPlan(_ algebra: Algebra, activeGraph: Term, dataset: Dataset) throws -> QueryPlan? {
+    private func characteristicSetSatisfiableCountPlan(_ algebra: Algebra, activeGraph: Term, dataset: DatasetProtocol) throws -> QueryPlan? {
         // COUNT(*) with no GROUP BY over a triple pattern with unbound subject and object
         if case let .aggregate(child, [], aggs) = algebra {
             if aggs.count == 1, let a = aggs.first {
@@ -78,7 +78,7 @@ extension DiomedeQuadStore: PlanningQuadStore {
     }
     
     /// Returns a QueryPlan object for any algebra that can be efficiently executed by the QuadStore, nil for all others.
-    public func plan(algebra: Algebra, activeGraph: Term, dataset: Dataset) throws -> QueryPlan? {
+    public func plan(algebra: Algebra, activeGraph: Term, dataset: DatasetProtocol) throws -> QueryPlan? {
         if self.characteristicSetsAreAccurate {
             // Characteristic Sets are "accurate" is they were computed at or after the moment
             // when the last quad was inserted or deleted.
