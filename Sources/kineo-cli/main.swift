@@ -65,7 +65,8 @@ func parse(into store: MutableQuadStoreProtocol, files: [String], version: Versi
 /// - parameter graph: The graph name to use as the initial active graph.
 func explain<Q: QuadStoreProtocol>(in store: Q, query: Query, graph: Term? = nil, multiple: Bool, verbose: Bool) throws {
     let dataset = store.dataset(defaultGraph: graph)
-    let planner     = queryPlanner(store: store, dataset: dataset)
+    let metrics = QueryPlanEvaluationMetrics()
+    let planner     = queryPlanner(store: store, dataset: dataset, metrics: metrics)
     if multiple {
         planner.maxInFlightPlans = Int.max
         let plans        = try planner.plans(query: query)
@@ -112,14 +113,15 @@ func runQuery<Q: QuadStoreProtocol>(_ query: Query, in store: Q, graph: Term?, v
     }
     
     //    let e       = SimpleQueryEvaluator(store: store, dataset: dataset, verbose: verbose)
-    let planner     = queryPlanner(store: store, dataset: dataset)
+    let metrics     = QueryPlanEvaluationMetrics(verbose: verbose)
+    let planner     = queryPlanner(store: store, dataset: dataset, metrics: metrics)
     let e           = QueryPlanEvaluator(planner: planner)
     let results     = try e.evaluate(query: query)
     return results
 }
 
-func queryPlanner<Q : QuadStoreProtocol>(store: Q, dataset: DatasetProtocol) -> QueryPlanner<Q> {
-    let planner = QueryPlanner(store: store, dataset: dataset)
+func queryPlanner<Q : QuadStoreProtocol>(store: Q, dataset: DatasetProtocol, metrics: QueryPlanEvaluationMetrics) -> QueryPlanner<Q> {
+    let planner = QueryPlanner(store: store, dataset: dataset, metrics: metrics)
     // Add extension functions here:
 //    planner.addFunction("http://example.org/func") { (terms) -> Term in
 //        return Term(string: "test")

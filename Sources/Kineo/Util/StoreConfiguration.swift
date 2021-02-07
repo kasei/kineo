@@ -253,7 +253,7 @@ public struct AnyQuadStore: QuadStoreProtocol {
     private let _effectiveVersion: (QuadPattern) throws -> Version?
     private let _graphDescriptions: () -> [Term:GraphDescription]
     private let _features: () -> [QuadStoreFeature]
-    private let _plan: (Algebra, Term, DatasetProtocol) throws -> QueryPlan?
+    private let _plan: (Algebra, Term, DatasetProtocol, QueryPlanEvaluationMetrics) throws -> QueryPlan?
     private let _countQuads: (QuadPattern) throws -> Int
     private let _graphsCount: () -> Int
 
@@ -274,7 +274,7 @@ public struct AnyQuadStore: QuadStoreProtocol {
         if let pqs = value as? PlanningQuadStore {
             self._plan = pqs.plan
         } else {
-            self._plan = { (_, _, _) -> QueryPlan? in return nil }
+            self._plan = { (_, _, _, _) -> QueryPlan? in return nil }
         }
     }
     
@@ -308,8 +308,8 @@ public struct AnyQuadStore: QuadStoreProtocol {
         return try _effectiveVersion(pattern)
     }
     
-    public func plan(algebra: Algebra, activeGraph: Term, dataset: DatasetProtocol) throws -> QueryPlan? {
-        return try _plan(algebra, activeGraph, dataset)
+    public func plan(algebra: Algebra, activeGraph: Term, dataset: DatasetProtocol, metrics: QueryPlanEvaluationMetrics) throws -> QueryPlan? {
+        return try _plan(algebra, activeGraph, dataset, metrics)
     }
 
     public func countQuads(matching pattern: QuadPattern) throws -> Int {
@@ -329,7 +329,7 @@ public struct AnyMutableQuadStore: MutableQuadStoreProtocol, PlanningQuadStore {
     private let _graphDescriptions: () -> [Term:GraphDescription]
     private let _features: () -> [QuadStoreFeature]
     private let _load: (Version, AnySequence<Quad>) throws -> ()
-    private let _plan: (Algebra, Term, DatasetProtocol) throws -> QueryPlan?
+    private let _plan: (Algebra, Term, DatasetProtocol, QueryPlanEvaluationMetrics) throws -> QueryPlan?
     private let _countQuads: (QuadPattern) throws -> Int
     private let _graphsCount: () -> Int
 
@@ -351,7 +351,7 @@ public struct AnyMutableQuadStore: MutableQuadStoreProtocol, PlanningQuadStore {
         if let pqs = value as? PlanningQuadStore {
             self._plan = pqs.plan
         } else {
-            self._plan = { (_, _, _) -> QueryPlan? in return nil }
+            self._plan = { (_, _, _, _) -> QueryPlan? in return nil }
         }
     }
     
@@ -389,8 +389,8 @@ public struct AnyMutableQuadStore: MutableQuadStoreProtocol, PlanningQuadStore {
         return try _load(version, AnySequence(quads))
     }
 
-    public func plan(algebra: Algebra, activeGraph: Term, dataset: DatasetProtocol) throws -> QueryPlan? {
-        return try _plan(algebra, activeGraph, dataset)
+    public func plan(algebra: Algebra, activeGraph: Term, dataset: DatasetProtocol, metrics: QueryPlanEvaluationMetrics) throws -> QueryPlan? {
+        return try _plan(algebra, activeGraph, dataset, metrics)
     }
     
     public func countQuads(matching pattern: QuadPattern) throws -> Int {

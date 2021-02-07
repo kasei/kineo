@@ -54,19 +54,19 @@ extension DiomedeQuadStore: PlanningQuadStore {
                 switch agg {
                 case .countAll:
                     if let card = try characteristicSetSatisfiableCardinality(child, activeGraph: activeGraph, dataset: dataset) {
-                        let qp = TablePlan(columns: [.variable(a.variableName, binding: true)], rows: [[Term(integer: Int(card))]])
+                        let qp = TablePlan(columns: [.variable(a.variableName, binding: true)], rows: [[Term(integer: Int(card))]], metricsToken: QueryPlanEvaluationMetrics.silentToken)
                         return qp
                     }
                 case .count(_, false):
                     // COUNT(?v) can be answered by Characteristic Sets
                     if let card = try characteristicSetSatisfiableCardinality(child, activeGraph: activeGraph, dataset: dataset) {
-                        let qp = TablePlan(columns: [.variable(a.variableName, binding: true)], rows: [[Term(integer: Int(card))]])
+                        let qp = TablePlan(columns: [.variable(a.variableName, binding: true)], rows: [[Term(integer: Int(card))]], metricsToken: QueryPlanEvaluationMetrics.silentToken)
                         return qp
                     }
                 case let .count(.node(v), true):
                     // COUNT(DISTINCT ?v) can be answered by Characteristic Sets only if ?v is the CS star subject
                     if let card = try characteristicSetSatisfiableCardinality(child, activeGraph: activeGraph, dataset: dataset, distinctStarSubject: v) {
-                        let qp = TablePlan(columns: [.variable(a.variableName, binding: true)], rows: [[Term(integer: Int(card))]])
+                        let qp = TablePlan(columns: [.variable(a.variableName, binding: true)], rows: [[Term(integer: Int(card))]], metricsToken: QueryPlanEvaluationMetrics.silentToken)
                         return qp
                     }
                 default:
@@ -76,9 +76,9 @@ extension DiomedeQuadStore: PlanningQuadStore {
         }
         return nil
     }
-    
+
     /// Returns a QueryPlan object for any algebra that can be efficiently executed by the QuadStore, nil for all others.
-    public func plan(algebra: Algebra, activeGraph: Term, dataset: DatasetProtocol) throws -> QueryPlan? {
+    public func plan(algebra: Algebra, activeGraph: Term, dataset: DatasetProtocol, metrics: QueryPlanEvaluationMetrics) throws -> QueryPlan? {
         if self.characteristicSetsAreAccurate {
             // Characteristic Sets are "accurate" is they were computed at or after the moment
             // when the last quad was inserted or deleted.

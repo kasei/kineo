@@ -8,6 +8,108 @@
 import Foundation
 import SPARQLSyntax
 
+public class QueryPlanEvaluationMetrics {
+    var indent: Int
+    var counter: Int
+    var stack: [CFAbsoluteTime]
+    var times: [Token: Double]
+    var plans: [Token: (Int, _QueryPlan)]
+    var verbose: Bool
+    public typealias Token = Int
+    static let silentToken: Token = -1
+    
+    public init(verbose: Bool = false) {
+        self.counter = 1
+        self.stack = []
+        self.indent = 0
+        self.times = [:]
+        self.plans = [:]
+        self.verbose = verbose
+    }
+    
+    public func getOperatorToken() -> Token {
+        let token = self.counter
+        self.counter += 1
+        return token
+    }
+    
+    private func getCurrentTime() -> CFAbsoluteTime {
+        return CFAbsoluteTimeGetCurrent()
+    }
+
+    public func startPlanning() {
+        self.stack.append(getCurrentTime())
+        self.indent += 1
+    }
+
+    public func endPlanning() {
+        let end = getCurrentTime()
+        let start = stack.popLast()!
+        let elapsed = end - start
+        
+        self.times[0, default: 0] += elapsed
+        self.indent -= 1
+    }
+
+    public func startEvaluation(_ token: Token, _ plan: _QueryPlan) {
+        self.plans[token] = (indent, plan)
+        self.resumeEvaluation(token: token)
+    }
+
+    public func resumeEvaluation(token: Token) {
+        guard let _ = self.plans[token] else {
+            fatalError("No plan set during evaluation for evaluation token \(token)")
+        }
+        self.stack.append(getCurrentTime())
+//        let prefix = String(repeating: "  ", count: self.indent)
+//        print("\(prefix)\(plan.selfDescription)")
+        self.indent += 1
+    }
+
+    public func endEvaluation(_ token: Token) {
+//        let plan = self.plans[token]!
+        let end = getCurrentTime()
+        let start = stack.popLast()!
+        let elapsed = end - start
+
+//        let name = plan.selfDescription
+//        let prefix = String(repeating: "  ", count: self.indent)
+//        print("\(prefix)<--- [\(elapsed)s] end \(name)")
+
+        self.times[token, default: 0] += elapsed
+        self.indent -= 1
+    }
+    
+    deinit {
+        if verbose {
+            print("Query operator times:")
+            let printByTime = false
+            if printByTime {
+                let sortedPairs = self.times.sorted { (a, b) -> Bool in
+                    a.value < b.value
+                }
+                for (token, time) in sortedPairs {
+                    if token == 0 {
+                        print(String(format: "%.7f\tplanning", time))
+                    } else if let (_, plan) = self.plans[token] {
+                        let prefix = String(repeating: "  ", count: 0)
+                        print(String(format: "%.7f\t\(prefix)\(plan.selfDescription)", time))
+                    }
+                }
+            } else {
+                let planningTime = self.times[0]!
+                print(String(format: "%.7f\tplanning", planningTime))
+                for token in self.plans.keys.sorted() {
+                    let time = self.times[token]!
+                    let (indent, plan) = self.plans[token]!
+                    let prefix = String(repeating: "  ", count: indent)
+                    print(String(format: "%.7f\t\(prefix)\(plan.selfDescription)", time))
+                }
+            }
+        }
+    }
+}
+
 enum QueryPlanError : Error {
     case invalidChild
     case invalidExpression
@@ -29,6 +131,7 @@ public protocol _QueryPlan: PlanSerializable {
     var properties: [PlanSerializable] { get }
     var isJoinIdentity: Bool { get }
     var isUnionIdentity: Bool { get }
+    var metricsToken: QueryPlanEvaluationMetrics.Token { get }
 }
 
 public extension _QueryPlan {
@@ -43,7 +146,7 @@ public extension _QueryPlan {
 
 public protocol QueryPlan: _QueryPlan {
     var children : [QueryPlan] { get }
-    func evaluate() throws -> AnyIterator<SPARQLResultSolution<Term>>
+    func evaluate(_ metrics: QueryPlanEvaluationMetrics) throws -> AnyIterator<SPARQLResultSolution<Term>>
 }
 
 public protocol NullaryQueryPlan: QueryPlan {}
@@ -97,7 +200,7 @@ public extension QueryPlanSerialization {
 
 public protocol IDQueryPlan: _QueryPlan {
     var children : [IDQueryPlan] { get }
-    func evaluate() throws -> AnyIterator<SPARQLResultSolution<UInt64>>
+    func evaluate(_ metrics: QueryPlanEvaluationMetrics) throws -> AnyIterator<SPARQLResultSolution<UInt64>>
 }
 
 public protocol NullaryIDQueryPlan: IDQueryPlan {}
