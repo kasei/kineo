@@ -1129,8 +1129,13 @@ public struct QueryPlanEvaluator<Q: QuadStoreProtocol>: QueryEvaluatorProtocol {
         
         return AnyIterator(seq.makeIterator())
     }
-    
+
     public func evaluate(query: Query, activeGraph graph: Term? = nil) throws -> QueryResult<AnySequence<SPARQLResultSolution<Term>>, [Triple]> {
+        let (_, results) = try planAndEvaluate(query: query, activeGraph: graph)
+        return results
+    }
+    
+    public func planAndEvaluate(query: Query, activeGraph graph: Term? = nil) throws -> (QueryPlan, QueryResult<AnySequence<SPARQLResultSolution<Term>>, [Triple]>) {
         let rewriter = SPARQLQueryRewriter()
         let q = try rewriter.simplify(query: query)
         
@@ -1165,14 +1170,14 @@ public struct QueryPlanEvaluator<Q: QuadStoreProtocol>: QueryEvaluatorProtocol {
         case .ask:
             let i = seq.makeIterator()
             if let _ = i.next() {
-                return QueryResult.boolean(true)
+                return (plan, QueryResult.boolean(true))
             } else {
-                return QueryResult.boolean(false)
+                return (plan, QueryResult.boolean(false))
             }
         case .select(.star):
-            return QueryResult.bindings(Array(q.inscope), seq)
+            return (plan, QueryResult.bindings(Array(q.inscope), seq))
         case .select(.variables(let vars)):
-            return QueryResult.bindings(vars, seq)
+            return (plan, QueryResult.bindings(vars, seq))
         case .construct(let template):
             var triples = Set<Triple>()
             for r in seq {
@@ -1191,7 +1196,7 @@ public struct QueryPlanEvaluator<Q: QuadStoreProtocol>: QueryEvaluatorProtocol {
                     } catch {}
                 }
             }
-            return QueryResult.triples(Array(triples))
+            return (plan, QueryResult.triples(Array(triples)))
         case .describe(_):
             throw QueryPlanError.unimplemented("DESCRIBE")
         }
