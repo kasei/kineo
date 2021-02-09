@@ -156,11 +156,11 @@ extension Algebra {
             return l.willBindGraph || r.willBindGraph
         case let .union(l, r):
             return l.willBindGraph && r.willBindGraph
-        case let .namedGraph(_, _):
+        case let .namedGraph:
             return false
         case let .minus(l, _):
             return l.willBindGraph
-        case let .project(l, v):
+        case let .project:
             // This might actually bind a graph variable, but we don't have insight into whether the projection will preseve it, so we conservatively assume it won't
             return false
         case .reduced(let l):

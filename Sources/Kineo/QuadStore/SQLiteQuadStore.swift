@@ -1509,7 +1509,7 @@ public struct SQLitePlan: NullaryQueryPlan, QueryPlanSerialization {
 
         let store = self.store
         
-        if true {
+//        if true {
             let (q, columnMapping) = wrapQuery()
             guard let dbh = try? store.db.prepare(q) else {
                 return AnyIterator { return nil }
@@ -1535,32 +1535,32 @@ public struct SQLitePlan: NullaryQueryPlan, QueryPlanSerialization {
                 }
             }
             return AnyIterator(results.makeIterator())
-        } else {
-            // execute the query, and then pull term values from the terms table as separate queries
-            guard let dbh = try? store.db.prepare(query) else {
-                return AnyIterator { return nil }
-            }
-            let projected = self.projected
-            
-            let results = dbh.lazy.compactMap { (row) -> SPARQLResultSolution<Term>? in
-                metrics.resumeEvaluation(token: metricsToken)
-                defer { metrics.endEvaluation(metricsToken) }
-
-                do {
-                    let d = try projected.map({ (name, id) throws -> (String, Term) in
-                        guard let t = store.term(for: row[id]) else {
-                            throw SQLiteQuadStore.SQLiteQuadStoreError.idAccessError
-                        }
-                        return (name, t)
-                    })
-                    let r = SPARQLResultSolution<Term>(bindings: Dictionary(uniqueKeysWithValues: d))
-                    return r
-                } catch {
-                    return nil
-                }
-            }
-            return AnyIterator(results.makeIterator())
-        }
+//        } else {
+//            // execute the query, and then pull term values from the terms table as separate queries
+//            guard let dbh = try? store.db.prepare(query) else {
+//                return AnyIterator { return nil }
+//            }
+//            let projected = self.projected
+//            
+//            let results = dbh.lazy.compactMap { (row) -> SPARQLResultSolution<Term>? in
+//                metrics.resumeEvaluation(token: metricsToken)
+//                defer { metrics.endEvaluation(metricsToken) }
+//
+//                do {
+//                    let d = try projected.map({ (name, id) throws -> (String, Term) in
+//                        guard let t = store.term(for: row[id]) else {
+//                            throw SQLiteQuadStore.SQLiteQuadStoreError.idAccessError
+//                        }
+//                        return (name, t)
+//                    })
+//                    let r = SPARQLResultSolution<Term>(bindings: Dictionary(uniqueKeysWithValues: d))
+//                    return r
+//                } catch {
+//                    return nil
+//                }
+//            }
+//            return AnyIterator(results.makeIterator())
+//        }
     }
 }
 

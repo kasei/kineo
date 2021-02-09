@@ -94,7 +94,6 @@ extension DiomedeQuadStore: PlanningQuadStore {
         default:
             return nil
         }
-        return nil
     }
 }
 

@@ -113,7 +113,7 @@ public struct QueryPlanSimpleCostEstimator: QueryPlanCostEstimator {
                         cost *= 10.0
                     }
                     return QueryPlanSimpleCost(cost: idPlanPriority * cost)
-            } else if let p = plan as? IDPathQueryPlan {
+            } else if let _ = plan as? IDPathQueryPlan {
                 print("TODO: improve cost estimation for path queries")
                 return QueryPlanSimpleCost(cost: idPlanPriority * 20.0)
             }
@@ -134,13 +134,13 @@ public struct QueryPlanSimpleCostEstimator: QueryPlanCostEstimator {
                 return QueryPlanSimpleCost(cost: idPlanPriority * c.cost * log(c.cost))
             } else if let bindJoin = plan as? IDIndexBindQuadPlan {
                 var pattern = bindJoin.pattern
-                let idQuadPlan = IDQuadPlan(
-                    pattern: pattern,
-                    repeatedVariables: [:],
-                    orderVars: [],
-                    store: bindJoin.store,
-                    metricsToken: QueryPlanEvaluationMetrics.silentToken
-                )
+//                let idQuadPlan = IDQuadPlan(
+//                    pattern: pattern,
+//                    repeatedVariables: [:],
+//                    orderVars: [],
+//                    store: bindJoin.store,
+//                    metricsToken: QueryPlanEvaluationMetrics.silentToken
+//                )
                 
                 for (_, path) in bindJoin.bindings {
                     pattern[keyPath: path] = .bound(0)
@@ -154,7 +154,7 @@ public struct QueryPlanSimpleCostEstimator: QueryPlanCostEstimator {
                     metricsToken: QueryPlanEvaluationMetrics.silentToken
                 )
                 
-                let unboundProbeCost = try self.cost(for: idQuadPlan)
+//                let unboundProbeCost = try self.cost(for: idQuadPlan)
                 let probeCost = try self.cost(for: boundIDQuadPlan)
 //                print("bind join costs: \(unboundProbeCost) ; \(probeCost)")
 
