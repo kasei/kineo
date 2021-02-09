@@ -200,6 +200,8 @@ public extension QueryPlanSerialization {
 
 public protocol IDQueryPlan: _QueryPlan {
     var children : [IDQueryPlan] { get }
+    var variables: Set<String> { get }
+    var orderVars: [String] { get }
     func evaluate(_ metrics: QueryPlanEvaluationMetrics) throws -> AnyIterator<SPARQLResultSolution<UInt64>>
 }
 

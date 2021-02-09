@@ -12,14 +12,18 @@ public struct IDQuadPlan: NullaryIDQueryPlan {
     var pattern: IDQuad
     var store: LazyMaterializingQuadStore
     var repeatedVariables: [String : Set<Int>]
+    public var orderVars: [String]
     public var metricsToken: QueryPlanEvaluationMetrics.Token
-    public var selfDescription: String { return "IDQuad(\(pattern))" }
+    public var selfDescription: String { return "IDQuad(\(pattern)) [ordered by \(orderVars)]" }
+    public var variables: Set<String>
     
-    public init(pattern: IDQuad, repeatedVariables: [String : Set<Int>], store: LazyMaterializingQuadStore, metricsToken: QueryPlanEvaluationMetrics.Token) {
+    public init(pattern: IDQuad, repeatedVariables: [String : Set<Int>], orderVars: [String], store: LazyMaterializingQuadStore, metricsToken: QueryPlanEvaluationMetrics.Token) {
         self.pattern = pattern
         self.store = store
+        self.orderVars = orderVars
         self.repeatedVariables = repeatedVariables
         self.metricsToken = metricsToken
+        self.variables = pattern.variables
     }
     
     func idResults(matching pattern: IDQuad) throws -> AnyIterator<SPARQLResultSolution<IDType>> {
@@ -81,17 +85,21 @@ public struct IDIndexBindQuadPlan: UnaryIDQueryPlan { // for each LHS result, re
     public var pattern: IDQuad
     var bindings: [String: WritableKeyPath<IDQuad, IDNode>]
     var store: LazyMaterializingQuadStore
+    public var orderVars: [String]
     var repeatedVariables: [String : Set<Int>]
     public var metricsToken: QueryPlanEvaluationMetrics.Token
-    public var selfDescription: String { return "IDIndexBindQuadPlan(\(pattern))" }
-    
-    public init(child: IDQueryPlan, pattern: IDQuad, bindings: [String: WritableKeyPath<IDQuad, IDNode>], repeatedVariables: [String : Set<Int>], store: LazyMaterializingQuadStore, metricsToken: QueryPlanEvaluationMetrics.Token) {
+    public var selfDescription: String { return "IDIndexBindQuadPlan(\(pattern)) [ordered by \(orderVars)]" }
+    public var variables: Set<String>
+
+    public init(child: IDQueryPlan, pattern: IDQuad, bindings: [String: WritableKeyPath<IDQuad, IDNode>], repeatedVariables: [String : Set<Int>], orderVars: [String], store: LazyMaterializingQuadStore, metricsToken: QueryPlanEvaluationMetrics.Token) {
         self.child = child
         self.pattern = pattern
         self.bindings = bindings
         self.store = store
+        self.orderVars = orderVars
         self.repeatedVariables = repeatedVariables
         self.metricsToken = metricsToken
+        self.variables = pattern.variables.union(child.variables)
     }
     
     func idResults(matching pattern: IDQuad) throws -> AnyIterator<SPARQLResultSolution<IDType>> {
@@ -176,7 +184,19 @@ public struct IDOrderedQuadPlan: NullaryIDQueryPlan {
     var quad: QuadPattern
     var order: [Quad.Position]
     var store: LazyMaterializingQuadStore
+    public var orderVars: [String]
     public var metricsToken: QueryPlanEvaluationMetrics.Token
+    public var variables: Set<String>
+
+    public init(quad: QuadPattern, order: [Quad.Position], store: LazyMaterializingQuadStore, orderVars: [String], metricsToken: QueryPlanEvaluationMetrics.Token) {
+        self.quad = quad
+        self.order = order
+        self.store = store
+        self.orderVars = orderVars
+        self.metricsToken = metricsToken
+        self.variables = quad.variables
+    }
+    
     public var selfDescription: String {
         let orderNames : [String] = order.map {
             switch $0 {
@@ -191,8 +211,9 @@ public struct IDOrderedQuadPlan: NullaryIDQueryPlan {
             }
         }
         let ordering = orderNames.joined(separator: "")
-        return "OrderedIDQuad(\(quad)) [using index \(ordering)]"
+        return "OrderedIDQuad(\(quad)) [using index \(ordering)] [ordered by \(orderVars)]"
     }
+    
     public func evaluate(_ metrics: QueryPlanEvaluationMetrics) throws -> AnyIterator<SPARQLResultSolution<UInt64>> {
         metrics.startEvaluation(metricsToken, self)
         defer { metrics.endEvaluation(metricsToken) }
@@ -206,11 +227,14 @@ public struct IDOrderedQuadPlan: NullaryIDQueryPlan {
 public struct IDNestedLoopJoinPlan: BinaryIDQueryPlan {
     public var lhs: IDQueryPlan
     public var rhs: IDQueryPlan
+    public var orderVars: [String]
     public var metricsToken: QueryPlanEvaluationMetrics.Token
     public var children : [IDQueryPlan] { return [lhs, rhs] }
     public var isJoinIdentity: Bool { return false }
     public var isUnionIdentity: Bool { return false }
-    public var selfDescription: String { return "ID Nested Loop Join" }
+    public var selfDescription: String { return "ID Nested Loop Join [ordered by \(orderVars)]" }
+    public var variables: Set<String> { return lhs.variables.union(rhs.variables) }
+    
     public func evaluate(_ metrics: QueryPlanEvaluationMetrics) throws -> AnyIterator<SPARQLResultSolution<UInt64>> {
         metrics.startEvaluation(metricsToken, self)
         defer { metrics.endEvaluation(metricsToken) }
@@ -232,11 +256,13 @@ public struct IDNestedLoopJoinPlan: BinaryIDQueryPlan {
 public struct IDNestedLoopLeftJoinPlan: BinaryIDQueryPlan {
     public var lhs: IDQueryPlan
     public var rhs: IDQueryPlan
+    public var orderVars: [String]
     public var metricsToken: QueryPlanEvaluationMetrics.Token
     public var children : [IDQueryPlan] { return [lhs, rhs] }
     public var isJoinIdentity: Bool { return false }
     public var isUnionIdentity: Bool { return false }
-    public var selfDescription: String { return "ID Nested Loop Left Join" }
+    public var variables: Set<String> { return lhs.variables.union(rhs.variables) }
+    public var selfDescription: String { return "ID Nested Loop Left Join [ordered by \(orderVars)]" }
     public func evaluate(_ metrics: QueryPlanEvaluationMetrics) throws -> AnyIterator<SPARQLResultSolution<UInt64>> {
         let r = try Array(rhs.evaluate(metrics))
         let l = try rhs.evaluate(metrics)
@@ -261,8 +287,11 @@ public struct IDHashJoinPlan: BinaryIDQueryPlan {
     public var lhs: IDQueryPlan
     public var rhs: IDQueryPlan
     var joinVariables: Set<String>
+    public var orderVars: [String]
     public var metricsToken: QueryPlanEvaluationMetrics.Token
-    public var selfDescription: String { return "ID Hash-Join { \(joinVariables) }" }
+    public var variables: Set<String> { return lhs.variables.union(rhs.variables) }
+    public var selfDescription: String { return "ID Hash-Join { \(joinVariables) } [ordered by \(orderVars)]" }
+
     public func evaluate(_ metrics: QueryPlanEvaluationMetrics) throws -> AnyIterator<SPARQLResultSolution<UInt64>> {
         metrics.startEvaluation(metricsToken, self)
         defer { metrics.endEvaluation(metricsToken) }
@@ -277,16 +306,19 @@ public struct IDHashJoinPlan: BinaryIDQueryPlan {
 public struct IDMergeJoinPlan: BinaryIDQueryPlan {
     public var lhs: IDQueryPlan
     public var rhs: IDQueryPlan
-    public var variables: [String]
+    public var mergeVariables: [String]
+    public var orderVars: [String]
     public var metricsToken: QueryPlanEvaluationMetrics.Token
-    public var selfDescription: String { return "ID Merge-Join { \(variables) }" }
+    public var variables: Set<String> { return lhs.variables.union(rhs.variables) }
+    public var selfDescription: String { return "ID Merge-Join { \(mergeVariables) } [ordered by \(orderVars)]" }
+    
     public func evaluate(_ metrics: QueryPlanEvaluationMetrics) throws -> AnyIterator<SPARQLResultSolution<UInt64>> {
         metrics.startEvaluation(metricsToken, self)
         defer { metrics.endEvaluation(metricsToken) }
 
         let l = try lhs.evaluate(metrics)
         let r = try rhs.evaluate(metrics)
-        return mergeJoin(l, r, variables: self.variables)
+        return mergeJoin(l, r, variables: self.mergeVariables)
     }
 }
 
@@ -294,8 +326,11 @@ public struct IDHashLeftJoinPlan: BinaryIDQueryPlan {
     public var lhs: IDQueryPlan
     public var rhs: IDQueryPlan
     var joinVariables: Set<String>
+    public var orderVars: [String]
     public var metricsToken: QueryPlanEvaluationMetrics.Token
-    public var selfDescription: String { return "ID Hash Left-Join { \(joinVariables) }" }
+    public var variables: Set<String> { return lhs.variables.union(rhs.variables) }
+    public var selfDescription: String { return "ID Hash Left-Join { \(joinVariables) } [ordered by \(orderVars)]" }
+    
     public func evaluate(_ metrics: QueryPlanEvaluationMetrics) throws -> AnyIterator<SPARQLResultSolution<UInt64>> {
         metrics.startEvaluation(metricsToken, self)
         defer { metrics.endEvaluation(metricsToken) }
@@ -311,8 +346,11 @@ public struct IDHashAntiJoinPlan: BinaryIDQueryPlan {
     public var lhs: IDQueryPlan
     public var rhs: IDQueryPlan
     var joinVariables: Set<String>
+    public var orderVars: [String]
     public var metricsToken: QueryPlanEvaluationMetrics.Token
-    public var selfDescription: String { return "ID Hash Anti-Join { \(joinVariables) }" }
+    public var variables: Set<String> { return lhs.variables }
+    public var selfDescription: String { return "ID Hash Anti-Join { \(joinVariables) } [ordered by \(orderVars)]" }
+    
     public func evaluate(_ metrics: QueryPlanEvaluationMetrics) throws -> AnyIterator<SPARQLResultSolution<UInt64>> {
         metrics.startEvaluation(metricsToken, self)
         defer { metrics.endEvaluation(metricsToken) }
@@ -327,8 +365,11 @@ public struct IDHashAntiJoinPlan: BinaryIDQueryPlan {
 public struct IDDiffPlan: BinaryIDQueryPlan {
     public var lhs: IDQueryPlan
     public var rhs: IDQueryPlan
+    public var orderVars: [String]
     public var metricsToken: QueryPlanEvaluationMetrics.Token
-    public var selfDescription: String { return "ID Diff" }
+    public var variables: Set<String> { return lhs.variables }
+    public var selfDescription: String { return "ID Diff [ordered by \(orderVars)]" }
+    
     public func evaluate(_ metrics: QueryPlanEvaluationMetrics) throws -> AnyIterator<SPARQLResultSolution<UInt64>> {
         metrics.startEvaluation(metricsToken, self)
         defer { metrics.endEvaluation(metricsToken) }
@@ -360,11 +401,14 @@ public struct IDDiffPlan: BinaryIDQueryPlan {
 public struct IDUnionPlan: BinaryIDQueryPlan {
     public var lhs: IDQueryPlan
     public var rhs: IDQueryPlan
+    public var orderVars: [String]
     public var metricsToken: QueryPlanEvaluationMetrics.Token
-    public var selfDescription: String { return "ID Union" }
-    public init(lhs: IDQueryPlan, rhs: IDQueryPlan, metricsToken: QueryPlanEvaluationMetrics.Token) {
+    public var variables: Set<String> { return lhs.variables.union(rhs.variables) }
+    public var selfDescription: String { return "ID Union [ordered by \(orderVars)]" }
+    public init(lhs: IDQueryPlan, rhs: IDQueryPlan, orderVars: [String], metricsToken: QueryPlanEvaluationMetrics.Token) {
         self.lhs = lhs
         self.rhs = rhs
+        self.orderVars = orderVars
         self.metricsToken = metricsToken
     }
     public func evaluate(_ metrics: QueryPlanEvaluationMetrics) throws -> AnyIterator<SPARQLResultSolution<UInt64>> {
@@ -394,8 +438,10 @@ public struct IDUnionPlan: BinaryIDQueryPlan {
 public struct IDMinusPlan: BinaryIDQueryPlan {
     public var lhs: IDQueryPlan
     public var rhs: IDQueryPlan
+    public var orderVars: [String]
     public var metricsToken: QueryPlanEvaluationMetrics.Token
-    public var selfDescription: String { return "ID Minus" }
+    public var selfDescription: String { return "ID Minus [ordered by \(orderVars)]" }
+    public var variables: Set<String> { return lhs.variables }
     public func evaluate(_ metrics: QueryPlanEvaluationMetrics) throws -> AnyIterator<SPARQLResultSolution<UInt64>> {
         metrics.startEvaluation(metricsToken, self)
         defer { metrics.endEvaluation(metricsToken) }
@@ -429,14 +475,16 @@ public struct IDMinusPlan: BinaryIDQueryPlan {
 
 public struct IDProjectPlan: UnaryIDQueryPlan {
     public var child: IDQueryPlan
-    var variables: Set<String>
+    public var variables: Set<String>
+    public var orderVars: [String]
     public var metricsToken: QueryPlanEvaluationMetrics.Token
-    public init(child: IDQueryPlan, variables: Set<String>, metricsToken: QueryPlanEvaluationMetrics.Token) {
+    public init(child: IDQueryPlan, variables: Set<String>, orderVars: [String], metricsToken: QueryPlanEvaluationMetrics.Token) {
         self.child = child
+        self.orderVars = orderVars
         self.variables = variables
         self.metricsToken = metricsToken
     }
-    public var selfDescription: String { return "ID Project { \(variables.sorted().joined(separator: ", ")) }" }
+    public var selfDescription: String { return "ID Project { \(variables.sorted().joined(separator: ", ")) } [ordered by \(orderVars)]" }
     public func evaluate(_ metrics: QueryPlanEvaluationMetrics) throws -> AnyIterator<SPARQLResultSolution<UInt64>> {
         metrics.startEvaluation(metricsToken, self)
         defer { metrics.endEvaluation(metricsToken) }
@@ -450,8 +498,10 @@ public struct IDProjectPlan: UnaryIDQueryPlan {
 public struct IDLimitPlan: UnaryIDQueryPlan {
     public var child: IDQueryPlan
     var limit: Int
+    public var orderVars: [String]
     public var metricsToken: QueryPlanEvaluationMetrics.Token
-    public var selfDescription: String { return "ID Limit { \(limit) }" }
+    public var variables: Set<String> { return child.variables }
+    public var selfDescription: String { return "ID Limit { \(limit) } [ordered by \(orderVars)]" }
     public func evaluate(_ metrics: QueryPlanEvaluationMetrics) throws -> AnyIterator<SPARQLResultSolution<UInt64>> {
         metrics.startEvaluation(metricsToken, self)
         defer { metrics.endEvaluation(metricsToken) }
@@ -464,8 +514,10 @@ public struct IDLimitPlan: UnaryIDQueryPlan {
 public struct IDOffsetPlan: UnaryIDQueryPlan {
     public var child: IDQueryPlan
     var offset: Int
+    public var orderVars: [String]
     public var metricsToken: QueryPlanEvaluationMetrics.Token
-    public var selfDescription: String { return "ID Offset { \(offset) }" }
+    public var variables: Set<String> { return child.variables }
+    public var selfDescription: String { return "ID Offset { \(offset) } [ordered by \(orderVars)]" }
     public func evaluate(_ metrics: QueryPlanEvaluationMetrics) throws -> AnyIterator<SPARQLResultSolution<UInt64>> {
         metrics.startEvaluation(metricsToken, self)
         defer { metrics.endEvaluation(metricsToken) }
@@ -477,8 +529,10 @@ public struct IDOffsetPlan: UnaryIDQueryPlan {
 
 public struct IDReducedPlan: UnaryIDQueryPlan {
     public var child: IDQueryPlan
+    public var orderVars: [String]
     public var metricsToken: QueryPlanEvaluationMetrics.Token
-    public var selfDescription: String { return "ID Distinct" }
+    public var variables: Set<String> { return child.variables }
+    public var selfDescription: String { return "ID Distinct [ordered by \(orderVars)]" }
     public func evaluate(_ metrics: QueryPlanEvaluationMetrics) throws -> AnyIterator<SPARQLResultSolution<UInt64>> {
         metrics.startEvaluation(metricsToken, self)
         defer { metrics.endEvaluation(metricsToken) }
@@ -506,8 +560,10 @@ public struct IDSortPlan: UnaryIDQueryPlan {
     
     public var child: IDQueryPlan
     var orderVariables: [String]
+    public var orderVars: [String] { return orderVariables }
     public var metricsToken: QueryPlanEvaluationMetrics.Token
-    public var selfDescription: String { return "ID Sort { \(orderVariables) }" }
+    public var variables: Set<String> { return child.variables }
+    public var selfDescription: String { return "ID Sort { \(orderVariables) } [ordered by \(orderVars)]" }
     public func evaluate(_ metrics: QueryPlanEvaluationMetrics) throws -> AnyIterator<SPARQLResultSolution<UInt64>> {
         metrics.startEvaluation(metricsToken, self)
         defer { metrics.endEvaluation(metricsToken) }
@@ -544,8 +600,11 @@ public struct IDSortPlan: UnaryIDQueryPlan {
 
 public struct IDUniquePlan: UnaryIDQueryPlan {
     public var child: IDQueryPlan
+    public var orderVars: [String]
     public var metricsToken: QueryPlanEvaluationMetrics.Token
-    public var selfDescription: String { return "ID Unique" }
+    public var variables: Set<String> { return child.variables }
+    public var selfDescription: String { return "ID Unique [ordered by \(orderVars)]" }
+    
     public func evaluate(_ metrics: QueryPlanEvaluationMetrics) throws -> AnyIterator<SPARQLResultSolution<UInt64>> {
         metrics.startEvaluation(metricsToken, self)
         defer { metrics.endEvaluation(metricsToken) }
@@ -668,6 +727,25 @@ public struct IDQuad: Hashable, Equatable, CustomStringConvertible, Sequence {
         }
         return vars
     }
+
+    func variablePositions() -> [String: Set<Int>] {
+        var variableUsage = [String: Set<Int>]()
+        for (i, n) in self.enumerated() {
+            switch n {
+            case .bound(_):
+                break
+            case .variable(let name, binding: _):
+                variableUsage[name, default: []].insert(i)
+            }
+        }
+        return variableUsage
+    }
+
+    func repeatedVariables() -> [String : Set<Int>] {
+        let variableUsage = self.variablePositions()
+        let dups = variableUsage.filter { (u) -> Bool in u.value.count > 1 }
+        return dups
+    }
 }
 
 public protocol IDPathPlan: IDPlanSerializable {
@@ -682,10 +760,20 @@ public struct IDPathQueryPlan: NullaryIDQueryPlan {
     var object: IDNode
     var graph: IDNode
     public var metricsToken: QueryPlanEvaluationMetrics.Token
-    public var selfDescription: String { return "ID Path { \(subject) ---> \(object) in graph \(graph) }" }
+    public var variables: Set<String> {
+        var vars = Set<String>()
+        for v in [subject, object, graph] {
+            if case .variable(let name, _) = v {
+                vars.insert(name)
+            }
+        }
+        return vars
+    }
+    public var selfDescription: String { return "ID Path { \(subject) ---> \(object) in graph \(graph) } [ordered by \(orderVars)]" }
     public var properties: [IDPlanSerializable] { return [path] }
     public var isJoinIdentity: Bool { return false }
     public var isUnionIdentity: Bool { return false }
+    public var orderVars: [String] { return [] } // TODO: improve orderVars
 
     public func evaluate(_ metrics: QueryPlanEvaluationMetrics) throws -> AnyIterator<SPARQLResultSolution<UInt64>> {
         metrics.startEvaluation(metricsToken, self)
@@ -822,7 +910,7 @@ public struct IDLinkPathPlan : IDPathPlan {
     public func evaluate(from subject: IDNode, to object: IDNode, in graph: IDNode, metrics: QueryPlanEvaluationMetrics) throws -> AnyIterator<SPARQLResultSolution<UInt64>> {
 //        print("eval(linkPath[\(subject) \(predicate) \(object) \(graph)])")
         let qp = IDQuad(subject: subject, predicate: .bound(predicate), object: object, graph: graph)
-        let plan = IDQuadPlan(pattern: qp, repeatedVariables: [:], store: store, metricsToken: metricsToken)
+        let plan = IDQuadPlan(pattern: qp, repeatedVariables: [:], orderVars: [], store: store, metricsToken: metricsToken)
         return try plan.evaluate(metrics)
     }
     
@@ -836,7 +924,7 @@ public struct IDLinkPathPlan : IDPathPlan {
         )
 //        print("eval(linkPath[from: \(qp)])")
 
-        let plan = IDQuadPlan(pattern: qp, repeatedVariables: [:], store: store, metricsToken: metricsToken)
+        let plan = IDQuadPlan(pattern: qp, repeatedVariables: [:], orderVars: [], store: store, metricsToken: metricsToken)
         let i = try plan.evaluate(metrics).lazy.compactMap {
             return $0[object]
         }
@@ -1052,19 +1140,19 @@ public struct IDStarPathPlan : IDPathPlan {
         }
         
         var current = branches.popLast()
-        print("*** first path plan branch")
+//        print("*** first path plan branch")
         return AnyIterator {
             while true {
                 if let current = current {
                     if let element = current.next() {
-                        print("-> returning path result")
+//                        print("-> returning path result")
                         return element
                     }
                 }
                 
                 guard !branches.isEmpty else { return nil }
                 current = branches.popLast()
-                print("*** next plan branch")
+//                print("*** next plan branch")
             }
         }
     }

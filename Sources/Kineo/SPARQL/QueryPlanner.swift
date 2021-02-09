@@ -150,11 +150,23 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
             if let p = plan.idPlan as? IDProjectPlan {
                 let child = p.child
                 let vars = p.variables.intersection(variables)
-                let proj = IDProjectPlan(child: child, variables: vars, metricsToken: metrics.getOperatorToken())
+                var orderVars = [String]()
+                for v in child.orderVars {
+                    if vars.contains(v) {
+                        orderVars.append(v)
+                    }
+                }
+                let proj = IDProjectPlan(child: child, variables: vars, orderVars: orderVars, metricsToken: metrics.getOperatorToken())
                 return MaterializeTermsPlan(idPlan: proj, store: store, verbose: self.verbose, metricsToken: metrics.getOperatorToken())
             }
 
-            let proj = IDProjectPlan(child: plan.idPlan, variables: variables, metricsToken: metrics.getOperatorToken())
+            var orderVars = [String]()
+            for v in plan.idPlan.orderVars {
+                if variables.contains(v) {
+                    orderVars.append(v)
+                }
+            }
+            let proj = IDProjectPlan(child: plan.idPlan, variables: variables, orderVars: orderVars, metricsToken: metrics.getOperatorToken())
             return MaterializeTermsPlan(idPlan: proj, store: store, verbose: self.verbose, metricsToken: metrics.getOperatorToken())
         }
         
@@ -282,7 +294,7 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
         //        if verbose {
         //            warn("QueryPlanner plan: " + p.serialize(depth: 0))
         //        }
-        return try plans.sorted(by: { costEstimator.cheaperThan(lhs: $0, rhs: $1) }).map {
+        return try plans.sorted(by: { costEstimator.plan($0, isCheaperThan: $1) }).map {
             try wrap(plan: $0, from: algebra, for: query)
         }
     }
@@ -387,7 +399,7 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
     internal func candidatePlans<E: QueryPlanCostEstimator>(_ plans: [QueryPlan], estimator: E) -> [QueryPlan] {
         if plans.count > self.maxInFlightPlans {
             let sorted = plans.sorted { (lhs, rhs) -> Bool in
-                return estimator.cheaperThan(lhs: lhs, rhs: rhs)
+                return estimator.plan(lhs, isCheaperThan: rhs)
             }
             return Array(sorted.prefix(self.maxInFlightPlans))
         } else {
@@ -396,7 +408,7 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
     }
     
     private func bestPlan<E: QueryPlanCostEstimator>(_ plans: [QueryPlan], estimator: E) throws -> QueryPlan {
-        guard let p = plans.min(by: { estimator.cheaperThan(lhs: $0, rhs: $1) }) else {
+        guard let p = plans.min(by: { estimator.plan($0, isCheaperThan: $1) }) else {
             throw QueryPlannerError.noPlanAvailable
         }
         return p
@@ -410,11 +422,12 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
             let r = rhs.idPlan
 
             var idplans = [IDQueryPlan]()
-            idplans.append(IDNestedLoopJoinPlan(lhs: l, rhs: r, metricsToken: metrics.getOperatorToken()))
-            idplans.append(IDNestedLoopJoinPlan(lhs: r, rhs: l, metricsToken: metrics.getOperatorToken()))
+            idplans.append(IDNestedLoopJoinPlan(lhs: l, rhs: r, orderVars: l.orderVars, metricsToken: metrics.getOperatorToken()))
+            idplans.append(IDNestedLoopJoinPlan(lhs: r, rhs: l, orderVars: r.orderVars, metricsToken: metrics.getOperatorToken()))
             if !i.isEmpty {
-                idplans.append(IDHashJoinPlan(lhs: l, rhs: r, joinVariables: i, metricsToken: metrics.getOperatorToken()))
-                idplans.append(IDHashJoinPlan(lhs: r, rhs: l, joinVariables: i, metricsToken: metrics.getOperatorToken()))
+                // TODO: improve orderVars
+                idplans.append(IDHashJoinPlan(lhs: l, rhs: r, joinVariables: i, orderVars: [], metricsToken: metrics.getOperatorToken()))
+                idplans.append(IDHashJoinPlan(lhs: r, rhs: l, joinVariables: i, orderVars: [], metricsToken: metrics.getOperatorToken()))
             }
             plans.append(contentsOf: idplans.map {
                 MaterializeTermsPlan(idPlan: $0, store: store, verbose: verbose, metricsToken: metrics.getOperatorToken())
@@ -484,13 +497,34 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
                     for r in rplans {
                         if let lhs = l as? MaterializeTermsPlan, let rhs = r as? MaterializeTermsPlan {
                             if !i.isEmpty {
-                                let lhjoin = IDHashLeftJoinPlan(lhs: lhs.idPlan, rhs: rhs.idPlan, joinVariables: i, metricsToken: metrics.getOperatorToken())
+                                let lhjoin = IDHashLeftJoinPlan(
+                                    lhs: lhs.idPlan,
+                                    rhs: rhs.idPlan,
+                                    joinVariables: i,
+                                    orderVars: lhs.idPlan.orderVars,
+                                    metricsToken: metrics.getOperatorToken()
+                                )
                                 plans.append(MaterializeTermsPlan(idPlan: lhjoin, store: store, verbose: verbose, metricsToken: metrics.getOperatorToken()))
                             }
                             
-                            let lnljoin = IDNestedLoopJoinPlan(lhs: lhs.idPlan, rhs: rhs.idPlan, metricsToken: metrics.getOperatorToken())
-                            let diff : IDQueryPlan = IDDiffPlan(lhs: lhs.idPlan, rhs: rhs.idPlan, metricsToken: metrics.getOperatorToken())
-                            let union = IDUnionPlan(lhs: lnljoin, rhs: diff, metricsToken: metrics.getOperatorToken())
+                            let lnljoin = IDNestedLoopJoinPlan(
+                                lhs: lhs.idPlan,
+                                rhs: rhs.idPlan,
+                                orderVars: lhs.idPlan.orderVars,
+                                metricsToken: metrics.getOperatorToken()
+                            )
+                            let diff : IDQueryPlan = IDDiffPlan(
+                                lhs: lhs.idPlan,
+                                rhs: rhs.idPlan,
+                                orderVars: lhs.idPlan.orderVars,
+                                metricsToken: metrics.getOperatorToken()
+                            )
+                            let union = IDUnionPlan(
+                                lhs: lnljoin,
+                                rhs: diff,
+                                orderVars: lnljoin.orderVars.sharedPrefix(with: diff.orderVars),
+                                metricsToken: metrics.getOperatorToken()
+                            )
                             plans.append(MaterializeTermsPlan(idPlan: union, store: store, verbose: verbose, metricsToken: metrics.getOperatorToken()))
                         } else {
                             for fij in fijplans {
@@ -552,7 +586,22 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
             case let (.some(offset), .some(limit)):
                 return plans.map { (child) -> QueryPlan in
                     if let store = self._lazyStore(), let c = child as? MaterializeTermsPlan {
-                        return MaterializeTermsPlan(idPlan: IDLimitPlan(child: IDOffsetPlan(child: c.idPlan, offset: offset, metricsToken: metrics.getOperatorToken()), limit: limit, metricsToken: metrics.getOperatorToken()), store: store, verbose: verbose, metricsToken: metrics.getOperatorToken())
+                        return MaterializeTermsPlan(
+                            idPlan: IDLimitPlan(
+                                child: IDOffsetPlan(
+                                    child: c.idPlan,
+                                    offset: offset,
+                                    orderVars: c.idPlan.orderVars,
+                                    metricsToken: metrics.getOperatorToken()
+                                ),
+                                limit: limit,
+                                orderVars: c.idPlan.orderVars,
+                                metricsToken: metrics.getOperatorToken()
+                            ),
+                            store: store,
+                            verbose: verbose,
+                            metricsToken: metrics.getOperatorToken()
+                        )
                     } else {
                         let offset = OffsetPlan(child: child, offset: offset, metricsToken: metrics.getOperatorToken())
                         return LimitPlan(child: offset, limit: limit, metricsToken: metrics.getOperatorToken())
@@ -561,7 +610,17 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
             case (.some(let offset), _):
                 return plans.map { (child) -> QueryPlan in
                     if let store = self._lazyStore(), let c = child as? MaterializeTermsPlan {
-                        return MaterializeTermsPlan(idPlan: IDOffsetPlan(child: c.idPlan, offset: offset, metricsToken: metrics.getOperatorToken()), store: store, verbose: verbose, metricsToken: metrics.getOperatorToken())
+                        return MaterializeTermsPlan(
+                            idPlan: IDOffsetPlan(
+                                child: c.idPlan,
+                                offset: offset,
+                                orderVars: c.idPlan.orderVars,
+                                metricsToken: metrics.getOperatorToken()
+                            ),
+                            store: store,
+                            verbose: verbose,
+                            metricsToken: metrics.getOperatorToken()
+                        )
                     } else {
                         return OffsetPlan(child: child, offset: offset, metricsToken: metrics.getOperatorToken())
                     }
@@ -569,7 +628,17 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
             case (_, .some(let limit)):
                 return plans.map { (child) -> QueryPlan in
                     if let store = self._lazyStore(), let c = child as? MaterializeTermsPlan {
-                        return MaterializeTermsPlan(idPlan: IDLimitPlan(child: c.idPlan, limit: limit, metricsToken: metrics.getOperatorToken()), store: store, verbose: verbose, metricsToken: metrics.getOperatorToken())
+                        return MaterializeTermsPlan(
+                            idPlan: IDLimitPlan(
+                                child: c.idPlan,
+                                limit: limit,
+                                orderVars: c.idPlan.orderVars,
+                                metricsToken: metrics.getOperatorToken()
+                            ),
+                            store: store,
+                            verbose: verbose,
+                            metricsToken: metrics.getOperatorToken()
+                        )
                     } else {
                         return LimitPlan(child: child, limit: limit, metricsToken: metrics.getOperatorToken())
                     }
@@ -678,9 +747,17 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
                 var plans = [QueryPlan]()
                 if let store = _lazyStore(), let plan = plan as? MaterializeTermsPlan {
                     // TODO: check if the data is already fully sorted
-                    let uniq1 = IDUniquePlan(child: plan.idPlan, metricsToken: metrics.getOperatorToken()) // this should be relatively cheap, but might save a lot of work in the IDSortPlan that happens next
+                    let uniq1 = IDUniquePlan(
+                        child: plan.idPlan,
+                        orderVars: plan.idPlan.orderVars,
+                        metricsToken: metrics.getOperatorToken()
+                    ) // this should be relatively cheap, but might save a lot of work in the IDSortPlan that happens next
                     let ordered = IDSortPlan(child: uniq1, orderVariables: Array(child.inscope), metricsToken: metrics.getOperatorToken())
-                    let uniq2 = IDUniquePlan(child: ordered, metricsToken: metrics.getOperatorToken())
+                    let uniq2 = IDUniquePlan(
+                        child: ordered,
+                        orderVars: plan.idPlan.orderVars,
+                        metricsToken: metrics.getOperatorToken()
+                    )
                     plans.append(MaterializeTermsPlan(idPlan: uniq2, store: store, verbose: self.verbose, metricsToken: metrics.getOperatorToken()))
                 }
                 plans.append(DistinctPlan(child: plan, metricsToken: metrics.getOperatorToken()))
@@ -691,7 +768,11 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
             let plans = try plan(algebra: child, activeGraph: activeGraph, estimator: estimator)
             return plans.map { (plan) -> QueryPlan in
                 if let store = _lazyStore(), let plan = plan as? MaterializeTermsPlan {
-                    let uniq = IDUniquePlan(child: plan.idPlan, metricsToken: metrics.getOperatorToken())
+                    let uniq = IDUniquePlan(
+                        child: plan.idPlan,
+                        orderVars: plan.idPlan.orderVars,
+                        metricsToken: metrics.getOperatorToken()
+                    )
                     return MaterializeTermsPlan(idPlan: uniq, store: store, verbose: self.verbose, metricsToken: metrics.getOperatorToken())
                 }
                 return ReducedPlan(child: plan, metricsToken: metrics.getOperatorToken())
@@ -712,10 +793,21 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
                         if !ni.isEmpty {
                             // there is an intersection of necessarily-bound variables in the two branches,
                             // so we can use an anti-join to produce the results
-                            let hplan = IDHashAntiJoinPlan(lhs: lhs.idPlan, rhs: rhs.idPlan, joinVariables: i, metricsToken: metrics.getOperatorToken())
+                            let hplan = IDHashAntiJoinPlan(
+                                lhs: lhs.idPlan,
+                                rhs: rhs.idPlan,
+                                joinVariables: i,
+                                orderVars: lhs.idPlan.orderVars,
+                                metricsToken: metrics.getOperatorToken()
+                            )
                             plans.append(MaterializeTermsPlan(idPlan: hplan, store: store, verbose: verbose, metricsToken: metrics.getOperatorToken()))
                         } else {
-                            let mplan = IDMinusPlan(lhs: lhs.idPlan, rhs: rhs.idPlan, metricsToken: metrics.getOperatorToken())
+                            let mplan = IDMinusPlan(
+                                lhs: lhs.idPlan,
+                                rhs: rhs.idPlan,
+                                orderVars: lhs.idPlan.orderVars,
+                                metricsToken: metrics.getOperatorToken()
+                            )
                             plans.append(MaterializeTermsPlan(idPlan: mplan, store: store, verbose: verbose, metricsToken: metrics.getOperatorToken()))
                         }
                     }
@@ -794,7 +886,13 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
                 let rv = quad.repeatedVariables()
                 do {
                     let idquad = try quad.idquad(for: store)
-                    let idplan = IDQuadPlan(pattern: idquad, repeatedVariables: rv, store: store, metricsToken: metrics.getOperatorToken())
+                    let idplan = IDQuadPlan(
+                        pattern: idquad,
+                        repeatedVariables: rv,
+                        orderVars: [],
+                        store: store,
+                        metricsToken: metrics.getOperatorToken()
+                    )
                     plans.append(MaterializeTermsPlan(idPlan: idplan, store: store, verbose: verbose, metricsToken: metrics.getOperatorToken()))
                 } catch QueryPlannerError.termNotFound {
                     plans.append(TablePlan.unionIdentity)

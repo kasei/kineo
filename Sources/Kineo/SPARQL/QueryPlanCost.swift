@@ -7,6 +7,7 @@
 
 import Foundation
 import SPARQLSyntax
+import IDPPlanner
 
 public enum QueryPlanCostError: Error {
     case unrecognizedPlan(QueryPlan)
@@ -14,16 +15,16 @@ public enum QueryPlanCostError: Error {
 
 public protocol QueryPlanCostEstimator {
     associatedtype QueryPlanCost
-    func cheaperThan(lhs: QueryPlanCost, rhs: QueryPlanCost) -> Bool
+    func cost(_ cost: QueryPlanCost, isCheaperThan other: QueryPlanCost) -> Bool
     func cost(for plan: QueryPlan) throws -> QueryPlanCost
 }
 
 public extension QueryPlanCostEstimator {
-    func cheaperThan(lhs: QueryPlan, rhs: QueryPlan) -> Bool {
+    func plan(_ lhs: QueryPlan, isCheaperThan rhs: QueryPlan) -> Bool {
         do {
             let lcost = try cost(for: lhs)
             let rcost = try cost(for: rhs)
-            return cheaperThan(lhs: lcost, rhs: rcost)
+            return cost(lcost, isCheaperThan: rcost)
         } catch let e {
             print("*** Failed to compute cost for query plans: \(e)")
             return false
@@ -39,6 +40,14 @@ extension Node {
             return false
         case .variable:
             return true
+        }
+    }
+    var variableName: String? {
+        switch self {
+        case .bound:
+            return nil
+        case .variable(let v, _):
+            return v
         }
     }
 }
@@ -66,7 +75,7 @@ public struct QueryPlanSimpleCostEstimator: QueryPlanCostEstimator {
         }
     }
     
-    public func cheaperThan(lhs: QueryPlanSimpleCost, rhs: QueryPlanSimpleCost) -> Bool {
+    public func cost(_ lhs: QueryPlanSimpleCost, isCheaperThan rhs: QueryPlanSimpleCost) -> Bool {
         return lhs < rhs
     }
 
@@ -125,11 +134,26 @@ public struct QueryPlanSimpleCostEstimator: QueryPlanCostEstimator {
                 return QueryPlanSimpleCost(cost: idPlanPriority * c.cost * log(c.cost))
             } else if let bindJoin = plan as? IDIndexBindQuadPlan {
                 var pattern = bindJoin.pattern
-                let idQuadPlan = IDQuadPlan(pattern: pattern, repeatedVariables: [:], store: bindJoin.store, metricsToken: QueryPlanEvaluationMetrics.silentToken)
+                let idQuadPlan = IDQuadPlan(
+                    pattern: pattern,
+                    repeatedVariables: [:],
+                    orderVars: [],
+                    store: bindJoin.store,
+                    metricsToken: QueryPlanEvaluationMetrics.silentToken
+                )
+                
                 for (_, path) in bindJoin.bindings {
                     pattern[keyPath: path] = .bound(0)
                 }
-                let boundIDQuadPlan = IDQuadPlan(pattern: pattern, repeatedVariables: [:], store: bindJoin.store, metricsToken: QueryPlanEvaluationMetrics.silentToken)
+                
+                let boundIDQuadPlan = IDQuadPlan(
+                    pattern: pattern,
+                    repeatedVariables: [:],
+                    orderVars: [],
+                    store: bindJoin.store,
+                    metricsToken: QueryPlanEvaluationMetrics.silentToken
+                )
+                
                 let unboundProbeCost = try self.cost(for: idQuadPlan)
                 let probeCost = try self.cost(for: boundIDQuadPlan)
 //                print("bind join costs: \(unboundProbeCost) ; \(probeCost)")

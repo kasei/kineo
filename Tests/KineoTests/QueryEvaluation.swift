@@ -1450,7 +1450,6 @@ extension QueryEvaluationTests {
 
         guard var p = SPARQLParser(data: data) else { fatalError("Failed to construct SPARQL parser") }
         let query = try p.parseQuery()
-        print(query.algebra.serialize(depth: 0))
         let results = try Array(eval(query: query))
         XCTAssertEqual(results.count, 3)
         let objects = results.map { $0["label"]!.value }
