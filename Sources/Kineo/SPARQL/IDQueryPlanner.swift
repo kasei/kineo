@@ -43,7 +43,7 @@ struct IDPlanProvider<E: QueryPlanCostEstimator>: IDPPlanProvider {
         self.store = store
         self.costEstimator = IDPCostEstimatorAdaptor(store: store, estimator: estimator)
         self.metrics = metrics
-        self.planCountThreshold = 4
+        self.planCountThreshold = 8
     }
     
     func accessPlans(for quad: Relation) throws -> [IDQueryPlan] {
@@ -74,6 +74,7 @@ struct IDPlanProvider<E: QueryPlanCostEstimator>: IDPPlanProvider {
                 if !sharedOrder.isEmpty {
                     let mergeJoinplan = IDMergeJoinPlan(lhs: l, rhs: r, mergeVariables: sharedOrder, orderVars: sharedOrder, metricsToken: metrics.getOperatorToken())
                     plans.append(mergeJoinplan)
+                    continue // always prefer a merge plan
                 }
                 
                 if !availableJoinVariables.isEmpty {
@@ -95,6 +96,7 @@ struct IDPlanProvider<E: QueryPlanCostEstimator>: IDPPlanProvider {
                             metricsToken: metrics.getOperatorToken()
                         )
                     )
+                    continue // prefer hash joins to bind joins and nested loop joins
                 }
                 
                 for (l, r) in [(l, r), (r, l)] {
@@ -132,9 +134,16 @@ struct IDPlanProvider<E: QueryPlanCostEstimator>: IDPPlanProvider {
                 }
                 
                 plans.append(IDNestedLoopJoinPlan(lhs: l, rhs: r, orderVars: l.orderVars, metricsToken: metrics.getOperatorToken()))
-                plans.append(IDNestedLoopJoinPlan(lhs: r, rhs: l, orderVars: r.orderVars, metricsToken: metrics.getOperatorToken()))
             }
         }
+//        print("======================================================================")
+//        for plan in plans {
+//            if let cost = try? self.costEstimator.cost(for: plan) {
+//                try print("[\(cost)] \(plan.serialize(depth: 0))")
+//            }
+////            try print("[\(self.costEstimator.cost(for: plan))] \(plan.serialize(depth: 0))")
+//        }
+//        print("======================================================================")
         return plans
     }
     
@@ -168,10 +177,16 @@ extension QueryPlanner {
     func idPlans<E: QueryPlanCostEstimator>(for patterns: [QuadPattern], in store: LazyMaterializingQuadStore, estimator: E) throws -> [MaterializeTermsPlan] {
         
         let provider = IDPlanProvider<E>(store: store, estimator: estimator, metrics: metrics)
-        let idpplanner = IDPPlanner(provider, k: 6, blockSize: .bestRow)
+        let idpplanner = IDPPlanner(provider, k: 4, blockSize: .bestRow)
         let idpplans = try idpplanner.join(patterns)
 
         let matplans = idpplans.map { MaterializeTermsPlan(idPlan: $0, store: store, verbose: false, metricsToken: QueryPlanEvaluationMetrics.silentToken) }
-        return matplans
+//        for plan in matplans {
+//            if let cost = try? estimator.cost(for: plan) {
+//                print("GENERATED JOIN: [\(cost)] \(plan.serialize(depth: 0))")
+//            }
+//        }
+//        print("======================================================================")
+        return Array(matplans.prefix(2))
     }
 }

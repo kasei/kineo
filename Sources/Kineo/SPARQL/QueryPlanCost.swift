@@ -113,11 +113,21 @@ public struct QueryPlanSimpleCostEstimator: QueryPlanCostEstimator {
                         cost *= 10.0
                     }
                     return QueryPlanSimpleCost(cost: idPlanPriority * cost)
-            } else if let _ = plan as? IDPathQueryPlan {
-                print("TODO: improve cost estimation for path queries")
-                return QueryPlanSimpleCost(cost: idPlanPriority * 20.0)
+            } else if let p = plan as? IDPathQueryPlan {
+                var cost = boundQuadCost
+                if p.subject.isVariable {
+                    cost *= 7.5
+                }
+                if p.object.isVariable {
+                    cost *= 5.0
+                }
+                if p.graph.isVariable {
+                    cost *= 10.0
+                }
+                let pathPenalty = 10.0 // How much more costly is a path than a triple? We don't have a good way to know, so we just treat a path as a triple with a penalty
+                return QueryPlanSimpleCost(cost: cost * pathPenalty)
             }
-            print("[1] cost for ID plan: \(plan)")
+//            print("[1] cost for ID plan: \(plan)")
         } else if let p = plan as? UnaryIDQueryPlan {
             let c = try cost(for: p.child)
             if let _ = plan as? IDProjectPlan {
@@ -161,7 +171,7 @@ public struct QueryPlanSimpleCostEstimator: QueryPlanCostEstimator {
                 // TODO: try to determine the cost of bindJoin.pattern when all of the binding substitutions have been made, and incorporate that into the final cost
                 return QueryPlanSimpleCost(cost: idPlanPriority * 2.0 * probeCost.cost * c.cost)
             } else {
-                print("[2] cost for ID plan: \(plan)")
+//                print("[2] cost for ID plan: \(plan)")
             }
         } else if let p = plan as? BinaryIDQueryPlan {
             let lhs = p.children[0]
@@ -174,7 +184,8 @@ public struct QueryPlanSimpleCostEstimator: QueryPlanCostEstimator {
                 if jv.isEmpty {
                     penalty = 1000.0
                 }
-                return QueryPlanSimpleCost(cost: idPlanPriority * penalty * (lc.cost + joinRHSMaterializationPenalty * rc.cost)) // value rhs more, since that is the one that is materialized
+                let cost = idPlanPriority * penalty * (lc.cost + joinRHSMaterializationPenalty * rc.cost)
+                return QueryPlanSimpleCost(cost: cost) // value rhs more, since that is the one that is materialized
             } else if let p = plan as? IDHashLeftJoinPlan {
                 let jv = p.joinVariables
                 if jv.isEmpty {
@@ -196,7 +207,8 @@ public struct QueryPlanSimpleCostEstimator: QueryPlanCostEstimator {
                 if let _ = rhs as? IDQuadPlan {
                     mergePlanPriority *= 1.5
                 }
-                return QueryPlanSimpleCost(cost: (1.0 / mergePlanPriority) * idPlanPriority * (lc.cost + rc.cost))
+                let cost = (1.0 / mergePlanPriority) * idPlanPriority * (lc.cost + rc.cost)
+                return QueryPlanSimpleCost(cost: cost)
             } else if let _ = plan as? IDNestedLoopJoinPlan {
                 return QueryPlanSimpleCost(cost: idPlanPriority * (lc.cost * joinRHSMaterializationPenalty * rc.cost))
             } else if let _ = plan as? IDNestedLoopLeftJoinPlan {
@@ -208,10 +220,10 @@ public struct QueryPlanSimpleCostEstimator: QueryPlanCostEstimator {
             } else if let _ = plan as? IDDiffPlan {
                 return QueryPlanSimpleCost(cost: idPlanPriority * (lc.cost + 2.0 * rc.cost)) // value rhs more, since that is the one that is materialized
             } else {
-                print("[3] cost for ID plan: \(plan)")
+//                print("[3] cost for ID plan: \(plan)")
             }
         } else {
-            print("[4] cost for ID plan: \(plan)")
+//            print("[4] cost for ID plan: \(plan)")
         }
         return QueryPlanSimpleCost(cost: idPlanPriority * 100.0)
     }
@@ -238,9 +250,19 @@ public struct QueryPlanSimpleCostEstimator: QueryPlanCostEstimator {
                 return QueryPlanSimpleCost(cost: Double(p.rows.count))
             } else if let _ = plan as? ServicePlan {
                 return QueryPlanSimpleCost(cost: self.serviceCost)
-            } else if let _ = plan as? PathQueryPlan {
-                print("TODO: improve cost estimation for path queries")
-                return QueryPlanSimpleCost(cost: 20.0)
+            } else if let p = plan as? PathQueryPlan {
+                var cost = boundQuadCost
+                if p.subject.isVariable {
+                    cost *= 7.5
+                }
+                if p.object.isVariable {
+                    cost *= 5.0
+                }
+                if p.graph.isVariable {
+                    cost *= 10.0
+                }
+                let pathPenalty = 10.0 // How much more costly is a path than a triple? We don't have a good way to know, so we just treat a path as a triple with a penalty
+                return QueryPlanSimpleCost(cost: cost * pathPenalty)
             } else if let matplan = plan as? MaterializeTermsPlan {
                 // cost to covert ID results to materialized results
                 // with the priority we give to id plans (n = 1/2), we give the inverse penalty (0.9/n = 1.8 ~ 1/n)

@@ -755,10 +755,10 @@ public protocol IDPathPlan: IDPlanSerializable {
 }
 
 public struct IDPathQueryPlan: NullaryIDQueryPlan {
-    var subject: IDNode
-    var path: IDPathPlan
-    var object: IDNode
-    var graph: IDNode
+    public var subject: IDNode
+    public var path: IDPathPlan
+    public var object: IDNode
+    public var graph: IDNode
     public var metricsToken: QueryPlanEvaluationMetrics.Token
     public var variables: Set<String> {
         var vars = Set<String>()

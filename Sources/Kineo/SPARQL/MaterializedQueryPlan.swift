@@ -1670,10 +1670,10 @@ public protocol PathPlan: PlanSerializable {
 }
 
 public struct PathQueryPlan: NullaryQueryPlan, QueryPlanSerialization {
-    var subject: Node
-    var path: PathPlan
-    var object: Node
-    var graph: Node
+    public var subject: Node
+    public var path: PathPlan
+    public var object: Node
+    public var graph: Node
     public var metricsToken: QueryPlanEvaluationMetrics.Token
     public var selfDescription: String { return "Path { \(subject) ---> \(object) in graph \(graph) }" }
     public var properties: [PlanSerializable] { return [path] }
