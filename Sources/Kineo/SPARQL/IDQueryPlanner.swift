@@ -133,7 +133,7 @@ struct IDPlanProvider<E: QueryPlanCostEstimator>: IDPPlanProvider {
                     }
                 }
                 
-                plans.append(IDNestedLoopJoinPlan(lhs: l, rhs: r, orderVars: l.orderVars, metricsToken: metrics.getOperatorToken()))
+                plans.append(IDNestedLoopJoinPlan(lhs: l, rhs: r, orderVars: r.orderVars, metricsToken: metrics.getOperatorToken()))
             }
         }
 //        print("======================================================================")
