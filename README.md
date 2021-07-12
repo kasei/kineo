@@ -88,6 +88,16 @@ for (i, result) in results.bindings.enumerated() {
 There is also an API that exposes the RDF data in terms of graph vertices and edge traversals:
 
 ```swift
+import Foundation
+import SPARQLSyntax
+import Kineo
+
+let graph = Term(iri: "http://example.org/default-graph")
+let store = MemoryQuadStore()
+
+let url = URL(string: "http://kasei.us/about/foaf.ttl")!
+try store.load(url: url, defaultGraph: graph)
+
 let graphView = store.graph(graph)
 let greg = graphView.vertex(Term(iri: "http://kasei.us/about/#greg"))
 
