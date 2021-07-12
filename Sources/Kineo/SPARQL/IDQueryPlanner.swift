@@ -9,6 +9,8 @@ import Foundation
 import SPARQLSyntax
 import IDPPlanner
 
+
+/// Adapts a Kineo cost estimator (conforming to QueryPlanCostEstimator) to the API used by the IDPPlanner module
 struct IDPCostEstimatorAdaptor<E: QueryPlanCostEstimator>: IDPCostEstimator {
     typealias Cost = E.QueryPlanCost
     typealias Plan = IDQueryPlan
@@ -30,6 +32,9 @@ struct IDPCostEstimatorAdaptor<E: QueryPlanCostEstimator>: IDPCostEstimator {
     }
 }
 
+/// IDPlanProvider provides implementations of the required methods needed to use the IDPPlanner to produce query plans,
+/// including access plans (using the available index orders of the underlying store), and join plans (which may be merge and
+/// hash join, when allowable, or bind and nested loop joins otherwise).
 struct IDPlanProvider<E: QueryPlanCostEstimator>: IDPPlanProvider {
     typealias Relation = QuadPattern
     typealias Plan = IDQueryPlan
@@ -63,6 +68,17 @@ struct IDPlanProvider<E: QueryPlanCostEstimator>: IDPPlanProvider {
         return plans
     }
     
+    /// Returns an array of IDQueryPlan objects representing possible joins between the alternative left- and right-hand-side children plans, `lhs` and `rhs`.
+    ///
+    /// For each combination of left and right plans:
+    /// * If the children plans have a shared ordering, a merge join is returned
+    /// * If the children plans have a shared join variable, two hash joins are returned (for both orderings of left and right child plans)
+    /// * Otherwise, both bind and nested-loop joins are returned (for both orderings of left and right child plans)
+    ///
+    /// - Parameters:
+    ///   - lhs: Alternative plans for the left-child of the join
+    ///   - rhs: Alternative plans for the right-child of the join
+    /// - Returns: An array of alternative plans to join all combinations of `lhs` and `rhs`
     func joinPlans<C: Collection, D: Collection>(_ lhs: C, _ rhs: D) -> [IDQueryPlan] where C.Element == IDQueryPlan, D.Element == IDQueryPlan {
         var plans = [IDQueryPlan]()
         for l in lhs {
@@ -159,6 +175,9 @@ struct IDPlanProvider<E: QueryPlanCostEstimator>: IDPPlanProvider {
         }
     }
     
+    /// Prune a list of alternative plans, returning a subset of the input
+    /// - Parameter plans: Alternative query plans
+    /// - Returns: A subset of `plans` representing the desirable plans with which to continue the query planning
     func prunePlans<C: Collection>(_ plans: C) -> [IDQueryPlan] where C.Element == IDQueryPlan {
         var sortedPlans = Array(plans)
         sort(plans: &sortedPlans)
@@ -166,6 +185,9 @@ struct IDPlanProvider<E: QueryPlanCostEstimator>: IDPPlanProvider {
         return pruned
     }
     
+    /// Apply any finalization to the generated query plans before returning from the planning algorithm
+    /// - Parameter plans: Alternative query plans
+    /// - Returns: A new array containing the alternative query plans with the finalization process applied
     func finalizePlans<C: Collection>(_ plans: C) -> [IDQueryPlan] where C.Element == IDQueryPlan {
         var sortedPlans = Array(plans)
         sort(plans: &sortedPlans)
@@ -173,6 +195,7 @@ struct IDPlanProvider<E: QueryPlanCostEstimator>: IDPPlanProvider {
     }
 }
 
+// QueryPlanner extension providing planning for BGPs using the Iterative Dynamic Planning query planner module.
 extension QueryPlanner {
     func idPlans<E: QueryPlanCostEstimator>(for patterns: [QuadPattern], in store: LazyMaterializingQuadStore, estimator: E) throws -> [MaterializeTermsPlan] {
         
