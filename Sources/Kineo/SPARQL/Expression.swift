@@ -831,10 +831,8 @@ public class ExpressionEvaluator {
                     return try evaluateDateSub(lval, rval)
                 case let (date, dur) where date.isADateType && dur.isDuration:
                     var truncateToDate = false
-                    if case .datatype(.custom("http://www.w3.org/2001/XMLSchema#yearMonthDuration")) = dur.type {
-                        if case .datatype(.date) = date.type {
-                            truncateToDate = true
-                        }
+                    if case .datatype(.date) = date.type {
+                        truncateToDate = true
                     }
                     return try evaluate(date: date, duration: dur, withOperatorFrom: expression, truncateToDate: truncateToDate)
                 case let (time, dur) where time.isTime && dur.isDuration:
@@ -1022,10 +1020,13 @@ public class ExpressionEvaluator {
             guard ints.count == 3 else {
                 throw QueryError.typeError("Bad xsd:time lexical form: \(term)")
             }
-            let h = ints[0]
+            var h = ints[0]
             let m = ints[1]
             let s = ints[2] // TODO: support fractional seconds
-            guard (0..<24).contains(h), (0..<60).contains(m), (0...60).contains(s) else {
+            if h == 24 && m == 0 && s == 0 {
+                h = 0
+            }
+            guard (0..<24).contains(h), (0...60).contains(m), (0...61).contains(s) else {
                 throw QueryError.typeError("Bad xsd:time lexical form: \(term)")
             }
             let tv = String(format: "%02d:%02d:%02d", h, m, s)
