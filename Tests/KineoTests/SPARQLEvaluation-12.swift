@@ -13,15 +13,8 @@ extension SPARQL12EvaluationTest {
 }
 #endif
 
-extension SPARQLEvaluationTestImpl {
-    func _test12Evaluation_xsdfunctions() throws {
-        let path = sparqlBase.appendingPathComponent("xsd_functions")
-        try runEvaluationTests(inPath: path)
-    }
-}
-
 // swiftlint:disable type_body_length
-class SPARQL12EvaluationTest: XCTestCase, SPARQLEvaluationTestImpl {
+class SPARQL12EvaluationTest: SPARQLEvaluationTestImpl<MemoryQuadStore> {
     typealias M = MemoryQuadStore
     var sparqlBase: URL!
     var testRunner: SPARQLTestRunner<M>!
@@ -37,6 +30,32 @@ class SPARQL12EvaluationTest: XCTestCase, SPARQLEvaluationTestImpl {
     override func tearDown() {
         super.tearDown()
     }
-   
-    func test12Evaluation_xsdfunctions() throws { try _test12Evaluation_xsdfunctions() }
+
+    override func getTestRunner() -> SPARQLTestRunner<M>! {
+        return testRunner
+    }
+
+    override func getSPARQLBase() -> URL? {
+        if let rdfTestsBase = ProcessInfo.processInfo.environment["KINEO_W3C_TEST_PATH"] {
+            let base = NSURL(fileURLWithPath: rdfTestsBase)
+            return base.appendingPathComponent("sparql11")
+        } else {
+            return nil
+        }
+    }
+    
+    override func getSPARQLBase12() -> URL? {
+        if let rdfTestsBase = ProcessInfo.processInfo.environment["KINEO_W3C_TEST_PATH_12"] {
+            let base = NSURL(fileURLWithPath: rdfTestsBase)
+            return base.appendingPathComponent("tests")
+        } else {
+            return nil
+        }
+    }
+
+    func test12Evaluation_xsdfunctions() throws {
+        guard let sparqlBase = getSPARQLBase12() else { throw XCTSkip("SPARQL tests base location missing; set the KINEO_W3C_TEST_PATH environment variable") }
+        let path = sparqlBase.appendingPathComponent("xsd_functions")
+        try runEvaluationTests(inPath: path)
+    }
 }

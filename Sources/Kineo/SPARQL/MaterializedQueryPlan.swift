@@ -12,6 +12,7 @@ public struct MaterializeTermsPlan: NullaryQueryPlan {
     public var idPlan: IDQueryPlan
     var store: LazyMaterializingQuadStore
     var verbose: Bool
+    public var metricsToken: QueryPlanEvaluationMetrics.Token
     public var isJoinIdentity: Bool { return false }
     public var isUnionIdentity: Bool { return false }
     public var selfDescription: String {
@@ -25,11 +26,17 @@ public struct MaterializeTermsPlan: NullaryQueryPlan {
         return d
     }
     
-    public func evaluate() throws -> AnyIterator<SPARQLResultSolution<Term>> {
-        let i = try idPlan.evaluate()
+    public func evaluate(_ metrics: QueryPlanEvaluationMetrics) throws -> AnyIterator<SPARQLResultSolution<Term>> {
+        metrics.startEvaluation(metricsToken, self)
+        defer { metrics.endEvaluation(metricsToken) }
+
+        let i = try idPlan.evaluate(metrics)
 //        var seen = Set<UInt64>()
 //        let verbose = self.verbose
         let s = i.lazy.map { (r) -> SPARQLResultSolution<Term>? in
+            metrics.resumeEvaluation(token: metricsToken)
+            defer { metrics.endEvaluation(metricsToken) }
+
             do {
                 let d = try r.map { (pair) -> (String, Term)? in
                     let tid = pair.value
@@ -53,9 +60,78 @@ public struct MaterializeTermsPlan: NullaryQueryPlan {
     }
 }
 
+public struct RestrictToNamedGraphsPlan<Q: QuadStoreProtocol>: UnaryQueryPlan {
+    public var child: QueryPlan
+    public var metricsToken: QueryPlanEvaluationMetrics.Token
+
+    var project: Set<String>
+    var graphNode: Node
+    var graphName: String
+    var store: Q
+    var dataset: DatasetProtocol
+    
+    init(child: QueryPlan, project: Set<String>, rewriteGraphFrom: Node, to rewriteGraphTo: String, store: Q, dataset: DatasetProtocol, metricsToken: QueryPlanEvaluationMetrics.Token) {
+        self.child = child
+        self.project = project.union([rewriteGraphTo])
+        self.graphNode = rewriteGraphFrom
+        self.graphName = rewriteGraphTo
+        self.store = store
+        self.dataset = dataset
+        self.metricsToken = metricsToken
+    }
+
+    public func evaluate(_ metrics: QueryPlanEvaluationMetrics) throws -> AnyIterator<SPARQLResultSolution<Term>> {
+        metrics.startEvaluation(metricsToken, self)
+        defer { metrics.endEvaluation(metricsToken) }
+
+        let graphFilter = { (g: Term) -> Bool in
+            return (try? self.dataset.isGraphNamed(g, in: self.store)) ?? false
+        }
+        
+        var okGraph = Set<Term>()
+        let i = try child.evaluate(metrics)
+        let s = i.lazy.compactMap { (r) -> SPARQLResultSolution<Term>? in
+            metrics.resumeEvaluation(token: metricsToken)
+            defer { metrics.endEvaluation(metricsToken) }
+
+            if let g = r[graphNode] {
+                do {
+                    if okGraph.contains(g) {
+                        var rr = r.projected(variables: project)
+                        try rr.extend(variable: graphName, value: g)
+                        return rr
+                    } else if graphFilter(g) {
+                        okGraph.insert(g)
+                        var rr = r.projected(variables: project)
+                        try rr.extend(variable: graphName, value: g)
+                        return rr
+                    }
+                } catch {}
+            }
+            return nil
+        }
+        return AnyIterator(s.makeIterator())
+    }
+    
+    public func serialize(depth: Int=0) -> String {
+        let indent = String(repeating: " ", count: (depth*2))
+        let name = "RestrictToNamedGraphs [ rewriting: ?\(graphName) ← \(graphNode) ]"
+        var d = "\(indent)\(name)\n"
+        for c in self.properties {
+            d += c.serialize(depth: depth+1)
+        }
+        for c in self.children {
+            d += c.serialize(depth: depth+1)
+        }
+        return d
+    }
+}
+
+
 public struct TablePlan: NullaryQueryPlan, QueryPlanSerialization {
     var columns: [Node]
     var rows: [[Term?]]
+    public var metricsToken: QueryPlanEvaluationMetrics.Token
     public var isJoinIdentity: Bool {
         guard rows.count == 1 else { return false }
         guard columns.count == 0 else { return false }
@@ -65,9 +141,12 @@ public struct TablePlan: NullaryQueryPlan, QueryPlanSerialization {
         return rows.count == 0
     }
     public var selfDescription: String { return "Table { \(columns) ; \(rows.count) rows }" }
-    public static var joinIdentity = TablePlan(columns: [], rows: [[]])
-    public static var unionIdentity = TablePlan(columns: [], rows: [])
-    public func evaluate() throws -> AnyIterator<SPARQLResultSolution<Term>> {
+    public static var joinIdentity = TablePlan(columns: [], rows: [[]], metricsToken: QueryPlanEvaluationMetrics.silentToken)
+    public static var unionIdentity = TablePlan(columns: [], rows: [], metricsToken: QueryPlanEvaluationMetrics.silentToken)
+    public func evaluate(_ metrics: QueryPlanEvaluationMetrics) throws -> AnyIterator<SPARQLResultSolution<Term>> {
+        metrics.startEvaluation(metricsToken, self)
+        defer { metrics.endEvaluation(metricsToken) }
+
         var results = [SPARQLResultSolution<Term>]()
         for row in rows {
             var bindings = [String:Term]()
@@ -90,8 +169,12 @@ public struct TablePlan: NullaryQueryPlan, QueryPlanSerialization {
 public struct QuadPlan: NullaryQueryPlan, QueryPlanSerialization {
     var quad: QuadPattern
     var store: QuadStoreProtocol
+    public var metricsToken: QueryPlanEvaluationMetrics.Token
     public var selfDescription: String { return "Quad(\(quad))" }
-    public func evaluate() throws -> AnyIterator<SPARQLResultSolution<Term>> {
+    public func evaluate(_ metrics: QueryPlanEvaluationMetrics) throws -> AnyIterator<SPARQLResultSolution<Term>> {
+        metrics.startEvaluation(metricsToken, self)
+        defer { metrics.endEvaluation(metricsToken) }
+
         return try store.results(matching: quad)
     }
     public var isJoinIdentity: Bool { return false }
@@ -101,10 +184,14 @@ public struct QuadPlan: NullaryQueryPlan, QueryPlanSerialization {
 public struct NestedLoopJoinPlan: BinaryQueryPlan, QueryPlanSerialization {
     public var lhs: QueryPlan
     public var rhs: QueryPlan
+    public var metricsToken: QueryPlanEvaluationMetrics.Token
     public var selfDescription: String { return "Nested Loop Join" }
-    public func evaluate() throws -> AnyIterator<SPARQLResultSolution<Term>> {
-        let l = try Array(lhs.evaluate())
-        let r = try rhs.evaluate()
+    public func evaluate(_ metrics: QueryPlanEvaluationMetrics) throws -> AnyIterator<SPARQLResultSolution<Term>> {
+        metrics.startEvaluation(metricsToken, self)
+        defer { metrics.endEvaluation(metricsToken) }
+
+        let l = try Array(lhs.evaluate(metrics))
+        let r = try rhs.evaluate(metrics)
         var results = [SPARQLResultSolution<Term>]()
         for rresult in r {
             for lresult in l {
@@ -199,7 +286,10 @@ func mergeJoin<I: IteratorProtocol, J: IteratorProtocol, T>(_ lhs: I, _ rhs: J, 
     }
 }
 
-func hashJoin<I: IteratorProtocol, J: IteratorProtocol, T>(_ lhs: I, _ rhs: J, joinVariables: Set<String>, type: HashJoinType = .inner) -> AnyIterator<I.Element> where I.Element == SPARQLResultSolution<T>, I.Element == J.Element {
+func hashJoin<I: IteratorProtocol, J: IteratorProtocol, T>(_ lhs: I, _ rhs: J, joinVariables: Set<String>, type: HashJoinType = .inner, metrics: QueryPlanEvaluationMetrics, token: QueryPlanEvaluationMetrics.Token) -> AnyIterator<I.Element> where I.Element == SPARQLResultSolution<T>, I.Element == J.Element {
+    metrics.resumeEvaluation(token: token)
+    defer { metrics.endEvaluation(token) }
+
     var table = [I.Element: [I.Element]]()
     var unboundTable = [I.Element]()
     //    warn(">>> filling hash table")
@@ -219,6 +309,9 @@ func hashJoin<I: IteratorProtocol, J: IteratorProtocol, T>(_ lhs: I, _ rhs: J, j
     var buffer = [SPARQLResultSolution<T>]()
     var l = lhs
     return AnyIterator {
+        metrics.resumeEvaluation(token: token)
+        defer { metrics.endEvaluation(token) }
+
         repeat {
             if buffer.count > 0 {
                 let r = buffer.remove(at: 0)
@@ -271,28 +364,40 @@ public struct HashJoinPlan: BinaryQueryPlan, QueryPlanSerialization {
     public var lhs: QueryPlan
     public var rhs: QueryPlan
     var joinVariables: Set<String>
+    public var metricsToken: QueryPlanEvaluationMetrics.Token
     public var selfDescription: String { return "Hash Join { \(joinVariables) }" }
-    public func evaluate() throws -> AnyIterator<SPARQLResultSolution<Term>> {
+    public func evaluate(_ metrics: QueryPlanEvaluationMetrics) throws -> AnyIterator<SPARQLResultSolution<Term>> {
+        metrics.startEvaluation(metricsToken, self)
+        defer { metrics.endEvaluation(metricsToken) }
+
         let joinVariables = self.joinVariables
-        let l = try lhs.evaluate()
-        let r = try rhs.evaluate()
-        return hashJoin(l, r, joinVariables: joinVariables)
+        let l = try lhs.evaluate(metrics)
+        let r = try rhs.evaluate(metrics)
+        return hashJoin(l, r, joinVariables: joinVariables, metrics: metrics, token: metricsToken)
     }
 }
 
 public struct UnionPlan: BinaryQueryPlan, QueryPlanSerialization {
     public var lhs: QueryPlan
     public var rhs: QueryPlan
+    public var metricsToken: QueryPlanEvaluationMetrics.Token
     public var selfDescription: String { return "Union" }
-    public init(lhs: QueryPlan, rhs: QueryPlan) {
+    public init(lhs: QueryPlan, rhs: QueryPlan, metricsToken: QueryPlanEvaluationMetrics.Token) {
         self.lhs = lhs
         self.rhs = rhs
+        self.metricsToken = metricsToken
     }
-    public func evaluate() throws -> AnyIterator<SPARQLResultSolution<Term>> {
-        let l = try lhs.evaluate()
-        let r = try rhs.evaluate()
+    public func evaluate(_ metrics: QueryPlanEvaluationMetrics) throws -> AnyIterator<SPARQLResultSolution<Term>> {
+        metrics.startEvaluation(metricsToken, self)
+        defer { metrics.endEvaluation(metricsToken) }
+
+        let l = try lhs.evaluate(metrics)
+        let r = try rhs.evaluate(metrics)
         var lok = true
         let i = AnyIterator { () -> SPARQLResultSolution<Term>? in
+            metrics.resumeEvaluation(token: metricsToken)
+            defer { metrics.endEvaluation(metricsToken) }
+
             if lok, let ll = l.next() {
                 return ll
             } else {
@@ -310,12 +415,19 @@ public struct FilterPlan: UnaryQueryPlan, QueryPlanSerialization {
     public var child: QueryPlan
     var expression: Expression
     var evaluator: ExpressionEvaluator
+    public var metricsToken: QueryPlanEvaluationMetrics.Token
     public var selfDescription: String { return "Filter \(expression)" }
-    public func evaluate() throws -> AnyIterator<SPARQLResultSolution<Term>> {
-        let i = try child.evaluate()
+    public func evaluate(_ metrics: QueryPlanEvaluationMetrics) throws -> AnyIterator<SPARQLResultSolution<Term>> {
+        metrics.startEvaluation(metricsToken, self)
+        defer { metrics.endEvaluation(metricsToken) }
+
+        let i = try child.evaluate(metrics)
         let expression = self.expression
         let evaluator = self.evaluator
         let s = i.lazy.filter { (r) -> Bool in
+            metrics.resumeEvaluation(token: metricsToken)
+            defer { metrics.endEvaluation(metricsToken) }
+
 //            evaluator.nextResult()
             do {
                 let term = try evaluator.evaluate(expression: expression, result: r)
@@ -334,13 +446,20 @@ public struct DiffPlan: BinaryQueryPlan, QueryPlanSerialization {
     public var rhs: QueryPlan
     var expression: Expression
     var evaluator: ExpressionEvaluator
+    public var metricsToken: QueryPlanEvaluationMetrics.Token
     public var selfDescription: String { return "Diff \(expression)" }
-    public func evaluate() throws -> AnyIterator<SPARQLResultSolution<Term>> {
-        let i = try lhs.evaluate()
-        let r = try Array(rhs.evaluate())
+    public func evaluate(_ metrics: QueryPlanEvaluationMetrics) throws -> AnyIterator<SPARQLResultSolution<Term>> {
+        metrics.startEvaluation(metricsToken, self)
+        defer { metrics.endEvaluation(metricsToken) }
+
+        let i = try lhs.evaluate(metrics)
+        let r = try Array(rhs.evaluate(metrics))
         let evaluator = self.evaluator
         let expression = self.expression
         return AnyIterator {
+            metrics.resumeEvaluation(token: metricsToken)
+            defer { metrics.endEvaluation(metricsToken) }
+
             repeat {
                 guard let result = i.next() else { return nil }
                 var ok = true
@@ -369,13 +488,20 @@ public struct ExtendPlan: UnaryQueryPlan, QueryPlanSerialization {
     var expression: Expression
     var variable: String
     var evaluator: ExpressionEvaluator
+    public var metricsToken: QueryPlanEvaluationMetrics.Token
     public var selfDescription: String { return "Extend ?\(variable) ← \(expression)" }
-    public func evaluate() throws -> AnyIterator<SPARQLResultSolution<Term>> {
-        let i = try child.evaluate()
+    public func evaluate(_ metrics: QueryPlanEvaluationMetrics) throws -> AnyIterator<SPARQLResultSolution<Term>> {
+        metrics.startEvaluation(metricsToken, self)
+        defer { metrics.endEvaluation(metricsToken) }
+
+        let i = try child.evaluate(metrics)
         let expression = self.expression
         let evaluator = self.evaluator
         let variable = self.variable
         let s = i.lazy.map { (r) -> SPARQLResultSolution<Term> in
+            metrics.resumeEvaluation(token: metricsToken)
+            defer { metrics.endEvaluation(metricsToken) }
+
 //            evaluator.nextResult()
             do {
                 let term = try evaluator.evaluate(expression: expression, result: r)
@@ -391,11 +517,18 @@ public struct ExtendPlan: UnaryQueryPlan, QueryPlanSerialization {
 public struct NextRowPlan: UnaryQueryPlan, QueryPlanSerialization {
     public var child: QueryPlan
     var evaluator: ExpressionEvaluator
+    public var metricsToken: QueryPlanEvaluationMetrics.Token
     public var selfDescription: String { return "Next Row" }
-    public func evaluate() throws -> AnyIterator<SPARQLResultSolution<Term>> {
-        let i = try child.evaluate()
+    public func evaluate(_ metrics: QueryPlanEvaluationMetrics) throws -> AnyIterator<SPARQLResultSolution<Term>> {
+        metrics.startEvaluation(metricsToken, self)
+        defer { metrics.endEvaluation(metricsToken) }
+
+        let i = try child.evaluate(metrics)
         let evaluator = self.evaluator
         let s = i.lazy.map { (r) -> SPARQLResultSolution<Term> in
+            metrics.resumeEvaluation(token: metricsToken)
+            defer { metrics.endEvaluation(metricsToken) }
+
             evaluator.nextResult()
             return r
         }
@@ -406,11 +539,18 @@ public struct NextRowPlan: UnaryQueryPlan, QueryPlanSerialization {
 public struct MinusPlan: BinaryQueryPlan, QueryPlanSerialization {
     public var lhs: QueryPlan
     public var rhs: QueryPlan
+    public var metricsToken: QueryPlanEvaluationMetrics.Token
     public var selfDescription: String { return "Minus" }
-    public func evaluate() throws -> AnyIterator<SPARQLResultSolution<Term>> {
-        let l = try lhs.evaluate()
-        let r = try Array(rhs.evaluate())
+    public func evaluate(_ metrics: QueryPlanEvaluationMetrics) throws -> AnyIterator<SPARQLResultSolution<Term>> {
+        metrics.startEvaluation(metricsToken, self)
+        defer { metrics.endEvaluation(metricsToken) }
+
+        let l = try lhs.evaluate(metrics)
+        let r = try Array(rhs.evaluate(metrics))
         return AnyIterator {
+            metrics.resumeEvaluation(token: metricsToken)
+            defer { metrics.endEvaluation(metricsToken) }
+
             while true {
                 var candidateOK = true
                 guard let candidate = l.next() else { return nil }
@@ -434,14 +574,19 @@ public struct MinusPlan: BinaryQueryPlan, QueryPlanSerialization {
 public struct ProjectPlan: UnaryQueryPlan, QueryPlanSerialization {
     public var child: QueryPlan
     var variables: Set<String>
-    public init(child: QueryPlan, variables: Set<String>) {
+    public var metricsToken: QueryPlanEvaluationMetrics.Token
+    public init(child: QueryPlan, variables: Set<String>, metricsToken: QueryPlanEvaluationMetrics.Token) {
         self.child = child
         self.variables = variables
+        self.metricsToken = metricsToken
     }
     public var selfDescription: String { return "Project { \(variables.sorted().joined(separator: ", ")) }" }
-    public func evaluate() throws -> AnyIterator<SPARQLResultSolution<Term>> {
+    public func evaluate(_ metrics: QueryPlanEvaluationMetrics) throws -> AnyIterator<SPARQLResultSolution<Term>> {
+        metrics.startEvaluation(metricsToken, self)
+        defer { metrics.endEvaluation(metricsToken) }
+
         let vars = self.variables
-        let s = try child.evaluate().lazy.map { $0.projected(variables: vars) }
+        let s = try child.evaluate(metrics).lazy.map {$0.projected(variables: vars) }
         return AnyIterator(s.makeIterator())
     }
 }
@@ -449,9 +594,13 @@ public struct ProjectPlan: UnaryQueryPlan, QueryPlanSerialization {
 public struct LimitPlan: UnaryQueryPlan, QueryPlanSerialization {
     public var child: QueryPlan
     var limit: Int
+    public var metricsToken: QueryPlanEvaluationMetrics.Token
     public var selfDescription: String { return "Limit { \(limit) }" }
-    public func evaluate() throws -> AnyIterator<SPARQLResultSolution<Term>> {
-        let s = try child.evaluate().prefix(limit)
+    public func evaluate(_ metrics: QueryPlanEvaluationMetrics) throws -> AnyIterator<SPARQLResultSolution<Term>> {
+        metrics.startEvaluation(metricsToken, self)
+        defer { metrics.endEvaluation(metricsToken) }
+
+        let s = try child.evaluate(metrics).prefix(limit)
         return AnyIterator(s.makeIterator())
     }
 }
@@ -459,19 +608,30 @@ public struct LimitPlan: UnaryQueryPlan, QueryPlanSerialization {
 public struct OffsetPlan: UnaryQueryPlan, QueryPlanSerialization {
     public var child: QueryPlan
     var offset: Int
+    public var metricsToken: QueryPlanEvaluationMetrics.Token
     public var selfDescription: String { return "Offset { \(offset) }" }
-    public func evaluate() throws -> AnyIterator<SPARQLResultSolution<Term>> {
-        let s = try child.evaluate().lazy.dropFirst(offset)
+    public func evaluate(_ metrics: QueryPlanEvaluationMetrics) throws -> AnyIterator<SPARQLResultSolution<Term>> {
+        metrics.startEvaluation(metricsToken, self)
+        defer { metrics.endEvaluation(metricsToken) }
+
+        let s = try child.evaluate(metrics).lazy.dropFirst(offset)
         return AnyIterator(s.makeIterator())
     }
 }
 
 public struct DistinctPlan: UnaryQueryPlan, QueryPlanSerialization {
     public var child: QueryPlan
+    public var metricsToken: QueryPlanEvaluationMetrics.Token
     public var selfDescription: String { return "Distinct" }
-    public func evaluate() throws -> AnyIterator<SPARQLResultSolution<Term>> {
-        var seen = Set<SPARQLResultSolution<Term>>()
-        let s = try child.evaluate().lazy.filter { (r) -> Bool in
+    public func evaluate(_ metrics: QueryPlanEvaluationMetrics) throws -> AnyIterator<SPARQLResultSolution<Term>> {
+        metrics.startEvaluation(metricsToken, self)
+        defer { metrics.endEvaluation(metricsToken) }
+
+    var seen = Set<SPARQLResultSolution<Term>>()
+        let s = try child.evaluate(metrics).lazy.filter { (r) -> Bool in
+            metrics.resumeEvaluation(token: metricsToken)
+            defer { metrics.endEvaluation(metricsToken) }
+
             if seen.contains(r) {
                 return false
             } else {
@@ -485,10 +645,17 @@ public struct DistinctPlan: UnaryQueryPlan, QueryPlanSerialization {
 
 public struct ReducedPlan: UnaryQueryPlan, QueryPlanSerialization {
     public var child: QueryPlan
+    public var metricsToken: QueryPlanEvaluationMetrics.Token
     public var selfDescription: String { return "Distinct" }
-    public func evaluate() throws -> AnyIterator<SPARQLResultSolution<Term>> {
+    public func evaluate(_ metrics: QueryPlanEvaluationMetrics) throws -> AnyIterator<SPARQLResultSolution<Term>> {
+        metrics.startEvaluation(metricsToken, self)
+        defer { metrics.endEvaluation(metricsToken) }
+
         var last: SPARQLResultSolution<Term>? = nil
-        let s = try child.evaluate().lazy.compactMap { (r) -> SPARQLResultSolution<Term>? in
+        let s = try child.evaluate(metrics).lazy.compactMap { (r) -> SPARQLResultSolution<Term>? in
+            metrics.resumeEvaluation(token: metricsToken)
+            defer { metrics.endEvaluation(metricsToken) }
+
             if let l = last, l == r {
                 return nil
             }
@@ -504,18 +671,23 @@ public struct ServicePlan: NullaryQueryPlan, QueryPlanSerialization {
     var query: String
     var silent: Bool
     var client: SPARQLClient
+    public var metricsToken: QueryPlanEvaluationMetrics.Token
     public var isJoinIdentity: Bool { return false }
     public var isUnionIdentity: Bool { return false }
 
-    public init(endpoint: URL, query: String, silent: Bool, client: SPARQLClient) {
+    public init(endpoint: URL, query: String, silent: Bool, client: SPARQLClient, metricsToken: QueryPlanEvaluationMetrics.Token) {
         self.endpoint = endpoint
         self.query = query
         self.silent = silent
         self.client = client
+        self.metricsToken = metricsToken
     }
     
     public var selfDescription: String { return "Service \(silent ? "Silent " : "")<\(endpoint)>: \(query)" }
-    public func evaluate() throws -> AnyIterator<SPARQLResultSolution<Term>> {
+    public func evaluate(_ metrics: QueryPlanEvaluationMetrics) throws -> AnyIterator<SPARQLResultSolution<Term>> {
+        metrics.startEvaluation(metricsToken, self)
+        defer { metrics.endEvaluation(metricsToken) }
+
         do {
             let r = try client.execute(query)
             switch r {
@@ -539,6 +711,7 @@ public struct OrderPlan: UnaryQueryPlan, QueryPlanSerialization {
     public var child: QueryPlan
     var comparators: [Algebra.SortComparator]
     var evaluator: ExpressionEvaluator
+    public var metricsToken: QueryPlanEvaluationMetrics.Token
     public var selfDescription: String { return "Order { \(comparators) }" }
     
     static func sortResults(results: [SPARQLResultSolution<Term>], comparators: [Algebra.SortComparator], evaluator: ExpressionEvaluator) -> [SPARQLResultSolution<Term>] {
@@ -568,9 +741,11 @@ public struct OrderPlan: UnaryQueryPlan, QueryPlanSerialization {
         return sorted.map { $0.result }
     }
     
-    public func evaluate() throws -> AnyIterator<SPARQLResultSolution<Term>> {
+    public func evaluate(_ metrics: QueryPlanEvaluationMetrics) throws -> AnyIterator<SPARQLResultSolution<Term>> {
+        metrics.startEvaluation(metricsToken, self)
+        defer { metrics.endEvaluation(metricsToken) }
         let evaluator = self.evaluator
-        let results = try Array(child.evaluate())
+        let results = try Array(child.evaluate(metrics))
         let sorted = OrderPlan.sortResults(results: results, comparators: comparators, evaluator: evaluator)
         return AnyIterator(sorted.makeIterator())
     }
@@ -597,6 +772,7 @@ public struct WindowPlan: UnaryQueryPlan, QueryPlanSerialization {
     public var child: QueryPlan
     var function: Algebra.WindowFunctionMapping
     var evaluator: ExpressionEvaluator
+    public var metricsToken: QueryPlanEvaluationMetrics.Token
     public var selfDescription: String {
         return "Window \(function.description))"
     }
@@ -665,10 +841,13 @@ public struct WindowPlan: UnaryQueryPlan, QueryPlanSerialization {
         return true
     }
     
-    public func evaluate() throws -> AnyIterator<SPARQLResultSolution<Term>> {
+    public func evaluate(_ metrics: QueryPlanEvaluationMetrics) throws -> AnyIterator<SPARQLResultSolution<Term>> {
+        metrics.startEvaluation(metricsToken, self)
+        defer { metrics.endEvaluation(metricsToken) }
+
         let app = function.windowApplication
         let group = app.partition
-        let results = try child.evaluate()
+        let results = try child.evaluate(metrics)
         let partitionGroups = partition(results, by: group)
         let v = function.variableName
         let frame = app.frame
@@ -1389,6 +1568,7 @@ public struct HeapSortLimitPlan: UnaryQueryPlan, QueryPlanSerialization {
     var comparators: [Algebra.SortComparator]
     var limit: Int
     var evaluator: ExpressionEvaluator
+    public var metricsToken: QueryPlanEvaluationMetrics.Token
     public var selfDescription: String { return "Heap Sort with Limit \(limit) { \(comparators) }" }
 
     fileprivate struct SortElem {
@@ -1416,8 +1596,11 @@ public struct HeapSortLimitPlan: UnaryQueryPlan, QueryPlanSerialization {
         }
     }
     
-    public func evaluate() throws -> AnyIterator<SPARQLResultSolution<Term>> {
-        let i = try child.evaluate()
+    public func evaluate(_ metrics: QueryPlanEvaluationMetrics) throws -> AnyIterator<SPARQLResultSolution<Term>> {
+        metrics.startEvaluation(metricsToken, self)
+        defer { metrics.endEvaluation(metricsToken) }
+
+        let i = try child.evaluate(metrics)
         var heap = Heap(sort: sortFunction)
         for r in i {
             let terms = comparators.map { (cmp) in
@@ -1440,6 +1623,7 @@ public struct ExistsPlan: UnaryQueryPlan, QueryPlanSerialization {
     var pattern: QueryPlan
     var variable: String
     var patternAlgebra: Algebra
+    public var metricsToken: QueryPlanEvaluationMetrics.Token
     public var selfDescription: String {
         let s = SPARQLSerializer(prettyPrint: true)
         do {
@@ -1451,16 +1635,22 @@ public struct ExistsPlan: UnaryQueryPlan, QueryPlanSerialization {
             return "*** Failed to serialize EXISTS algebra into SPARQL string ***"
         }
     }
-    public func evaluate() throws -> AnyIterator<SPARQLResultSolution<Term>> {
-        let i = try child.evaluate()
+    public func evaluate(_ metrics: QueryPlanEvaluationMetrics) throws -> AnyIterator<SPARQLResultSolution<Term>> {
+        metrics.startEvaluation(metricsToken, self)
+        defer { metrics.endEvaluation(metricsToken) }
+
+        let i = try child.evaluate(metrics)
         let pattern = self.pattern
         let variable = self.variable
         let s = i.lazy.compactMap { (r) -> SPARQLResultSolution<Term>? in
+            metrics.resumeEvaluation(token: metricsToken)
+            defer { metrics.endEvaluation(metricsToken) }
+
             let columns = r.keys.map { Node.variable($0, binding: true) }
             let row = r.keys.map { r[$0] }
-            let table = TablePlan(columns: columns, rows: [row])
-            let plan = NestedLoopJoinPlan(lhs: table, rhs: pattern)
-            guard let existsIter = try? plan.evaluate() else {
+            let table = TablePlan(columns: columns, rows: [row], metricsToken: metricsToken)
+            let plan = NestedLoopJoinPlan(lhs: table, rhs: pattern, metricsToken: metricsToken)
+            guard let existsIter = try? plan.evaluate(metrics) else {
                 return nil
             }
             if let _ = existsIter.next() {
@@ -1480,20 +1670,24 @@ public struct ExistsPlan: UnaryQueryPlan, QueryPlanSerialization {
 public protocol PathPlan: PlanSerializable {
     var selfDescription: String { get }
     var children : [PathPlan] { get }
-    func evaluate(from: Node, to: Node, in: Term) throws -> AnyIterator<SPARQLResultSolution<Term>>
+    func evaluate(from: Node, to: Node, in: Node) throws -> AnyIterator<SPARQLResultSolution<Term>>
 }
 
 public struct PathQueryPlan: NullaryQueryPlan, QueryPlanSerialization {
-    var subject: Node
-    var path: PathPlan
-    var object: Node
-    var graph: Term
+    public var subject: Node
+    public var path: PathPlan
+    public var object: Node
+    public var graph: Node
+    public var metricsToken: QueryPlanEvaluationMetrics.Token
     public var selfDescription: String { return "Path { \(subject) ---> \(object) in graph \(graph) }" }
     public var properties: [PlanSerializable] { return [path] }
     public var isJoinIdentity: Bool { return false }
     public var isUnionIdentity: Bool { return false }
 
-    public func evaluate() throws -> AnyIterator<SPARQLResultSolution<Term>> {
+    public func evaluate(_ metrics: QueryPlanEvaluationMetrics) throws -> AnyIterator<SPARQLResultSolution<Term>> {
+        metrics.startEvaluation(metricsToken, self)
+        defer { metrics.endEvaluation(metricsToken) }
+
         return try path.evaluate(from: subject, to: object, in: graph)
     }
 }
@@ -1511,7 +1705,6 @@ public extension PathPlan {
         for c in self.children {
             d += c.serialize(depth: depth+1)
         }
-        // TODO: include non-queryplan children (e.g. TablePlan rows)
         return d
     }
     
@@ -1525,7 +1718,7 @@ public extension PathPlan {
         guard !seen.contains(term) else { return }
         seen.insert(term)
         let node : Node = .variable(".pp", binding: true)
-        for r in try path.evaluate(from: .bound(term), to: node, in: graph) {
+        for r in try path.evaluate(from: .bound(term), to: node, in: .bound(graph)) {
             if let term = r[node] {
                 try alp(term: term, path: path, seen: &seen, graph: graph)
             }
@@ -1539,31 +1732,43 @@ public struct NPSPathPlan: PathPlan {
     var store: QuadStoreProtocol
     public var children: [PathPlan] { return [] }
     public var selfDescription: String { return "NPS { \(iris) }" }
-    public func evaluate(from subject: Node, to object: Node, in graph: Term) throws -> AnyIterator<SPARQLResultSolution<Term>> {
+    public func evaluate(from subject: Node, to object: Node, in graph: Node) throws -> AnyIterator<SPARQLResultSolution<Term>> {
         switch (subject, object) {
         case let (.bound(_), .variable(oname, binding: bind)):
-            let objects = try evaluate(from: subject, in: graph)
+            let objectGraphPairs = try evaluate(from: subject, in: graph)
             if bind {
-                let i = objects.lazy.map {
-                    return SPARQLResultSolution<Term>(bindings: [oname: $0])
+                let i = objectGraphPairs.lazy.map { (o, g) -> SPARQLResultSolution<Term> in
+                    var bindings : [String: Term] = [oname: o]
+                    if case .variable(let v, _) = graph {
+                        bindings[v] = g
+                    }
+                    return SPARQLResultSolution<Term>(bindings: bindings)
                 }
                 return AnyIterator(i.makeIterator())
             } else {
-                let i = objects.lazy.map { (_) -> SPARQLResultSolution<Term> in
-                    return SPARQLResultSolution<Term>(bindings: [:])
+                let i = objectGraphPairs.lazy.map { (_, g) -> SPARQLResultSolution<Term> in
+                    var bindings : [String: Term] = [:]
+                    if case .variable(let v, _) = graph {
+                        bindings[v] = g
+                    }
+                    return SPARQLResultSolution<Term>(bindings: bindings)
                 }
                 return AnyIterator(i.makeIterator())
             }
         case (.bound(_), .bound(let o)):
-            let objects = try evaluate(from: subject, in: graph)
-            let i = objects.lazy.compactMap { (term) -> SPARQLResultSolution<Term>? in
+            let objectGraphPairs = try evaluate(from: subject, in: graph)
+            let i = objectGraphPairs.lazy.compactMap { (term, g) -> SPARQLResultSolution<Term>? in
                 guard term == o else { return nil }
-                return SPARQLResultSolution<Term>(bindings: [:])
+                var bindings : [String: Term] = [:]
+                if case .variable(let v, _) = graph {
+                    bindings[v] = g
+                }
+                return SPARQLResultSolution<Term>(bindings: bindings)
             }
             return AnyIterator(i.makeIterator())
         case (.variable(let s, _), .bound(_)):
             let p : Node = .variable(".p", binding: true)
-            let qp = QuadPattern(subject: subject, predicate: p, object: object, graph: .bound(graph))
+            let qp = QuadPattern(subject: subject, predicate: p, object: object, graph: graph)
             let i = try store.quads(matching: qp)
             let set = Set(iris)
             return AnyIterator {
@@ -1571,12 +1776,16 @@ public struct NPSPathPlan: PathPlan {
                     guard let q = i.next() else { return nil }
                     let p = q.predicate
                     guard !set.contains(p) else { continue }
-                    return SPARQLResultSolution<Term>(bindings: [s: q.subject])
+                    var bindings : [String: Term] = [s: q.subject]
+                    if case .variable(let v, _) = graph {
+                        bindings[v] = q.graph
+                    }
+                    return SPARQLResultSolution<Term>(bindings: bindings)
                 } while true
             }
         case let (.variable(s, _), .variable(o, _)):
             let p : Node = .variable(".p", binding: true)
-            let qp = QuadPattern(subject: subject, predicate: p, object: object, graph: .bound(graph))
+            let qp = QuadPattern(subject: subject, predicate: p, object: object, graph: graph)
             let i = try store.quads(matching: qp)
             let set = Set(iris)
             return AnyIterator {
@@ -1584,16 +1793,20 @@ public struct NPSPathPlan: PathPlan {
                     guard let q = i.next() else { return nil }
                     let p = q.predicate
                     guard !set.contains(p) else { continue }
-                    return SPARQLResultSolution<Term>(bindings: [s: q.subject, o: q.object])
+                    var bindings : [String: Term] = [s: q.subject, o: q.object]
+                    if case .variable(let v, _) = graph {
+                        bindings[v] = q.graph
+                    }
+                    return SPARQLResultSolution<Term>(bindings: bindings)
                 } while true
             }
         }
     }
     
-    public func evaluate(from subject: Node, in graph: Term) throws -> AnyIterator<Term> {
+    public func evaluate(from subject: Node, in graph: Node) throws -> AnyIterator<(Term, Term)> {
         let object = Node.variable(".npso", binding: true)
         let predicate = Node.variable(".npsp", binding: true)
-        let quad = QuadPattern(subject: subject, predicate: predicate, object: object, graph: .bound(graph))
+        let quad = QuadPattern(subject: subject, predicate: predicate, object: object, graph: graph)
         let i = try store.quads(matching: quad)
         // OPTIMIZE: this can be made more efficient by adding an NPS function to the store,
         //           and allowing it to do the filtering based on a SPARQLResultSolution<UInt64> objects before
@@ -1604,7 +1817,7 @@ public struct NPSPathPlan: PathPlan {
                 guard let q = i.next() else { return nil }
                 let p = q.predicate
                 guard !set.contains(p) else { continue }
-                return q.object
+                return (q.object, q.graph)
             } while true
         }
     }
@@ -1615,28 +1828,28 @@ public struct LinkPathPlan : PathPlan {
     var store: QuadStoreProtocol
     public var children: [PathPlan] { return [] }
     public var selfDescription: String { return "Link { \(predicate) }" }
-    public func evaluate(from subject: Node, to object: Node, in graph: Term) throws -> AnyIterator<SPARQLResultSolution<Term>> {
+    public func evaluate(from subject: Node, to object: Node, in graph: Node) throws -> AnyIterator<SPARQLResultSolution<Term>> {
 //        print("eval(linkPath[\(subject) \(predicate) \(object) \(graph)])")
-        let qp = QuadPattern(subject: subject, predicate: .bound(predicate), object: object, graph: .bound(graph))
+        let qp = QuadPattern(subject: subject, predicate: .bound(predicate), object: object, graph: graph)
         let r = try store.results(matching: qp)
         return r
     }
     
-    public func evaluate(from subject: Node, in graph: Term) throws -> AnyIterator<Term> {
-        let object = Node.variable(".lpo", binding: true)
-        let qp = QuadPattern(
-            subject: subject,
-            predicate: .bound(predicate),
-            object: object,
-            graph: .bound(graph)
-        )
-//        print("eval(linkPath[from: \(qp)])")
-        let plan = QuadPlan(quad: qp, store: store)
-        let i = try plan.evaluate().lazy.compactMap {
-            return $0[object]
-        }
-        return AnyIterator(i.makeIterator())
-    }
+//    public func evaluate(from subject: Node, in graph: Node) throws -> AnyIterator<Term> {
+//        let object = Node.variable(".lpo", binding: true)
+//        let qp = QuadPattern(
+//            subject: subject,
+//            predicate: .bound(predicate),
+//            object: object,
+//            graph: graph
+//        )
+////        print("eval(linkPath[from: \(qp)])")
+//        let plan = QuadPlan(quad: qp, store: store)
+//        let i = try plan.evaluate().lazy.compactMap {
+//            return $0[object]
+//        }
+//        return AnyIterator(i.makeIterator())
+//    }
 }
 
 public struct UnionPathPlan: PathPlan {
@@ -1644,7 +1857,7 @@ public struct UnionPathPlan: PathPlan {
     public var rhs: PathPlan
     public var children: [PathPlan] { return [lhs, rhs] }
     public var selfDescription: String { return "Alt" }
-    public func evaluate(from subject: Node, to object: Node, in graph: Term) throws -> AnyIterator<SPARQLResultSolution<Term>> {
+    public func evaluate(from subject: Node, to object: Node, in graph: Node) throws -> AnyIterator<SPARQLResultSolution<Term>> {
         let l = try lhs.evaluate(from: subject, to: object, in: graph)
         let r = try rhs.evaluate(from: subject, to: object, in: graph)
         return AnyIterator(ConcatenatingIterator(l, r))
@@ -1658,7 +1871,7 @@ public struct SequencePathPlan: PathPlan {
     public var children: [PathPlan] { return [lhs, rhs] }
     public var selfDescription: String { return "Seq { \(joinNode) }" }
     
-    public func evaluate(from subject: Node, to object: Node, in graph: Term) throws -> AnyIterator<SPARQLResultSolution<Term>> {
+    public func evaluate(from subject: Node, to object: Node, in graph: Node) throws -> AnyIterator<SPARQLResultSolution<Term>> {
 //        print("eval(sequencePath[\(subject) --> \(object)])")
         guard case .variable(_, _) = joinNode else {
             print("*** invalid child in query plan evaluation")
@@ -1671,6 +1884,10 @@ public struct SequencePathPlan: PathPlan {
                 let r = try rhs.evaluate(from: .bound(j), to: object, in: graph)
                 for rr in r {
                     var result = rr
+                    if case .variable(let v, _) = graph {
+                        // ensure we join on the graph variable
+                        guard let lg = lr[v], let rg = rr[v], lg == rg else { continue }
+                    }
                     if case .variable(let name, true) = subject, let term = lr[subject] {
                         result = result.extended(variable: name, value: term) ?? result
                     }
@@ -1686,7 +1903,7 @@ public struct InversePathPlan: PathPlan {
     public var child: PathPlan
     public var children: [PathPlan] { return [child] }
     public var selfDescription: String { return "Inv" }
-    public func evaluate(from subject: Node, to object: Node, in graph: Term) throws -> AnyIterator<SPARQLResultSolution<Term>> {
+    public func evaluate(from subject: Node, to object: Node, in graph: Node) throws -> AnyIterator<SPARQLResultSolution<Term>> {
         return try child.evaluate(from: object, to: subject, in: graph)
     }
 }
@@ -1696,52 +1913,75 @@ public struct PlusPathPlan : PathPlan {
     var store: QuadStoreProtocol
     public var children: [PathPlan] { return [child] }
     public var selfDescription: String { return "Plus" }
-    public func evaluate(from subject: Node, to object: Node, in graph: Term) throws -> AnyIterator<SPARQLResultSolution<Term>> {
-        switch subject {
-        case .bound:
-            var v = Set<Term>()
-            let frontierNode : Node = .variable(".pp-plus", binding: true)
-            for r in try child.evaluate(from: subject, to: frontierNode, in: graph) {
-                if let n = r[frontierNode] {
-//                    print("First step of + resulted in term: \(n)")
-                    try alp(term: n, path: child, seen: &v, graph: graph)
-                }
-            }
-//            print("ALP resulted in: \(v)")
-            
-            let i = v.lazy.map { (term) -> SPARQLResultSolution<Term> in
-                if case .variable(let name, true) = object {
-                    return SPARQLResultSolution<Term>(bindings: [name: term])
-                } else {
-                    return SPARQLResultSolution<Term>(bindings: [:])
-                }
-            }
-            
-            return AnyIterator(i.makeIterator())
-        case .variable(let s, binding: _):
-            switch object {
-            case .variable:
-                var iterators = [AnyIterator<SPARQLResultSolution<Term>>]()
-                for gn in store.graphTerms(in: graph) {
-                    let results = try evaluate(from: .bound(gn), to: object, in: graph).lazy.compactMap { (r) -> SPARQLResultSolution<Term>? in
-                        r.extended(variable: s, value: gn)
-                    }
-                    iterators.append(AnyIterator(results.makeIterator()))
-                }
-                return AnyIterator { () -> SPARQLResultSolution<Term>? in
-                    repeat {
-                        guard let i = iterators.first else { return nil }
-                        if let r = i.next() {
-                            return r
-                        } else {
-                            iterators.removeFirst(1)
-                        }
-                    } while true
-                }
+    public func evaluate(from subject: Node, to object: Node, in graph: Node) throws -> AnyIterator<SPARQLResultSolution<Term>> {
+        let graphs: [Term]
+        if case .bound(let g) = graph {
+            graphs = [g]
+        } else {
+            graphs = Array(store.graphs())
+        }
+        
+        var branches = try graphs.compactMap { (graph) -> AnyIterator<SPARQLResultSolution<Term>>? in
+            switch subject {
             case .bound:
-                // ?subject path+ <bound>
-                let ipath = PlusPathPlan(child: InversePathPlan(child: child), store: store)
-                return try ipath.evaluate(from: object, to: subject, in: graph)
+                var v = Set<Term>()
+                let frontierNode : Node = .variable(".pp-plus", binding: true)
+                for r in try child.evaluate(from: subject, to: frontierNode, in: .bound(graph)) {
+                    if let n = r[frontierNode] {
+                        //                    print("First step of + resulted in term: \(n)")
+                        try alp(term: n, path: child, seen: &v, graph: graph)
+                    }
+                }
+                //            print("ALP resulted in: \(v)")
+                
+                let i = v.lazy.map { (term) -> SPARQLResultSolution<Term> in
+                    if case .variable(let name, true) = object {
+                        return SPARQLResultSolution<Term>(bindings: [name: term])
+                    } else {
+                        return SPARQLResultSolution<Term>(bindings: [:])
+                    }
+                }
+                
+                return AnyIterator(i.makeIterator())
+            case .variable(let s, binding: _):
+                switch object {
+                case .variable:
+                    var iterators = [AnyIterator<SPARQLResultSolution<Term>>]()
+                    for gn in store.graphTerms(in: graph) {
+                        let results = try evaluate(from: .bound(gn), to: object, in: .bound(graph)).lazy.compactMap { (r) -> SPARQLResultSolution<Term>? in
+                            r.extended(variable: s, value: gn)
+                        }
+                        iterators.append(AnyIterator(results.makeIterator()))
+                    }
+                    return AnyIterator { () -> SPARQLResultSolution<Term>? in
+                        repeat {
+                            guard let i = iterators.first else { return nil }
+                            if let r = i.next() {
+                                return r
+                            } else {
+                                iterators.removeFirst(1)
+                            }
+                        } while true
+                    }
+                case .bound:
+                    // ?subject path+ <bound>
+                    let ipath = PlusPathPlan(child: InversePathPlan(child: child), store: store)
+                    return try ipath.evaluate(from: object, to: subject, in: .bound(graph))
+                }
+            }
+        }
+        
+        var current = branches.popLast()
+        return AnyIterator {
+            while true {
+                if let current = current {
+                    if let element = current.next() {
+                        return element
+                    }
+                }
+                
+                guard !branches.isEmpty else { return nil }
+                current = branches.popLast()
             }
         }
     }
@@ -1751,51 +1991,111 @@ public struct StarPathPlan : PathPlan {
     public var child: PathPlan
     var store: QuadStoreProtocol
     public var children: [PathPlan] { return [child] }
-    public var selfDescription: String { return "Plus" }
-    public func evaluate(from subject: Node, to object: Node, in graph: Term) throws -> AnyIterator<SPARQLResultSolution<Term>> {
-        switch subject {
-        case .bound(let term):
-            var v = Set<Term>()
-            try alp(term: term, path: child, seen: &v, graph: graph)
-//            print("ALP resulted in: \(v)")
-            
-            switch object {
-            case let .variable(name, binding: true):
-                let i = v.lazy.map { SPARQLResultSolution<Term>(bindings: [name: $0]) }
-                return AnyIterator(i.makeIterator())
-            case .variable(_, binding: false):
-                let i = v.lazy.map { (_) in SPARQLResultSolution<Term>(bindings: [:]) }.prefix(1)
-                return AnyIterator(i.makeIterator())
-            case .bound(let o):
-                let i = v.lazy.compactMap { (term) -> SPARQLResultSolution<Term>? in
-                    guard term == o else { return nil }
-                    return SPARQLResultSolution<Term>(bindings: [:])
-                }
-                return AnyIterator(i.prefix(1).makeIterator())
-            }
-        case .variable(let s, binding: _):
-            switch object {
-            case .variable:
-                var iterators = [AnyIterator<SPARQLResultSolution<Term>>]()
-                for gn in store.graphTerms(in: graph) {
-                    let results = try evaluate(from: .bound(gn), to: object, in: graph).lazy.compactMap { (r) -> SPARQLResultSolution<Term>? in
-                        r.extended(variable: s, value: gn)
-                    }
-                    iterators.append(AnyIterator(results.makeIterator()))
-                }
-                return AnyIterator { () -> SPARQLResultSolution<Term>? in
-                    repeat {
-                        guard let i = iterators.first else { return nil }
-                        if let r = i.next() {
-                            return r
-                        } else {
-                            iterators.removeFirst(1)
+    public var selfDescription: String { return "Star" }
+    public func evaluate(from subject: Node, to object: Node, in graph: Node) throws -> AnyIterator<SPARQLResultSolution<Term>> {
+        let graphs: [Term]
+        if case .bound(let g) = graph {
+            graphs = [g]
+        } else {
+            graphs = Array(store.graphs())
+        }
+        
+        var branches = try graphs.compactMap { (graphTerm) -> AnyIterator<SPARQLResultSolution<Term>>? in
+            switch subject {
+            case .bound(let term):
+                var v = Set<Term>()
+                try alp(term: term, path: child, seen: &v, graph: graphTerm)
+                //            print("ALP resulted in: \(v)")
+                
+                switch object {
+                case let .variable(name, binding: true):
+                    let i = v.lazy.map { (term) -> SPARQLResultSolution<Term> in
+                        var bindings = [name: term]
+                        if case .variable(let v, _) = graph {
+                            bindings[v] = graphTerm
                         }
-                    } while true
+                        return SPARQLResultSolution<Term>(bindings: bindings)
+                    }
+                    return AnyIterator(i.makeIterator())
+                case .variable(_, binding: false):
+                    let i = v.lazy.map { (term) -> SPARQLResultSolution<Term> in
+                        var bindings = [String: Term]()
+                        if case .variable(let v, _) = graph {
+                            bindings[v] = graphTerm
+                        }
+                        return SPARQLResultSolution<Term>(bindings: bindings)
+                    }
+                    return AnyIterator(i.makeIterator())
+                case .bound(let o):
+                    let i = v.lazy.compactMap { (term) -> SPARQLResultSolution<Term>? in
+                        guard term == o else { return nil }
+                        var bindings = [String:Term]()
+                        if case .variable(let v, _) = graph {
+                            bindings[v] = graphTerm
+                        }
+                        return SPARQLResultSolution<Term>(bindings: bindings)
+                    }
+                    return AnyIterator(i.prefix(1).makeIterator())
                 }
-            case .bound:
-                let ipath = StarPathPlan(child: InversePathPlan(child: child), store: store)
-                return try ipath.evaluate(from: object, to: subject, in: graph)
+            case .variable(let s, binding: _):
+                switch object {
+                case .variable:
+                    var iterators = [AnyIterator<SPARQLResultSolution<Term>>]()
+                    for gn in store.graphTerms(in: graphTerm) {
+                        let results = try evaluate(from: .bound(gn), to: object, in: .bound(graphTerm)).lazy.compactMap { (r) -> SPARQLResultSolution<Term>? in
+                            let rr = r.extended(variable: s, value: gn)
+                            if case .variable(let v, _) = graph {
+                                if let rr = rr {
+                                    return rr.extended(variable: v, value: graphTerm)
+                                } else {
+                                    return nil
+                                }
+                            } else {
+                                return rr
+                            }
+                        }
+                        iterators.append(AnyIterator(results.makeIterator()))
+                    }
+                    return AnyIterator { () -> SPARQLResultSolution<Term>? in
+                        repeat {
+                            guard let i = iterators.first else { return nil }
+                            if let r = i.next() {
+                                if case .variable(let v, _) = graph {
+                                    return r.extended(variable: v, value: graphTerm)
+                                } else {
+                                    return r
+                                }
+                            } else {
+                                iterators.removeFirst(1)
+                            }
+                        } while true
+                    }
+                case .bound:
+                    let ipath = StarPathPlan(child: InversePathPlan(child: child), store: store)
+                    let i = try ipath.evaluate(from: object, to: subject, in: .bound(graphTerm))
+                    let j = i.lazy.compactMap { (r) -> SPARQLResultSolution<Term>? in
+                        if case .variable(let v, _) = graph {
+                            return r.extended(variable: v, value: graphTerm)
+                        } else {
+                            return r
+                        }
+                    }
+                    return AnyIterator(j.makeIterator())
+                }
+            }
+        }
+        
+        var current = branches.popLast()
+        return AnyIterator {
+            while true {
+                if let current = current {
+                    if let element = current.next() {
+                        return element
+                    }
+                }
+                
+                guard !branches.isEmpty else { return nil }
+                current = branches.popLast()
             }
         }
     }
@@ -1805,37 +2105,74 @@ public struct ZeroOrOnePathPlan : PathPlan {
     var store: QuadStoreProtocol
     public var children: [PathPlan] { return [child] }
     public var selfDescription: String { return "ZeroOrOne" }
-    public func evaluate(from subject: Node, to object: Node, in graph: Term) throws -> AnyIterator<SPARQLResultSolution<Term>> {
-        let i = try child.evaluate(from: subject, to: object, in: graph)
-        switch (subject, object) {
-        case (.variable(let s, _), .variable):
-            let gn = store.graphTerms(in: graph)
-            let results = try gn.lazy.map { (term) -> AnyIterator<SPARQLResultSolution<Term>> in
-                let i = try child.evaluate(from: .bound(term), to: object, in: graph)
-                let j = i.lazy.map { (r) -> SPARQLResultSolution<Term> in
-                    r.extended(variable: s, value: term) ?? r
+    public func evaluate(from subject: Node, to object: Node, in graph: Node) throws -> AnyIterator<SPARQLResultSolution<Term>> {
+        let graphs: [Term]
+        if case .bound(let g) = graph {
+            graphs = [g]
+        } else {
+            graphs = Array(store.graphs())
+        }
+        
+        var branches = try graphs.compactMap { (graphTerm) -> AnyIterator<SPARQLResultSolution<Term>>? in
+            let i = try child.evaluate(from: subject, to: object, in: .bound(graphTerm))
+            switch (subject, object) {
+            case (.variable(let s, _), .variable):
+                let gn = store.graphTerms(in: graphTerm)
+                let results = try gn.lazy.map { (term) -> AnyIterator<SPARQLResultSolution<Term>> in
+                    let i = try child.evaluate(from: .bound(term), to: object, in: .bound(graphTerm))
+                    let j = i.lazy.map { (r) -> SPARQLResultSolution<Term> in
+                        var bindings = r.bindings
+                        bindings[s] = term
+                        if case .variable(let v, _) = graph {
+                            bindings[v] = graphTerm
+                        }
+                        return SPARQLResultSolution<Term>(bindings: bindings)
+                    }
+                    return AnyIterator(j.makeIterator())
                 }
-                return AnyIterator(j.makeIterator())
+                return AnyIterator(results.joined().makeIterator())
+            case (.bound, .bound):
+                if subject == object {
+                    var bindings = [String: Term]()
+                    if case .variable(let v, _) = graph {
+                        bindings[v] = graphTerm
+                    }
+                    let r = [SPARQLResultSolution<Term>(bindings: bindings)]
+                    return AnyIterator(r.makeIterator())
+                } else {
+                    return i
+                }
+            case let (.bound(term), .variable(name, _)), let (.variable(name, _), .bound(term)):
+                let r = [SPARQLResultSolution<Term>(bindings: [name: term])]
+                var seen = Set<Term>()
+                let j = i.lazy.compactMap { (r) -> SPARQLResultSolution<Term>? in
+                    guard let t = r[name] else { return nil }
+                    guard t != term else { return nil }
+                    guard !seen.contains(t) else { return nil }
+                    seen.insert(t)
+
+                    var bindings = r.bindings
+                    if case .variable(let v, _) = graph {
+                        bindings[v] = graphTerm
+                    }
+                    return SPARQLResultSolution<Term>(bindings: bindings)
+                }
+                return AnyIterator(ConcatenatingIterator(r.makeIterator(), j.makeIterator()))
             }
-            return AnyIterator(results.joined().makeIterator())
-        case (.bound, .bound):
-            if subject == object {
-                let r = [SPARQLResultSolution<Term>(bindings: [:])]
-                return AnyIterator(r.makeIterator())
-            } else {
-                return i
+        }
+        
+        var current = branches.popLast()
+        return AnyIterator {
+            while true {
+                if let current = current {
+                    if let element = current.next() {
+                        return element
+                    }
+                }
+                
+                guard !branches.isEmpty else { return nil }
+                current = branches.popLast()
             }
-        case let (.bound(term), .variable(name, _)), let (.variable(name, _), .bound(term)):
-            let r = [SPARQLResultSolution<Term>(bindings: [name: term])]
-            var seen = Set<Term>()
-            let j = i.lazy.compactMap { (r) -> SPARQLResultSolution<Term>? in
-                guard let t = r[name] else { return nil }
-                guard t != term else { return nil }
-                guard !seen.contains(t) else { return nil }
-                seen.insert(t)
-                return r
-            }
-            return AnyIterator(ConcatenatingIterator(r.makeIterator(), j.makeIterator()))
         }
     }
 }
@@ -2153,13 +2490,15 @@ public struct AggregationPlan: UnaryQueryPlan, QueryPlanSerialization {
     var emitOnEmpty: Bool
     var aggregates: [String: () -> (Aggregate)]
     var ee: ExpressionEvaluator
-    public init(child: QueryPlan, groups: [Expression], aggregates: Set<Algebra.AggregationMapping>) {
+    public var metricsToken: QueryPlanEvaluationMetrics.Token
+    public init(child: QueryPlan, groups: [Expression], aggregates: Set<Algebra.AggregationMapping>, metricsToken: QueryPlanEvaluationMetrics.Token) {
         self.child = child
         self.groups = groups
         self.aggregates = [:]
         let ee = ExpressionEvaluator(base: nil)
         self.ee = ee
         self.emitOnEmpty = self.groups.isEmpty
+        self.metricsToken = metricsToken
 
         for a in aggregates {
             switch a.aggregation {
@@ -2194,10 +2533,13 @@ public struct AggregationPlan: UnaryQueryPlan, QueryPlanSerialization {
     }
     
     public var selfDescription: String { return "Aggregate \(aggregates) over groups \(groups)" }
-    public func evaluate() throws -> AnyIterator<SPARQLResultSolution<Term>> {
+    public func evaluate(_ metrics: QueryPlanEvaluationMetrics) throws -> AnyIterator<SPARQLResultSolution<Term>> {
+        metrics.startEvaluation(metricsToken, self)
+        defer { metrics.endEvaluation(metricsToken) }
+
         var aggData = [[Term?]:[String:Aggregate]]()
         var seenRows = 0
-        for r in try child.evaluate() {
+        for r in try child.evaluate(metrics) {
             seenRows += 1
             let group = groups.map { try? ee.evaluate(expression: $0, result: r) }
             if let _ = aggData[group] {

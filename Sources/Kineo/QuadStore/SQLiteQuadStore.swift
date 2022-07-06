@@ -526,36 +526,36 @@ extension SQLiteQuadStore: CustomStringConvertible {
 }
 
 extension SQLiteQuadStore: PlanningQuadStore {
-    public func plan(algebra: Algebra, activeGraph: Term, dataset: Dataset) throws -> QueryPlan? {
+    public func plan(algebra: Algebra, activeGraph: Term, dataset: DatasetProtocol, metrics: QueryPlanEvaluationMetrics) throws -> QueryPlan? {
         switch algebra {
         case let .project(a, vars):
-            if let qp = try plan(algebra: a, activeGraph: activeGraph, dataset: dataset) {
+            if let qp = try plan(algebra: a, activeGraph: activeGraph, dataset: dataset, metrics: metrics) {
                 if let q = qp as? SQLitePlan {
                     let query = q.query
                     let projected = q.projected
                     let d = query.select(distinct: vars.compactMap { projected[$0] })
                     let p = projected.filter { vars.contains($0.key) }
-                    return SQLitePlan(query: d, distinct: true, projected: p, store: self)
+                    return SQLitePlan(query: d, distinct: true, projected: p, store: self, metricsToken: metrics.getOperatorToken())
                 }
             }
             return nil
         case .distinct(let a):
-            if let qp = try plan(algebra: a, activeGraph: activeGraph, dataset: dataset) {
+            if let qp = try plan(algebra: a, activeGraph: activeGraph, dataset: dataset, metrics: metrics) {
                 if let q = qp as? SQLitePlan {
                     let query = q.query
                     let projected = q.projected
                     let d = query.select(distinct: Array(projected.values))
-                    return SQLitePlan(query: d, distinct: true, projected: projected, store: self)
+                    return SQLitePlan(query: d, distinct: true, projected: projected, store: self, metricsToken: metrics.getOperatorToken())
                 }
             }
             return nil
         case .quad(let qp):
             let (q, projected, _) = try query(quad: qp, alias: "t")
-            return SQLitePlan(query: q, distinct: false, projected: projected, store: self)
+            return SQLitePlan(query: q, distinct: false, projected: projected, store: self, metricsToken: metrics.getOperatorToken())
         case .triple(let t):
-            return try plan(bgp: [t], activeGraph: activeGraph)
+            return try plan(bgp: [t], activeGraph: activeGraph, metrics: metrics)
         case .bgp(let triples):
-            return try plan(bgp: triples, activeGraph: activeGraph)
+            return try plan(bgp: triples, activeGraph: activeGraph, metrics: metrics)
         case let .aggregate(a, groups, aggs) where aggs.count == 1:
             guard groups.allSatisfy({ if case .node(.variable) = $0 { return true } else { return false } }) else {
                 return nil
@@ -569,7 +569,7 @@ extension SQLiteQuadStore: PlanningQuadStore {
                 return nil
             }
             if case .countAll = agg.aggregation {
-                if let qp = try plan(algebra: a, activeGraph: activeGraph, dataset: dataset) {
+                if let qp = try plan(algebra: a, activeGraph: activeGraph, dataset: dataset, metrics: metrics) {
                     if let q = qp as? SQLitePlan {
                         let query = q.query
                         let projected = q.projected.filter { groupVars.contains($0.key) }
@@ -584,7 +584,8 @@ extension SQLiteQuadStore: PlanningQuadStore {
                             aggregateColumn: aggCol,
                             aggregateName: agg.variableName,
                             projected: projected,
-                            store: self
+                            store: self,
+                            metricsToken: metrics.getOperatorToken()
                         )
                     }
                 }
@@ -599,7 +600,7 @@ extension SQLiteQuadStore: PlanningQuadStore {
             let sql = "WITH RECURSIVE \(pathTable)(subject, object, graph) AS (\(ppsql)) SELECT DISTINCT subject, object, graph FROM \(pathTable) WHERE subject = ? AND graph = ?"
             let bindings = ppbindings + [sid, gid]
             let dbh = try db.prepare(sql, bindings)
-            return SQLitePreparedPlan(dbh: dbh, projected: [oname: "object"], store: self)
+            return SQLitePreparedPlan(dbh: dbh, projected: [oname: "object"], store: self, metricsToken: metrics.getOperatorToken())
         case let .path(.bound(sTerm), .star(.link(p)), .variable(oname, binding: true)):
             let path : PropertyPath = .star(.link(p))
             guard let sid = id(for: sTerm), let gid = id(for: activeGraph) else {
@@ -610,7 +611,7 @@ extension SQLiteQuadStore: PlanningQuadStore {
             let sql = "WITH RECURSIVE \(pathTable)(subject, object, graph) AS (\(ppsql)) SELECT DISTINCT subject, object, graph FROM \(pathTable) WHERE subject = ? AND graph = ? UNION ALL VALUES(?, ?, ?)"
             let bindings = ppbindings + [sid, gid, sid, sid, gid]
             let dbh = try db.prepare(sql, bindings)
-            return SQLitePreparedPlan(dbh: dbh, projected: [oname: "object"], store: self)
+            return SQLitePreparedPlan(dbh: dbh, projected: [oname: "object"], store: self, metricsToken: metrics.getOperatorToken())
         case let .path(.variable(sname, binding: true), .star(.link(p)), .variable(oname, binding: true)):
             let path : PropertyPath = .star(.link(p))
             guard let gid = id(for: activeGraph) else {
@@ -621,7 +622,7 @@ extension SQLiteQuadStore: PlanningQuadStore {
             let sql = "WITH RECURSIVE \(pathTable)(subject, object, graph) AS (\(ppsql)) SELECT DISTINCT subject, object, graph FROM \(pathTable) UNION SELECT DISTINCT subject, subject, graph FROM quads WHERE graph = ? UNION SELECT DISTINCT object, object, graph FROM quads WHERE graph = ?"
             let bindings = ppbindings + [gid, gid]
             let dbh = try db.prepare(sql, bindings)
-            return SQLitePreparedPlan(dbh: dbh, projected: [sname: "subject", oname: "object"], store: self)
+            return SQLitePreparedPlan(dbh: dbh, projected: [sname: "subject", oname: "object"], store: self, metricsToken: metrics.getOperatorToken())
         default:
             return nil
         }
@@ -663,14 +664,14 @@ extension SQLiteQuadStore: PlanningQuadStore {
          **/
     }
     
-    private func plan(bgp: [TriplePattern], activeGraph: Term) throws -> QueryPlan? {
+    private func plan(bgp: [TriplePattern], activeGraph: Term, metrics: QueryPlanEvaluationMetrics) throws -> QueryPlan? {
         if bgp.isEmpty {
             return TablePlan.joinIdentity
         } else if bgp.count == 1 {
             let tp = bgp.first!
             let qp = QuadPattern(triplePattern: tp, graph: .bound(activeGraph))
             let (q, projected, _) = try query(quad: qp, alias: "t")
-            return SQLitePlan(query: q, distinct: false, projected: projected, store: self)
+            return SQLitePlan(query: q, distinct: false, projected: projected, store: self, metricsToken: metrics.getOperatorToken())
         } else {
             let tp = bgp.first!
             let qp = QuadPattern(triplePattern: tp, graph: .bound(activeGraph)).bindingAllVariables
@@ -705,7 +706,7 @@ extension SQLiteQuadStore: PlanningQuadStore {
             }
 
             bgpQuery = bgpQuery.select(Array(projected.values))
-            return SQLitePlan(query: bgpQuery, distinct: false, projected: projected, store: self)
+            return SQLitePlan(query: bgpQuery, distinct: false, projected: projected, store: self, metricsToken: metrics.getOperatorToken())
         }
     }
     
@@ -928,7 +929,7 @@ open class SQLiteLanguageQuadStore: Sequence, LanguageAwareQuadStore, MutableQua
 }
 
 extension SQLiteLanguageQuadStore: PlanningQuadStore {
-    public func plan(algebra: Algebra, activeGraph: Term, dataset: Dataset) throws -> QueryPlan? {
+    public func plan(algebra: Algebra, activeGraph: Term, dataset: DatasetProtocol, metrics: QueryPlanEvaluationMetrics) throws -> QueryPlan? {
         return nil
     }
 }
@@ -1477,6 +1478,7 @@ public struct SQLitePlan: NullaryQueryPlan, QueryPlanSerialization {
     var distinct: Bool
     var projected: [String: SQLite.Expression<Int64>]
     var store: SQLiteQuadStore
+    public var metricsToken: QueryPlanEvaluationMetrics.Token
     public var selfDescription: String { return "SQLite Plan { \(query.expression.template) : \(query.expression.bindings) }" }
     public var isJoinIdentity: Bool { return false }
     public var isUnionIdentity: Bool { return false }
@@ -1508,15 +1510,22 @@ public struct SQLitePlan: NullaryQueryPlan, QueryPlanSerialization {
         return (q, columnMapping)
     }
     
-    public func evaluate() throws -> AnyIterator<SPARQLResultSolution<Term>> {
+    public func evaluate(_ metrics: QueryPlanEvaluationMetrics) throws -> AnyIterator<SPARQLResultSolution<Term>> {
+        metrics.startEvaluation(metricsToken, self)
+        defer { metrics.endEvaluation(metricsToken) }
+
         let store = self.store
         
-        if true {
+//        if true {
             let (q, columnMapping) = wrapQuery()
             guard let dbh = try? store.db.prepare(q) else {
                 return AnyIterator { return nil }
             }
+            
             let results = dbh.lazy.compactMap { (row) -> SPARQLResultSolution<Term>? in
+                metrics.resumeEvaluation(token: metricsToken)
+                defer { metrics.endEvaluation(metricsToken) }
+
                 do {
                     let d = try columnMapping.map { (pair) throws -> (String, Term) in
                         let name = pair.key
@@ -1533,28 +1542,32 @@ public struct SQLitePlan: NullaryQueryPlan, QueryPlanSerialization {
                 }
             }
             return AnyIterator(results.makeIterator())
-        } else {
-            // execute the query, and then pull term values from the terms table as separate queries
-            guard let dbh = try? store.db.prepare(query) else {
-                return AnyIterator { return nil }
-            }
-            let projected = self.projected
-            let results = dbh.lazy.compactMap { (row) -> SPARQLResultSolution<Term>? in
-                do {
-                    let d = try projected.map({ (name, id) throws -> (String, Term) in
-                        guard let t = store.term(for: row[id]) else {
-                            throw SQLiteQuadStore.SQLiteQuadStoreError.idAccessError
-                        }
-                        return (name, t)
-                    })
-                    let r = SPARQLResultSolution<Term>(bindings: Dictionary(uniqueKeysWithValues: d))
-                    return r
-                } catch {
-                    return nil
-                }
-            }
-            return AnyIterator(results.makeIterator())
-        }
+//        } else {
+//            // execute the query, and then pull term values from the terms table as separate queries
+//            guard let dbh = try? store.db.prepare(query) else {
+//                return AnyIterator { return nil }
+//            }
+//            let projected = self.projected
+//            
+//            let results = dbh.lazy.compactMap { (row) -> SPARQLResultSolution<Term>? in
+//                metrics.resumeEvaluation(token: metricsToken)
+//                defer { metrics.endEvaluation(metricsToken) }
+//
+//                do {
+//                    let d = try projected.map({ (name, id) throws -> (String, Term) in
+//                        guard let t = store.term(for: row[id]) else {
+//                            throw SQLiteQuadStore.SQLiteQuadStoreError.idAccessError
+//                        }
+//                        return (name, t)
+//                    })
+//                    let r = SPARQLResultSolution<Term>(bindings: Dictionary(uniqueKeysWithValues: d))
+//                    return r
+//                } catch {
+//                    return nil
+//                }
+//            }
+//            return AnyIterator(results.makeIterator())
+//        }
     }
 }
 
@@ -1562,15 +1575,23 @@ public struct SQLitePreparedPlan: NullaryQueryPlan, QueryPlanSerialization {
     var dbh: SQLite.Statement
     var projected: [String: String]
     var store: SQLiteQuadStore
+    public var metricsToken: QueryPlanEvaluationMetrics.Token
     public var selfDescription: String { return "SQLite Prepared Plan { \(dbh) }" }
     public var isJoinIdentity: Bool { return false }
     public var isUnionIdentity: Bool { return false }
 
-    public func evaluate() throws -> AnyIterator<SPARQLResultSolution<Term>> {
+    public func evaluate(_ metrics: QueryPlanEvaluationMetrics) throws -> AnyIterator<SPARQLResultSolution<Term>> {
+        metrics.startEvaluation(metricsToken, self)
+        defer { metrics.endEvaluation(metricsToken) }
+
         let projected = self.projected
         let map = Dictionary(uniqueKeysWithValues: dbh.columnNames.enumerated().map { ($1, $0) })
         let store = self.store
+
         let results = dbh.lazy.compactMap { (row) -> SPARQLResultSolution<Term>? in
+            metrics.resumeEvaluation(token: metricsToken)
+            defer { metrics.endEvaluation(metricsToken) }
+
             do {
                 let d = try projected.map({ (name, colName) throws -> (String, Term) in
                     guard let i = map[colName], let id : Int64 = row[i] as? Int64, let t = store.term(for: id) else {
@@ -1594,11 +1615,15 @@ public struct SQLiteSingleIntegerAggregationPlan<D: Value>: NullaryQueryPlan, Qu
     var aggregateName: String
     var projected: [String: SQLite.Expression<Int64>]
     var store: SQLiteQuadStore
+    public var metricsToken: QueryPlanEvaluationMetrics.Token
     public var selfDescription: String { return "SQLite Aggregation Plan { \(aggregateColumn) AS \(aggregateName) : \(query.expression.template) : \(query.expression.bindings) }" }
     public var isJoinIdentity: Bool { return false }
     public var isUnionIdentity: Bool { return false }
 
-    public func evaluate() throws -> AnyIterator<SPARQLResultSolution<Term>> {
+    public func evaluate(_ metrics: QueryPlanEvaluationMetrics) throws -> AnyIterator<SPARQLResultSolution<Term>> {
+        metrics.startEvaluation(metricsToken, self)
+        defer { metrics.endEvaluation(metricsToken) }
+
         let store = self.store
         guard let dbh = try? store.db.prepare(query) else {
             return AnyIterator { return nil }
@@ -1606,7 +1631,11 @@ public struct SQLiteSingleIntegerAggregationPlan<D: Value>: NullaryQueryPlan, Qu
         let projected = self.projected
         let aggregateColumn = self.aggregateColumn
         let aggregateName = self.aggregateName
+
         let results = dbh.lazy.compactMap { (row : Row) -> SPARQLResultSolution<Term>? in
+            metrics.resumeEvaluation(token: metricsToken)
+            defer { metrics.endEvaluation(metricsToken) }
+
             do {
                 let aggValue: D? = try row.get(aggregateColumn)
                 var d = try projected.map({ (name, id) throws -> (String, Term) in

@@ -135,5 +135,96 @@ extension Algebra {
             return false
         }
     }
+
+    
+    /// Returns true if the algebra pattern will always bind a graph variable inside of a `GRAPH ?g` pattern.
+    /// This is used to determine whether to evaluate the pattern directly and use the bound graph variable,
+    /// or if the pattern needs to be evaluated once per named graph (e.g. `GRAPH ?g { VALUES ?x { 1 } }`)
+    var willBindGraph: Bool {
+        switch self {
+        case .unionIdentity, .joinIdentity:
+            return false
+        case .quad(_):
+            return true
+        case .triple(_):
+            return true
+        case .bgp(_):
+            return true
+        case .path(_, _, _):
+            return true
+        case let .innerJoin(l, r):
+            return l.willBindGraph || r.willBindGraph
+        case let .union(l, r):
+            return l.willBindGraph && r.willBindGraph
+        case .namedGraph:
+            return false
+        case let .minus(l, _):
+            return l.willBindGraph
+        case .project:
+            // This might actually bind a graph variable, but we don't have insight into whether the projection will preseve it, so we conservatively assume it won't
+            return false
+        case .reduced(let l):
+            return l.willBindGraph
+        case .slice(let l, _, _):
+            return l.willBindGraph
+
+
+        case .leftOuterJoin(let l, _, _): // TODO: can special-case OPTIONAL without a filter clause
+            return l.willBindGraph
+        case .filter(let l, _):
+            return l.willBindGraph
+        case .extend(let l, _, _):
+            return l.willBindGraph
+        case .distinct(let l):
+            return l.willBindGraph
+        case .service(_, _, _):
+            return false
+        case .order(let l, _):
+            return l.willBindGraph
+        case .aggregate(_, _, _):
+            return false
+        case .window(_, _):
+            return false
+        case .subquery(_):
+            return false
+        case .table(_, _):
+            return false
+        }
+    }
 }
 
+public struct StoreDefaultDataset<Q: QuadStoreProtocol> : DatasetProtocol {
+    public var store: Q
+    public var defaultGraphs: [Term]
+    
+    public init(store: Q, graph: Term?) {
+        self.store = store
+        if let g = graph {
+            defaultGraphs = [g]
+        } else {
+            // if there are no graphs in the database, it doesn't matter what the default graph is.
+            defaultGraphs = [store.graphs().next() ?? Term(iri: "tag:kasei.us,2018:default-graph")]
+        }
+    }
+  
+    public var namedGraphs: [Term] {
+        var named = Set(store.graphs())
+        named.subtract(defaultGraphs)
+        return Array(named)
+    }
+
+    public var isEmpty : Bool {
+        return store.count == 0
+    }
+}
+
+public extension DatasetProtocol {
+    func isGraphNamed<Q : QuadStoreProtocol>(_ graph: Term, in store: Q) throws -> Bool {
+        if let _ = self as? StoreDefaultDataset<Q> {
+            // we know that the named graphs in the dataset are equal to all graphs minus the default graphs
+            return !defaultGraphs.contains(graph)
+        } else {
+            return namedGraphs.contains(graph)
+        }
+    }
+}

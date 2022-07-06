@@ -66,11 +66,21 @@ public protocol LazyMaterializingQuadStore: QuadStoreProtocol {
     func term(from: IDType) throws -> Term?
     func id(for: Term) throws -> IDType?
     
-    // in the returned tuples,
-    //  order: is the positions in the quad that results will come back ordered by
-    //  fullOrder: is the full set of quad positions of the underlying index,
-    //             of which some prefix will be covered by bound terms in the quad pattern
-    //             (and is used in quadIds(matching:orderedBt:) to pull data from the specific index
+    /// Returns an array of elements representing database indexes available for matching the given quad pattern.
+    /// Each element in the returned array is pair whose first element is the order array of quad positions for all variables in the quad pattern,
+    /// and whose second element is a similar order array indicating the total ordering of the index.
+    ///
+    /// If the database had indexes "sgpo" and "gpso", and this method was called with a quad pattern for matching { <s> ?p ?o <g> },
+    /// the return value could be:
+    /// [
+    ///     ([.predicate, .object], [.subject, .graph, .predicate, .object]), // since the terms <s><g> can match a prefix in the "sgpo"
+    ///     ([.predicate, .subject .object], [.graph, .predicate, .subject, .object]), // since the term <g> can match a prefix in the "gpso" index
+    /// ]
+    ///
+    /// A store is not required to return all indexes if that index would be inefficient compared to better alternatives.
+    /// For example, the above call might only return the first array element, since the "sgpo" index can perfectly match data in the quad pattern,
+    /// whereas the "gpso" index cannot.
+    /// - Parameter pattern: A quad pattern to match data
     func availableOrders(matching pattern: QuadPattern) throws -> [(order: [Quad.Position], fullOrder: [Quad.Position])]
     func quadIds(matching pattern: QuadPattern, orderedBy: [Quad.Position]) throws -> [[IDType]]
     func quadIds(matchingIDs pattern: [UInt64]) throws -> AnyIterator<[UInt64]>
@@ -259,17 +269,18 @@ extension Term {
 }
 
 extension QuadStoreProtocol {
-    public func dataset(withDefault defaultGraph: Term) -> Dataset {
-        var named = Set(self.graphs())
-        named.remove(defaultGraph)
-        let dataset = Dataset(defaultGraphs: [defaultGraph], namedGraphs: Array(named))
-        return dataset
+    public func dataset(withDefault defaultGraph: Term) -> StoreDefaultDataset<Self> {
+        let d = StoreDefaultDataset(store: self, graph: defaultGraph)
+        return d
     }
     
-    public func dataset() -> Dataset {
-        let named = self.graphs()
-        let dataset = Dataset(defaultGraphs: [], namedGraphs: Array(named))
-        return dataset
+    public func dataset(defaultGraph graph: Term?) -> StoreDefaultDataset<Self> {
+        return StoreDefaultDataset(store: self, graph: graph)
+    }
+    
+    public func dataset() -> StoreDefaultDataset<Self> {
+        let d = StoreDefaultDataset(store: self, graph: nil)
+        return d
     }
     
     public func effectiveVersion() throws -> Version? {

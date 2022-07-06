@@ -64,8 +64,9 @@ func parse(into store: MutableQuadStoreProtocol, files: [String], version: Versi
 /// - parameter query: The query to plan.
 /// - parameter graph: The graph name to use as the initial active graph.
 func explain<Q: QuadStoreProtocol>(in store: Q, query: Query, graph: Term? = nil, multiple: Bool, verbose: Bool) throws {
-    let dataset = datasetForStore(store, graph: graph, verbose: verbose)
-    let planner     = queryPlanner(store: store, dataset: dataset)
+    let dataset = store.dataset(defaultGraph: graph)
+    let metrics = QueryPlanEvaluationMetrics()
+    let planner     = queryPlanner(store: store, dataset: dataset, metrics: metrics)
     if multiple {
         planner.maxInFlightPlans = Int.max
         let plans        = try planner.plans(query: query)
@@ -84,21 +85,6 @@ func explain<Q: QuadStoreProtocol>(in store: Q, query: Query, graph: Term? = nil
     }
 }
 
-func datasetForStore(_ store: QuadStoreProtocol, graph: Term?, verbose: Bool = false) -> Dataset {
-    var defaultGraph: Term
-    if let g = graph {
-        defaultGraph = g
-    } else {
-        // if there are no graphs in the database, it doesn't matter what the default graph is.
-        defaultGraph = store.graphs().next() ?? Term(iri: "tag:kasei.us,2018:default-graph")
-        if verbose {
-            warn("Using default graph \(defaultGraph)")
-        }
-    }
-    let dataset = store.dataset(withDefault: defaultGraph)
-    return dataset
-}
-
 @discardableResult
 func time<T>(_ name: String, verbose: Bool = true, handler: () throws -> T) rethrows -> T {
     let startTime = getCurrentTime()
@@ -113,7 +99,7 @@ func time<T>(_ name: String, verbose: Bool = true, handler: () throws -> T) reth
 }
 
 func runQuery<Q: QuadStoreProtocol>(_ query: Query, in store: Q, graph: Term?, verbose: Bool) throws -> QueryResult<AnySequence<SPARQLResultSolution<Term>>, [Triple]> {
-    let dataset = time("computing dataset", verbose: verbose) { datasetForStore(store, graph: graph, verbose: verbose) }
+    let dataset = store.dataset(defaultGraph: graph)
     try time("computing last-modified", verbose: verbose) {
         let simpleEvaluator       = SimpleQueryEvaluator(store: store, dataset: dataset, verbose: verbose)
         if let mtime = try simpleEvaluator.effectiveVersion(matching: query) {
@@ -127,14 +113,15 @@ func runQuery<Q: QuadStoreProtocol>(_ query: Query, in store: Q, graph: Term?, v
     }
     
     //    let e       = SimpleQueryEvaluator(store: store, dataset: dataset, verbose: verbose)
-    let planner     = queryPlanner(store: store, dataset: dataset)
+    let metrics     = QueryPlanEvaluationMetrics(verbose: verbose)
+    let planner     = queryPlanner(store: store, dataset: dataset, metrics: metrics)
     let e           = QueryPlanEvaluator(planner: planner)
     let results     = try e.evaluate(query: query)
     return results
 }
 
-func queryPlanner<Q : QuadStoreProtocol>(store: Q, dataset: Dataset) -> QueryPlanner<Q> {
-    let planner = QueryPlanner(store: store, dataset: dataset)
+func queryPlanner<Q : QuadStoreProtocol>(store: Q, dataset: DatasetProtocol, metrics: QueryPlanEvaluationMetrics) -> QueryPlanner<Q> {
+    let planner = QueryPlanner(store: store, dataset: dataset, metrics: metrics)
     // Add extension functions here:
 //    planner.addFunction("http://example.org/func") { (terms) -> Term in
 //        return Term(string: "test")
@@ -227,8 +214,8 @@ func printGraphs(in store: QuadStoreProtocol) throws -> Int {
     return count
 }
 
-func printDataset(in store: QuadStoreProtocol, graph: Term? = nil) throws -> Int {
-    let dataset = datasetForStore(store, graph: graph)
+func printDataset<Q: QuadStoreProtocol>(in store: Q, graph: Term? = nil) throws -> Int {
+    let dataset = store.dataset(defaultGraph: graph)
     print("Dataset:")
     if !dataset.defaultGraphs.isEmpty {
         print("\tDefault graphs:")

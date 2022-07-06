@@ -223,21 +223,17 @@ class TestStore: MutableQuadStoreProtocol, Sequence {
     }
 }
 
-protocol QueryEvaluationTests {
-    associatedtype Store: MutableQuadStoreProtocol
-    associatedtype Evaluator: QueryEvaluatorProtocol
-    var store: Store! { get }
-    var graph: Term! { get }
-    func evaluator(dataset: Dataset) -> Evaluator
-}
+class QueryEvaluationTests<Store: MutableQuadStoreProtocol, Evaluator: QueryEvaluatorProtocol> : XCTestCase {
+    func getStore() -> Store? { return nil }
+    func getGraph() -> Term? { return nil }
+    func evaluator(dataset: DatasetProtocol) -> Evaluator? { return nil }
 
-extension QueryEvaluationTests {
     var testQuads: [Quad] {
+        guard let graph = getGraph() else { fatalError() }
         let parser = NTriplesParser(reader: "")
-        
-        guard let b1 = parser.parseQuad(line: "<http://example.org/Berlin> <http://xmlns.com/foaf/0.1/name> \"Berlin\"", graph: self.graph) else { fatalError() }
-        guard let b2 = parser.parseQuad(line: "<http://example.org/Berlin> <http://xmlns.com/foaf/0.1/homepage> <http://www.berlin.de/en/>", graph: self.graph) else { fatalError() }
-        guard let s = parser.parseQuad(line: "_:a <http://purl.org/dc/elements/1.1/title> \"Santa Monica\"", graph: self.graph) else { fatalError() }
+        guard let b1 = parser.parseQuad(line: "<http://example.org/Berlin> <http://xmlns.com/foaf/0.1/name> \"Berlin\"", graph: graph) else { fatalError() }
+        guard let b2 = parser.parseQuad(line: "<http://example.org/Berlin> <http://xmlns.com/foaf/0.1/homepage> <http://www.berlin.de/en/>", graph: graph) else { fatalError() }
+        guard let s = parser.parseQuad(line: "_:a <http://purl.org/dc/elements/1.1/title> \"Santa Monica\"", graph: graph) else { fatalError() }
         
         let numbers = Term(value: "http://example.org/numbers", type: .iri)
         guard let n0 = parser.parseQuad(line: "_:n1 <http://xmlns.com/foaf/0.1/name> \"a number\"", graph: numbers) else { fatalError() }
@@ -262,17 +258,19 @@ extension QueryEvaluationTests {
     }
     
     func eval(query: Query) throws -> AnyIterator<SPARQLResultSolution<Term>> {
-        let dataset = store.dataset(withDefault: self.graph)
-        let e = evaluator(dataset: dataset)
+        guard let store = getStore(), let graph = getGraph() else { fatalError() }
+        let dataset = store.dataset(withDefault: graph)
+        guard let e = evaluator(dataset: dataset) else { fatalError() }
         let results = try e.evaluate(query: query)
         guard case let .bindings(_, seq) = results else { fatalError() }
         return AnyIterator(seq.makeIterator())
     }
     
     func eval(algebra: Algebra) throws -> AnyIterator<SPARQLResultSolution<Term>> {
-        let dataset = store.dataset(withDefault: self.graph)
-        let e = evaluator(dataset: dataset)
-        let results = try e.evaluate(algebra: algebra, activeGraph: self.graph)
+        guard let store = getStore(), let graph = getGraph() else { fatalError() }
+        let dataset = store.dataset(withDefault: graph)
+        guard let e = evaluator(dataset: dataset) else { fatalError() }
+        let results = try e.evaluate(algebra: algebra, activeGraph: graph)
         return results
     }
     
@@ -286,37 +284,37 @@ extension QueryEvaluationTests {
         }
     }
     
-    func _testTripleEval() {
+    func testTripleEval() {
         guard let results = try? Array(eval(query: "triple ?s ?p ?o\n")) else { XCTFail(); return }
         XCTAssertEqual(results.count, 3)
     }
     
-    func _testQuadEvalNoSuchGraph() {
+    func testQuadEvalNoSuchGraph() {
         guard let results = try? Array(eval(query: "quad ?s ?p ?o <http://no-such-graph/>\n")) else { XCTFail(); return }
         XCTAssertEqual(results.count, 0)
     }
     
-    func _testQuadEval() {
+    func testQuadEval() {
         guard let results = try? Array(eval(query: "quad ?s ?p ?o <http://example.org/>\n")) else { XCTFail(); return }
         XCTAssertEqual(results.count, 3)
     }
     
-    func _testTripleEvalWithBoundPredicate() {
+    func testTripleEvalWithBoundPredicate() {
         guard let results = try? Array(eval(query: "triple ?s <http://xmlns.com/foaf/0.1/name> ?o\n")) else { XCTFail(); return }
         XCTAssertEqual(results.count, 1)
     }
     
-    func _testFilterEval() {
+    func testFilterEval() {
         guard let results = try? Array(eval(query: "triple ?s ?p ?o\nfilter ?s isiri")) else { XCTFail(); return }
         XCTAssertEqual(results.count, 2)
     }
     
-    func _testUnionEval() {
+    func testUnionEval() {
         guard let results = try? Array(eval(query: "triple ?s <http://xmlns.com/foaf/0.1/name> ?o\ntriple ?s <http://purl.org/dc/elements/1.1/title> ?o\nunion")) else { XCTFail(); return }
         XCTAssertEqual(results.count, 2)
     }
     
-    func _testProjectEval() {
+    func testProjectEval() {
         guard let nonProjectedResults = try? Array(eval(query: "triple ?s <http://xmlns.com/foaf/0.1/name> ?o\n")) else { XCTFail(); return }
         guard let nonProjectedResult = nonProjectedResults.first else { XCTFail(); return }
         XCTAssertEqual(Set(nonProjectedResult.keys), Set(["s", "o"]))
@@ -326,7 +324,7 @@ extension QueryEvaluationTests {
         XCTAssertEqual(Set(projectedResult.keys), Set(["o"]))
     }
     
-    func _testJoinEval() {
+    func testJoinEval() {
         guard let results = try? Array(eval(query: "triple ?s <http://xmlns.com/foaf/0.1/name> ?name\ntriple ?s <http://xmlns.com/foaf/0.1/homepage> ?page\njoin")) else { XCTFail(); return }
         XCTAssertEqual(results.count, 1)
         guard let result = results.first else { XCTFail(); return }
@@ -342,7 +340,7 @@ extension QueryEvaluationTests {
         XCTAssertEqual(page, Term(value: "http://www.berlin.de/en/", type: .iri))
     }
     
-    func _testLeftJoinEval() {
+    func testLeftJoinEval() {
         guard let results = try? Array(eval(query: "triple ?s <http://xmlns.com/foaf/0.1/name> ?name\ntriple ?s <http://purl.org/dc/elements/1.1/title> ?name\nunion\ntriple ?s <http://xmlns.com/foaf/0.1/homepage> ?page\nleftjoin")) else { XCTFail(); return }
         XCTAssertEqual(results.count, 2)
         
@@ -363,7 +361,7 @@ extension QueryEvaluationTests {
         XCTAssertEqual(seen, Set(["Berlin", "Santa Monica"]))
     }
     
-    func _testLimitEval() {
+    func testLimitEval() {
         guard let results0 = try? Array(eval(query: "triple ?s ?p ?o\nlimit 0")) else { XCTFail(); return }
         XCTAssertEqual(results0.count, 0)
         
@@ -374,7 +372,7 @@ extension QueryEvaluationTests {
         XCTAssertEqual(results2.count, 2)
     }
     
-    func _testCountAllEval() {
+    func testCountAllEval() {
         guard let results = try? Array(eval(query: "triple ?s <http://xmlns.com/foaf/0.1/name> ?name\ntriple ?s <http://purl.org/dc/elements/1.1/title> ?name\nunion\ntriple ?s <http://xmlns.com/foaf/0.1/homepage> ?page\nleftjoin\ncountall cnt\n")) else { XCTFail(); return }
         XCTAssertEqual(results.count, 1)
         guard let result = results.first else { XCTFail(); return }
@@ -382,7 +380,7 @@ extension QueryEvaluationTests {
         XCTAssertEqual(c, Term(integer: 2))
     }
     
-    func _testCountAllEvalWithGroup() {
+    func testCountAllEvalWithGroup() {
         guard let results = try? Array(eval(query: "triple ?s ?p ?o\ncountall cnt s\n")) else { XCTFail(); return }
         XCTAssertEqual(results.count, 2)
         var data = [TermType:Int]()
@@ -392,7 +390,7 @@ extension QueryEvaluationTests {
         XCTAssertEqual(data, [.iri: 2, .blank: 1])
     }
     
-    func _testCountEval() {
+    func testCountEval() {
         guard let results = try? Array(eval(query: "triple ?s <http://xmlns.com/foaf/0.1/name> ?name\ntriple ?s <http://purl.org/dc/elements/1.1/title> ?name\nunion\ntriple ?s <http://xmlns.com/foaf/0.1/homepage> ?page\nleftjoin\ncount page cnt")) else { XCTFail(); return }
         XCTAssertEqual(results.count, 1)
         guard let result = results.first else { XCTFail(); return }
@@ -400,7 +398,7 @@ extension QueryEvaluationTests {
         XCTAssertEqual(value, Term(integer: 1))
     }
     
-    func _testSumEval() {
+    func testSumEval() {
         guard let results = try? Array(eval(query: "quad ?s ?p ?o <http://example.org/numbers>\nfilter ?o isnumeric\nsum o sum\n")) else { XCTFail(); return }
         XCTAssertEqual(results.count, 1)
         guard let result = results.first else { XCTFail(); return }
@@ -408,7 +406,7 @@ extension QueryEvaluationTests {
         XCTAssertEqual(value.numericValue, -85.3, accuracy: 0.1)
     }
     
-    func _testAvgEval() {
+    func testAvgEval() {
         guard let results = try? Array(eval(query: "quad ?s ?p ?o <http://example.org/numbers>\nfilter ?o isnumeric\navg o avg\n")) else { XCTFail(); return }
         XCTAssertEqual(results.count, 1)
         guard let result = results.first else { XCTFail(); return }
@@ -416,7 +414,7 @@ extension QueryEvaluationTests {
         XCTAssertEqual(value.numericValue, -42.65, accuracy: 0.1)
     }
     
-    func _testMultiAggEval() {
+    func testMultiAggEval() {
         let quad: Algebra = .quad(QuadPattern(
             subject: .variable("s", binding: true),
             predicate: .variable("p", binding: true),
@@ -439,7 +437,7 @@ extension QueryEvaluationTests {
         XCTAssertEqual(avg.numericValue, -42.65, accuracy: 0.1)
     }
     
-    func _testSortEval() {
+    func testSortEval() {
         let quad: Algebra = .quad(QuadPattern(
             subject: .variable("s", binding: true),
             predicate: .bound(Term(value: "http://example.org/value", type: .iri)),
@@ -472,12 +470,12 @@ extension QueryEvaluationTests {
         XCTAssertEqual(negValues[1], 32.7, accuracy: 0.1)
     }
     
-    func _testIRINamedGraphEval() {
+    func testIRINamedGraphEval() {
         guard let results = try? Array(eval(query: "triple ?s ?p ?o\ngraph <http://example.org/other>\n")) else { XCTFail(); return }
         XCTAssertEqual(results.count, 1)
     }
     
-    func _testVarNamedGraphEval() {
+    func testVarNamedGraphEval() {
         guard let results = try? Array(eval(query: "triple ?s ?p ?o\ngraph ?g\n")) else { XCTFail(); return }
         XCTAssertEqual(results.count, 4)
         var graphs = Set<String>()
@@ -487,7 +485,7 @@ extension QueryEvaluationTests {
         XCTAssertEqual(graphs, Set(["http://example.org/numbers", "http://example.org/other"]))
     }
     
-    func _testExtendEval() {
+    func testExtendEval() {
         guard let algebra = parse(query: "quad ?s ?p ?o <http://example.org/numbers>\nextend value ?o 1 + int\nsort ?value") else { XCTFail(); fatalError() }
         guard let results = try? Array(eval(algebra: algebra)) else { XCTFail(); return }
         
@@ -498,7 +496,7 @@ extension QueryEvaluationTests {
         XCTAssertTrue(values[1] === .integer(33))
     }
     
-    func _testHashFunctions() {
+    func testHashFunctions() {
         let sparql = """
             SELECT * WHERE {
                 BIND(MD5("abc") AS ?md5)
@@ -539,7 +537,7 @@ extension QueryEvaluationTests {
         }
     }
     
-    func _testTermAccessors() {
+    func testTermAccessors() {
         let sparql = """
             SELECT * WHERE {
                 BIND(LANG("abc"@en-US) AS ?lang)
@@ -580,7 +578,7 @@ extension QueryEvaluationTests {
         }
     }
     
-    func _testAggregationProjection() {
+    func testAggregationProjection() {
         let sparql = """
             SELECT * WHERE {
                 BIND(1 AS ?z)
@@ -604,7 +602,7 @@ extension QueryEvaluationTests {
         }
     }
     
-    func _testEmptyAggregation() {
+    func testEmptyAggregation() {
         let sparql = """
             SELECT (SUM(?x) AS ?sum) WHERE {
                 BIND(1 AS ?x)
@@ -640,7 +638,7 @@ extension QueryEvaluationTests {
         }
     }
     
-    func _testRankWindowFunction1() throws {
+    func testRankWindowFunction1() throws {
         let data = "SELECT ?s ?p ?o (RANK() OVER (ORDER BY ?o) AS ?rank) WHERE { ?s ?p ?o } ORDER BY DESC(?rank)".data(using: .utf8)!
         guard var p = SPARQLParser(data: data) else { fatalError("Failed to construct SPARQL parser") }
         let results = try Array(eval(query: p.parseQuery()))
@@ -656,7 +654,7 @@ extension QueryEvaluationTests {
         ])
     }
     
-    func _testRankWindowFunction2() throws {
+    func testRankWindowFunction2() throws {
         let data = "SELECT ?s ?p ?o (RANK() OVER (ORDER BY DESC(?o)) AS ?rank) WHERE { ?s ?p ?o } ORDER BY ASC(?rank)".data(using: .utf8)!
         guard var p = SPARQLParser(data: data) else { fatalError("Failed to construct SPARQL parser") }
         let results = try Array(eval(query: p.parseQuery()))
@@ -672,7 +670,7 @@ extension QueryEvaluationTests {
         ])
     }
     
-    func _testRankWindowFunctionWithHaving() throws {
+    func testRankWindowFunctionWithHaving() throws {
         let data = """
         SELECT ?s ?p ?o (RANK() OVER (ORDER BY ?o) AS ?rank)
         WHERE { ?s ?p ?o }
@@ -692,7 +690,7 @@ extension QueryEvaluationTests {
         ])
     }
     
-    func _testWindowFunction1() throws {
+    func testWindowFunction1() throws {
         let data = """
         PREFIX : <http://example.org/>
         SELECT ?date ?value (AVG(?value) OVER (ORDER BY ?date ROWS BETWEEN 2 PRECEDING AND CURRENT ROW) AS ?movingAverage) WHERE {
@@ -723,7 +721,7 @@ extension QueryEvaluationTests {
         }
     }
     
-    func _testWindowFunction2() throws {
+    func testWindowFunction2() throws {
         let data = """
         PREFIX : <http://example.org/>
         SELECT ?date ?value (AVG(?value) OVER (ORDER BY ?date ROWS BETWEEN 3 PRECEDING AND CURRENT ROW) AS ?movingAverage) WHERE {
@@ -754,7 +752,7 @@ extension QueryEvaluationTests {
         }
     }
     
-    func _testWindowFunction3() throws {
+    func testWindowFunction3() throws {
         let data = """
         PREFIX : <http://example.org/>
         SELECT ?date ?value (AVG(?value) OVER (ORDER BY ?date ROWS BETWEEN CURRENT ROW AND UNBOUNDED) AS ?movingAverage) WHERE {
@@ -785,7 +783,7 @@ extension QueryEvaluationTests {
         }
     }
     
-    func _testWindowFunction4() throws {
+    func testWindowFunction4() throws {
         let data = """
         PREFIX : <http://example.org/>
         SELECT ?date ?value (AVG(?value) OVER (ORDER BY ?date ROWS BETWEEN 2 PRECEDING AND 1 PRECEDING) AS ?movingAverage) WHERE {
@@ -816,7 +814,7 @@ extension QueryEvaluationTests {
         }
     }
     
-    func _testWindowFunction5() throws {
+    func testWindowFunction5() throws {
         let data = """
         PREFIX : <http://example.org/>
         SELECT ?date ?value (AVG(?value) OVER (ORDER BY ?date ROWS BETWEEN CURRENT ROW AND 1 FOLLOWING) AS ?movingAverage) WHERE {
@@ -847,7 +845,7 @@ extension QueryEvaluationTests {
         }
     }
     
-    func _testWindowFunction6() throws {
+    func testWindowFunction6() throws {
         let data = """
         PREFIX : <http://example.org/>
         SELECT ?date ?value (AVG(?value) OVER (ORDER BY ?date ROWS BETWEEN UNBOUNDED AND 1 PRECEDING) AS ?movingAverage) WHERE {
@@ -878,7 +876,7 @@ extension QueryEvaluationTests {
         }
     }
     
-    func _testWindowFunction7() throws {
+    func testWindowFunction7() throws {
         let data = """
         PREFIX : <http://example.org/>
         SELECT ?date ?value (AVG(?value) OVER (ORDER BY ?date ROWS BETWEEN 1 FOLLOWING AND UNBOUNDED) AS ?movingAverage) WHERE {
@@ -909,7 +907,7 @@ extension QueryEvaluationTests {
         }
     }
     
-    func _testWindowFunction8() throws {
+    func testWindowFunction8() throws {
         let data = """
         PREFIX : <http://example.org/>
         SELECT ?date ?value (AVG(?value) OVER (ORDER BY ?date ROWS BETWEEN 1 FOLLOWING AND 3 FOLLOWING) AS ?movingAverage) WHERE {
@@ -940,7 +938,7 @@ extension QueryEvaluationTests {
         }
     }
     
-    func _testWindowFunction9() throws {
+    func testWindowFunction9() throws {
         let data = """
         PREFIX : <http://example.org/>
         SELECT ?date ?value (AVG(?value) OVER (ORDER BY ?date ROWS BETWEEN UNBOUNDED AND 1 FOLLOWING) AS ?movingAverage) WHERE {
@@ -971,7 +969,7 @@ extension QueryEvaluationTests {
         }
     }
     
-    func _testWindowFunction10() throws {
+    func testWindowFunction10() throws {
         let data = """
         PREFIX : <http://example.org/>
         SELECT ?date ?value (AVG(?value) OVER (ORDER BY ?date ROWS BETWEEN 1 PRECEDING AND 2 FOLLOWING) AS ?movingAverage) WHERE {
@@ -1002,7 +1000,7 @@ extension QueryEvaluationTests {
         }
     }
     
-    func _testWindowFunction11() throws {
+    func testWindowFunction11() throws {
         let data = """
         PREFIX : <http://example.org/>
         SELECT ?date ?value (AVG(?value) OVER (ORDER BY ?date ROWS BETWEEN 2 PRECEDING AND UNBOUNDED) AS ?movingAverage) WHERE {
@@ -1033,7 +1031,7 @@ extension QueryEvaluationTests {
         }
     }
     
-    func _testWindowFunction12() throws {
+    func testWindowFunction12() throws {
         let data = """
         PREFIX : <http://example.org/>
         SELECT ?date ?value (AVG(?value) OVER (ORDER BY ?date ROWS BETWEEN UNBOUNDED AND UNBOUNDED) AS ?average) WHERE {
@@ -1059,7 +1057,7 @@ extension QueryEvaluationTests {
         }
     }
     
-    func _testWindowFunctionPartition() throws {
+    func testWindowFunctionPartition() throws {
         let data = """
         PREFIX : <http://example.org/>
         SELECT
@@ -1094,7 +1092,7 @@ extension QueryEvaluationTests {
         }
     }
     
-    func _testWindowFunction_aggregates() throws {
+    func testWindowFunction_aggregates() throws {
         let data = """
         PREFIX : <http://example.org/>
         SELECT
@@ -1154,7 +1152,7 @@ extension QueryEvaluationTests {
         }
     }
     
-    func _testDistinctAggregate() throws {
+    func testDistinctAggregate() throws {
         let data = """
         PREFIX : <http://example.org/>
         SELECT
@@ -1204,7 +1202,7 @@ extension QueryEvaluationTests {
         }
     }
     
-    func _testWindowFunctionRank() throws {
+    func testWindowFunctionRank() throws {
         let data = """
         PREFIX : <http://example.org/>
         SELECT
@@ -1233,7 +1231,7 @@ extension QueryEvaluationTests {
         XCTAssertEqual(gotRanks, [1, 2, 2, 4, 1, 1, 3])
     }
     
-    func _testWindowFunctionRank2() throws {
+    func testWindowFunctionRank2() throws {
         let data = """
         SELECT ?row ?partition ?value (RANK() OVER (PARTITION BY ?partition ORDER BY ?value) AS ?rank) WHERE {
             VALUES (?row ?partition ?value) {
@@ -1256,7 +1254,7 @@ extension QueryEvaluationTests {
         XCTAssertEqual(gotRanks, [1, 2, 2, 2, 1, 1])
     }
     
-    func _testWindowFunctionNtile() throws {
+    func testWindowFunctionNtile() throws {
         let data = """
         SELECT
             ?row
@@ -1297,7 +1295,7 @@ extension QueryEvaluationTests {
         XCTAssertEqual(gotN5tie, [1, 1, 3, 4, 2, 1, 5])
     }
     
-    func _testGroupConcatOrdering() throws {
+    func testGroupConcatOrdering() throws {
         let data = """
         SELECT
             (GROUP_CONCAT(?v; SEPARATOR=""; ORDER BY ?x) AS ?vx)
@@ -1326,7 +1324,9 @@ extension QueryEvaluationTests {
         XCTAssertEqual(gotNX, "cbad")
     }
 
-    func _testManifestQuery() throws {
+    func testManifestQuery() throws {
+        guard let store = getStore(), let graph = getGraph() else { fatalError() }
+
         let ttl = #"""
         @prefix rdf:    <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
         @prefix : <http://www.w3.org/2001/sw/DataAccess/tests/data-r2/algebra/manifest#> .
@@ -1395,18 +1395,23 @@ extension QueryEvaluationTests {
         let parser = RDFParserCombined()
         var quads = [Quad]()
         try parser.parse(string: ttl, syntax: .turtle) { (s, p, o) in
-            let q = Quad(subject: s, predicate: p, object: o, graph: self.graph)
+            let q = Quad(subject: s, predicate: p, object: o, graph: graph)
             quads.append(q)
         }
-        try self.store.load(version: 0, quads: quads)
+        try store.load(version: 0, quads: quads)
 
         guard var p = SPARQLParser(data: data) else { fatalError("Failed to construct SPARQL parser") }
         let results = try Array(eval(query: p.parseQuery()))
+        for r in results {
+            print(r)
+        }
         XCTAssertEqual(results.count, 3)
 //        print(results)
     }
     
-    func _testAggregationSorting() throws {
+    func testAggregationSorting() throws {
+        guard let store = getStore(), let graph = getGraph() else { fatalError() }
+
         let ttl = #"""
         @prefix crm: <http://www.cidoc-crm.org/cidoc-crm/> .
         @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
@@ -1471,14 +1476,13 @@ extension QueryEvaluationTests {
         let parser = RDFParserCombined()
         var quads = [Quad]()
         try parser.parse(string: ttl, syntax: .turtle) { (s, p, o) in
-            let q = Quad(subject: s, predicate: p, object: o, graph: self.graph)
+            let q = Quad(subject: s, predicate: p, object: o, graph: graph)
             quads.append(q)
         }
-        try self.store.load(version: 0, quads: quads)
+        try store.load(version: 0, quads: quads)
 
         guard var p = SPARQLParser(data: data) else { fatalError("Failed to construct SPARQL parser") }
         let query = try p.parseQuery()
-        print(query.algebra.serialize(depth: 0))
         let results = try Array(eval(query: query))
         XCTAssertEqual(results.count, 3)
         let objects = results.map { $0["label"]!.value }
@@ -1490,8 +1494,7 @@ extension QueryEvaluationTests {
     }
 }
 
-class TestStore_SimpleQueryEvaluationTest: XCTestCase, QueryEvaluationTests {
-    typealias Evaluator = SimpleQueryEvaluator<TestStore>
+class TestStore_SimpleQueryEvaluationTest: QueryEvaluationTests<TestStore, SimpleQueryEvaluator<TestStore>> {
     var store: TestStore!
     var graph: Term!
     
@@ -1501,62 +1504,16 @@ class TestStore_SimpleQueryEvaluationTest: XCTestCase, QueryEvaluationTests {
         self.store = TestStore(quads: testQuads)
     }
     
-    func evaluator(dataset: Dataset) -> Evaluator {
+    override func getStore() -> TestStore? { return store }
+    override func getGraph() -> Term? { return graph }
+
+    override func evaluator(dataset: DatasetProtocol) -> SimpleQueryEvaluator<TestStore> {
         let e = SimpleQueryEvaluator(store: store, dataset: dataset)
         return e
     }
-    
-    func testTripleEval() { _testTripleEval() }
-    func testQuadEvalNoSuchGraph() { _testQuadEvalNoSuchGraph() }
-    func testQuadEval() { _testQuadEval() }
-    func testTripleEvalWithBoundPredicate() { _testTripleEvalWithBoundPredicate() }
-    func testFilterEval() { _testFilterEval() }
-    func testUnionEval() { _testUnionEval() }
-    func testProjectEval() { _testProjectEval() }
-    func testJoinEval() { _testJoinEval() }
-    func testLeftJoinEval() { _testLeftJoinEval() }
-    func testLimitEval() { _testLimitEval() }
-    func testCountAllEval() { _testCountAllEval() }
-    func testCountAllEvalWithGroup() { _testCountAllEvalWithGroup() }
-    func testCountEval() { _testCountEval() }
-    func testSumEval() { _testSumEval() }
-    func testAvgEval() { _testAvgEval() }
-    func testMultiAggEval() { _testMultiAggEval() }
-    func testSortEval() { _testSortEval() }
-    func testIRINamedGraphEval() { _testIRINamedGraphEval() }
-    func testVarNamedGraphEval() { _testVarNamedGraphEval() }
-    func testExtendEval() { _testExtendEval() }
-    func testHashFunctions() { _testHashFunctions() }
-    func testTermAccessors() { _testTermAccessors() }
-    func testAggregationProjection() { _testAggregationProjection() }
-    func testEmptyAggregation() { _testEmptyAggregation() }
-    func testRankWindowFunction1() throws { try _testRankWindowFunction1() }
-    func testRankWindowFunction2() throws { try _testRankWindowFunction2() }
-    func testRankWindowFunctionWithHaving() throws { try _testRankWindowFunctionWithHaving() }
-    func testWindowFunction1() throws { try _testWindowFunction1() }
-    func testWindowFunction2() throws { try _testWindowFunction2() }
-    func testWindowFunction3() throws { try _testWindowFunction3() }
-    func testWindowFunction4() throws { try _testWindowFunction4() }
-    func testWindowFunction5() throws { try _testWindowFunction5() }
-    func testWindowFunction6() throws { try _testWindowFunction6() }
-    func testWindowFunction7() throws { try _testWindowFunction7() }
-    func testWindowFunction8() throws { try _testWindowFunction8() }
-    func testWindowFunction9() throws { try _testWindowFunction9() }
-    func testWindowFunction10() throws { try _testWindowFunction10() }
-    func testWindowFunction11() throws { try _testWindowFunction11() }
-    func testWindowFunction12() throws { try _testWindowFunction12() }
-    func testWindowFunction_aggregates() throws { try _testWindowFunction_aggregates() }
-    func testWindowFunctionPartition() throws { try _testWindowFunctionPartition() }
-    func testDistinctAggregate() throws { try _testDistinctAggregate() }
-    func testWindowFunctionRank() throws { try _testWindowFunctionRank() }
-    func testWindowFunctionRank2() throws { try _testWindowFunctionRank2() }
-    func testWindowFunctionNtile() throws { try _testWindowFunctionNtile() }
-    func testGroupConcatOrdering() throws { try _testGroupConcatOrdering() }
-    func testManifestQuery() throws { try _testManifestQuery() }
-    func testAggregationSorting() throws { try _testAggregationSorting() }
 }
 
-class DiomedeStore_QueryPlanEvaluationTest: XCTestCase, QueryEvaluationTests {
+class DiomedeStore_QueryPlanEvaluationTest: QueryEvaluationTests<DiomedeQuadStore, QueryPlanEvaluator<DiomedeQuadStore>> {
     typealias Evaluator = QueryPlanEvaluator<DiomedeQuadStore>
     var filename: URL!
     var store: DiomedeQuadStore!
@@ -1574,6 +1531,9 @@ class DiomedeStore_QueryPlanEvaluationTest: XCTestCase, QueryEvaluationTests {
         try? self.store.load(version: 1, quads: testQuads)
     }
     
+    override func getStore() -> DiomedeQuadStore? { return store }
+    override func getGraph() -> Term? { return graph }
+
     override func tearDown() {
         super.tearDown()
         #if os(macOS)
@@ -1582,64 +1542,15 @@ class DiomedeStore_QueryPlanEvaluationTest: XCTestCase, QueryEvaluationTests {
         #endif
     }
     
-    func evaluator(dataset: Dataset) -> Evaluator {
+    override func evaluator(dataset: DatasetProtocol) -> QueryPlanEvaluator<DiomedeQuadStore> {
         let e = QueryPlanEvaluator(store: store, dataset: dataset)
         e.planner.allowStoreOptimizedPlans = true
         return e
     }
-    
-    func testTripleEval() { _testTripleEval() }
-    func testQuadEvalNoSuchGraph() { _testQuadEvalNoSuchGraph() }
-    func testQuadEval() { _testQuadEval() }
-    func testTripleEvalWithBoundPredicate() { _testTripleEvalWithBoundPredicate() }
-    func testFilterEval() { _testFilterEval() }
-    func testUnionEval() { _testUnionEval() }
-    func testProjectEval() { _testProjectEval() }
-    func testJoinEval() { _testJoinEval() }
-    func testLeftJoinEval() { _testLeftJoinEval() }
-    func testLimitEval() { _testLimitEval() }
-    func testCountAllEval() { _testCountAllEval() }
-    func testCountAllEvalWithGroup() { _testCountAllEvalWithGroup() }
-    func testCountEval() { _testCountEval() }
-    func testSumEval() { _testSumEval() }
-    func testAvgEval() { _testAvgEval() }
-    func testMultiAggEval() { _testMultiAggEval() }
-    func testSortEval() { _testSortEval() }
-    func testIRINamedGraphEval() { _testIRINamedGraphEval() }
-    func testVarNamedGraphEval() { _testVarNamedGraphEval() }
-    func testExtendEval() { _testExtendEval() }
-    func testHashFunctions() { _testHashFunctions() }
-    func testTermAccessors() { _testTermAccessors() }
-    func testAggregationProjection() { _testAggregationProjection() }
-    func testEmptyAggregation() { _testEmptyAggregation() }
-    func testRankWindowFunction1() throws { try _testRankWindowFunction1() }
-    func testRankWindowFunction2() throws { try _testRankWindowFunction2() }
-    func testRankWindowFunctionWithHaving() throws { try _testRankWindowFunctionWithHaving() }
-    func testWindowFunction1() throws { try _testWindowFunction1() }
-    func testWindowFunction2() throws { try _testWindowFunction2() }
-    func testWindowFunction3() throws { try _testWindowFunction3() }
-    func testWindowFunction4() throws { try _testWindowFunction4() }
-    func testWindowFunction5() throws { try _testWindowFunction5() }
-    func testWindowFunction6() throws { try _testWindowFunction6() }
-    func testWindowFunction7() throws { try _testWindowFunction7() }
-    func testWindowFunction8() throws { try _testWindowFunction8() }
-    func testWindowFunction9() throws { try _testWindowFunction9() }
-    func testWindowFunction10() throws { try _testWindowFunction10() }
-    func testWindowFunction11() throws { try _testWindowFunction11() }
-    func testWindowFunction12() throws { try _testWindowFunction12() }
-    func testWindowFunction_aggregates() throws { try _testWindowFunction_aggregates() }
-    func testWindowFunctionPartition() throws { try _testWindowFunctionPartition() }
-    func testDistinctAggregate() throws { try _testDistinctAggregate() }
-    func testWindowFunctionRank() throws { try _testWindowFunctionRank() }
-    func testWindowFunctionRank2() throws { try _testWindowFunctionRank2() }
-    func testWindowFunctionNtile() throws { try _testWindowFunctionNtile() }
-    func testGroupConcatOrdering() throws { try _testGroupConcatOrdering() }
-    func testManifestQuery() throws { try _testManifestQuery() }
-    func testAggregationSorting() throws { try _testAggregationSorting() }
 }
 
 
-class TestStore_QueryPlanEvaluationTest: XCTestCase, QueryEvaluationTests {
+class TestStore_QueryPlanEvaluationTest: QueryEvaluationTests<TestStore, QueryPlanEvaluator<TestStore>> {
     typealias Evaluator = QueryPlanEvaluator<TestStore>
     var store: TestStore!
     var graph: Term!
@@ -1650,58 +1561,12 @@ class TestStore_QueryPlanEvaluationTest: XCTestCase, QueryEvaluationTests {
         self.store = TestStore(quads: testQuads)
     }
     
-    func evaluator(dataset: Dataset) -> Evaluator {
+    override func getStore() -> TestStore? { return store }
+    override func getGraph() -> Term? { return graph }
+
+    override func evaluator(dataset: DatasetProtocol) -> QueryPlanEvaluator<TestStore> {
         let e = QueryPlanEvaluator(store: store, dataset: dataset)
         e.planner.allowStoreOptimizedPlans = false
         return e
     }
-    
-    func testTripleEval() { _testTripleEval() }
-    func testQuadEvalNoSuchGraph() { _testQuadEvalNoSuchGraph() }
-    func testQuadEval() { _testQuadEval() }
-    func testTripleEvalWithBoundPredicate() { _testTripleEvalWithBoundPredicate() }
-    func testFilterEval() { _testFilterEval() }
-    func testUnionEval() { _testUnionEval() }
-    func testProjectEval() { _testProjectEval() }
-    func testJoinEval() { _testJoinEval() }
-    func testLeftJoinEval() { _testLeftJoinEval() }
-    func testLimitEval() { _testLimitEval() }
-    func testCountAllEval() { _testCountAllEval() }
-    func testCountAllEvalWithGroup() { _testCountAllEvalWithGroup() }
-    func testCountEval() { _testCountEval() }
-    func testSumEval() { _testSumEval() }
-    func testAvgEval() { _testAvgEval() }
-    func testMultiAggEval() { _testMultiAggEval() }
-    func testSortEval() { _testSortEval() }
-    func testIRINamedGraphEval() { _testIRINamedGraphEval() }
-    func testVarNamedGraphEval() { _testVarNamedGraphEval() }
-    func testExtendEval() { _testExtendEval() }
-    func testHashFunctions() { _testHashFunctions() }
-    func testTermAccessors() { _testTermAccessors() }
-    func testAggregationProjection() { _testAggregationProjection() }
-    func testEmptyAggregation() { _testEmptyAggregation() }
-    func testRankWindowFunction1() throws { try _testRankWindowFunction1() }
-    func testRankWindowFunction2() throws { try _testRankWindowFunction2() }
-    func testRankWindowFunctionWithHaving() throws { try _testRankWindowFunctionWithHaving() }
-    func testWindowFunction1() throws { try _testWindowFunction1() }
-    func testWindowFunction2() throws { try _testWindowFunction2() }
-    func testWindowFunction3() throws { try _testWindowFunction3() }
-    func testWindowFunction4() throws { try _testWindowFunction4() }
-    func testWindowFunction5() throws { try _testWindowFunction5() }
-    func testWindowFunction6() throws { try _testWindowFunction6() }
-    func testWindowFunction7() throws { try _testWindowFunction7() }
-    func testWindowFunction8() throws { try _testWindowFunction8() }
-    func testWindowFunction9() throws { try _testWindowFunction9() }
-    func testWindowFunction10() throws { try _testWindowFunction10() }
-    func testWindowFunction11() throws { try _testWindowFunction11() }
-    func testWindowFunction12() throws { try _testWindowFunction12() }
-    func testWindowFunction_aggregates() throws { try _testWindowFunction_aggregates() }
-    func testWindowFunctionPartition() throws { try _testWindowFunctionPartition() }
-    func testDistinctAggregate() throws { try _testDistinctAggregate() }
-    func testWindowFunctionRank() throws { try _testWindowFunctionRank() }
-    func testWindowFunctionRank2() throws { try _testWindowFunctionRank2() }
-    func testWindowFunctionNtile() throws { try _testWindowFunctionNtile() }
-    func testGroupConcatOrdering() throws { try _testGroupConcatOrdering() }
-    func testManifestQuery() throws { try _testManifestQuery() }
-    func testAggregationSorting() throws { try _testAggregationSorting() }
 }
