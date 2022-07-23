@@ -175,13 +175,10 @@ public struct SPARQLContentNegotiator {
     public func negotiateParser(for response: URLResponse) -> SPARQLParsable {
         if let resp = response as? HTTPURLResponse {
             if let type = resp.allHeaderFields["Content-Type"] as? String {
-                switch type {
-                case "application/json", "application/sparql-results+json":
+                if type.starts(with: "application/json") || type.starts(with: "application/sparql-results+json") {
                     return SPARQLJSONParser()
-                case "application/sparql-results+xml":
+                } else if type.starts(with: "application/sparql-results+xml") {
                     return SPARQLXMLParser()
-                default:
-                    break
                 }
             }
         }

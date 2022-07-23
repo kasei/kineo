@@ -32,7 +32,7 @@ class SPARQLContentNegotiatorTest: XCTestCase {
         super.tearDown()
     }
     
-    func testSharedConneg() {
+    func testSharedSerializerConneg() {
         let c = SPARQLContentNegotiator.shared
         let boolResult : QueryResult<[SPARQLResultSolution<Term>], [Triple]> = QueryResult.boolean(true)
         let triplesResult : QueryResult<[SPARQLResultSolution<Term>], [Triple]> = QueryResult.triples([])
@@ -59,6 +59,19 @@ class SPARQLContentNegotiatorTest: XCTestCase {
         
         XCTAssertEqual(c.negotiateSerializer(for: triplesResult, accept: ["application/n-triples", "text/tab-separated-values", "application/sparql-results+xml"])!.canonicalMediaType, "application/n-triples")
         XCTAssertEqual(c.negotiateSerializer(for: bindingsResult, accept: ["application/n-triples", "text/tab-separated-values", "application/sparql-results+xml"])!.canonicalMediaType, "text/tab-separated-values")
+    }
+
+    func testSharedParserConneg() {
+        let c = SPARQLContentNegotiator.shared
+        let makeResp : (String) -> HTTPURLResponse = { (ct) in
+            return HTTPURLResponse(url: URL(string: "http://example.org/sparql")!, statusCode: 200, httpVersion: "1.1", headerFields: [
+                "Content-Type": ct
+            ])!
+        }
+        
+        XCTAssertTrue(c.negotiateParser(for: makeResp("application/sparql-results+xml")) is SPARQLXMLParser)
+        XCTAssertTrue(c.negotiateParser(for: makeResp("application/sparql-results+json")) is SPARQLJSONParser)
+        XCTAssertTrue(c.negotiateParser(for: makeResp("application/sparql-results+json;charset=utf-8")) is SPARQLJSONParser)
     }
 
     func testExtendedSharedConneg() {
