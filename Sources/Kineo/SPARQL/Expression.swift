@@ -1026,7 +1026,7 @@ public class ExpressionEvaluator {
             if h == 24 && m == 0 && s == 0 {
                 h = 0
             }
-            guard (0..<24).contains(h), (0...60).contains(m), (0...61).contains(s) else {
+            guard (0..<24).contains(h), (0...59).contains(m), (0...59).contains(s) else {
                 throw QueryError.typeError("Bad xsd:time lexical form: \(term)")
             }
             let tv = String(format: "%02d:%02d:%02d", h, m, s)
