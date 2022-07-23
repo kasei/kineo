@@ -91,7 +91,7 @@ public struct SPARQLClient {
                 let results = [SPARQLResultSolution<Term>(bindings: [:])]
                 return QueryResult.bindings([], results)
             } else {
-                throw QueryError.evaluationError("SERVICE error: \(e)")
+                throw QueryError.evaluationError("SPARQL Protocol client error: \(e)")
             }
         }
     }
@@ -174,14 +174,15 @@ public struct SPARQLContentNegotiator {
     
     public func negotiateParser(for response: URLResponse) -> SPARQLParsable {
         if let resp = response as? HTTPURLResponse {
-            let type = resp.allHeaderFields["Content-Type"] as? String
-            switch type {
-            case "application/json", "application/sparql-results+json":
-                return SPARQLJSONParser()
-            case "application/sparql-results+xml":
-                return SPARQLXMLParser()
-            default:
-                break
+            if let type = resp.allHeaderFields["Content-Type"] as? String {
+                switch type {
+                case "application/json", "application/sparql-results+json":
+                    return SPARQLJSONParser()
+                case "application/sparql-results+xml":
+                    return SPARQLXMLParser()
+                default:
+                    break
+                }
             }
         }
         
