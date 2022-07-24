@@ -258,17 +258,18 @@ public struct SPARQLXMLParser : SPARQLParsable {
         parser.delegate = delegate
         if !parser.parse() {
             if let e = parser.parserError {
-                throw e
+                throw SerializationError.parsingError("Failed to parse content as SPARQL XML: \(e)")
             }
         }
         
         if let e = delegate.error {
-            throw e
+            throw SerializationError.parsingError("Failed to parse content as SPARQL XML: \(e)")
         }
         
         guard let r = delegate.queryResult else {
             throw SerializationError.parsingError("No query result available at end of parsing")
         }
+        
         return r
     }
 }
