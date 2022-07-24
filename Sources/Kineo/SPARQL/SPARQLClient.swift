@@ -72,12 +72,13 @@ public struct SPARQLClient {
                 throw QueryError.evaluationError("URL request failed: \(error)")
             }
             
-            guard let data = args.0 else {
-                throw QueryError.evaluationError("URL request did not return data")
+            guard let r = args.1, let resp = r as? HTTPURLResponse else {
+                throw QueryError.evaluationError("URL request did not return a response object")
             }
             
-            guard let resp = args.1 else {
-                throw QueryError.evaluationError("URL request did not return a response object")
+            guard let data = args.0 else {
+                let status = HTTPURLResponse.localizedString(forStatusCode: resp.statusCode)
+                throw QueryError.evaluationError("URL request did not return data: \(status)")
             }
             
             let parser = n.negotiateParser(for: resp)
