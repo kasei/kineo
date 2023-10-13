@@ -97,7 +97,7 @@ open class QueryParser<T: LineReadable> {
                 case "count":
                     agg = .count(expr, false)
                 case "countall":
-                    agg = .countAll
+                    agg = .countAll(false)
                 default:
                     throw QueryError.parseError("Unexpected aggregation operation: \(op)")
                 }
@@ -177,7 +177,7 @@ open class QueryParser<T: LineReadable> {
             let name = parts[1]
             let groups = parts.suffix(from: 2).map { (name) -> Expression in .node(.variable(name, binding: true)) }
             guard let child = stack.popLast() else { return nil }
-            let aggMap = Algebra.AggregationMapping(aggregation: .countAll, variableName: name)
+            let aggMap = Algebra.AggregationMapping(aggregation: .countAll(false), variableName: name)
             return .aggregate(child, groups, [aggMap])
         } else if op == "limit" {
             guard let count = Int(rest) else { return nil }

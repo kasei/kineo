@@ -309,7 +309,7 @@ extension SimpleQueryEvaluatorProtocol {
             if aggs.count == 1 {
                 let aggMap = aggs.first!
                 switch aggMap.aggregation {
-                case .sum(_, false), .count(_, false), .countAll, .avg(_, false), .min(_), .max(_), .groupConcat(_, _, false), .sample(_):
+                case .sum(_, false), .count(_, false), .countAll(false), .avg(_, false), .min(_), .max(_), .groupConcat(_, _, false), .sample(_):
                     return try evaluateSinglePipelinedAggregation(algebra: child, groups: groups, aggregation: aggMap.aggregation, variable: aggMap.variableName, activeGraph: activeGraph)
                 default:
                     break
@@ -545,7 +545,7 @@ extension SimpleQueryEvaluatorProtocol {
 
     public func evaluateAggregation<S: Sequence>(_ agg: Aggregation, group results: S) -> Term? where S.Iterator.Element == SPARQLResultSolution<Term> {
         switch agg {
-        case .countAll:
+        case .countAll: // TODO: handle distinct countAll
             if let n = self.evaluateCountAll(results: results) {
                 return n
             }
@@ -720,7 +720,7 @@ extension SimpleQueryEvaluatorProtocol {
                     }
                 } else if let value = numericGroups[groupKey] {
                     switch agg {
-                    case .countAll:
+                    case .countAll(false):
                         numericGroups[groupKey] = value + .integer(1)
                     case .avg(let keyExpr, false):
                         let term = try self.ee.evaluate(expression: keyExpr, result: result)
@@ -746,7 +746,7 @@ extension SimpleQueryEvaluatorProtocol {
                     }
                 } else {
                     switch agg {
-                    case .countAll:
+                    case .countAll(false):
                         numericGroups[groupKey] = .integer(1)
                     case .avg(let keyExpr, false):
                         let term = try self.ee.evaluate(expression: keyExpr, result: result)

@@ -568,7 +568,7 @@ extension SQLiteQuadStore: PlanningQuadStore {
                 }
                 return nil
             }
-            if case .countAll = agg.aggregation {
+            if case .countAll(let distinct) = agg.aggregation {
                 if let qp = try plan(algebra: a, activeGraph: activeGraph, dataset: dataset, metrics: metrics) {
                     if let q = qp as? SQLitePlan {
                         let query = q.query
@@ -577,7 +577,7 @@ extension SQLiteQuadStore: PlanningQuadStore {
                         if !projected.isEmpty {
                             d = d.group(Array(projected.values))
                         }
-                        let aggCol = SQLite.Expression<Int>(literal: "COUNT(*)")
+                        let aggCol = SQLite.Expression<Int>(literal: distinct ? "COUNT(DISTINCT *)" : "COUNT(*)")
                         d = d.select(Array(projected.values) + [aggCol])
                         return SQLiteSingleIntegerAggregationPlan(
                             query: d,

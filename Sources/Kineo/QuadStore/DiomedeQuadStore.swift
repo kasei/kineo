@@ -52,7 +52,7 @@ extension DiomedeQuadStore: PlanningQuadStore {
             if aggs.count == 1, let a = aggs.first {
                 let agg = a.aggregation
                 switch agg {
-                case .countAll:
+                case .countAll(false):
                     if let card = try characteristicSetSatisfiableCardinality(child, activeGraph: activeGraph, dataset: dataset) {
                         let qp = TablePlan(columns: [.variable(a.variableName, binding: true)], rows: [[Term(integer: Int(card))]], metricsToken: QueryPlanEvaluationMetrics.silentToken)
                         return qp

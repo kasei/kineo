@@ -1355,7 +1355,7 @@ public struct WindowPlan: UnaryQueryPlan, QueryPlanSerialization {
     private func windowAggregation(_ agg: Aggregation) -> SlidingWindowImplementation {
         let ee = evaluator
         switch agg {
-        case .countAll:
+        case .countAll: // TODO: handle distinct countAll
             var value = 0
             return SlidingWindowImplementation(
                 add: { (_) in value += 1 },
@@ -2473,7 +2473,7 @@ public struct AggregationPlan: UnaryQueryPlan, QueryPlanSerialization {
 
         for a in aggregates {
             switch a.aggregation {
-            case .countAll:
+            case .countAll: // TODO: handle distinct countAll
                 self.aggregates[a.variableName] = { return CountAllAggregate() }
             case let .count(e, true):
                 self.aggregates[a.variableName] = { return CountDistinctAggregate(expression: e, evaluator: ee) }
