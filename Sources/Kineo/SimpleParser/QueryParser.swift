@@ -83,7 +83,7 @@ open class QueryParser<T: LineReadable> {
                 guard strings.count >= 3 else { throw QueryError.parseError("Failed to parse aggregate expression") }
                 let op = strings[0]
                 let name = strings[1]
-                var expr: Expression!
+                var expr: SPARQLSyntax.Expression!
                 if op != "countall" {
                     guard let e = try ExpressionParser.parseExpression(Array(strings.suffix(from: 2))) else { throw QueryError.parseError("Failed to parse aggregate expression") }
                     expr = e
@@ -105,7 +105,7 @@ open class QueryParser<T: LineReadable> {
                 aggregates.append(aggMap)
             }
             
-            let groups = try groupby.map { (gstrings) -> Expression in
+            let groups = try groupby.map { (gstrings) -> SPARQLSyntax.Expression in
                 guard let e = try ExpressionParser.parseExpression(Array(gstrings)) else { throw QueryError.parseError("Failed to parse aggregate expression") }
                 return e
             }
@@ -119,7 +119,7 @@ open class QueryParser<T: LineReadable> {
             guard w.count > 0 else { throw QueryError.parseError("Bad syntax for window operation") }
             let groupby = pair.count == 2 ? pair[1].split(separator: ",") : []
 
-            let groups = try groupby.map { (gstrings) -> Expression in
+            let groups = try groupby.map { (gstrings) -> SPARQLSyntax.Expression in
                 guard let e = try ExpressionParser.parseExpression(Array(gstrings)) else { throw QueryError.parseError("Failed to parse aggregate expression") }
                 return e
             }
@@ -152,7 +152,7 @@ open class QueryParser<T: LineReadable> {
             guard parts.count > 2 else { return nil }
             let key = parts[1]
             let name = parts[2]
-            let groups = parts.suffix(from: 3).map { (name) -> Expression in .node(.variable(name, binding: true)) }
+            let groups = parts.suffix(from: 3).map { (name) -> SPARQLSyntax.Expression in .node(.variable(name, binding: true)) }
             guard let child = stack.popLast() else { return nil }
             let aggMap = Algebra.AggregationMapping(aggregation: .avg(.node(.variable(key, binding: true)), false), variableName: name)
             return .aggregate(child, groups, [aggMap])
@@ -160,7 +160,7 @@ open class QueryParser<T: LineReadable> {
             guard parts.count > 2 else { throw QueryError.parseError("Not enough arguments for \(op)") }
             let key = parts[1]
             let name = parts[2]
-            let groups = parts.suffix(from: 3).map { (name) -> Expression in .node(.variable(name, binding: true)) }
+            let groups = parts.suffix(from: 3).map { (name) -> SPARQLSyntax.Expression in .node(.variable(name, binding: true)) }
             guard let child = stack.popLast() else { return nil }
             let aggMap = Algebra.AggregationMapping(aggregation: .sum(.node(.variable(key, binding: true)), false), variableName: name)
             return .aggregate(child, groups, [aggMap])
@@ -168,14 +168,14 @@ open class QueryParser<T: LineReadable> {
             guard parts.count > 2 else { throw QueryError.parseError("Not enough arguments for \(op)") }
             let key = parts[1]
             let name = parts[2]
-            let groups = parts.suffix(from: 3).map { (name) -> Expression in .node(.variable(name, binding: true)) }
+            let groups = parts.suffix(from: 3).map { (name) -> SPARQLSyntax.Expression in .node(.variable(name, binding: true)) }
             guard let child = stack.popLast() else { return nil }
             let aggMap = Algebra.AggregationMapping(aggregation: .count(.node(.variable(key, binding: true)), false), variableName: name)
             return .aggregate(child, groups, [aggMap])
         } else if op == "countall" { // (COUNT(*) AS ?name) ... GROUP BY ?x ?y ?z --> "count name x y z"
             guard parts.count > 1 else { throw QueryError.parseError("Not enough arguments for \(op)") }
             let name = parts[1]
-            let groups = parts.suffix(from: 2).map { (name) -> Expression in .node(.variable(name, binding: true)) }
+            let groups = parts.suffix(from: 2).map { (name) -> SPARQLSyntax.Expression in .node(.variable(name, binding: true)) }
             guard let child = stack.popLast() else { return nil }
             let aggMap = Algebra.AggregationMapping(aggregation: .countAll(false), variableName: name)
             return .aggregate(child, groups, [aggMap])

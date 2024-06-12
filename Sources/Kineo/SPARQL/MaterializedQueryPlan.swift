@@ -413,7 +413,7 @@ public struct UnionPlan: BinaryQueryPlan, QueryPlanSerialization {
 
 public struct FilterPlan: UnaryQueryPlan, QueryPlanSerialization {
     public var child: QueryPlan
-    var expression: Expression
+    var expression: SPARQLSyntax.Expression
     var evaluator: ExpressionEvaluator
     public var metricsToken: QueryPlanEvaluationMetrics.Token
     public var selfDescription: String { return "Filter \(expression)" }
@@ -444,7 +444,7 @@ public struct FilterPlan: UnaryQueryPlan, QueryPlanSerialization {
 public struct DiffPlan: BinaryQueryPlan, QueryPlanSerialization {
     public var lhs: QueryPlan
     public var rhs: QueryPlan
-    var expression: Expression
+    var expression: SPARQLSyntax.Expression
     var evaluator: ExpressionEvaluator
     public var metricsToken: QueryPlanEvaluationMetrics.Token
     public var selfDescription: String { return "Diff \(expression)" }
@@ -485,7 +485,7 @@ public struct DiffPlan: BinaryQueryPlan, QueryPlanSerialization {
 
 public struct ExtendPlan: UnaryQueryPlan, QueryPlanSerialization {
     public var child: QueryPlan
-    var expression: Expression
+    var expression: SPARQLSyntax.Expression
     var variable: String
     var evaluator: ExpressionEvaluator
     public var metricsToken: QueryPlanEvaluationMetrics.Token
@@ -773,7 +773,7 @@ public struct WindowPlan: UnaryQueryPlan, QueryPlanSerialization {
         return "Window \(function.description))"
     }
     
-    private func partition<I: IteratorProtocol>(_ results: I, by partition: [Expression]) -> AnyIterator<AnyIterator<SPARQLResultSolution<Term>>> where I.Element == SPARQLResultSolution<Term> {
+    private func partition<I: IteratorProtocol>(_ results: I, by partition: [SPARQLSyntax.Expression]) -> AnyIterator<AnyIterator<SPARQLResultSolution<Term>>> where I.Element == SPARQLResultSolution<Term> {
         let ee = evaluator
         let seq = AnySequence { return results }
         let withGroups = seq.lazy.map { (r) -> (SPARQLResultSolution<Term>, [Term?]) in
@@ -1004,7 +1004,7 @@ public struct WindowPlan: UnaryQueryPlan, QueryPlanSerialization {
             return i
         }
         
-        func evaluateFromFollowing<I: IteratorProtocol>(_ group: I, frame: WindowFrame, variableName: String, evaluator: ExpressionEvaluator, bound toPrecedingExpression: Expression) throws -> AnyIterator<SPARQLResultSolution<Term>> where I.Element == SPARQLResultSolution<Term> {
+        func evaluateFromFollowing<I: IteratorProtocol>(_ group: I, frame: WindowFrame, variableName: String, evaluator: ExpressionEvaluator, bound toPrecedingExpression: SPARQLSyntax.Expression) throws -> AnyIterator<SPARQLResultSolution<Term>> where I.Element == SPARQLResultSolution<Term> {
             let fflt = try evaluator.evaluate(expression: toPrecedingExpression, result: SPARQLResultSolution<Term>(bindings: [:]))
             guard let ffln = fflt.numeric else {
                 throw QueryPlanError.nonConstantExpression
@@ -1089,7 +1089,7 @@ public struct WindowPlan: UnaryQueryPlan, QueryPlanSerialization {
             }
         }
         
-        func evaluateToPreceding<I: IteratorProtocol>(_ group: I, frame: WindowFrame, variableName: String, evaluator: ExpressionEvaluator, bound toPrecedingExpression: Expression) throws -> AnyIterator<SPARQLResultSolution<Term>> where I.Element == SPARQLResultSolution<Term> {
+        func evaluateToPreceding<I: IteratorProtocol>(_ group: I, frame: WindowFrame, variableName: String, evaluator: ExpressionEvaluator, bound toPrecedingExpression: SPARQLSyntax.Expression) throws -> AnyIterator<SPARQLResultSolution<Term>> where I.Element == SPARQLResultSolution<Term> {
             let tplt = try evaluator.evaluate(expression: toPrecedingExpression, result: SPARQLResultSolution<Term>(bindings: [:]))
             guard let tpln = tplt.numeric else {
                 throw QueryPlanError.nonConstantExpression
@@ -1141,7 +1141,7 @@ public struct WindowPlan: UnaryQueryPlan, QueryPlanSerialization {
             return i
         }
         
-        func evaluateFromPrecedingToUnbounded<I: IteratorProtocol>(_ group: I, frame: WindowFrame, variableName: String, evaluator: ExpressionEvaluator, bound fromPrecedingExpression: Expression) throws -> AnyIterator<SPARQLResultSolution<Term>> where I.Element == SPARQLResultSolution<Term> {
+        func evaluateFromPrecedingToUnbounded<I: IteratorProtocol>(_ group: I, frame: WindowFrame, variableName: String, evaluator: ExpressionEvaluator, bound fromPrecedingExpression: SPARQLSyntax.Expression) throws -> AnyIterator<SPARQLResultSolution<Term>> where I.Element == SPARQLResultSolution<Term> {
             let fplt = try evaluator.evaluate(expression: fromPrecedingExpression, result: SPARQLResultSolution<Term>(bindings: [:]))
             guard let fpln = fplt.numeric else {
                 throw QueryPlanError.nonConstantExpression
@@ -1172,7 +1172,7 @@ public struct WindowPlan: UnaryQueryPlan, QueryPlanSerialization {
             return i
         }
         
-        func evaluateToFollowing<I: IteratorProtocol>(_ group: I, frame: WindowFrame, variableName: String, evaluator: ExpressionEvaluator, bound toPrecedingExpression: Expression) throws -> AnyIterator<SPARQLResultSolution<Term>> where I.Element == SPARQLResultSolution<Term> {
+        func evaluateToFollowing<I: IteratorProtocol>(_ group: I, frame: WindowFrame, variableName: String, evaluator: ExpressionEvaluator, bound toPrecedingExpression: SPARQLSyntax.Expression) throws -> AnyIterator<SPARQLResultSolution<Term>> where I.Element == SPARQLResultSolution<Term> {
             let tflt = try evaluator.evaluate(expression: toPrecedingExpression, result: SPARQLResultSolution<Term>(bindings: [:]))
             guard let tfln = tflt.numeric else {
                 throw QueryPlanError.nonConstantExpression
@@ -2196,9 +2196,9 @@ public struct AggregationPlan: UnaryQueryPlan, QueryPlanSerialization {
     
     private class MinimumAggregate: Aggregate {
         var value: Term?
-        var expression: Expression
+        var expression: SPARQLSyntax.Expression
         var ee: ExpressionEvaluator
-        init(expression: Expression, evaluator: ExpressionEvaluator) {
+        init(expression: SPARQLSyntax.Expression, evaluator: ExpressionEvaluator) {
             self.expression = expression
             self.value = nil
             self.ee = evaluator
@@ -2220,9 +2220,9 @@ public struct AggregationPlan: UnaryQueryPlan, QueryPlanSerialization {
     
     private class MaximumAggregate: Aggregate {
         var value: Term?
-        var expression: Expression
+        var expression: SPARQLSyntax.Expression
         var ee: ExpressionEvaluator
-        init(expression: Expression, evaluator: ExpressionEvaluator) {
+        init(expression: SPARQLSyntax.Expression, evaluator: ExpressionEvaluator) {
             self.expression = expression
             self.value = nil
             self.ee = evaluator
@@ -2246,9 +2246,9 @@ public struct AggregationPlan: UnaryQueryPlan, QueryPlanSerialization {
         var error: Bool
         var value: NumericValue
         var count: Int
-        var expression: Expression
+        var expression: SPARQLSyntax.Expression
         var ee: ExpressionEvaluator
-        init(expression: Expression, evaluator: ExpressionEvaluator) {
+        init(expression: SPARQLSyntax.Expression, evaluator: ExpressionEvaluator) {
             self.error = false
             self.expression = expression
             self.value = .integer(0)
@@ -2275,9 +2275,9 @@ public struct AggregationPlan: UnaryQueryPlan, QueryPlanSerialization {
     private class AverageDistinctAggregate: Aggregate {
         var error: Bool
         var values: Set<NumericValue>
-        var expression: Expression
+        var expression: SPARQLSyntax.Expression
         var ee: ExpressionEvaluator
-        init(expression: Expression, evaluator: ExpressionEvaluator) {
+        init(expression: SPARQLSyntax.Expression, evaluator: ExpressionEvaluator) {
             self.error = false
             self.expression = expression
             self.values = Set()
@@ -2303,9 +2303,9 @@ public struct AggregationPlan: UnaryQueryPlan, QueryPlanSerialization {
     private class SumAggregate: Aggregate {
         var error: Bool
         var value: NumericValue
-        var expression: Expression
+        var expression: SPARQLSyntax.Expression
         var ee: ExpressionEvaluator
-        init(expression: Expression, evaluator: ExpressionEvaluator) {
+        init(expression: SPARQLSyntax.Expression, evaluator: ExpressionEvaluator) {
             self.error = false
             self.expression = expression
             self.value = .integer(0)
@@ -2329,9 +2329,9 @@ public struct AggregationPlan: UnaryQueryPlan, QueryPlanSerialization {
     private class SumDistinctAggregate: Aggregate {
         var error: Bool
         var values: Set<NumericValue>
-        var expression: Expression
+        var expression: SPARQLSyntax.Expression
         var ee: ExpressionEvaluator
-        init(expression: Expression, evaluator: ExpressionEvaluator) {
+        init(expression: SPARQLSyntax.Expression, evaluator: ExpressionEvaluator) {
             self.error = false
             self.expression = expression
             self.values = Set()
@@ -2355,9 +2355,9 @@ public struct AggregationPlan: UnaryQueryPlan, QueryPlanSerialization {
     
     private class CountAggregate: Aggregate {
         var count: Int
-        var expression: Expression
+        var expression: SPARQLSyntax.Expression
         var ee: ExpressionEvaluator
-        init(expression: Expression, evaluator: ExpressionEvaluator) {
+        init(expression: SPARQLSyntax.Expression, evaluator: ExpressionEvaluator) {
             self.expression = expression
             self.count = 0
             self.ee = evaluator
@@ -2374,9 +2374,9 @@ public struct AggregationPlan: UnaryQueryPlan, QueryPlanSerialization {
     
     private class CountDistinctAggregate: Aggregate {
         var values: Set<Term>
-        var expression: Expression
+        var expression: SPARQLSyntax.Expression
         var ee: ExpressionEvaluator
-        init(expression: Expression, evaluator: ExpressionEvaluator) {
+        init(expression: SPARQLSyntax.Expression, evaluator: ExpressionEvaluator) {
             self.expression = expression
             self.values = Set()
             self.ee = evaluator
@@ -2393,9 +2393,9 @@ public struct AggregationPlan: UnaryQueryPlan, QueryPlanSerialization {
     
     private class SampleAggregate: Aggregate {
         var value: Term?
-        var expression: Expression
+        var expression: SPARQLSyntax.Expression
         var ee: ExpressionEvaluator
-        init(expression: Expression, evaluator: ExpressionEvaluator) {
+        init(expression: SPARQLSyntax.Expression, evaluator: ExpressionEvaluator) {
             self.expression = expression
             self.value = nil
             self.ee = evaluator
@@ -2413,9 +2413,9 @@ public struct AggregationPlan: UnaryQueryPlan, QueryPlanSerialization {
     private class GroupConcatDistinctAggregate: Aggregate {
         var values: Set<Term>
         var separator: String
-        var expression: Expression
+        var expression: SPARQLSyntax.Expression
         var ee: ExpressionEvaluator
-        init(expression: Expression, separator: String, evaluator: ExpressionEvaluator) {
+        init(expression: SPARQLSyntax.Expression, separator: String, evaluator: ExpressionEvaluator) {
             self.expression = expression
             self.separator = separator
             self.values = Set()
@@ -2435,9 +2435,9 @@ public struct AggregationPlan: UnaryQueryPlan, QueryPlanSerialization {
     private class GroupConcatAggregate: Aggregate {
         var value: String
         var separator: String
-        var expression: Expression
+        var expression: SPARQLSyntax.Expression
         var ee: ExpressionEvaluator
-        init(expression: Expression, separator: String, evaluator: ExpressionEvaluator) {
+        init(expression: SPARQLSyntax.Expression, separator: String, evaluator: ExpressionEvaluator) {
             self.expression = expression
             self.separator = separator
             self.value = ""
@@ -2457,12 +2457,12 @@ public struct AggregationPlan: UnaryQueryPlan, QueryPlanSerialization {
     }
 
     public var child: QueryPlan
-    var groups: [Expression]
+    var groups: [SPARQLSyntax.Expression]
     var emitOnEmpty: Bool
     var aggregates: [String: () -> (Aggregate)]
     var ee: ExpressionEvaluator
     public var metricsToken: QueryPlanEvaluationMetrics.Token
-    public init(child: QueryPlan, groups: [Expression], aggregates: Set<Algebra.AggregationMapping>, metricsToken: QueryPlanEvaluationMetrics.Token) {
+    public init(child: QueryPlan, groups: [SPARQLSyntax.Expression], aggregates: Set<Algebra.AggregationMapping>, metricsToken: QueryPlanEvaluationMetrics.Token) {
         self.child = child
         self.groups = groups
         self.aggregates = [:]

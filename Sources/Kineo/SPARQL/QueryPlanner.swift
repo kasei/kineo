@@ -1044,10 +1044,10 @@ public class QueryPlanner<Q: QuadStoreProtocol> {
     }
 }
 
-extension Expression {
-    public func removingExistsExpressions<I: IteratorProtocol>(namingVariables counter: inout I) throws -> (Expression, [String:Algebra]) where I.Element == Int {
+extension SPARQLSyntax.Expression {
+    public func removingExistsExpressions<I: IteratorProtocol>(namingVariables counter: inout I) throws -> (SPARQLSyntax.Expression, [String:Algebra]) where I.Element == Int {
         var mapping = [String:Algebra]()
-        let expr = try self.replace { (e) -> Expression? in
+        let expr = try self.replace { (e) -> SPARQLSyntax.Expression? in
             switch e {
             case .exists(let a):
                 let n = counter.next()!

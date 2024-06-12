@@ -391,10 +391,11 @@ func usage(_ pname: String) {
 DiomedeConfiguration.default.mapSize = 24_567_000_000
 
 var verbose = false
-let config = try QuadStoreConfiguration(arguments: &CommandLine.arguments)
+var arguments = CommandLine.arguments
+let config = try QuadStoreConfiguration(arguments: &arguments)
 
-let argscount = CommandLine.arguments.count
-var args = PeekableIterator(generator: CommandLine.arguments.makeIterator())
+let argscount = arguments.count
+var args = PeekableIterator(generator: arguments.makeIterator())
 guard let pname = args.next() else { fatalError("Missing command name") }
 guard argscount >= 1 else {
     usage(pname)

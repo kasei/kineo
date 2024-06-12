@@ -383,7 +383,7 @@ extension Algebra {
     }
 }
 
-private func simplifyExpression(_ expr: Expression) throws -> RewriteStatus<Expression> {
+private func simplifyExpression(_ expr: SPARQLSyntax.Expression) throws -> RewriteStatus<SPARQLSyntax.Expression> {
     guard expr.isConstant else {
         return .rewriteChildren(expr)
     }

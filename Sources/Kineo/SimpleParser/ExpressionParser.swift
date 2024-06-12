@@ -9,8 +9,8 @@ import Foundation
 import SPARQLSyntax
 
 class ExpressionParser {
-    static func parseExpression(_ parts: [String]) throws -> Expression? {
-        var stack = [Expression]()
+    static func parseExpression(_ parts: [String]) throws -> SPARQLSyntax.Expression? {
+        var stack = [SPARQLSyntax.Expression]()
         var i = parts.makeIterator()
         let parser = NTriplesPatternParser(reader: "")
         while let s = i.next() {

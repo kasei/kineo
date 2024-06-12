@@ -450,7 +450,7 @@ extension QueryResult: Equatable {
         return (withBlanks, withoutBlanks, Array(blanks))
     }
     
-    private static func permute<T>(_ a: [T], _ n: Int) -> [[T]] {
+    private static func permute<E>(_ a: [E], _ n: Int) -> [[E]] {
         if n == 0 {
             return [a]
         } else {
@@ -591,21 +591,5 @@ public protocol ResultProtocol: Hashable, Sequence {
     func removing(variables: Set<String>) -> Self
 }
 
-extension SPARQLResultSolution: ResultProtocol, Comparable {
-    public static func < (lhs: SPARQLResultSolution<T>, rhs: SPARQLResultSolution<T>) -> Bool {
-        let keys = Set(lhs.keys + rhs.keys).sorted()
-        for key in keys {
-            if let l = lhs[key], let r = rhs[key] {
-                if l == r {
-                    continue
-                }
-                return l < r
-            } else if let _ = lhs[key] {
-                return false
-            } else {
-                return true
-            }
-        }
-        return false
-    }
+extension SPARQLResultSolution: ResultProtocol {
 }

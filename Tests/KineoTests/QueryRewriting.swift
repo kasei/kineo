@@ -171,7 +171,7 @@ class QueryRewritingTest: XCTestCase {
 
     func testConstantFolding_true() throws {
         let tp = TriplePattern(subject: blankNode, predicate: iriNode, object: xVariableNode)
-        let expr : Expression = .node(.bound(.trueValue))
+        let expr : SPARQLSyntax.Expression = .node(.bound(.trueValue))
         let a : Algebra = .filter(.triple(tp), expr)
         let rewritten = try rewriter.simplify(algebra: a)
         XCTAssertEqual(rewritten, .triple(tp))
@@ -179,7 +179,7 @@ class QueryRewritingTest: XCTestCase {
     
     func testExpressionConstantFolding_false() throws {
         let tp = TriplePattern(subject: blankNode, predicate: iriNode, object: xVariableNode)
-        let expr : Expression = .node(.bound(.falseValue))
+        let expr : SPARQLSyntax.Expression = .node(.bound(.falseValue))
         let a : Algebra = .filter(.triple(tp), expr)
         let rewritten = try rewriter.simplify(algebra: a)
         XCTAssertEqual(rewritten, .unionIdentity)
@@ -187,7 +187,7 @@ class QueryRewritingTest: XCTestCase {
     
     func testExpressionConstantFolding_addition() throws {
         let tp = TriplePattern(subject: blankNode, predicate: iriNode, object: xVariableNode)
-        let expr : Expression = .add(Expression(integer: 1), Expression(integer: 2))
+        let expr : SPARQLSyntax.Expression = .add(Expression(integer: 1), Expression(integer: 2))
         let a : Algebra = .filter(.triple(tp), expr)
         let rewritten = try rewriter.simplify(algebra: a)
         XCTAssertEqual(rewritten, .filter(.triple(tp), Expression(integer: 3)))
@@ -275,7 +275,7 @@ class QueryRewritingTest: XCTestCase {
             [nil, nil]
         ]
         let table : Algebra = .table(nodes, rows)
-        let expr : Expression = .isnumeric(.node(yVariableNode))
+        let expr : SPARQLSyntax.Expression = .isnumeric(.node(yVariableNode))
         let a : Algebra = .filter(table, expr)
         
 //        print(a.serialize())

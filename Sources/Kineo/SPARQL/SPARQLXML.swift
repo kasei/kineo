@@ -85,7 +85,7 @@ public struct SPARQLXMLSerializer<T: ResultProtocol> : SPARQLSerializable where 
         root.addChild(head)
     }
     
-    public func serialize<R: Sequence, T: Sequence>(_ results: QueryResult<R, T>) throws -> Data where R.Element == SPARQLResultSolution<Term>, T.Element == Triple {
+    public func serialize<R: Sequence, TT: Sequence>(_ results: QueryResult<R, TT>) throws -> Data where R.Element == SPARQLResultSolution<Term>, TT.Element == Triple {
         let root = XMLElement(name: "sparql")
         let ns = XMLNode.namespace(withName: "", stringValue: "http://www.w3.org/2005/sparql-results#") as! XMLNode
         root.addNamespace(ns)
