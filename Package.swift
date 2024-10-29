@@ -1,9 +1,11 @@
-// swift-tools-version:5.2
+// swift-tools-version:5.7
 import PackageDescription
 
 let package = Package(
 	name: "Kineo",
-	platforms: [.macOS(.v10_15)],
+    platforms: [
+        .macOS(.v13)
+    ],
 	products: [
 		.library(name: "Kineo", targets: ["Kineo"]),
 		.executable(
@@ -14,7 +16,7 @@ let package = Package(
 			targets: ["kineo-parse"]),
 	],
 	dependencies: [
-		.package(name: "SPARQLSyntax", url: "https://github.com/kasei/swift-sparql-syntax.git", .upToNextMinor(from: "0.2.0")),
+		.package(name: "SPARQLSyntax", url: "https://github.com/kasei/swift-sparql-syntax.git", .upToNextMinor(from: "0.2.11")),
 //		.package(name: "SPARQLSyntax", url: "https://github.com/kasei/swift-sparql-syntax.git", .branch("update")),
 		.package(name: "Cserd", url: "https://github.com/kasei/swift-serd.git", .upToNextMinor(from: "0.0.4")),
 		.package(name: "CryptoSwift", url: "https://github.com/krzyzanowskim/CryptoSwift.git", .upToNextMinor(from: "1.5.0")),
