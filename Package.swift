@@ -16,15 +16,15 @@ let package = Package(
 			targets: ["kineo-parse"]),
 	],
 	dependencies: [
-		.package(name: "SPARQLSyntax", url: "https://github.com/kasei/swift-sparql-syntax.git", .upToNextMinor(from: "0.2.11")),
+		.package(url: "https://github.com/kasei/swift-sparql-syntax.git", .upToNextMinor(from: "0.2.11")),
 //		.package(name: "SPARQLSyntax", url: "https://github.com/kasei/swift-sparql-syntax.git", .branch("update")),
-		.package(name: "Cserd", url: "https://github.com/kasei/swift-serd.git", .upToNextMinor(from: "0.0.4")),
-		.package(name: "CryptoSwift", url: "https://github.com/krzyzanowskim/CryptoSwift.git", .upToNextMinor(from: "1.5.0")),
-		.package(name: "URITemplate", url: "https://github.com/kylef/URITemplate.swift.git", .upToNextMinor(from: "3.0.1")),
-		.package(name: "SQLite.swift", url: "https://github.com/stephencelis/SQLite.swift.git", .upToNextMinor(from: "0.11.5")),
+		.package(url: "https://github.com/kasei/swift-serd.git", .upToNextMinor(from: "0.0.4")),
+		.package(url: "https://github.com/krzyzanowskim/CryptoSwift.git", .upToNextMinor(from: "1.5.0")),
+		.package(url: "https://github.com/kylef/URITemplate.swift.git", .upToNextMinor(from: "3.0.1")),
+		.package(url: "https://github.com/stephencelis/SQLite.swift.git", .upToNextMinor(from: "0.11.5")),
 //		.package(name: "SQLite.swift", url: "https://github.com/kasei/SQLite.swift.git", .branch("fix-swift-4")),
-		.package(name: "Diomede", url: "https://github.com/kasei/diomede.git", .upToNextMinor(from: "0.0.64")),
-		.package(name: "IDPPlanner", url: "https://github.com/kasei/IDPPlanner.git", .upToNextMinor(from: "0.0.5")),
+		.package(url: "https://github.com/kasei/diomede.git", .upToNextMinor(from: "0.0.64")),
+		.package(url: "https://github.com/kasei/IDPPlanner.git", .upToNextMinor(from: "0.0.5")),
 		.package(url: "https://github.com/apple/swift-algorithms", .upToNextMinor(from: "0.1.0")),
 	],
 	targets: [
@@ -32,34 +32,34 @@ let package = Package(
 			name: "Kineo",
 			dependencies: [
 				"CryptoSwift",
-				"SPARQLSyntax",
-				"URITemplate",
-				.product(name: "serd", package: "Cserd"),
+                .product(name: "SPARQLSyntax", package: "swift-sparql-syntax"),
+                .product(name: "URITemplate", package: "URITemplate.swift"),
+                .product(name: "serd", package: "swift-serd"),
 				.product(name: "SQLite", package: "SQLite.swift"),
 				.product(name: "DiomedeQuadStore", package: "Diomede"),
 				.product(name: "IDPPlanner", package: "IDPPlanner"),
 				.product(name: "Algorithms", package: "swift-algorithms"),
 			]
 		),
-		.target(
+		.executableTarget(
 			name: "kineo-cli",
-			dependencies: ["Kineo", "SPARQLSyntax"]
+			dependencies: ["Kineo", .product(name: "SPARQLSyntax", package: "swift-sparql-syntax")]
 		),
-		.target(
+		.executableTarget(
 			name: "kineo-client",
-			dependencies: ["Kineo", "SPARQLSyntax"]
+			dependencies: ["Kineo", .product(name: "SPARQLSyntax", package: "swift-sparql-syntax")]
 		),
-		.target(
+		.executableTarget(
 			name: "kineo-dawg-test",
-			dependencies: ["Kineo", "SPARQLSyntax"]
+			dependencies: ["Kineo", .product(name: "SPARQLSyntax", package: "swift-sparql-syntax")]
 		),
-		.target(
+		.executableTarget(
 			name: "kineo-parse",
-			dependencies: ["Kineo", "SPARQLSyntax"]
+			dependencies: ["Kineo", .product(name: "SPARQLSyntax", package: "swift-sparql-syntax")]
 		),
-		.target(
+		.executableTarget(
 			name: "kineo-test",
-			dependencies: ["Kineo", "SPARQLSyntax"]
+			dependencies: ["Kineo", .product(name: "SPARQLSyntax", package: "swift-sparql-syntax")]
 		),
 		.testTarget(name: "KineoTests", dependencies: ["Kineo"])
 	]

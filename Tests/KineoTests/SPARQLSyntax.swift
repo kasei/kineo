@@ -19,6 +19,7 @@ extension SPARQLSyntaxTest {
 // swiftlint:disable type_body_length
 class SPARQLSyntaxTest: XCTestCase {
     var sparqlBase: URL!
+    var sparql10Base: URL!
     var testRunner: SPARQLTestRunner<MemoryQuadStore>!
     
     override func setUp() {
@@ -26,6 +27,7 @@ class SPARQLSyntaxTest: XCTestCase {
         if let rdfTestsBase = ProcessInfo.processInfo.environment["KINEO_W3C_TEST_PATH"] {
             let base = NSURL(fileURLWithPath: rdfTestsBase)
             sparqlBase = base.appendingPathComponent("sparql11")
+            sparql10Base = base.appendingPathComponent("sparql10")
         } else {
             sparqlBase = nil
         }
@@ -50,10 +52,9 @@ class SPARQLSyntaxTest: XCTestCase {
     
     func testPositive11Syntax() throws {
         guard sparqlBase != nil else { throw XCTSkip("SPARQL tests base location missing; set the KINEO_W3C_TEST_PATH environment variable") }
-        let sparql11Path = sparqlBase.appendingPathComponent("data-sparql11")
         let subdirs = ["syntax-query"]
         for dir in subdirs {
-            let path = sparql11Path.appendingPathComponent(dir)
+            let path = sparqlBase.appendingPathComponent(dir)
             let positiveTestType = Term(iri: "http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#PositiveSyntaxTest11")
             let results = try testRunner.runSyntaxTests(inPath: path, testType: positiveTestType)
             handle(testResults: results)
@@ -62,10 +63,9 @@ class SPARQLSyntaxTest: XCTestCase {
     
     func testNegative11Syntax() throws {
         guard sparqlBase != nil else { throw XCTSkip("SPARQL tests base location missing; set the KINEO_W3C_TEST_PATH environment variable") }
-        let sparql11Path = sparqlBase.appendingPathComponent("data-sparql11")
         let subdirs = ["syntax-query"]
         for dir in subdirs {
-            let path = sparql11Path.appendingPathComponent(dir)
+            let path = sparqlBase.appendingPathComponent(dir)
             let negativeTestType = Term(iri: "http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#NegativeSyntaxTest11")
             let results = try testRunner.runSyntaxTests(inPath: path, testType: negativeTestType, expectFailure: true)
             handle(testResults: results)
@@ -73,14 +73,13 @@ class SPARQLSyntaxTest: XCTestCase {
     }
     
     func testPositive10Syntax() throws {
-        guard sparqlBase != nil else { throw XCTSkip("SPARQL tests base location missing; set the KINEO_W3C_TEST_PATH environment variable") }
-        let sparql10Path = sparqlBase.appendingPathComponent("data-r2")
+        guard sparql10Base != nil else { throw XCTSkip("SPARQL tests base location missing; set the KINEO_W3C_TEST_PATH environment variable") }
         let subdirs = ["syntax-sparql1", "syntax-sparql2", "syntax-sparql3", "syntax-sparql4", "syntax-sparql5"]
         let skip = Set([
             "http://www.w3.org/2001/sw/DataAccess/tests/data-r2/syntax-sparql1/manifest#syntax-lit-08", // syntax changed in SPARQL 1.1, disallowing floats with a trailing dot without fractional digits ("7.")
             ])
         for dir in subdirs {
-            let path = sparql10Path.appendingPathComponent(dir)
+            let path = sparql10Base.appendingPathComponent(dir)
             let testType = Term(iri: "http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#PositiveSyntaxTest")
             let results = try testRunner.runSyntaxTests(inPath: path, testType: testType, skip: skip)
             handle(testResults: results)
@@ -88,11 +87,10 @@ class SPARQLSyntaxTest: XCTestCase {
     }
     
     func testNegative10Syntax() throws {
-        guard sparqlBase != nil else { throw XCTSkip("SPARQL tests base location missing; set the KINEO_W3C_TEST_PATH environment variable") }
-        let sparql10Path = sparqlBase.appendingPathComponent("data-r2")
+        guard sparql10Base != nil else { throw XCTSkip("SPARQL tests base location missing; set the KINEO_W3C_TEST_PATH environment variable") }
         let subdirs = ["syntax-sparql1", "syntax-sparql2", "syntax-sparql3", "syntax-sparql4", "syntax-sparql5"]
         for dir in subdirs {
-            let path = sparql10Path.appendingPathComponent(dir)
+            let path = sparql10Base.appendingPathComponent(dir)
             let testType = Term(iri: "http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#NegativeSyntaxTest")
             let results = try testRunner.runSyntaxTests(inPath: path, testType: testType, expectFailure: true)
             handle(testResults: results)
