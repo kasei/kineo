@@ -23,7 +23,7 @@ let package = Package(
 		.package(url: "https://github.com/kylef/URITemplate.swift.git", .upToNextMinor(from: "3.0.1")),
 		.package(url: "https://github.com/stephencelis/SQLite.swift.git", .upToNextMinor(from: "0.11.5")),
 //		.package(name: "SQLite.swift", url: "https://github.com/kasei/SQLite.swift.git", .branch("fix-swift-4")),
-		.package(url: "https://github.com/kasei/diomede.git", .upToNextMinor(from: "0.0.64")),
+		.package(url: "https://github.com/kasei/diomede.git", .upToNextMinor(from: "0.0.65")),
 		.package(url: "https://github.com/kasei/IDPPlanner.git", .upToNextMinor(from: "0.0.5")),
 		.package(url: "https://github.com/apple/swift-algorithms", .upToNextMinor(from: "0.1.0")),
 		.package(url: "https://github.com/apple/swift-argument-parser", from: "1.0.0"),
