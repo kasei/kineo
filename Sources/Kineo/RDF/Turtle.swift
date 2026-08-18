@@ -106,7 +106,7 @@ extension Term {
                             }
                             let istream = InputStream(data: pndata)
                             istream.open()
-                            let lexer = try SPARQLLexer(source: istream)
+                            var lexer = try SPARQLLexer(source: istream)
                             if let token = lexer.next() {
                                 if lexer.hasRemainingContent {
                                     continue
